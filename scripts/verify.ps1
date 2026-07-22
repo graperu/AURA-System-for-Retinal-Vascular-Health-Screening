@@ -3,9 +3,7 @@ $repository = Split-Path -Parent $PSScriptRoot
 
 Push-Location (Join-Path $repository 'backend')
 try {
-    dotnet restore AURA.sln
-    dotnet build AURA.sln --configuration Release --no-restore
-    dotnet test AURA.sln --configuration Release --no-build
+    mvn test
 } finally { Pop-Location }
 
 Push-Location (Join-Path $repository 'frontend')

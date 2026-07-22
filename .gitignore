@@ -3,22 +3,28 @@
 .env.local
 !.env.example
 
-# .NET
+# Build output
 **/bin/
 **/obj/
+**/target/
+**/dist/
 *.user
 *.suo
 
 # Node
 **/node_modules/
-frontend/dist/
 *.tsbuildinfo
 
 # Python
 **/__pycache__/
 **/.pytest_cache/
 **/.venv/
+**/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
 *.py[cod]
+.coverage
+coverage.xml
 
 # IDE / OS
 .idea/

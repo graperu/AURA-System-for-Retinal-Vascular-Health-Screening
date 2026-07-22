@@ -1,159 +1,210 @@
 # AURA – Hệ thống sàng lọc sức khỏe mạch máu võng mạc
 
-AURA Milestone 1 là nền tảng kỹ thuật chạy được từ giao diện đến API, PostgreSQL và dịch vụ phân tích mô phỏng. Mục tiêu hiện tại là tạo một monorepo rõ ràng, dễ học và đủ ranh giới để phát triển dần các yêu cầu nghiệp vụ sau này.
+AURA là dự án môn Java xây dựng nền tảng hỗ trợ sàng lọc sức khỏe mạch máu võng mạc. Milestone 1 tập trung vào bộ khung kỹ thuật tối thiểu và luồng phân tích mô phỏng từ giao diện đến AI Core.
 
-> AI trong dự án chỉ hỗ trợ sàng lọc. Kết quả mock hoặc kết quả AI tương lai không thay thế chẩn đoán và quyết định của bác sĩ.
+> Kết quả AI hiện tại là dữ liệu mock phục vụ phát triển. Hệ thống không thay thế chẩn đoán hoặc quyết định của bác sĩ.
 
-## Kiến trúc hiện tại
+## Kiến trúc Milestone 1
 
 ```text
-React + TypeScript ──REST──> ASP.NET Core Web API ──EF Core──> PostgreSQL
-                                      │
-                                      └──HTTP nội bộ──> Python FastAPI AI Core
+React + TypeScript ──HTTP/REST──> Java Spring Boot ──JPA──> PostgreSQL
+                                         │
+                                         └──HTTP──> Python FastAPI AI Core
 ```
 
-Frontend không gọi trực tiếp AI Core. Backend là API công khai duy nhất và trả response nhất quán gồm `success`, `data`, `error`, `traceId`. Xem thêm [quyết định kiến trúc](docs/architecture.md).
+Frontend chỉ gọi backend Spring Boot. Backend kiểm tra request và gọi AI Core; frontend không gọi trực tiếp AI Core.
+
+MongoDB được dự kiến cho các milestone sau nhưng chưa được cấu hình trong Milestone 1 vì chưa có use case lưu trữ tài liệu cụ thể.
+
+## Công nghệ
+
+- Backend: Java 21, Spring Boot 3, Maven, Spring Web, Spring Data JPA.
+- Frontend: React, TypeScript, Vite, React Router, ESLint.
+- AI Core: Python, FastAPI, Pydantic, Uvicorn.
+- Database hiện tại: PostgreSQL 16.
+- Hạ tầng development: Docker Compose.
 
 ## Cấu trúc thư mục
 
 ```text
-frontend/                     React, TypeScript, Vite, Router, ESLint
 backend/
-  src/AURA.Api/               controller và HTTP pipeline
-  src/AURA.Application/       use case và abstraction
-  src/AURA.Domain/            domain entity
-  src/AURA.Infrastructure/    EF Core, PostgreSQL, AI HTTP client
-  src/AURA.Modules/           catalog module và role nền tảng
-  tests/AURA.Api.Tests/       integration test API
-ai-core/app/                  FastAPI route, schema, service, config
-ai-core/tests/                pytest
-docs/                         tài liệu kỹ thuật
-scripts/                      lệnh kiểm chứng
-docker-compose.yml            môi trường tích hợp
+  pom.xml
+  src/main/java/com/aura/backend/
+    BackendApplication.java
+    common/
+      config/        CORS và cấu hình HTTP client
+      exception/     xử lý lỗi tập trung
+      response/      API envelope dùng chung
+    analysis/
+      client/        REST client gọi AI Core
+      controller/    endpoint phân tích
+      dto/           contract request/response
+      entity/        mô hình JPA nghiệp vụ
+      repository/    Spring Data repository
+      service/       nghiệp vụ phân tích
+    system/
+      controller/    health và system info
+      dto/           contract trạng thái hệ thống
+      service/       kiểm tra dependency
+  src/main/resources/application.yml
+  src/test/java/     test endpoint tối thiểu
+frontend/            React + TypeScript
+ai-core/             FastAPI mock service
+docs/                tài liệu kiến trúc
+scripts/             script kiểm tra
+docker-compose.yml
 ```
-
-Các module dự kiến gồm Identity, Clinics, Doctors, Patients, Examinations, RetinalImages, Analyses, Reviews, Reports, Payments, Chat, Notifications, Administration, Audit và AI Models. Milestone 1 không sinh class rỗng cho từng module.
 
 ## Yêu cầu môi trường
 
-- Docker Desktop/Engine có Docker Compose; hoặc
-- .NET SDK 8 trở lên, Node.js 22 LTS trở lên, npm và Python 3.11 trở lên;
-- PostgreSQL 16 nếu chạy backend cục bộ không qua Docker.
+Cách đơn giản nhất là dùng Docker Desktop hoặc Docker Engine có Docker Compose.
+
+Nếu chạy từng service trực tiếp, cần:
+
+- JDK 21.
+- Maven 3.9 trở lên.
+- Node.js 22 trở lên và npm.
+- Python 3.11 trở lên.
+- PostgreSQL 16.
 
 ## Chạy toàn bộ bằng Docker
 
-```bash
-cp .env.example .env
+Tại thư mục gốc:
+
+```powershell
+Copy-Item .env.example .env
 docker compose up --build
 ```
 
-Trên PowerShell dùng `Copy-Item .env.example .env`. Các địa chỉ mặc định:
+Các địa chỉ mặc định:
 
-- Frontend: <http://localhost:5173>
-- Backend/Swagger: <http://localhost:8080/swagger>
+- Frontend: <http://localhost:5173/dashboard>
 - Backend health: <http://localhost:8080/health>
-- AI Core health (chỉ phục vụ kiểm tra phát triển): <http://localhost:8000/health>
+- Backend system info: <http://localhost:8080/api/v1/system/info>
+- AI Core health: <http://localhost:8000/health>
 - PostgreSQL: `localhost:5432`
 
-Dừng stack bằng `docker compose down`. Dùng `docker compose down -v` chỉ khi chủ động muốn xóa dữ liệu PostgreSQL development.
+Kiểm tra container:
 
-## Chạy từng service khi phát triển
+```powershell
+docker compose ps
+docker compose logs -f backend
+```
+
+Dừng hệ thống:
+
+```powershell
+docker compose down
+```
+
+Không dùng `docker compose down -v` nếu muốn giữ dữ liệu PostgreSQL development.
+
+## Chạy từng service
 
 ### PostgreSQL
 
-Có thể chỉ chạy database: `docker compose up postgres`. Connection string mặc định development nằm trong `backend/src/AURA.Api/appsettings.json` và không dùng cho production.
+```powershell
+docker compose up postgres
+```
 
 ### AI Core
 
-```bash
+```powershell
 cd ai-core
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt
-uvicorn app.main:app --reload --port 8000
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
-### Backend
+### Backend Java
 
-```bash
+```powershell
 cd backend
-dotnet restore AURA.sln
-dotnet run --project src/AURA.Api
+mvn spring-boot:run
 ```
 
-Để áp migration lúc khởi động, đặt `Database__MigrateOnStartup=true`. Swagger chỉ bật khi `ASPNETCORE_ENVIRONMENT=Development`.
+Backend dùng các biến `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `AI_CORE_BASE_URL` và `CORS_ALLOWED_ORIGINS`. Giá trị development mặc định nằm trong `application.yml`.
 
 ### Frontend
 
-```bash
+```powershell
 cd frontend
-npm ci
-npm run dev
+npm.cmd ci
+npm.cmd run dev
 ```
 
-Tạo `frontend/.env.local` nếu backend không ở `http://localhost:8080`.
+Frontend lấy URL backend từ `VITE_BACKEND_API_URL`, mặc định là `http://localhost:8080`.
 
-## Biến môi trường
+## API hiện có
 
-| Biến | Mặc định mẫu | Ý nghĩa |
+| Method | Endpoint | Mục đích |
 |---|---|---|
-| `POSTGRES_DB` | `aura` | Tên database development |
-| `POSTGRES_USER` | `aura` | User database development |
-| `POSTGRES_PASSWORD` | `aura_dev_password` | Mật khẩu mẫu, phải đổi ngoài development |
-| `BACKEND_PORT` | `8080` | Port API trên host |
-| `FRONTEND_PORT` | `5173` | Port giao diện trên host |
-| `AI_CORE_PORT` | `8000` | Port AI Core trên host |
-| `VITE_BACKEND_API_URL` | `http://localhost:8080` | URL backend mà trình duyệt truy cập |
-| `FRONTEND_ORIGIN` | `http://localhost:5173` | Origin được backend cho phép qua CORS |
-| `ConnectionStrings__Postgres` | xem Compose | Override connection string .NET |
-| `AiCore__BaseUrl` | `http://ai-core:8000` | URL nội bộ do backend sử dụng |
-
-Không đưa `.env` thật vào Git. Giá trị trong `.env.example` chỉ dành cho development.
-
-## API Milestone 1
-
-| Method | Endpoint | Mô tả |
-|---|---|---|
-| GET | `/health` | Trạng thái API, PostgreSQL và AI Core |
-| GET | `/api/v1/system/info` | Thông tin service và dependency |
-| POST | `/api/v1/analyses/demo` | Backend validation → AI Core mock |
-| GET | AI Core `/health` | Health nội bộ |
+| GET | `/health` | Trạng thái backend, PostgreSQL và AI Core |
+| GET | `/api/v1/system/info` | Thông tin hệ thống cho dashboard |
+| POST | `/api/v1/analyses/demo` | Validation và chuyển yêu cầu mock tới AI Core |
+| GET | AI Core `/health` | Health check AI Core |
 | POST | AI Core `/api/v1/analyze` | Phân tích mô phỏng nội bộ |
 
-Payload demo gồm GUID `analysisId`, `examinationId`, `imageId`, `imageType` (`Fundus` hoặc `OCT`) và URL `imageUrl`. Không dùng dữ liệu bệnh nhân hoặc ảnh thật.
+Backend trả response thống nhất:
 
-## Test, lint và build
+```json
+{
+  "success": true,
+  "data": {},
+  "error": null,
+  "traceId": "..."
+}
+```
 
-```bash
+Endpoint demo chỉ nhận UUID và URL ảnh giả lập. Không dùng ảnh hoặc dữ liệu bệnh nhân thật.
+
+## Kiểm tra dự án
+
+```powershell
 # Backend
-dotnet restore backend/AURA.sln
-dotnet build backend/AURA.sln -c Release --no-restore
-dotnet test backend/AURA.sln -c Release --no-build
+mvn -f backend/pom.xml test
 
-# AI Core (sau khi cài requirements-dev.txt)
-cd ai-core && python -m pytest
+# AI Core
+cd ai-core
+python -m pytest
 
 # Frontend
-cd frontend && npm ci && npm run lint && npm run build
+cd frontend
+npm.cmd ci
+npm.cmd run lint
+npm.cmd run build
 
-# Kiểm tra Compose
+# Docker Compose
 docker compose config --quiet
 ```
 
-Trên Windows có thể chạy toàn bộ kiểm tra cục bộ bằng `powershell -File scripts/verify.ps1`.
+Trên PowerShell có thể chạy `powershell -File scripts/verify.ps1` khi Java, Maven, Python, Node và Docker đều có trong `PATH`.
 
-## Đã có và chưa có
+## Phạm vi Milestone 1
 
-Đã có: dashboard tối thiểu, trạng thái dependency qua backend, luồng demo frontend → backend → AI Core, validation request, global exception handler, structured JSON logging, CORS qua cấu hình, EF Core/Npgsql, migration `system_records`, Swagger development, test API và AI Core, Dockerfile/healthcheck cho mọi service.
+Đã triển khai trong bộ khung:
 
-Chưa có: đăng nhập/JWT/RBAC, clinic tenancy, nghiệp vụ bệnh nhân/ca khám/ảnh/review/report/payment/chat/notification/audit, object storage, mô hình AI thật và xử lý ảnh. Đây là chủ ý giới hạn Milestone 1.
+- Backend Java/Spring Boot theo các lớp controller, service, client, repository, entity và DTO.
+- PostgreSQL qua Spring Data JPA.
+- Luồng frontend → backend → AI Core mock.
+- Validation, response envelope, global exception handler và CORS.
+- Test Java tối thiểu cho health, system info và demo analysis.
+- Dockerfile cho từng service và Docker Compose.
+
+Chưa triển khai trong Milestone 1:
+
+- JWT và đăng nhập hoàn chỉnh.
+- Phân quyền RBAC và phân tách dữ liệu phòng khám.
+- MongoDB và nghiệp vụ cần lưu document.
+- Flyway, OpenAPI và mô hình AI thật.
+- Các module bệnh nhân, ca khám, review, báo cáo, thanh toán và thông báo hoàn chỉnh.
 
 ## Lỗi thường gặp
 
-- `port is already allocated`: đổi port tương ứng trong `.env` rồi build lại frontend nếu đổi URL backend.
-- Backend báo PostgreSQL unavailable: kiểm tra `docker compose ps` và connection string; chờ health database chuyển sang healthy.
-- AI Core unavailable: kiểm tra `docker compose logs ai-core`; backend dùng hostname nội bộ `ai-core`, trình duyệt không dùng hostname này.
-- CORS trên frontend: thêm đúng origin trình duyệt vào `Cors__AllowedOrigins__0` và khởi động lại backend.
-- Migration lỗi do database cũ: chỉ với dữ liệu development có thể chủ động chạy `docker compose down -v`, sau đó tạo lại stack.
-- PowerShell chặn `npm.ps1`: dùng `npm.cmd`.
-- Python launcher không chạy: xác nhận Python đã cài và có trong `PATH`, hoặc chạy test qua Docker.
+- `mvn` không tồn tại: cài Maven và JDK 21, sau đó kiểm tra `mvn --version`.
+- Port `8080` đã được sử dụng: đổi `BACKEND_PORT` và `VITE_BACKEND_API_URL` trong `.env`, rồi build lại frontend.
+- PostgreSQL unavailable: kiểm tra `docker compose ps` và các biến `DATABASE_*`.
+- AI Core unavailable: kiểm tra `docker compose logs ai-core` và `AI_CORE_BASE_URL`.
+- CORS: bảo đảm `CORS_ALLOWED_ORIGINS` đúng origin của trình duyệt.
+- Docker tải image lỗi: thử lại `docker compose pull` khi kết nối registry ổn định.

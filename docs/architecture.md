@@ -1,25 +1,55 @@
 # Kiến trúc AURA Milestone 1
 
-Frontend React chỉ giao tiếp với API chính ASP.NET Core. API kiểm tra request, điều phối phân tích và gọi AI Core qua HTTP nội bộ. AI Core không tải ảnh và chỉ trả dữ liệu mô phỏng. PostgreSQL lưu dữ liệu nghiệp vụ/metadata; ảnh y tế sẽ thuộc object storage trong milestone sau.
+## Tổng quan
 
 ```text
-Browser ──HTTP──> AURA.Api (modular monolith) ──EF Core──> PostgreSQL
-                         │
-                         └──internal HTTP──> FastAPI AI Core
+Browser
+  │
+  │ HTTP/REST
+  ▼
+React + TypeScript
+  │
+  │ /health, /api/v1/system/info, /api/v1/analyses/demo
+  ▼
+Java 21 + Spring Boot + Maven
+  ├── Spring Data JPA ──> PostgreSQL
+  └── RestClient ───────> Python FastAPI AI Core
+                              ├── /health
+                              └── /api/v1/analyze
 ```
 
-Backend chia thành các layer:
+Backend Spring Boot là API chính. Frontend không được gọi trực tiếp AI Core. Backend chịu trách nhiệm validation, chuẩn hóa response và che giấu địa chỉ nội bộ của AI Core.
 
-- `AURA.Api`: HTTP boundary, response envelope, validation, exception handling.
-- `AURA.Application`: use case và interface, không phụ thuộc hạ tầng.
-- `AURA.Domain`: entity và quy tắc nghiệp vụ cốt lõi.
-- `AURA.Infrastructure`: PostgreSQL, EF Core và HTTP client AI Core.
-- `AURA.Modules`: catalog ranh giới module và vai trò; module chỉ nhận class khi nghiệp vụ thật được triển khai.
+## Ranh giới backend
 
-Quyết định Milestone 1:
+- `analysis`: gom controller, service, client, DTO, entity và repository của luồng phân tích.
+- `system`: gom controller, service và DTO cho health/system info.
+- `common/config`: cấu hình CORS, timeout và REST client dùng chung.
+- `common/exception`: chuyển lỗi thành response thống nhất.
+- `common/response`: chứa `ApiEnvelope` và `ApiError` dùng chung giữa các feature.
 
-- Modular monolith thay vì microservice theo module để giảm chi phí vận hành.
-- Migration được dùng cho schema; không dùng `EnsureCreated`.
-- Health trả HTTP 200 cùng trạng thái từng dependency để container API vẫn có thể được quan sát khi một dependency suy giảm.
-- JWT/RBAC và clinic tenancy mới chỉ được bảo lưu qua ranh giới module và role; chưa tạo xác thực giả.
-- Endpoint phân tích là mock, không phải chẩn đoán y tế.
+Cấu trúc này thể hiện OOP ở mức nền tảng nhưng không thêm CQRS, event bus hoặc microservice nghiệp vụ trong Milestone 1.
+
+## Luồng phân tích demo
+
+1. Frontend tạo UUID và tham chiếu ảnh giả.
+2. Spring Boot validation `DemoAnalysisRequest`.
+3. `AnalysisService` giao việc gọi HTTP cho `AiCoreClient`.
+4. AI Core trả kết quả mock có disclaimer.
+5. Spring Boot bọc kết quả trong `ApiEnvelope` rồi trả frontend.
+
+AI Core không tải hoặc xử lý ảnh thật. Đây không phải kết quả chẩn đoán y tế.
+
+## Dữ liệu
+
+PostgreSQL là database được kết nối trong Milestone 1 qua Spring Data JPA. Ảnh y tế không được lưu trực tiếp trong PostgreSQL; entity chỉ lưu URL/metadata.
+
+MongoDB thuộc định hướng tổng thể nhưng chưa được thêm trong Milestone 1 vì chưa có use case document cụ thể. Việc chọn dữ liệu đưa vào MongoDB cần được xác định trước khi tạo collection hoặc repository.
+
+## Quyết định giới hạn
+
+- Một backend Spring Boot duy nhất, không chia microservice theo bảng.
+- AI Core là microservice Python độc lập.
+- Chưa triển khai JWT, đăng nhập hoàn chỉnh, Flyway hoặc OpenAPI.
+- Chưa có package auth; các placeholder đăng nhập/JWT đã được loại khỏi Milestone 1.
+- Health trả trạng thái riêng của PostgreSQL và AI Core để frontend quan sát dependency.
