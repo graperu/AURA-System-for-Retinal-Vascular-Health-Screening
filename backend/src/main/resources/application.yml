@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: aura-backend
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/aura}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# Custom Application Properties
+application:
+  security:
+    jwt:
+      # Secret key (512-bit) for HMAC-SHA512
+      secret-key: ${JWT_SECRET_KEY:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      # 1 day in milliseconds (24 * 60 * 60 * 1000)
+      expiration: 86400000
+      # 7 days in milliseconds for refresh token
+      refresh-token:
+        expiration: 604800000
