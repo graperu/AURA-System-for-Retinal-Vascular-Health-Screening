@@ -1,4 +1,4 @@
-# System for Retinal Vascular Health Screening / Hệ Thống Sàng Lọc Sức Khỏe Mạch Máu Võng Mạc
+# AURA-System-for-Retinal-Vascular-Health-Screening / Hệ Thống Sàng Lọc Sức Khỏe Mạch Máu Võng Mạc
 
 - [English Version](#english-version)
 - [Bản Tiếng Việt](#bản-tiếng-việt)
