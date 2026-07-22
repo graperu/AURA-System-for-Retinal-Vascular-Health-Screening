@@ -1,0 +1,30 @@
+# Environment and local settings
+.env
+.env.local
+!.env.example
+
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Node
+**/node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Python
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+*.py[cod]
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local data
+postgres-data/
