@@ -1,4 +1,6 @@
-**/bin
-**/obj
-.git
-.vs
+target
+.idea
+.classpath
+.project
+.settings
+*.iml
