@@ -31,7 +31,7 @@ Các file skeleton tạm ở commit `3b68c23` được thay bằng implementatio
 ## Kết quả kiểm tra
 Backend test/package PASS. Frontend install/lint/build PASS. Docker config PASS với cảnh báo biến môi trường chưa được đặt. Python không chạy được vì máy chỉ có Windows Store alias, chưa có Python runtime.
 ## Commit
-`ddf3d8f`, `3b68c23`, `d0804eb`; commit hoàn thiện được ghi trong lịch sử Git sau khi tạo.
+`ddf3d8f` backup; `3b68c23` xóa legacy/skeleton; `d0804eb` worklog ban đầu; `6a1e777` backend; `c586b54` frontend; `372a596` AI Core; `79afb37` DevOps; `9673f09` tài liệu hoàn chỉnh.
 ## Vấn đề còn lại
 Chưa thể chạy AI tests cho tới khi cài Python 3.11. `npm audit` báo 7 high-severity vulnerabilities trong dependency tree.
 ## Bước tiếp theo
