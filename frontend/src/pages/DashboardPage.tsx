@@ -1,18 +1,7 @@
 import { useEffect, useState } from 'react'
-import { auraApi, type AnalysisResult, type SystemInfo } from '../api/auraApi'
-
-function StatusBadge({ label, status }: { label: string; status: string }) {
-  const healthy = status === 'healthy'
-  return (
-    <div className="status-card">
-      <span className={`status-dot ${healthy ? 'healthy' : 'unavailable'}`} />
-      <div>
-        <span className="eyebrow">{label}</span>
-        <strong>{healthy ? 'Sẵn sàng' : 'Chưa sẵn sàng'}</strong>
-      </div>
-    </div>
-  )
-}
+import { auraService } from '../services/auraService'
+import { StatusBadge } from '../components/StatusBadge'
+import type { AnalysisResult, SystemInfo } from '../types/api'
 
 export function DashboardPage() {
   const [system, setSystem] = useState<SystemInfo | null>(null)
@@ -22,7 +11,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    auraApi.getSystemInfo().then(setSystem).catch((error: Error) => setStatusError(error.message))
+    auraService.getSystemInfo().then(setSystem).catch((error: Error) => setStatusError(error.message))
   }, [])
 
   async function runAnalysis() {
@@ -30,7 +19,7 @@ export function DashboardPage() {
     setAnalysis(null)
     setAnalysisError(null)
     try {
-      setAnalysis(await auraApi.runDemoAnalysis())
+      setAnalysis(await auraService.runDemoAnalysis())
     } catch (error) {
       setAnalysisError(error instanceof Error ? error.message : 'Không thể phân tích thử.')
     } finally {

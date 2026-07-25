@@ -23,6 +23,7 @@ h2 { font-size: 1.7rem; }
 .status-dot { width: 10px; height: 10px; flex: 0 0 auto; border-radius: 50%; background: #cab663; box-shadow: 0 0 0 5px #eee9cf; }
 .status-dot.healthy { background: #4c9874; box-shadow: 0 0 0 5px #dceade; }
 .status-dot.unavailable { background: #bd715d; box-shadow: 0 0 0 5px #f0ddd7; }
+.status-dot.loading { background: #cab663; box-shadow: 0 0 0 5px #f1e7c8; }
 .analysis-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 42px; }
 .analysis-panel > div > p:not(.kicker) { color: #667a72; line-height: 1.6; }
 button { border: 0; border-radius: 10px; padding: 13px 19px; background: #174b40; color: white; font: 600 .9rem 'DM Sans'; cursor: pointer; }

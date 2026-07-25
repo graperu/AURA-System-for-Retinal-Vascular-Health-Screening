@@ -50,10 +50,17 @@ backend/
   src/test/java/     test endpoint tối thiểu
 frontend/            React + TypeScript
 ai-core/             FastAPI mock service
-docs/                tài liệu kiến trúc
+docs/                tài liệu kiến trúc và hướng dẫn
 scripts/             script kiểm tra
 docker-compose.yml
 ```
+
+## Tài liệu bổ sung
+- `docs/api-contract.md` – mô tả contract API backend và AI Core.
+- `docs/architecture.md` – kiến trúc hệ thống và ranh giới dịch vụ.
+- `docs/install-guide.md` – hướng dẫn cài đặt và chạy.
+- `docs/test-plan.md` – kế hoạch kiểm thử chức năng chính.
+- `docs/release-notes.md` – ghi nhận thay đổi phiên bản.
 
 ## Yêu cầu môi trường
 
