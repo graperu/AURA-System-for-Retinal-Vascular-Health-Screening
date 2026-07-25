@@ -1,2 +1,3 @@
-import {useState} from 'react';
-export default function App(){const [result,setResult]=useState('Not checked'); async function check(){try{const r=await fetch((import.meta.env.VITE_API_BASE_URL||'http://localhost:8080/api/v1')+'/health'); setResult(await r.text())}catch{setResult('Backend unavailable')}} return <main><h1>AURA</h1><p>Retinal Vascular Health Screening</p><p>Frontend: UP</p><button onClick={check}>Check Backend</button><pre>{result}</pre></main>}
+import { RouterProvider } from 'react-router-dom';
+import { router } from './router';
+export default function App() { return <RouterProvider router={router} />; }
