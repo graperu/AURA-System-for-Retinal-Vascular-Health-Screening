@@ -9,9 +9,14 @@ stable release.
 
 ### Added
 
-- Clean MVP repository foundation.
-- Environment-variable templates with placeholder values.
-- Initial requirements, architecture, security, and deployment documentation.
+- Spring Boot 3 / Java 21 backend foundation.
+- PostgreSQL and Flyway identity migrations.
+- UUID-based User, Role, and UserRole entities and repositories.
+- Standard API response and safe global exception handling.
+- Versioned backend health endpoint and foundation tests.
+- Maven Wrapper.
+- Entity UUID and timestamp lifecycle callbacks aligned with the database
+  non-null constraints.
 
 ### Removed
 
