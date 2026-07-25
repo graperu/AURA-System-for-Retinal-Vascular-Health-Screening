@@ -24,6 +24,21 @@ spring:
         format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope: openid,email,profile
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://openidconnect.googleapis.com/v1/userinfo
+            user-name-attribute: sub
+
 ai-core:
   base-url: ${AI_CORE_BASE_URL:http://localhost:8000}
   connect-timeout: ${AI_CORE_CONNECT_TIMEOUT:2s}
@@ -31,3 +46,16 @@ ai-core:
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+# NFR-12 / FR-1 / FR-32: JWT-based auth + RBAC.
+# JWT_SECRET MUST be overridden (>=32 bytes, random) outside local dev - see .env.example.
+security:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-change-me-this-is-not-a-secure-secret-key-32bytes+}
+    issuer: aura-backend
+    access-token-ttl: ${JWT_ACCESS_TTL:15m}
+    refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
+
+# Where the SPA reads tokens after Google redirects back (FR-1 social login).
+oauth2:
+  frontend-redirect-uri: ${OAUTH2_FRONTEND_REDIRECT:http://localhost:5173/oauth2/callback}

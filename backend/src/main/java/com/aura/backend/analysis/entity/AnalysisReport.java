@@ -1,5 +1,6 @@
 package com.aura.backend.analysis.entity;
 
+import com.aura.backend.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
