@@ -1,7 +1,20 @@
 services:
-  backend:
-    build: ./backend
-    ports: ["8080:8080"]
   ai-core:
     build: ./ai-core
-    ports: ["8000:8000"]
+    expose:
+      - "8000"
+    environment:
+      MODEL_VERSION: mock-v1
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      AI_SERVICE_URL: http://ai-core:8000
+      AI_INTERNAL_API_KEY: ${AI_INTERNAL_API_KEY}
+    depends_on:
+      - ai-core

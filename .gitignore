@@ -1,15 +1,46 @@
+# Environment
 .env
 .env.*
 !.env.example
+# Java
 backend/target/
+backend/.idea/
+backend/*.iml
+backend/.classpath
+backend/.project
+backend/.settings/
+# Node
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+# Python
 ai-core/.venv/
+ai-core/venv/
 ai-core/**/__pycache__/
+ai-core/**/*.pyc
 ai-core/.pytest_cache/
+# Editors
+.vscode/
+.idea/
+# OS
+.DS_Store
+Thumbs.db
+# Logs
 *.log
+logs/
+# AI
 ai-core/model-weights/*
 !ai-core/model-weights/.gitkeep
+ai-core/datasets/
+ai-core/tmp/
+ai-core/uploads/
+*.pt
+*.pth
+*.onnx
+# Medical data
 medical-data/
 patient-images/
 retinal-images/
