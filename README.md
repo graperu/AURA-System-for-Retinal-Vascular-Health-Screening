@@ -1,81 +1,67 @@
-# AURA — Retinal Vascular Health Screening
+# AURA
 
-AURA is a clean foundation for retinal vascular health screening. It coordinates a web client, a secure clinical backend, and an isolated AI inference service.
+AURA — AI Understanding Retinal Analysis — is a retinal vascular health
+screening and clinical decision-support system.
 
-> AURA provides decision support only. It does not diagnose disease and does not replace a qualified physician.
+> AURA supports screening and clinical decisions. It does not diagnose disease
+> and does not replace a qualified physician.
 
-## Status
+## Project status
 
-Foundation/mock stage. Authentication, payments, storage, production AI models, clinical validation, and production hardening are not complete.
+The repository is being rebuilt from a clean foundation. Phase 1 establishes
+the repository boundaries, environment-variable policy, documentation skeleton,
+and development workflow. Application code is intentionally not included yet.
 
-## Technology and architecture
-
-- Frontend: React, TypeScript, Vite, Axios, React Router
-- Backend: Java 21, Spring Boot 3, Maven, Security, JPA, Flyway, PostgreSQL, OpenAPI
-- AI Core: Python 3.11, FastAPI, Pydantic, Uvicorn; mock model only
-- Data and storage: Supabase PostgreSQL and Supabase Storage
-
-```text
-React Frontend → Spring Boot Backend → FastAPI AI Core
-```
-
-The frontend never calls AI Core directly.
-
-## Repository
+## Target architecture
 
 ```text
-backend/       Spring Boot API and database migrations
-frontend/      React web application
-ai-core/       FastAPI mock inference service
-docs/          Documentation and AI worklogs
-postman/       API collections
-scripts/       Development automation
-.github/       CI workflows
+React + TypeScript
+        |
+        | HTTPS REST API + JWT
+        v
+Java 21 + Spring Boot 3 modular monolith
+        |---- Supabase PostgreSQL
+        |---- Supabase Storage (private bucket)
+        |
+        v
+Python + FastAPI AI service
+        |
+        v
+PyTorch model
 ```
 
-## Requirements
+The frontend must never call the AI service directly. Only the backend may use
+the Supabase service-role credential or the AI internal token.
 
-Java 21, Maven 3.9+, Node.js 20+, npm, Python 3.11, and optionally Docker Compose.
+## Repository layout
 
-Copy `.env.example` to `.env` and replace placeholders locally. Never commit `.env` or real credentials.
-
-## Run locally
-
-Backend:
-
-```powershell
-cd backend
-.\mvnw.cmd spring-boot:run
+```text
+frontend/        React and TypeScript web client
+backend/         Spring Boot modular monolith
+ai-service/      FastAPI inference service
+database/        Database design and operational notes
+docs/            Requirements, architecture, API, testing, and deployment docs
+infrastructure/  Deployment and infrastructure definitions
+.github/         GitHub workflows and repository automation
 ```
 
-Frontend:
+## Local configuration
 
-```powershell
-cd frontend
-npm install
-npm run dev
-```
+Environment files contain local secrets and are ignored by Git. Copy only the
+relevant `.env.example` file and supply credentials outside source control.
+Examples contain placeholders only.
 
-AI Core:
+No Supabase project, database, storage bucket, or credentials are provisioned
+in Phase 1.
 
-```powershell
-cd ai-core
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+## MVP boundaries
 
-## Local URLs
+The MVP covers email/password authentication, JWT and RBAC, profile management,
+private Fundus image upload, mock AI analysis, analysis history, assigned-patient
+access for doctors, and doctor reviews.
 
-- Frontend: http://localhost:5173
-- Backend health: http://localhost:8080/api/v1/health
-- Backend Swagger: http://localhost:8080/swagger-ui/index.html
-- AI Core health: http://localhost:8000/health
-- AI Docs: http://localhost:8000/docs
+Payment, chat, social login, realtime notifications, batch upload, exports,
+mobile applications, and automated retraining are outside the MVP.
 
-## Branch workflow
-
-Create work branches from `rebuild/clean-foundation`, commit focused changes, push normally, and open a pull request. Never force-push or merge directly into `main`.
-
-AI session history is indexed in [docs/ai-worklog/INDEX.md](docs/ai-worklog/INDEX.md).
+See [MVP scope](docs/01-requirements/mvp-scope.md) and
+[contribution rules](CONTRIBUTING.md).

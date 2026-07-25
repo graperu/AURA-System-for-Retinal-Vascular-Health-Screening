@@ -1,46 +1,59 @@
-# Environment
+# Environment and local configuration
 .env
 .env.*
 !.env.example
+application-local.yml
+application-local.properties
+
+# Keys and credentials
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+credentials/
+service-account*.json
+
 # Java
-backend/target/
-backend/.idea/
-backend/*.iml
-backend/.classpath
-backend/.project
-backend/.settings/
-# Node
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/*.tsbuildinfo
-frontend/vite.config.js
-frontend/vite.config.d.ts
+target/
+*.class
+*.jar
+*.war
+
+# JavaScript
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
 # Python
-ai-core/.venv/
-ai-core/venv/
-ai-core/**/__pycache__/
-ai-core/**/*.pyc
-ai-core/.pytest_cache/
-# Editors
-.vscode/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors and operating systems
 .idea/
-# OS
+.vscode/
+*.iml
 .DS_Store
 Thumbs.db
-# Logs
+
+# Logs and temporary files
 *.log
 logs/
-# AI
-ai-core/model-weights/*
-!ai-core/model-weights/.gitkeep
-ai-core/datasets/
-ai-core/tmp/
-ai-core/uploads/
+tmp/
+temp/
+
+# Models, datasets, and medical images
 *.pt
 *.pth
 *.onnx
-# Medical data
+models/weights/
+datasets/
 medical-data/
 patient-images/
 retinal-images/
