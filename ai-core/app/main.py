@@ -1,18 +1,12 @@
 from fastapi import FastAPI
-
-from app.routes.analysis import router as analysis_router
-from app.routes.health import router as health_router
-
-
-def create_app() -> FastAPI:
-    app = FastAPI(
-        title="AURA AI Core",
-        version="1.0.0-milestone.1",
-        description="Mock retinal screening analysis service for development only.",
-    )
-    app.include_router(health_router)
-    app.include_router(analysis_router, prefix="/api/v1")
-    return app
-
-
-app = create_app()
+from pydantic import BaseModel
+from uuid import UUID
+app=FastAPI(title="AURA AI Core")
+class Analysis(BaseModel):
+    analysisId: UUID
+    imageUrl: str
+    imageType: str
+@app.get("/health")
+def health(): return {"service":"aura-ai-core","status":"UP","modelVersion":"mock-v1"}
+@app.post("/api/v1/analyze")
+def analyze(request: Analysis): return {"analysisId":str(request.analysisId),"status":"COMPLETED","riskScore":0.72,"riskLevel":"HIGH","modelVersion":"mock-v1","processingTimeMs":1000}

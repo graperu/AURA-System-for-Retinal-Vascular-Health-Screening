@@ -1,36 +1,15 @@
-# Environment and local settings
 .env
-.env.local
+.env.*
 !.env.example
-
-# Build output
-**/bin/
-**/obj/
-**/target/
-**/dist/
-*.user
-*.suo
-
-# Node
-**/node_modules/
-*.tsbuildinfo
-
-# Python
-**/__pycache__/
-**/.pytest_cache/
-**/.venv/
-**/.mypy_cache/
-**/.ruff_cache/
-**/htmlcov/
-*.py[cod]
-.coverage
-coverage.xml
-
-# IDE / OS
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
-
-# Local data
-postgres-data/
+backend/target/
+frontend/node_modules/
+frontend/dist/
+ai-core/.venv/
+ai-core/**/__pycache__/
+ai-core/.pytest_cache/
+*.log
+ai-core/model-weights/*
+!ai-core/model-weights/.gitkeep
+medical-data/
+patient-images/
+retinal-images/
