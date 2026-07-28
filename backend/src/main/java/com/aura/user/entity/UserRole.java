@@ -37,6 +37,8 @@ public class UserRole {
     protected UserRole() {
     }
 
+    public UserRole(User user, Role role) { this.user = user; this.role = role; }
+
     @PrePersist
     void onCreate() {
         if (assignedAt == null) {

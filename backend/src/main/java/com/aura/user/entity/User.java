@@ -10,6 +10,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 import org.hibernate.annotations.UuidGenerator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "users")
@@ -24,6 +25,7 @@ public class User {
     private String email;
 
     @Column(name = "password_hash", nullable = false, length = 255)
+    @JsonIgnore
     private String passwordHash;
 
     @Column(name = "full_name", length = 150)
@@ -46,6 +48,15 @@ public class User {
 
     protected User() {
     }
+
+    public User(String email, String passwordHash, String fullName) {
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.fullName = fullName;
+        this.active = true;
+    }
+
+    public String getPasswordHash() { return passwordHash; }
 
     @PrePersist
     void onCreate() {

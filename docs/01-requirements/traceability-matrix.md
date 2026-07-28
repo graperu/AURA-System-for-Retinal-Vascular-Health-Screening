@@ -6,9 +6,9 @@
 | Database foundation | Implemented | Four Flyway migrations and UUID entities |
 | Health API | Implemented | `GET /api/v1/system/health` |
 | Error handling | Implemented | Global exception handler and error codes |
-| FR-1 Register/Login | Not implemented | Reserved for Phase 3 |
+| FR-1 Register/Login | Implemented | Email/password auth, JWT and refresh rotation |
+| Runtime RBAC | Implemented | Spring Security role authorities and deny-by-default routes |
 | FR-2 Fundus upload | Not implemented | Reserved for later phase |
 | FR-3 AI analysis | Not implemented | Reserved for later phase |
-| Runtime RBAC | Not implemented | Role schema only in Phase 2 |
 | Doctor management | Not implemented | Reserved for later phase |
 

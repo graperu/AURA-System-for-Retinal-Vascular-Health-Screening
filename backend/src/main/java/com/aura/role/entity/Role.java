@@ -36,7 +36,7 @@ public class Role {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected Role() {
+    public Role() {
     }
 
     @PrePersist

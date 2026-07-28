@@ -3,6 +3,7 @@ package com.aura.common.exception;
 import com.aura.common.response.ApiErrorResponse;
 import com.aura.common.response.ErrorCode;
 import com.aura.common.response.ErrorDetail;
+import com.aura.auth.exception.AuthException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AuthException.class)
+    ResponseEntity<ApiErrorResponse> handleAuth(AuthException exception) {
+        HttpStatus status = switch (exception.code()) {
+            case EMAIL_ALREADY_EXISTS -> HttpStatus.CONFLICT;
+            case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+            case ACCOUNT_DISABLED, INVALID_CREDENTIALS, UNAUTHORIZED, INVALID_TOKEN,
+                    TOKEN_EXPIRED, REFRESH_TOKEN_INVALID, REFRESH_TOKEN_REVOKED -> HttpStatus.UNAUTHORIZED;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return response(status, ApiErrorResponse.of(exception.code(), exception.getMessage(), List.of()));
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
