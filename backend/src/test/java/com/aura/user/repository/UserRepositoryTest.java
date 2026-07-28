@@ -12,7 +12,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 @DataJpaTest
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @ActiveProfiles("test")
 class UserRepositoryTest {
 

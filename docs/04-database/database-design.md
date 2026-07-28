@@ -26,3 +26,7 @@ entity identifier is unset.
 
 No patient, image, analysis, storage, or doctor-assignment tables are part of
 this phase.
+
+Phase 3 adds `refresh_tokens`, linked to `users`, with unique token hashes,
+expiry/revocation timestamps, and a self-reference recording token rotation.
+Raw refresh tokens are never stored.

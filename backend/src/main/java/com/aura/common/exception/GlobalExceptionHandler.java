@@ -3,11 +3,14 @@ package com.aura.common.exception;
 import com.aura.common.response.ApiErrorResponse;
 import com.aura.common.response.ErrorCode;
 import com.aura.common.response.ErrorDetail;
+import com.aura.auth.exception.AuthException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -15,6 +18,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AuthException.class)
+    ResponseEntity<ApiErrorResponse> handleAuth(AuthException exception) {
+        HttpStatus status = switch (exception.code()) {
+            case EMAIL_ALREADY_EXISTS -> HttpStatus.CONFLICT;
+            case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+            case ACCOUNT_DISABLED, INVALID_CREDENTIALS, UNAUTHORIZED, INVALID_TOKEN,
+                    TOKEN_EXPIRED, REFRESH_TOKEN_INVALID, REFRESH_TOKEN_REVOKED -> HttpStatus.UNAUTHORIZED;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return response(status, ApiErrorResponse.of(exception.code(), exception.getMessage(), List.of()));
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
@@ -44,6 +59,12 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiErrorResponse> handleNotFound(ResourceNotFoundException exception) {
         return response(HttpStatus.NOT_FOUND,
                 ApiErrorResponse.of(ErrorCode.RESOURCE_NOT_FOUND, exception.getMessage(), List.of()));
+    }
+
+    @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
+    ResponseEntity<ApiErrorResponse> handleAccessDenied() {
+        return response(HttpStatus.FORBIDDEN,
+                ApiErrorResponse.of(ErrorCode.ACCESS_DENIED, "Không có quyền truy cập", List.of()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

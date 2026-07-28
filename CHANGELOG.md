@@ -17,6 +17,11 @@ stable release.
 - Maven Wrapper.
 - Entity UUID and timestamp lifecycle callbacks aligned with the database
   non-null constraints.
+- Email/password registration and login, JWT access tokens, rotating hashed
+  refresh tokens, logout, current-account API, and stateless RBAC security.
+- Strict Origin/Referer checks for refresh-cookie operations, atomic
+  single-use refresh rotation, refresh-token reuse response, logout independent
+  of access-token validity, and specific safe JWT authentication errors.
 
 ### Removed
 
