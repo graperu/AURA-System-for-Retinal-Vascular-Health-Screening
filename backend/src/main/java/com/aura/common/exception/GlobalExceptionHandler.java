@@ -9,6 +9,8 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -57,6 +59,12 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiErrorResponse> handleNotFound(ResourceNotFoundException exception) {
         return response(HttpStatus.NOT_FOUND,
                 ApiErrorResponse.of(ErrorCode.RESOURCE_NOT_FOUND, exception.getMessage(), List.of()));
+    }
+
+    @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
+    ResponseEntity<ApiErrorResponse> handleAccessDenied() {
+        return response(HttpStatus.FORBIDDEN,
+                ApiErrorResponse.of(ErrorCode.ACCESS_DENIED, "Không có quyền truy cập", List.of()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

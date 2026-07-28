@@ -38,7 +38,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(AuthIntegrationTest.AdminTestController.class)
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 class AuthIntegrationTest {
     private static final String ORIGIN = "https://aura.example.test";
     private static final String EMAIL = "integration@example.test";
