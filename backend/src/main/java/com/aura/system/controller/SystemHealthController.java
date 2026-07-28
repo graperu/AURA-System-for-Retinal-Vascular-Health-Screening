@@ -10,9 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/system")
 public class SystemHealthController {
 
-    @GetMapping("/health")
-    public ApiResponse<Map<String, String>> health() {
-        return ApiResponse.success("AURA backend is healthy",
-                Map.of("service", "aura-backend", "status", "UP"));
-    }
+  @GetMapping("/health")
+  public ApiResponse<Map<String, String>> health() {
+    return ApiResponse.success(
+        "AURA backend is healthy", Map.of("service", "aura-backend", "status", "UP"));
+  }
 }

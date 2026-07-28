@@ -8,27 +8,27 @@ import org.junit.jupiter.api.Test;
 
 class RoleLifecycleTest {
 
-    @Test
-    void prePersistInitializesAuditTimestampsAndUuidMappingIsConfigured() throws Exception {
-        Role role = new Role();
+  @Test
+  void prePersistInitializesAuditTimestampsAndUuidMappingIsConfigured() throws Exception {
+    Role role = new Role();
 
-        role.onCreate();
+    role.onCreate();
 
-        assertThat(role.getCreatedAt()).isNotNull();
-        assertThat(role.getUpdatedAt()).isNotNull();
-        assertThat(Role.class.getDeclaredField("id").getAnnotation(GeneratedValue.class)).isNotNull();
-        assertThat(Role.class.getDeclaredField("id").getAnnotation(UuidGenerator.class)).isNotNull();
-    }
+    assertThat(role.getCreatedAt()).isNotNull();
+    assertThat(role.getUpdatedAt()).isNotNull();
+    assertThat(Role.class.getDeclaredField("id").getAnnotation(GeneratedValue.class)).isNotNull();
+    assertThat(Role.class.getDeclaredField("id").getAnnotation(UuidGenerator.class)).isNotNull();
+  }
 
-    @Test
-    void preUpdateRefreshesUpdatedAt() throws InterruptedException {
-        Role role = new Role();
-        role.onCreate();
-        var before = role.getUpdatedAt();
+  @Test
+  void preUpdateRefreshesUpdatedAt() throws InterruptedException {
+    Role role = new Role();
+    role.onCreate();
+    var before = role.getUpdatedAt();
 
-        Thread.sleep(1);
-        role.onUpdate();
+    Thread.sleep(1);
+    role.onUpdate();
 
-        assertThat(role.getUpdatedAt()).isAfter(before);
-    }
+    assertThat(role.getUpdatedAt()).isAfter(before);
+  }
 }

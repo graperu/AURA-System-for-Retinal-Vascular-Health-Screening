@@ -14,22 +14,26 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
-    private final ObjectMapper json;
+  private final ObjectMapper json;
 
-    public RestAuthenticationEntryPoint(ObjectMapper json) { this.json = json; }
+  public RestAuthenticationEntryPoint(ObjectMapper json) {
+    this.json = json;
+  }
 
-    @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response,
-            AuthenticationException exception) throws IOException {
-        Object value = request.getAttribute(JwtAuthenticationFilter.JWT_ERROR_ATTRIBUTE);
-        ErrorCode code = value instanceof ErrorCode errorCode ? errorCode : ErrorCode.UNAUTHORIZED;
-        String message = switch (code) {
-            case TOKEN_EXPIRED -> "Access token has expired";
-            case INVALID_TOKEN -> "Access token is invalid";
-            default -> "Authentication is required";
+  @Override
+  public void commence(
+      HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
+      throws IOException {
+    Object value = request.getAttribute(JwtAuthenticationFilter.JWT_ERROR_ATTRIBUTE);
+    ErrorCode code = value instanceof ErrorCode errorCode ? errorCode : ErrorCode.UNAUTHORIZED;
+    String message =
+        switch (code) {
+          case TOKEN_EXPIRED -> "Access token has expired";
+          case INVALID_TOKEN -> "Access token is invalid";
+          default -> "Authentication is required";
         };
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        json.writeValue(response.getOutputStream(), ApiErrorResponse.of(code, message, List.of()));
-    }
+    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+    json.writeValue(response.getOutputStream(), ApiErrorResponse.of(code, message, List.of()));
+  }
 }

@@ -18,60 +18,56 @@ import org.hibernate.annotations.UuidGenerator;
 @Table(name = "roles")
 public class Role {
 
-    @Id
-    @GeneratedValue
-    @UuidGenerator
-    private UUID id;
+  @Id @GeneratedValue @UuidGenerator private UUID id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, unique = true, length = 50)
-    private RoleName name;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, unique = true, length = 50)
+  private RoleName name;
 
-    @Column(length = 255)
-    private String description;
+  @Column(length = 255)
+  private String description;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private Instant createdAt;
 
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+  @Column(name = "updated_at", nullable = false)
+  private Instant updatedAt;
 
-    public Role() {
+  public Role() {}
+
+  @PrePersist
+  void onCreate() {
+    Instant now = Instant.now();
+    if (createdAt == null) {
+      createdAt = now;
     }
-
-    @PrePersist
-    void onCreate() {
-        Instant now = Instant.now();
-        if (createdAt == null) {
-            createdAt = now;
-        }
-        if (updatedAt == null) {
-            updatedAt = now;
-        }
+    if (updatedAt == null) {
+      updatedAt = now;
     }
+  }
 
-    @PreUpdate
-    void onUpdate() {
-        updatedAt = Instant.now();
-    }
+  @PreUpdate
+  void onUpdate() {
+    updatedAt = Instant.now();
+  }
 
-    public UUID getId() {
-        return id;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public RoleName getName() {
-        return name;
-    }
+  public RoleName getName() {
+    return name;
+  }
 
-    public String getDescription() {
-        return description;
-    }
+  public String getDescription() {
+    return description;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
+  public Instant getUpdatedAt() {
+    return updatedAt;
+  }
 }

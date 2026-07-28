@@ -20,36 +20,63 @@ import org.springframework.web.cors.*;
 @EnableMethodSecurity
 @EnableConfigurationProperties({AuthProperties.class, CorsProperties.class})
 public class SecurityConfig {
-    @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
-    @Bean AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
-        return configuration.getAuthenticationManager();
-    }
-    @Bean CorsConfigurationSource cors(CorsProperties properties) {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(properties.allowedOrigins());
-        config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        config.setAllowCredentials(true);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
-    @Bean SecurityFilterChain chain(HttpSecurity http, JwtAuthenticationFilter jwt,
-            TrustedOriginFilter origin, RestAuthenticationEntryPoint entryPoint,
-            RestAccessDeniedHandler deniedHandler) throws Exception {
-        return http.cors(cors -> {})
-                .csrf(csrf -> csrf.ignoringRequestMatchers(
-                        "/api/v1/auth/register", "/api/v1/auth/login",
-                        "/api/v1/auth/refresh", "/api/v1/auth/logout"))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(errors -> errors.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login",
-                                "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/system/health").permitAll()
-                        .anyRequest().authenticated())
-                .addFilterBefore(origin, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
-                .build();
-    }
+  @Bean
+  PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+
+  @Bean
+  AuthenticationManager authenticationManager(AuthenticationConfiguration configuration)
+      throws Exception {
+    return configuration.getAuthenticationManager();
+  }
+
+  @Bean
+  CorsConfigurationSource cors(CorsProperties properties) {
+    CorsConfiguration config = new CorsConfiguration();
+    config.setAllowedOrigins(properties.allowedOrigins());
+    config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+    config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+    config.setAllowCredentials(true);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", config);
+    return source;
+  }
+
+  @Bean
+  SecurityFilterChain chain(
+      HttpSecurity http,
+      JwtAuthenticationFilter jwt,
+      TrustedOriginFilter origin,
+      RestAuthenticationEntryPoint entryPoint,
+      RestAccessDeniedHandler deniedHandler)
+      throws Exception {
+    return http.cors(cors -> {})
+        .csrf(
+            csrf ->
+                csrf.ignoringRequestMatchers(
+                    "/api/v1/auth/register", "/api/v1/auth/login",
+                    "/api/v1/auth/refresh", "/api/v1/auth/logout"))
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .exceptionHandling(
+            errors ->
+                errors.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/auth/register",
+                        "/api/v1/auth/login",
+                        "/api/v1/auth/refresh",
+                        "/api/v1/auth/logout")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/system/health")
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
+        .addFilterBefore(origin, UsernamePasswordAuthenticationFilter.class)
+        .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
+        .build();
+  }
 }

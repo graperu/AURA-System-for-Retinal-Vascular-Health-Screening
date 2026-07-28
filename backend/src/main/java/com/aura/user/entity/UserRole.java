@@ -18,47 +18,46 @@ import org.hibernate.annotations.UuidGenerator;
 @Table(name = "user_roles")
 public class UserRole {
 
-    @Id
-    @GeneratedValue
-    @UuidGenerator
-    private UUID id;
+  @Id @GeneratedValue @UuidGenerator private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "role_id", nullable = false)
+  private Role role;
 
-    @Column(name = "assigned_at", nullable = false)
-    private Instant assignedAt;
+  @Column(name = "assigned_at", nullable = false)
+  private Instant assignedAt;
 
-    protected UserRole() {
+  protected UserRole() {}
+
+  public UserRole(User user, Role role) {
+    this.user = user;
+    this.role = role;
+  }
+
+  @PrePersist
+  void onCreate() {
+    if (assignedAt == null) {
+      assignedAt = Instant.now();
     }
+  }
 
-    public UserRole(User user, Role role) { this.user = user; this.role = role; }
+  public UUID getId() {
+    return id;
+  }
 
-    @PrePersist
-    void onCreate() {
-        if (assignedAt == null) {
-            assignedAt = Instant.now();
-        }
-    }
+  public User getUser() {
+    return user;
+  }
 
-    public UUID getId() {
-        return id;
-    }
+  public Role getRole() {
+    return role;
+  }
 
-    public User getUser() {
-        return user;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public Instant getAssignedAt() {
-        return assignedAt;
-    }
+  public Instant getAssignedAt() {
+    return assignedAt;
+  }
 }

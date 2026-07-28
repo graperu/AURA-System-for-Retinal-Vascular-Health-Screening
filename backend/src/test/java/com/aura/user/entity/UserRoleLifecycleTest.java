@@ -8,14 +8,16 @@ import org.junit.jupiter.api.Test;
 
 class UserRoleLifecycleTest {
 
-    @Test
-    void prePersistInitializesAssignedAtAndUuidMappingIsConfigured() throws Exception {
-        UserRole userRole = new UserRole();
+  @Test
+  void prePersistInitializesAssignedAtAndUuidMappingIsConfigured() throws Exception {
+    UserRole userRole = new UserRole();
 
-        userRole.onCreate();
+    userRole.onCreate();
 
-        assertThat(userRole.getAssignedAt()).isNotNull();
-        assertThat(UserRole.class.getDeclaredField("id").getAnnotation(GeneratedValue.class)).isNotNull();
-        assertThat(UserRole.class.getDeclaredField("id").getAnnotation(UuidGenerator.class)).isNotNull();
-    }
+    assertThat(userRole.getAssignedAt()).isNotNull();
+    assertThat(UserRole.class.getDeclaredField("id").getAnnotation(GeneratedValue.class))
+        .isNotNull();
+    assertThat(UserRole.class.getDeclaredField("id").getAnnotation(UuidGenerator.class))
+        .isNotNull();
+  }
 }
