@@ -4,6 +4,10 @@ import com.aura.backend.auth.exception.AccountDisabledException;
 import com.aura.backend.auth.exception.EmailAlreadyExistsException;
 import com.aura.backend.auth.exception.InvalidCredentialsException;
 import com.aura.backend.auth.exception.InvalidTokenException;
+import com.aura.backend.billing.exception.PackageInactiveException;
+import com.aura.backend.billing.exception.PackageScopeMismatchException;
+import com.aura.backend.billing.exception.PaymentFailedException;
+import com.aura.backend.billing.exception.ServicePackageNotFoundException;
 import com.aura.backend.common.response.ApiEnvelope;
 import com.aura.backend.common.response.ApiError;
 import com.aura.backend.user.exception.SelfManagementNotAllowedException;
@@ -59,6 +63,30 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiEnvelope<Void>> handleSelfManagement(SelfManagementNotAllowedException exception) {
         var error = new ApiError("SELF_MANAGEMENT_NOT_ALLOWED", exception.getMessage(), Map.of());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiEnvelope.failure(error));
+    }
+
+    @ExceptionHandler(ServicePackageNotFoundException.class)
+    public ResponseEntity<ApiEnvelope<Void>> handlePackageNotFound(ServicePackageNotFoundException exception) {
+        var error = new ApiError("PACKAGE_NOT_FOUND", exception.getMessage(), Map.of());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiEnvelope.failure(error));
+    }
+
+    @ExceptionHandler(PackageInactiveException.class)
+    public ResponseEntity<ApiEnvelope<Void>> handlePackageInactive(PackageInactiveException exception) {
+        var error = new ApiError("PACKAGE_INACTIVE", exception.getMessage(), Map.of());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiEnvelope.failure(error));
+    }
+
+    @ExceptionHandler(PackageScopeMismatchException.class)
+    public ResponseEntity<ApiEnvelope<Void>> handlePackageScopeMismatch(PackageScopeMismatchException exception) {
+        var error = new ApiError("PACKAGE_SCOPE_MISMATCH", exception.getMessage(), Map.of());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiEnvelope.failure(error));
+    }
+
+    @ExceptionHandler(PaymentFailedException.class)
+    public ResponseEntity<ApiEnvelope<Void>> handlePaymentFailed(PaymentFailedException exception) {
+        var error = new ApiError("PAYMENT_FAILED", exception.getMessage(), Map.of());
+        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(ApiEnvelope.failure(error));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -70,6 +70,8 @@ public class SecurityConfiguration {
                         .requestMatchers("/health", "/api/v1/system/**").permitAll()
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                        // Public pricing catalog (FR-34 read side) — no login required
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/packages").permitAll()
                         // Clinic-facing bulk analysis endpoints ([FR-22]-[FR-30])
                         .requestMatchers("/api/v1/clinics/**").hasAnyRole("CLINIC", "ADMIN")
                         // Doctor review endpoints ([FR-13]-[FR-21])

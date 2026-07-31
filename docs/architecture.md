@@ -115,3 +115,40 @@ Hai lớp kiểm soát:
 - Đổi mật khẩu, quên mật khẩu (reset qua email).
 - Rate limiting cho `/api/v1/auth/login` (chống brute-force).
 - Audit log các thao tác đổi role/khoá tài khoản của Admin (NFR-18 nhắc tới logging tập trung nhưng chưa nối vào luồng auth).
+
+---
+
+# Kiến trúc AURA Milestone 2 — Gói dịch vụ & Thanh toán
+
+## Package `billing`
+
+```text
+ServicePackage (Admin định nghĩa, FR-34)
+      │  scope: INDIVIDUAL | CLINIC
+      │
+      ▼
+POST /api/v1/me/packages/{id}/purchase  (FR-11 user / FR-28 clinic — cùng 1 code path)
+      │
+      ├─ kiểm tra scope khớp Role của người mua (User→INDIVIDUAL, Clinic→CLINIC)
+      ├─ tạo PaymentTransaction (PENDING)
+      ├─ gọi PaymentGateway.charge(...)   ← MockPaymentGateway ở Milestone 2
+      └─ nếu SUCCEEDED: cộng/gia hạn Subscription (remainingCredits, expiresAt)
+
+GET /api/v1/me/payments        → lịch sử thanh toán (FR-12)
+GET /api/v1/me/subscriptions   → số lượt phân tích còn lại (FR-12)
+```
+
+## Quyết định thiết kế
+
+- **Một luồng purchase dùng chung cho FR-11 và FR-28**: thay vì viết `UserBillingService` và `ClinicBillingService` riêng, `BillingService.purchaseOrRenew` nhận `ownerId` bất kỳ và tự kiểm tra `Role` của owner có khớp `PackageScope` của gói hay không. Lý do: cơ chế cộng credit/gia hạn hạn dùng và ghi lịch sử thanh toán là **giống hệt nhau** giữa User và Clinic — khác biệt duy nhất là "ai được mua gói nào". Tách riêng 2 service sẽ nhân đôi logic renewal (dễ lệch nhau khi sửa bug).
+- **`PaymentGateway` là interface, `MockPaymentGateway` là cài đặt duy nhất** — giống cách `AiCoreClient` tách khỏi AI Core thật. Milestone 2 không tích hợp cổng thanh toán thật (VNPay/Momo/Stripe) vì chưa có tài khoản merchant/sandbox; mọi giao dịch được coi là thành công ngay lập tức. Khi có cổng thật, chỉ cần thêm 1 implementation mới của `PaymentGateway`, không phải sửa `BillingService` hay controller.
+- **Gia hạn (renew) cộng dồn, không tạo dòng mới**: mỗi (owner, package) chỉ có đúng 1 `Subscription`. Gia hạn khi gói còn hạn sẽ **cộng thêm credit và kéo dài từ ngày hết hạn hiện tại** (không phải từ hôm nay) — đúng hành vi gia hạn thông thường (không mất phần thời gian còn lại). Nếu gói đã hết hạn, mốc tính lại là thời điểm hiện tại.
+- **Giao dịch thất bại vẫn được lưu** vào `PaymentTransaction` (status `FAILED`) để lịch sử thanh toán (FR-12) phản ánh đúng thực tế, không chỉ hiển thị các lần thành công.
+- **Danh mục gói (`GET /api/v1/packages`) công khai**, không cần đăng nhập — giống trang bảng giá của một SaaS thông thường, để người dùng xem giá trước khi đăng ký tài khoản.
+
+## Chưa làm ở Milestone 2 (để milestone sau)
+
+- Tích hợp cổng thanh toán thật (VNPay/Momo/Stripe) thay `MockPaymentGateway`.
+- Trừ credit thực tế khi tạo `AnalysisReport` mới — hiện `AnalysisController` (Milestone 1) chưa được nối với `Subscription.remainingCredits`; đây là việc cần làm trước khi coi hệ thống credit là "thật".
+- Job định kỳ tự động chuyển `Subscription` sang `EXPIRED` khi hết hạn (hiện tại chỉ kiểm tra "lazy" mỗi khi gọi `GET /api/v1/me/subscriptions`).
+- Hoàn tiền / hủy gói.
