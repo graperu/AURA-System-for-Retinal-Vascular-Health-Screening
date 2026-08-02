@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Đăng nhập | AURA System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-surface": "#1c1b1b",
+                    "on-secondary": "#ffffff",
+                    "surface-container-highest": "#e5e2e1",
+                    "on-error-container": "#93000a",
+                    "tertiary": "#565758",
+                    "on-tertiary-container": "#f5f4f4",
+                    "inverse-primary": "#b4c5ff",
+                    "surface-container-low": "#f6f3f2",
+                    "tertiary-fixed-dim": "#c6c6c6",
+                    "inverse-surface": "#313030",
+                    "inverse-on-surface": "#f3f0ef",
+                    "outline-variant": "#c3c6d8",
+                    "tertiary-container": "#6f7070",
+                    "surface-dim": "#dcd9d9",
+                    "primary": "#004ccd",
+                    "background": "#fcf9f8",
+                    "on-tertiary-fixed-variant": "#454747",
+                    "surface": "#fcf9f8",
+                    "on-tertiary-fixed": "#1a1c1c",
+                    "surface-tint": "#0052dd",
+                    "primary-container": "#0f62fe",
+                    "on-secondary-container": "#5e656c",
+                    "surface-variant": "#e5e2e1",
+                    "secondary-container": "#dce3eb",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#dbe1ff",
+                    "on-primary-container": "#f3f3ff",
+                    "on-secondary-fixed": "#151c22",
+                    "on-background": "#1c1b1b",
+                    "on-surface-variant": "#424656",
+                    "on-primary-fixed-variant": "#003da9",
+                    "secondary": "#585f66",
+                    "error-container": "#ffdad6",
+                    "surface-container-high": "#eae7e7",
+                    "on-error": "#ffffff",
+                    "secondary-fixed": "#dce3eb",
+                    "on-secondary-fixed-variant": "#40484e",
+                    "outline": "#737687",
+                    "tertiary-fixed": "#e2e2e2",
+                    "secondary-fixed-dim": "#c0c7cf",
+                    "surface-container": "#f0edec",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-bright": "#fcf9f8",
+                    "on-primary-fixed": "#00174c"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "xs": "4px",
+                    "sm": "12px",
+                    "md": "24px",
+                    "container_max": "1440px",
+                    "base": "8px",
+                    "lg": "48px",
+                    "sidebar_width": "260px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .role-card.active {
+            border-color: #004ccd;
+            background-color: #dbe1ff;
+        }
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+    </style>
+</head>
+<body class="bg-background min-h-screen flex items-center justify-center p-0 m-0 overflow-hidden">
+<!-- Decorative WebGL/Shader Background Equivalent -->
+<div class="fixed inset-0 z-0">
+
+</div>
+<!-- Main Container -->
+<main class="relative z-10 w-full h-screen grid lg:grid-cols-12 overflow-hidden">
+<!-- Left Side: Visual Illustration (Hidden on Mobile) -->
+<section class="hidden lg:flex lg:col-span-7 relative flex-col justify-center items-center p-lg overflow-hidden">
+<div class="absolute inset-0 z-0 overflow-hidden">
+<div class="w-full h-full opacity-80" data-alt="A professional high-resolution medical visualization of a human retina with intricate vascular patterns, glowing with a soft blue and white AI diagnostic overlay. The aesthetic is clean, clinical, and technologically advanced, featuring subtle data points and scan lines that suggest artificial intelligence analysis. Lighting is bright and high-key, aligning with a premium modern healthcare software environment." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCReyOvdtobPcxNy_qnIe7HGmjxv3MbqG_vrJsnDE7pMevCTr5Q5ybmwM_jE9-rk20hANQ73h64jQBJBZ0eY89ymOPCo4xwN0hTUrPHWy6uRVHQDndSANEPHugWR3bQyAtTStGcpMfZYBYQk4WG488AVKnW2sbem9-BxhfDoYbLWoXYMFMd7rniN_gqu0LHvyGPsW2ZmI-3yTaKpJAGIulz46dG1fG6eQ8m61LcJrHzZXsvFG8VQ40WiQ')">
+</div>
+<div class="absolute inset-0 bg-gradient-to-r from-transparent to-background"></div>
+</div>
+<!-- Floating UI Elements to demonstrate AI/Tech -->
+<div class="relative z-10 w-full max-w-2xl">
+<div class="bg-surface-container-lowest/90 border border-outline-variant p-md rounded-xl shadow-xl animate-float max-w-sm ml-auto mr-12">
+<div class="flex items-center gap-sm mb-sm">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">biotech</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-primary uppercase">Phân tích AI</p>
+<h4 class="font-headline-md text-headline-md text-on-surface">Võng mạc khỏe mạnh</h4>
+</div>
+</div>
+<div class="space-y-xs">
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[92%]"></div>
+</div>
+<p class="text-[10px] text-on-surface-variant text-right">Độ tin cậy: 92%</p>
+</div>
+</div>
+<div class="mt-lg">
+<h1 class="font-display-lg text-display-lg text-primary mb-sm">AURA System</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md">
+                        Hệ thống phân tích hình ảnh võng mạc tiên tiến hỗ trợ chẩn đoán sớm các bệnh lý mạch máu và thần kinh thị giác.
+                    </p>
+</div>
+</div>
+</section>
+<!-- Right Side: Login Form -->
+<section class="col-span-12 lg:col-span-5 bg-surface flex flex-col justify-center items-center p-md lg:p-lg border-l border-outline-variant shadow-2xl">
+<div class="w-full max-w-md">
+<!-- Header -->
+<div class="mb-lg text-center lg:text-left">
+<div class="inline-flex items-center gap-2 mb-md">
+<div class="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined text-on-primary text-3xl">visibility</span>
+</div>
+<span class="font-display-lg text-display-lg text-primary tracking-tighter">AURA</span>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-xs">Chào mừng trở lại</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Vui lòng đăng nhập để tiếp tục làm việc.</p>
+</div>
+<!-- Form -->
+<form class="space-y-md" onsubmit="event.preventDefault(); window.location.href='../danh_s_ch_b_nh_nh_n_web/code.html'; return false;">
+<!-- Role Selection -->
+<div class="space-y-sm">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase">Chọn vai trò của bạn</label>
+<div class="grid grid-cols-3 gap-sm">
+<button class="role-card active flex flex-col items-center justify-center p-sm border border-outline-variant rounded-xl transition-all hover:bg-surface-container-low" onclick="selectRole(this)" type="button">
+<span class="material-symbols-outlined text-primary mb-xs" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-sm text-label-sm">Bác sĩ</span>
+</button>
+<button class="role-card flex flex-col items-center justify-center p-sm border border-outline-variant rounded-xl transition-all hover:bg-surface-container-low" onclick="selectRole(this)" type="button">
+<span class="material-symbols-outlined text-on-surface-variant mb-xs">settings_accessibility</span>
+<span class="font-label-sm text-label-sm">Kỹ thuật viên</span>
+</button>
+<button class="role-card flex flex-col items-center justify-center p-sm border border-outline-variant rounded-xl transition-all hover:bg-surface-container-low" onclick="selectRole(this)" type="button">
+<span class="material-symbols-outlined text-on-surface-variant mb-xs">admin_panel_settings</span>
+<span class="font-label-sm text-label-sm">Quản trị</span>
+</button>
+</div>
+</div>
+<!-- Email Field -->
+<div class="space-y-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="email">Email</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">mail</span>
+<input class="w-full pl-12 pr-md py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-body-md text-body-md" id="email" placeholder="email@hospital.vn" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-xs">
+<div class="flex justify-between items-center">
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="password">Mật khẩu</label>
+<a class="font-label-sm text-label-sm text-primary hover:underline" href="#">Quên mật khẩu?</a>
+</div>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">lock</span>
+<input class="w-full pl-12 pr-12 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-body-md text-body-md" id="password" placeholder="••••••••" type="password"/>
+<button class="absolute right-sm top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors" type="button">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+<!-- Remember Me -->
+<div class="flex items-center gap-xs">
+<input class="w-4 h-4 text-primary bg-surface-container-low border-outline-variant rounded focus:ring-primary" id="remember" type="checkbox"/>
+<label class="font-body-md text-body-md text-on-surface-variant cursor-pointer" for="remember">Ghi nhớ đăng nhập</label>
+</div>
+<!-- Submit Button -->
+<button class="w-full bg-primary text-on-primary py-4 rounded-xl font-headline-md text-headline-md shadow-lg shadow-primary/25 hover:bg-primary-container active:scale-[0.98] transition-all flex items-center justify-center gap-sm group" type="submit">
+                        Đăng nhập
+                        <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</form>
+<!-- Footer -->
+<div class="mt-lg pt-lg border-t border-surface-variant flex flex-col items-center gap-md">
+<p class="font-body-md text-body-md text-on-surface-variant">Bạn chưa có tài khoản?</p>
+<button class="px-md py-2 border border-primary text-primary font-label-sm text-label-sm rounded-full hover:bg-primary/5 transition-colors">
+                        Yêu cầu cấp quyền truy cập
+                    </button>
+<div class="flex gap-md mt-md">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Hướng dẫn</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Hỗ trợ kỹ thuật</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Bảo mật</a>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Overlay Micro-interactions -->
+<script>
+        function selectRole(button) {
+            // Remove active classes from all
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('active', 'border-primary', 'bg-primary-fixed');
+                card.querySelector('span.material-symbols-outlined').style.fontVariationSettings = "'FILL' 0";
+                card.querySelector('span.material-symbols-outlined').classList.remove('text-primary');
+                card.querySelector('span.material-symbols-outlined').classList.add('text-on-surface-variant');
+            });
+
+            // Add active classes to clicked
+            button.classList.add('active');
+            const icon = button.querySelector('span.material-symbols-outlined');
+            icon.style.fontVariationSettings = "'FILL' 1";
+            icon.classList.remove('text-on-surface-variant');
+            icon.classList.add('text-primary');
+        }
+
+        // Simple button active state visual feedback
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            btn.addEventListener('mousedown', () => btn.classList.add('opacity-80'));
+            btn.addEventListener('mouseup', () => btn.classList.remove('opacity-80'));
+            btn.addEventListener('mouseleave', () => btn.classList.remove('opacity-80'));
+        });
+    </script>
+</body></html>
