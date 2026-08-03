@@ -2,9 +2,22 @@ import React, { useState } from 'react';
 import { SideNavBar } from '../components/SideNavBar';
 import { Footer } from '../components/Footer';
 
+type AuditLog = {
+  id: string;
+  timestamp: string;
+  tz: string;
+  severity: string;
+  title: string;
+  desc: string;
+  user: string;
+  userType: string;
+  ip: string;
+};
+
 export const AdminAuditLogsPage: React.FC = () => {
   const [severityFilter, setSeverityFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const logs = [
     {
@@ -53,6 +66,32 @@ export const AdminAuditLogsPage: React.FC = () => {
     },
   ];
 
+  const escapeCsvField = (field: string) => `"${field.replace(/"/g, '""')}"`;
+
+  const handleExportCsv = () => {
+    const headers = ['Thời Gian', 'Múi Giờ', 'Mức Độ', 'Tiêu Đề', 'Mô Tả', 'Tài Khoản', 'Địa Chỉ IP'];
+    const rows = filteredLogs.map(log => [
+      log.timestamp,
+      log.tz,
+      log.severity,
+      log.title,
+      log.desc,
+      log.user,
+      log.ip,
+    ].map(escapeCsvField).join(','));
+
+    const csvContent = '\uFEFF' + [headers.map(escapeCsvField).join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `nhat-ky-kiem-toan-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const filteredLogs = logs.filter(log => {
     const matchesSeverity = severityFilter === 'All' || log.severity === severityFilter;
     const matchesSearch =
@@ -78,7 +117,11 @@ export const AdminAuditLogsPage: React.FC = () => {
               </p>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
-              <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-on-surface hover:bg-surface-container-low transition-colors font-semibold text-label-md">
+              <button
+                onClick={handleExportCsv}
+                disabled={filteredLogs.length === 0}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-on-surface hover:bg-surface-container-low transition-colors font-semibold text-label-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <span className="material-symbols-outlined text-[18px]">download</span>
                 Xuất File CSV
               </button>
@@ -161,7 +204,10 @@ export const AdminAuditLogsPage: React.FC = () => {
                       </td>
                       <td className="py-3 px-4 font-mono-data text-on-surface-variant">{log.ip}</td>
                       <td className="py-3 px-4 text-right">
-                        <button className="text-outline hover:text-primary transition-colors p-1">
+                        <button
+                          onClick={() => setSelectedLog(log)}
+                          className="text-outline hover:text-primary transition-colors p-1"
+                        >
                           <span className="material-symbols-outlined text-[20px]">visibility</span>
                         </button>
                       </td>
@@ -175,6 +221,49 @@ export const AdminAuditLogsPage: React.FC = () => {
 
         <Footer />
       </main>
+
+      {selectedLog && (
+        <div
+          className="fixed inset-0 bg-inverse-surface/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setSelectedLog(null)}
+        >
+          <div
+            className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg max-w-lg w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-headline-md font-bold text-on-background">{selectedLog.title}</h3>
+              <button
+                onClick={() => setSelectedLog(null)}
+                className="text-outline hover:text-on-surface transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="space-y-3 text-body-md text-on-surface">
+              <p>{selectedLog.desc}</p>
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-outline-variant text-sm">
+                <div>
+                  <div className="text-on-surface-variant text-xs uppercase mb-0.5">Thời Gian</div>
+                  <div className="font-mono-data">{selectedLog.timestamp} ({selectedLog.tz})</div>
+                </div>
+                <div>
+                  <div className="text-on-surface-variant text-xs uppercase mb-0.5">Mức Độ</div>
+                  <div>{selectedLog.severity}</div>
+                </div>
+                <div>
+                  <div className="text-on-surface-variant text-xs uppercase mb-0.5">Tài Khoản</div>
+                  <div>{selectedLog.user}</div>
+                </div>
+                <div>
+                  <div className="text-on-surface-variant text-xs uppercase mb-0.5">Địa Chỉ IP</div>
+                  <div className="font-mono-data">{selectedLog.ip}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
