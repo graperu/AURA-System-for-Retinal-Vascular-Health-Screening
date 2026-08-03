@@ -130,122 +130,99 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Left Pane: Original Fundus Image */}
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-950 relative group min-h-[380px] flex items-center justify-center">
-          <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[11px] px-2.5 py-1 rounded-md border border-slate-700 font-semibold z-10">
-            Ảnh Gốc Fundus (RGB Original)
+          <div className="absolute top-3 left-3 bg-slate-900/90 backdrop-blur-md text-white text-[11px] px-3 py-1 rounded-md border border-slate-700 font-semibold z-10 flex items-center gap-1.5 shadow-lg">
+            <Eye className="w-3.5 h-3.5 text-cyan-400" />
+            Ảnh Gốc Fundus (Original High-Res Retinal Photo)
           </div>
 
           <div
-            className="w-full h-full flex items-center justify-center transition-transform duration-200"
+            className="w-full h-full flex items-center justify-center transition-transform duration-200 relative p-2"
             style={{ transform: `scale(${zoomLevel})` }}
           >
-            {/* SVG Simulated Fundus Retina Visualization */}
-            <svg viewBox="0 0 400 400" className="w-full max-w-[380px] h-auto rounded-full shadow-2xl">
-              <defs>
-                <radialGradient id="retinaBg" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#c84b2c" />
-                  <stop offset="70%" stopColor="#8a2712" />
-                  <stop offset="100%" stopColor="#4a1005" />
-                </radialGradient>
-                <radialGradient id="macula" cx="42%" cy="50%" r="12%">
-                  <stop offset="0%" stopColor="#3d1408" stopOpacity="0.8" />
-                  <stop offset="100%" stopColor="#8a2712" stopOpacity="0" />
-                </radialGradient>
-              </defs>
+            {/* Real High-Resolution Medical Retinal Fundus Scan Image */}
+            <div className="relative max-w-[380px] w-full aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-slate-800">
+              <img
+                src="/assets/images/fundus_original.png"
+                alt="Retinal Fundus Original Scan"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback if asset path is relative
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=800&q=80';
+                }}
+              />
 
-              {/* Retina Base */}
-              <circle cx="200" cy="200" r="185" fill="url(#retinaBg)" />
-              {/* Macula */}
-              <circle cx="160" cy="200" r="28" fill="url(#macula)" />
-              {/* Optic Disc */}
-              <ellipse cx="270" cy="200" rx="22" ry="26" fill="#fde68a" opacity="0.9" />
-              <ellipse cx="270" cy="200" rx="10" ry="12" fill="#fef08a" />
-
-              {/* Natural Vessels */}
-              <path d="M 270 200 Q 230 140 160 110 T 80 80" fill="none" stroke="#ef4444" strokeWidth="3" />
-              <path d="M 270 200 Q 220 260 140 290 T 70 320" fill="none" stroke="#ef4444" strokeWidth="3.5" />
-              <path d="M 270 200 Q 210 180 140 180 T 60 190" fill="none" stroke="#3b82f6" strokeWidth="4" />
-              <path d="M 270 200 Q 240 270 180 320 T 110 360" fill="none" stroke="#3b82f6" strokeWidth="4.5" />
-            </svg>
+              {/* Anatomy Indicators */}
+              <div className="absolute top-[48%] right-[22%] w-10 h-10 border-2 border-yellow-300/60 rounded-full animate-ping pointer-events-none" />
+              <div className="absolute top-[48%] right-[22%] bg-yellow-300/30 backdrop-blur-xs text-yellow-200 text-[9px] font-mono-data px-1.5 py-0.5 rounded border border-yellow-400 z-10 pointer-events-none">
+                Disc
+              </div>
+              <div className="absolute top-[52%] left-[38%] bg-amber-900/60 text-amber-200 text-[9px] font-mono-data px-1.5 py-0.5 rounded border border-amber-500 z-10 pointer-events-none">
+                Macula
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Right Pane: AI Heatmap & Vessel Segmentation Overlay */}
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-950 relative group min-h-[380px] flex items-center justify-center">
-          <div className="absolute top-3 left-3 bg-[#0891B2]/90 backdrop-blur-md text-white text-[11px] px-2.5 py-1 rounded-md border border-cyan-400 font-semibold z-10 flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5" />
+          <div className="absolute top-3 left-3 bg-[#0891B2]/95 backdrop-blur-md text-white text-[11px] px-3 py-1 rounded-md border border-cyan-400 font-semibold z-10 flex items-center gap-1.5 shadow-lg">
+            <Layers className="w-3.5 h-3.5 text-yellow-300" />
             Lớp Phủ AI Vessel Segmentation & Heatmap
           </div>
 
           <div
-            className="w-full h-full flex items-center justify-center transition-transform duration-200"
+            className="w-full h-full flex items-center justify-center transition-transform duration-200 relative p-2"
             style={{ transform: `scale(${zoomLevel})` }}
           >
-            <svg viewBox="0 0 400 400" className="w-full max-w-[380px] h-auto rounded-full shadow-2xl">
-              <defs>
-                <radialGradient id="retinaBg2" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#c84b2c" />
-                  <stop offset="70%" stopColor="#8a2712" />
-                  <stop offset="100%" stopColor="#4a1005" />
-                </radialGradient>
+            {/* Real AI Heatmap Vessel Overlay Image */}
+            <div className="relative max-w-[380px] w-full aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-cyan-700">
+              <img
+                src="/assets/images/fundus_heatmap.png"
+                alt="AI Retinal Heatmap Overlay"
+                className="w-full h-full object-cover transition-opacity duration-300"
+                style={{ opacity: Math.max(0.2, heatmapOpacity) }}
+              />
 
-                {/* AI Risk Heatmap Overlay (Red-Yellow-Green gradient) */}
-                <radialGradient id="aiHeatmap" cx="45%" cy="48%" r="40%">
-                  <stop offset="0%" stopColor="#dc2626" stopOpacity={heatmapOpacity} />
-                  <stop offset="45%" stopColor="#eab308" stopOpacity={heatmapOpacity * 0.75} />
-                  <stop offset="85%" stopColor="#16a34a" stopOpacity={heatmapOpacity * 0.3} />
-                  <stop offset="100%" stopColor="#000000" stopOpacity="0" />
-                </radialGradient>
-              </defs>
-
-              {/* Retina Base */}
-              <circle cx="200" cy="200" r="185" fill="url(#retinaBg2)" />
-
-              {/* Heatmap Layer */}
-              <circle cx="180" cy="195" r="140" fill="url(#aiHeatmap)" />
-
-              {/* Optic Disc */}
-              <ellipse cx="270" cy="200" rx="22" ry="26" fill="#fde68a" opacity="0.8" />
-
-              {/* Segmentation Vessels Overlays */}
-              {showVesselsOverlay && (
-                <g>
-                  {/* Arteries (Red/Pink highlight) */}
-                  <path d="M 270 200 Q 230 140 160 110 T 80 80" fill="none" stroke="#f43f5e" strokeWidth="4" />
-                  <path d="M 270 200 Q 220 260 140 290 T 70 320" fill="none" stroke="#f43f5e" strokeWidth="4" />
-                  {/* Veins (Blue/Cyan highlight) */}
-                  <path d="M 270 200 Q 210 180 140 180 T 60 190" fill="none" stroke="#06b6d4" strokeWidth="5" />
-                  <path d="M 270 200 Q 240 270 180 320 T 110 360" fill="none" stroke="#06b6d4" strokeWidth="5.5" />
-                </g>
-              )}
-
-              {/* ROI Anomalies Highlights */}
-              {showAnomalies &&
-                anomalies.map((ano) => (
-                  <g
-                    key={ano.id}
-                    onClick={() => setActiveAnomaly(ano)}
-                    className="cursor-pointer hover:opacity-100 transition-opacity"
-                  >
-                    <rect
-                      x={ano.coordinates.x * 3.5}
-                      y={ano.coordinates.y * 3.5}
-                      width={ano.coordinates.width * 4}
-                      height={ano.coordinates.height * 4}
-                      fill="none"
-                      stroke="#facc15"
-                      strokeWidth="2"
-                      strokeDasharray="4 2"
-                      className="animate-pulse"
-                    />
-                    <circle
-                      cx={ano.coordinates.x * 3.5 + 4}
-                      cy={ano.coordinates.y * 3.5 + 4}
-                      r="3"
-                      fill="#ef4444"
-                    />
-                  </g>
-                ))}
-            </svg>
+              {/* Interactive SVG ROI Overlay for Anomalies */}
+              <svg viewBox="0 0 400 400" className="absolute inset-0 w-full h-full pointer-events-auto">
+                {showAnomalies &&
+                  anomalies.map((ano) => (
+                    <g
+                      key={ano.id}
+                      onClick={() => setActiveAnomaly(ano)}
+                      className="cursor-pointer group/ano"
+                    >
+                      <rect
+                        x={ano.coordinates.x * 3.5}
+                        y={ano.coordinates.y * 3.5}
+                        width={ano.coordinates.width * 4}
+                        height={ano.coordinates.height * 4}
+                        fill="rgba(234, 179, 8, 0.25)"
+                        stroke="#facc15"
+                        strokeWidth="2.5"
+                        strokeDasharray="4 2"
+                        className="animate-pulse group-hover/ano:stroke-red-500 group-hover/ano:fill-red-500/40 transition-all"
+                      />
+                      <circle
+                        cx={ano.coordinates.x * 3.5 + 4}
+                        cy={ano.coordinates.y * 3.5 + 4}
+                        r="4"
+                        fill="#ef4444"
+                      />
+                      <text
+                        x={ano.coordinates.x * 3.5}
+                        y={ano.coordinates.y * 3.5 - 4}
+                        fill="#fef08a"
+                        fontSize="10"
+                        fontWeight="bold"
+                        fontFamily="monospace"
+                      >
+                        {ano.type} ({(ano.confidence * 100).toFixed(0)}%)
+                      </text>
+                    </g>
+                  ))}
+              </svg>
+            </div>
           </div>
         </div>
       </div>
