@@ -41,6 +41,23 @@ venv/
 *.iml
 .DS_Store
 Thumbs.db
+.agents/
+.augment/
+.claude/
+.codebuddy/
+.codewhale/
+.continue/
+.cursor/
+.factory/
+.gemini/
+.kilocode/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.warp/
+.windsurf/
 
 # Logs and temporary files
 *.log
@@ -54,6 +71,5 @@ temp/
 *.onnx
 models/weights/
 datasets/
-medical-data/
 patient-images/
 retinal-images/
