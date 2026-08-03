@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #0891B2;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #22D3EE;
+  --color-accent: #16A34A;
+  --color-background: #F0FDFA;
+  --color-foreground: #134E4A;
+  --color-muted: #E8F1F6;
+  --color-border: #CCFBF1;
+  --color-destructive: #DC2626;
+  --color-ring: #0891B2;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono-data {
+  font-family: 'Fira Code', monospace;
+}
+
+/* Custom scrollbars for data-dense clinical tables */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F0FDFA;
+}
+::-webkit-scrollbar-thumb {
+  background: #99F6E4;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #0891B2;
+}
+
+/* Clinical Decision Support canvas overlay styling */
+.cds-canvas-overlay {
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}

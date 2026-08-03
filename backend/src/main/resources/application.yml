@@ -2,26 +2,29 @@ spring:
   application:
     name: aura-backend
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/aura_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:aura_password123}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     open-in-view: false
   flyway:
-    enabled: true
-    locations: classpath:db/migration
+    enabled: false
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8081}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
 
 aura:
-  auth:
-    jwt-secret: ${JWT_SECRET}
-    access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:15}
-    refresh-token-days: ${REFRESH_TOKEN_DAYS:7}
-    cookie-secure: ${REFRESH_COOKIE_SECURE:true}
-    cookie-same-site: ${REFRESH_COOKIE_SAME_SITE:Strict}
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  ai-service:
+    url: ${AI_SERVICE_URL:http://localhost:8000}
+    simulate-if-offline: true
+  anonymization:
+    hmac-secret: AURA_HIPAA_NFR_JAVA_HMAC_SECRET_2026

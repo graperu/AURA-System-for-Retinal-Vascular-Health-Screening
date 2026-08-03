@@ -1,6 +1,61 @@
 name: aura
 
-# Services will be added in their implementation phases, after each service has
-# a buildable application and Dockerfile. Keeping this file valid but empty
-# avoids presenting non-runnable placeholder containers as completed services.
-services: {}
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aura-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: aura_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: aura_password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aura_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aura-backend
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/aura_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: aura_password123
+      SERVER_PORT: 8081
+      AI_SERVICE_URL: http://ai-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: aura-ai-service
+    restart: always
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: node:20-alpine
+    container_name: aura-frontend
+    restart: always
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    command: npx -y serve -s dist -p 3000
+
+volumes:
+  postgres_data:

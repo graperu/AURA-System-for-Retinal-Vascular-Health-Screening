@@ -1,134 +1,127 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../types/cds';
+import {
+  LayoutDashboard,
+  UploadCloud,
+  Eye,
+  Activity,
+  FileSpreadsheet,
+  Users,
+  ShieldCheck,
+  CreditCard,
+  Settings,
+  HelpCircle,
+  UserCheck,
+} from 'lucide-react';
 
 interface SideNavBarProps {
-  currentRole?: string;
+  currentRole: UserRole;
+  activeSection: string;
+  onSelectSection: (section: string) => void;
 }
 
-export const SideNavBar: React.FC<SideNavBarProps> = ({ currentRole }) => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const auth = useAuth();
-  const user = auth.user;
+export const SideNavBar: React.FC<SideNavBarProps> = ({
+  currentRole,
+  activeSection,
+  onSelectSection,
+}) => {
+  const getNavItems = () => {
+    switch (currentRole) {
+      case 'doctor':
+        return [
+          { id: 'cds-viewer', label: 'Bàn Chẩn Đoán AI (CDS)', icon: <Eye className="w-4 h-4" /> },
+          { id: 'patient-list', label: 'Danh Sách Bệnh Nhân', icon: <Users className="w-4 h-4" /> },
+          { id: 'risk-analytics', label: 'Phân Tích Rủi Ro Tim Mạch', icon: <Activity className="w-4 h-4" /> },
+          { id: 'reports', label: 'Báo Cáo & Ký Số EMR', icon: <FileSpreadsheet className="w-4 h-4" /> },
+        ];
+      case 'clinic':
+        return [
+          { id: 'bulk-batch', label: 'Sàng Lọc Hàng Loạt (Bulk)', icon: <UploadCloud className="w-4 h-4" /> },
+          { id: 'doctors-manage', label: 'Quản Lý Bác Sĩ & Ca', icon: <Users className="w-4 h-4" /> },
+          { id: 'credit-package', label: 'Gói Credit Screening', icon: <CreditCard className="w-4 h-4" /> },
+          { id: 'campaign-analytics', label: 'Báo Cáo Chiến Dịch', icon: <LayoutDashboard className="w-4 h-4" /> },
+        ];
+      case 'patient':
+        return [
+          { id: 'my-scans', label: 'Ảnh Võng Mạc Cá Nhân', icon: <Eye className="w-4 h-4" /> },
+          { id: 'upload-scan', label: 'Tải Lên Ảnh Fundus Mới', icon: <UploadCloud className="w-4 h-4" /> },
+          { id: 'health-advice', label: 'Chỉ Số & Lời Khuyên Y Tế', icon: <Activity className="w-4 h-4" /> },
+        ];
+      case 'admin':
+        return [
+          { id: 'audit-logs', label: 'Nhật Ký Kiểm Toán Audit', icon: <ShieldCheck className="w-4 h-4" /> },
+          { id: 'ai-thresholds', label: 'Cấu Hình Ngưỡng AI', icon: <Settings className="w-4 h-4" /> },
+          { id: 'user-management', label: 'Quản Lý Người Dùng', icon: <Users className="w-4 h-4" /> },
+        ];
+    }
+  };
 
-  const role = user?.role || 'DOCTOR';
+  const navItems = getNavItems();
 
-  let roleTitle = currentRole;
-  if (!roleTitle) {
-    if (role === 'PATIENT' || role === 'USER') roleTitle = 'Bệnh nhân';
-    else if (role === 'DOCTOR') roleTitle = 'Bác sĩ Phân tích';
-    else if (role === 'ADMIN') roleTitle = 'Quản trị hệ thống';
-    else if (role === 'CLINIC') roleTitle = 'Quản lý phòng khám';
-    else roleTitle = 'Người dùng';
-  }
-
-  // Define nav items per role
-  let navItems = [
-    { label: 'Bàn làm việc Bác sĩ', path: '/doctor', icon: 'stethoscope' },
-    { label: 'Giao diện Bệnh nhân', path: '/patient', icon: 'person' },
-    { label: 'Tổng quan Phòng khám', path: '/clinic', icon: 'domain' },
-    { label: 'Quản trị Hệ thống', path: '/admin', icon: 'admin_panel_settings' },
-    { label: 'Tải lên Ca khám mới', path: '/upload', icon: 'cloud_upload' },
-    { label: 'Nhật ký Kiểm toán', path: '/audit', icon: 'history' },
-  ];
-
-  if (role === 'PATIENT' || role === 'USER') {
-    navItems = [
-      { label: 'Trang chủ Bệnh nhân', path: '/patient', icon: 'dashboard' },
-      { label: 'Lịch sử Sàng lọc', path: '/patient/history', icon: 'history' },
-      { label: 'Tải ảnh Sàng lọc mới', path: '/upload', icon: 'cloud_upload' },
-    ];
-  } else if (role === 'DOCTOR') {
-    navItems = [
-      { label: 'Bàn làm việc Bác sĩ', path: '/doctor', icon: 'stethoscope' },
-      { label: 'Tải lên Ca khám mới', path: '/upload', icon: 'cloud_upload' },
-      { label: 'Danh sách Bệnh nhân', path: '/patient', icon: 'group' },
-    ];
-  } else if (role === 'ADMIN') {
-    navItems = [
-      { label: 'Quản trị Hệ thống', path: '/admin', icon: 'admin_panel_settings' },
-      { label: 'Nhật ký Kiểm toán', path: '/audit', icon: 'history' },
-      { label: 'Quản lý Phòng khám', path: '/clinic', icon: 'domain' },
-    ];
-  } else if (role === 'CLINIC') {
-    navItems = [
-      { label: 'Tổng quan Phòng khám', path: '/clinic', icon: 'domain' },
-      { label: 'Bàn làm việc Bác sĩ', path: '/doctor', icon: 'stethoscope' },
-      { label: 'Tải lên Ca khám mới', path: '/upload', icon: 'cloud_upload' },
-    ];
-  }
-
-  const handleLogout = async () => {
-    await auth.logout();
-    navigate('/login');
+  const getRoleTitle = () => {
+    switch (currentRole) {
+      case 'patient':
+        return 'Menu Bệnh Nhân';
+      case 'doctor':
+        return 'Menu Bác Sĩ CDS';
+      case 'clinic':
+        return 'Menu Phòng Khám';
+      case 'admin':
+        return 'Menu System Admin';
+    }
   };
 
   return (
-    <nav className="hidden md:flex flex-col h-screen w-sidebar-width py-margin-page px-4 border-r border-outline-variant bg-surface-container-low fixed left-0 top-0 z-40">
-      <div className="mb-6 px-2 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shrink-0 shadow-sm">
-          <span className="material-symbols-outlined filled text-xl">visibility</span>
+    <aside className="w-64 bg-white border-r border-[#CCFBF1] flex flex-col justify-between p-4 min-h-[calc(100vh-61px)]">
+      <div className="space-y-6">
+        <div>
+          <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block px-3 mb-2 font-mono-data">
+            {getRoleTitle()}
+          </span>
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const isActive = activeSection === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onSelectSection(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-[#F0FDFA] text-[#0891B2] font-semibold border-l-4 border-[#0891B2] shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-[#0891B2]'
+                  }`}
+                >
+                  <span className={isActive ? 'text-[#0891B2]' : 'text-slate-400'}>{item.icon}</span>
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
         </div>
-        <div className="overflow-hidden">
-          <h1 className="text-headline-sm font-black text-primary leading-tight truncate">AURA Clinical</h1>
-          <p className="text-[11px] text-on-surface-variant truncate">Sức khỏe Võng mạc</p>
+
+        {/* System Health Info Widget */}
+        <div className="p-3 bg-[#F0FDFA] rounded-xl border border-[#CCFBF1] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#134E4A]">AI Microservice:</span>
+            <span className="w-2 h-2 rounded-full bg-[#16A34A] animate-pulse"></span>
+          </div>
+          <p className="text-[11px] text-slate-600">
+            AURA-ResNet50 (PyTorch 2.2)
+          </p>
+          <div className="text-[10px] font-mono-data text-slate-400">
+            Encrypted • HIPAA AA
+          </div>
         </div>
       </div>
 
-      <Link
-        to="/upload"
-        className="w-full mb-5 bg-primary hover:bg-primary-container hover:text-on-primary-container text-on-primary rounded-xl py-2.5 px-3 flex items-center justify-center gap-2 font-semibold text-label-md transition-colors shadow-sm"
-      >
-        <span className="material-symbols-outlined text-base">add</span>
-        Tải Ca Tầm Soát Mới
-      </Link>
-
-      <ul className="flex-1 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <li key={item.path}>
-              <Link
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-label-md transition-all ${
-                  isActive
-                    ? 'bg-primary-container text-on-primary-container font-semibold shadow-xs'
-                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
-                }`}
-              >
-                <span className={`material-symbols-outlined text-[18px] ${isActive ? 'filled' : ''}`}>
-                  {item.icon}
-                </span>
-                <span className="truncate">{item.label}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-
-      <div className="mt-auto pt-3 border-t border-outline-variant flex items-center justify-between px-1">
-        <div className="flex items-center gap-2 overflow-hidden">
-          <div className="w-8 h-8 rounded-full bg-surface-variant border border-outline-variant flex items-center justify-center text-primary font-bold text-xs shrink-0">
-            {user?.fullName ? user.fullName.substring(0, 2).toUpperCase() : 'AU'}
-          </div>
-          <div className="overflow-hidden">
-            <p className="text-label-md font-semibold text-on-surface truncate">
-              {user?.fullName || 'Người dùng AURA'}
-            </p>
-            <p className="text-[10px] text-on-surface-variant uppercase tracking-wider truncate">
-              {roleTitle}
-            </p>
-          </div>
+      {/* Footer Support Info */}
+      <div className="pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-2">
+        <div className="flex items-center gap-2 text-slate-500 hover:text-[#0891B2] cursor-pointer">
+          <HelpCircle className="w-4 h-4" />
+          <span>Hướng dẫn sử dụng Cổng Y tế</span>
         </div>
-        <button
-          onClick={handleLogout}
-          title="Đăng xuất"
-          className="text-on-surface-variant hover:text-error hover:bg-error/10 p-1.5 rounded-lg transition-colors"
-        >
-          <span className="material-symbols-outlined text-lg">logout</span>
-        </button>
+        <div>AURA Health &copy; 2026.</div>
       </div>
-    </nav>
+    </aside>
   );
 };
