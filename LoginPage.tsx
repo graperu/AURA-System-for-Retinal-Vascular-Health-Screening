@@ -9,8 +9,8 @@ export const LoginPage: React.FC = () => {
   const [portalRole, setPortalRole] = useState<'DOCTOR' | 'USER' | 'ADMIN' | 'CLINIC'>('DOCTOR');
 
   // Login form state
-  const [loginEmail, setLoginEmail] = useState('dr.phandinh@aura.vn');
-  const [loginPassword, setLoginPassword] = useState('phandinh123@A');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
   // Register form state
   const [regFullName, setRegFullName] = useState('');
@@ -35,10 +35,8 @@ export const LoginPage: React.FC = () => {
     setPortalRole(roleId);
     setErrorMsg('');
     setSuccessMsg('');
-    if (roleId === 'DOCTOR') setLoginEmail('dr.phandinh@aura.vn');
-    else if (roleId === 'USER') setLoginEmail('patient.nguyenan@aura.vn');
-    else if (roleId === 'ADMIN') setLoginEmail('admin@aura.vn');
-    else if (roleId === 'CLINIC') setLoginEmail('clinic.central@aura.vn');
+    setLoginEmail('');
+    setLoginPassword('');
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -56,8 +54,7 @@ export const LoginPage: React.FC = () => {
         }, 500);
       } else {
         if (res.message?.includes('Failed to fetch') || res.message?.includes('HTTP Error')) {
-          setSuccessMsg(`Chuyển hướng vào giao diện ${portalRole} (Offline Mode)...`);
-          setTimeout(() => redirectByRole(portalRole), 600);
+          setErrorMsg('Không thể kết nối đến hệ thống xác thực. Vui lòng kiểm tra kết nối mạng và thử lại sau.');
         } else {
           setErrorMsg(res.message || 'Đăng nhập không thành công.');
         }
@@ -103,8 +100,7 @@ export const LoginPage: React.FC = () => {
         }, 800);
       } else {
         if (res.message?.includes('Failed to fetch') || res.message?.includes('HTTP Error')) {
-          setSuccessMsg(`Đăng ký tài khoản ${portalRole} thành công (Offline Mode)...`);
-          setTimeout(() => redirectByRole(portalRole), 600);
+          setErrorMsg('Không thể kết nối đến hệ thống. Vui lòng kiểm tra kết nối mạng và thử lại sau.');
         } else {
           setErrorMsg(res.message || 'Đăng ký thất bại.');
         }
@@ -417,7 +413,10 @@ export const LoginPage: React.FC = () => {
 
           <div className="space-y-2.5">
             <button
-              onClick={() => navigate('/patient')}
+              onClick={() => {
+                setErrorMsg('Đăng nhập bằng Google chưa được tích hợp trong hệ thống này.');
+                setSuccessMsg('');
+              }}
               type="button"
               className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-surface-container-lowest border border-outline-variant text-on-surface rounded font-label-md text-label-md uppercase hover:bg-surface-container-low transition-colors"
             >
@@ -431,7 +430,10 @@ export const LoginPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => navigate('/admin')}
+              onClick={() => {
+                setErrorMsg('Đăng nhập SSO Đơn vị chưa được tích hợp. Vui lòng đăng nhập bằng email/mật khẩu Quản trị viên.');
+                setSuccessMsg('');
+              }}
               type="button"
               className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-surface-container-lowest border border-outline-variant text-on-surface rounded font-label-md text-label-md uppercase hover:bg-surface-container-low transition-colors"
             >
