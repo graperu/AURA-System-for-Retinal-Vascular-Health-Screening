@@ -146,9 +146,14 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             accept=".dcm,.png,.jpg,.jpeg"
             className="hidden"
           />
-          <div className="flex flex-col items-center justify-center gap-2">
-            <div className="w-12 h-12 rounded-full bg-white shadow-md border border-slate-200 flex items-center justify-center">
-              <FileImage className={`w-6 h-6 ${selectedFile ? 'text-[#16A34A]' : 'text-[#0891B2]'}`} />
+          <div className="flex flex-col items-center justify-center gap-3">
+            <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-[#0891B2] shadow-md bg-slate-950 flex items-center justify-center group/thumb">
+              <img
+                src="/assets/images/fundus_original.png"
+                alt="Selected Fundus Scan Preview"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-110"
+              />
+              <div className="absolute inset-0 bg-black/20 group-hover/thumb:bg-transparent transition-colors" />
             </div>
             {selectedFile ? (
               <div>
@@ -156,15 +161,17 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                   Đã chọn: {selectedFile.name}
                 </span>
                 <span className="text-xs text-slate-500">
-                  Kích thước: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB | Sẵn sàng gửi AI
+                  Kích thước: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB | Sẵn sàng gửi AI Processing
                 </span>
               </div>
             ) : (
               <div>
                 <span className="text-sm font-semibold text-slate-800 block">
-                  Kéo thả file ảnh võng mạc hoặc DICOM vào đây
+                  Kéo thả file ảnh võng mạc (Fundus / DICOM) vào đây
                 </span>
-                <span className="text-xs text-slate-500">Hoặc nhấp để chọn tệp từ máy tính</span>
+                <span className="text-xs text-[#0891B2] font-semibold mt-0.5 block">
+                  Đã nạp sẵn ảnh soi đáy mắt mẫu chuẩn (Retinal Scan OD)
+                </span>
               </div>
             )}
           </div>
