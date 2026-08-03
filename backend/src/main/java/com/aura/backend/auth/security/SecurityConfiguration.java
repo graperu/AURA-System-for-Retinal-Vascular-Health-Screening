@@ -1,5 +1,6 @@
 package com.aura.backend.auth.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +16,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * RBAC entry point (FR-32, NFR-12). Path-based rules below are the coarse layer;
@@ -48,6 +55,28 @@ public class SecurityConfiguration {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * Replaces the old WebConfiguration/WebMvcConfigurer CORS mapping. That approach only
+     * applied CORS at the DispatcherServlet level, which runs AFTER the Spring Security
+     * filter chain — so preflight OPTIONS requests to any authenticated path (e.g.
+     * /api/v1/me/**, /api/v1/admin/**) were rejected by authorizeHttpRequests before ever
+     * reaching MVC's CORS handling. Registering the source here and calling .cors(...)
+     * below makes Spring Security itself permit preflight requests per-path.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${cors.allowed-origins:http://localhost:5173}") String allowedOrigins) {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
     @Bean
     public AuthenticationManager authenticationManager(UserDetailsService userDetailsService,
                                                          PasswordEncoder passwordEncoder) {
@@ -58,8 +87,9 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable()) // stateless JWT API, no browser cookie session to protect
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(handling -> handling
@@ -72,6 +102,11 @@ public class SecurityConfiguration {
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         // Public pricing catalog (FR-34 read side) — no login required
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/packages").permitAll()
+                        // TODO(auth-ui): frontend chưa có màn hình đăng nhập / lưu token (Milestone 1 demo
+                        // button gọi thẳng, không có Authorization header). Tạm permitAll để không phá demo
+                        // hiện có — gỡ dòng này ngay khi frontend có luồng login thật, vì FR-2 yêu cầu
+                        // người dùng phải đăng nhập mới được phân tích ảnh.
+                        .requestMatchers("/api/v1/analyses/demo").permitAll()
                         // Clinic-facing bulk analysis endpoints ([FR-22]-[FR-30])
                         .requestMatchers("/api/v1/clinics/**").hasAnyRole("CLINIC", "ADMIN")
                         // Doctor review endpoints ([FR-13]-[FR-21])

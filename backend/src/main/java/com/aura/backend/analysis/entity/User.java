@@ -9,7 +9,10 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "_user")
+// Renamed off "_user" (2026-08): the active User entity is now com.aura.backend.user.entity.User,
+// which owns the "_user" table. This class is unused legacy code kept for reference only —
+// renaming the table avoids a duplicate-mapping conflict at Hibernate startup.
+@Table(name = "_user_legacy_unused")
 public class User {
 
     @Id

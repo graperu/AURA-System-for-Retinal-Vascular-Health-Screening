@@ -152,3 +152,14 @@ GET /api/v1/me/subscriptions   → số lượt phân tích còn lại (FR-12)
 - Trừ credit thực tế khi tạo `AnalysisReport` mới — hiện `AnalysisController` (Milestone 1) chưa được nối với `Subscription.remainingCredits`; đây là việc cần làm trước khi coi hệ thống credit là "thật".
 - Job định kỳ tự động chuyển `Subscription` sang `EXPIRED` khi hết hạn (hiện tại chỉ kiểm tra "lazy" mỗi khi gọi `GET /api/v1/me/subscriptions`).
 - Hoàn tiền / hủy gói.
+
+---
+
+## Rà soát trước khi commit (2026-08) — các lỗi đã sửa
+
+Trước khi merge Milestone 2 vào `main`, rà soát phát hiện và sửa 4 vấn đề:
+
+1. **Entity `User`/`Role` cũ (`analysis.entity`) trùng bảng `_user` với entity mới (`user.entity`)** — cả 2 đều bị Hibernate scan vì cùng nằm dưới `com.aura.backend`. Giữ nguyên 3 file cũ theo yêu cầu, chỉ đổi `@Table` của bản cũ sang `_user_legacy_unused` để hết xung đột mapping. File cũ không còn được dùng ở đâu khác ngoài chính nó.
+2. **`SecurityConfiguration` thiếu `.cors(...)`** — CORS trước đó chỉ cấu hình ở tầng MVC (`WebConfiguration`), chạy sau filter chain của Spring Security nên preflight `OPTIONS` tới các endpoint yêu cầu đăng nhập (`/api/v1/me/**`, `/api/v1/admin/**`...) bị chặn trước khi tới được CORS. Đã thêm bean `CorsConfigurationSource` ngay trong `SecurityConfiguration` và gọi `.cors(...)`; xoá `WebConfiguration.java` để tránh 2 nguồn cấu hình CORS chồng nhau.
+3. **`docker-compose.yml` không forward `JWT_SECRET`/`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`OAUTH2_FRONTEND_REDIRECT`** vào container backend — chạy bằng `docker compose up` sẽ luôn dùng secret JWT mặc định dù `.env` đã set giá trị thật. Đã bổ sung đủ biến vào `backend.environment`.
+4. **Demo phân tích ảnh trên frontend (Milestone 1) gọi `/api/v1/analyses/demo` không kèm token** — vì frontend chưa có màn hình đăng nhập/lưu token. Tạm thời giữ endpoint này `permitAll` (có TODO rõ trong `SecurityConfiguration`) để không phá demo hiện có; cần gỡ ngay khi frontend có luồng login thật, vì FR-2 yêu cầu đăng nhập trước khi phân tích ảnh.
