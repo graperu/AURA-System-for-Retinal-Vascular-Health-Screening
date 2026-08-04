@@ -1,6 +1,6 @@
 <div align="center">
 
-![AURA Web Preview](docs/images/aura-web-preview.png)
+![AURA Web Preview](frontend/public/images/aura-web-preview.png)
 
 # AURA
 
