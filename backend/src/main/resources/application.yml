@@ -23,6 +23,18 @@ springdoc:
     operationsSorter: method
 
 aura:
+  auth:
+    jwt-secret: ${JWT_SECRET:AURA_SYSTEM_JWT_SECRET_KEY_2026_MINIMUM_32_BYTES_REQUIRED_FOR_HS256}
+    access-token-minutes: ${ACCESS_TOKEN_MINUTES:30}
+    refresh-token-days: ${REFRESH_TOKEN_DAYS:7}
+    cookie-same-site: ${COOKIE_SAME_SITE:Strict}
+    cookie-secure: ${COOKIE_SECURE:false}
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://localhost:5173
+      - http://127.0.0.1:3000
+      - http://127.0.0.1:5173
   ai-service:
     url: ${AI_SERVICE_URL:http://localhost:8000}
     simulate-if-offline: true
