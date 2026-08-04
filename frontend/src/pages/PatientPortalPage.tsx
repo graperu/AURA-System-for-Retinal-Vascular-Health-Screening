@@ -43,7 +43,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({ user }) =>
   return (
     <div className="space-y-6">
       {/* Patient Profile Header with Medical Banner Accent */}
-      <div className="bg-gradient-to-r from-slate-900 via-[#134E4A] to-slate-900 text-white rounded-2xl p-6 shadow-medical-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+      <div id="my-scans" className="scroll-mt-24 bg-gradient-to-r from-slate-900 via-[#134E4A] to-slate-900 text-white rounded-2xl p-6 shadow-medical-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
         {/* Background Visual Eye Glow Accent */}
         <div className="absolute right-0 top-0 bottom-0 w-96 bg-[#0891B2]/20 blur-3xl pointer-events-none" />
 
@@ -72,14 +72,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({ user }) =>
           onClick={handleDownloadReport}
           className="z-10 px-4 py-2.5 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold rounded-xl text-xs shadow-lg transition-all flex items-center gap-2 border border-emerald-400/30 active:scale-95"
         >
-          <Download className="w-4 h-4" /> Tải Báo Cáo Y Tế PDF (Full Report)
+          <Download className="w-4 h-4" /> Tải báo cáo PDF
         </button>
       </div>
 
       {/* Main Grid: Upload New Scan vs AI Results Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Image Upload Box */}
-        <div className="lg:col-span-5 space-y-6">
+        <div id="upload-scan" className="scroll-mt-24 lg:col-span-5 space-y-6">
           <PatientUploader
             activePatient={patient}
             onStartAnalysis={handleStartAnalysis}
@@ -89,7 +89,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({ user }) =>
         </div>
 
         {/* Right Column: Personal AI Risk Metrics */}
-        <div className="lg:col-span-7 space-y-6">
+        <div id="health-advice" className="scroll-mt-24 lg:col-span-7 space-y-6">
           <div className="bg-white border border-[#CCFBF1] rounded-2xl p-6 shadow-medical-md space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>

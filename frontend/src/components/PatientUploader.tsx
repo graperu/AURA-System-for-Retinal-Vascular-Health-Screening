@@ -61,15 +61,15 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         <div>
           <h2 className="text-lg font-bold text-[#134E4A] flex items-center gap-2">
             <UploadCloud className="w-5 h-5 text-[#0891B2]" />
-            Tải Lên Ảnh Võng Mạc Võng Mạc / DICOM
+            Tải ảnh võng mạc mới
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Hỗ trợ định dạng DICOM (.dcm), High-Res PNG, JPEG. Tự động mã hóa & ẩn danh thông tin bệnh nhân.
+            Hỗ trợ DICOM, PNG và JPEG. Thông tin nhạy cảm được tự động ẩn danh.
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs bg-[#F0FDFA] px-3 py-1.5 rounded-lg border border-[#99F6E4]">
           <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
-          <span className="font-semibold text-[#134E4A]">HIPAA Anonymization Enabled</span>
+          <span className="font-semibold text-[#134E4A]">Đã bật bảo vệ dữ liệu</span>
         </div>
       </div>
 
@@ -78,7 +78,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Mắt Thắt Chụp (Eye Position):
+              Chọn mắt cần phân tích
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -90,7 +90,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                Mắt Phải (OD - Mắt Phải)
+                Mắt phải (OD)
               </button>
               <button
                 type="button"
@@ -101,14 +101,14 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                Mắt Trái (OS - Mắt Trái)
+                Mắt trái (OS)
               </button>
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Loại Ảnh Chụp Chẩn Đoán (Scan Type):
+              Loại ảnh chụp
             </label>
             <select
               value={scanType}
@@ -221,7 +221,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             className="w-full py-3 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-sm transition-all shadow-medical-md flex items-center justify-center gap-2"
           >
             <UploadCloud className="w-4 h-4" />
-            Bắt Đầu Phân Tích Mạch Máu Võng Mạc & Nguy Cơ Tim Mạch (AI Run)
+            Bắt đầu phân tích ảnh
           </button>
         )}
       </form>

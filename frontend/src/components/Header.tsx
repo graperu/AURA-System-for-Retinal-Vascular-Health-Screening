@@ -1,78 +1,73 @@
 import React from 'react';
+import { Bell, Eye, LogOut, Menu, ShieldCheck } from 'lucide-react';
 import { UserSession } from '../types/auth';
-import { Eye, ShieldCheck, LogOut, User, Building2, Stethoscope, ShieldAlert, UserCheck } from 'lucide-react';
 
 interface HeaderProps {
   currentUser: UserSession;
   onLogout: () => void;
+  onOpenMenu: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentUser, onLogout }) => {
-  const getRoleIcon = () => {
-    switch (currentUser.role) {
-      case 'patient':
-        return <UserCheck className="w-4 h-4 text-[#16A34A]" />;
-      case 'doctor':
-        return <Stethoscope className="w-4 h-4 text-[#0891B2]" />;
-      case 'clinic':
-        return <Building2 className="w-4 h-4 text-teal-600" />;
-      case 'admin':
-        return <ShieldAlert className="w-4 h-4 text-slate-700" />;
-    }
-  };
+const roleLabels = {
+  patient: 'Bệnh nhân',
+  doctor: 'Bác sĩ',
+  clinic: 'Phòng khám',
+  admin: 'Quản trị viên',
+};
 
-  return (
-    <header className="bg-white border-b border-[#CCFBF1] sticky top-0 z-40 shadow-medical-sm">
-      <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between gap-4">
-        {/* Brand & Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#0891B2] text-white rounded-xl flex items-center justify-center shadow-md">
-            <Eye className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg text-[#134E4A] tracking-tight">AURA System</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-[#CCFBF1] text-[#0891B2] font-semibold border border-[#99F6E4]">
-                v2.4 (HIPAA Ready)
-              </span>
-            </div>
-            <span className="text-xs text-slate-500 font-medium hidden sm:block">
-              Hệ Thống Sàng Lọc Sức Khỏe Mạch Máu Võng Mạc & Hỗ Trợ Chẩn Đoán AI
-            </span>
-          </div>
+export const Header: React.FC<HeaderProps> = ({ currentUser, onLogout, onOpenMenu }) => (
+  <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
+    <div className="mx-auto flex h-[72px] w-full max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100 lg:hidden"
+          aria-label="Mở menu điều hướng"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-700 text-white shadow-[0_8px_24px_rgba(14,116,144,0.24)]">
+          <Eye className="h-6 w-6" aria-hidden="true" />
         </div>
-
-        {/* Authenticated User Profile Badge & Logout Button */}
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-[#F0FDFA] border border-[#CCFBF1]">
-            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-bold text-[#0891B2] shadow-xs">
-              {getRoleIcon()}
-            </div>
-            <div className="text-xs">
-              <div className="font-bold text-[#134E4A]">{currentUser.name}</div>
-              <div className="text-[11px] text-slate-500 font-medium">
-                {currentUser.roleTitle} • <span className="text-[#0891B2] font-semibold">{currentUser.organization}</span>
-              </div>
-            </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-extrabold tracking-tight text-slate-900">AURA</span>
+            <span className="hidden rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-bold text-cyan-800 sm:inline">Hỗ trợ sàng lọc AI</span>
           </div>
-
-          {/* Security Badge */}
-          <div className="hidden lg:flex items-center gap-1 text-xs text-[#16A34A] bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200">
-            <ShieldCheck className="w-4 h-4" />
-            <span className="font-semibold">Secured Session</span>
-          </div>
-
-          {/* Logout Button */}
-          <button
-            onClick={onLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border border-slate-200 shadow-xs"
-            title="Đăng xuất khỏi phân vùng tác nhân"
-          >
-            <LogOut className="w-4 h-4 text-red-500" />
-            <span>Đăng Xuất</span>
-          </button>
+          <p className="truncate text-xs font-medium text-slate-500">Sức khỏe mạch máu võng mạc</p>
         </div>
       </div>
-    </header>
-  );
-};
+
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="hidden items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 xl:flex">
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          Phiên làm việc an toàn
+        </div>
+        <button
+          type="button"
+          className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100"
+          aria-label="Thông báo"
+        >
+          <Bell className="h-5 w-5" />
+          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full border-2 border-white bg-rose-500" />
+        </button>
+
+        <div className="hidden min-w-0 border-l border-slate-200 pl-3 sm:block">
+          <p className="max-w-48 truncate text-sm font-bold text-slate-800">{currentUser.name}</p>
+          <p className="text-xs text-slate-500">{roleLabels[currentUser.role]}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-100"
+          aria-label="Đăng xuất"
+        >
+          <LogOut className="h-4 w-4" />
+          <span className="hidden md:inline">Đăng xuất</span>
+        </button>
+      </div>
+    </div>
+  </header>
+);

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export const LoginPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = (path: string) => {
+    window.location.assign(path);
+  };
   const auth = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [portalRole, setPortalRole] = useState<'DOCTOR' | 'USER' | 'ADMIN' | 'CLINIC'>('DOCTOR');
