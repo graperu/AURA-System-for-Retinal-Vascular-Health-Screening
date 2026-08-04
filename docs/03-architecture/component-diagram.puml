@@ -1,0 +1,87 @@
+@startuml aura-component-diagram
+!theme plain
+title AURa - Component Diagram (UML 2.0)
+
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+actor "Patient\n(USER)" as Patient
+actor "Doctor\n(DOCTOR)" as Doctor
+actor "Clinic Manager" as Clinic
+actor "Administrator\n(ADMIN)" as Admin
+
+package "Presentation Tier" {
+    component [React Web Application] as WebApp{
+        port "HTTPS" as WebPort
+        component [Auth UI] as AuthUI
+        component [Patient Portal] as PatientUI
+        component [Doctor CDS] as DoctorUI
+        component [Clinic Dashboard] as ClinicUI
+        component [Admin Console] as AdminUI
+    }
+}
+
+package "Application Tier" {
+  component [Spring Boot API\n(modular monolith)] as Backend {
+    port "REST /api/v1" as ApiPort
+    component [auth module] as AuthMod
+    component [screening module] as ScreenMod
+    component [system module] as SysMod
+    component [Security & RBAC] as SecMod
+  }
+}
+
+package "Data Tier" {
+    database "PostgreSQL" as PG {
+        component [Flyway Migrations] as Flyway
+    }
+    component [Supabase Storage\n(private bucket)] as Storage <<planned>>
+
+}
+
+package "AI Tier" <<planned>> {
+  component [FastAPI AI Service] as AI {
+    port "REST internal" as AiPort
+    component [Inference Pipeline] as Pipeline
+    component [PyTorch Model] as Model
+  }
+}
+
+Patient --> WebPort
+Doctor --> WebPort
+Clinic --> WebPort
+Admin --> WebPort
+
+WebPort --> ApiPort : JWT Bearer\n(JSON)
+
+AuthUI ..> AuthMod
+PatientUI ..> ScreenMod
+DoctorUI ..> ScreenMod
+ClinicUI ..> Backend : mock / planned APIs
+AdminUI ..> Backend : mock / planned APIs
+
+ApiPort --> AuthMod
+ApiPort --> ScreenMod
+ApiPort --> SysMod
+SecMod ..> AuthMod
+SecMod ..> ScreenMod
+
+AuthMod --> PG : JDBC
+ScreenMod --> PG : JDBC
+ScreenMod --> Storage : signed URL\n(planned)
+ScreenMod --> AiPort : analyze image\n(planned)
+AI --> Model
+Pipeline --> Model
+
+note right of Backend
+  Implemented: auth, health, screenings (mock AI).
+  Planned: storage upload, AI orchestration,
+  clinic, payment, audit, notifications.
+end note
+
+note bottom of AI
+  ai-service/: placeholder only.
+  Browser must NOT call AI directly (NFR-21).
+end note
+
+@enduml
