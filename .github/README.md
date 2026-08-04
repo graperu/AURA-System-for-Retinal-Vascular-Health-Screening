@@ -1,6 +1,12 @@
 <div align="center">
 
-![AURA Web Preview](./frontend/public/images/aura-web-preview.png)
+<p align="center">
+  <img
+    src="https://raw.githubusercontent.com/graperu/AURA-System-for-Retinal-Vascular-Health-Screening/main/frontend/public/images/aura-web-preview.png"
+    alt="AURA Web Preview"
+    width="100%"
+  />
+</p>
 
 # AURA
 
