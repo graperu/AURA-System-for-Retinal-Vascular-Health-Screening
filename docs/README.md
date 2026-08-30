@@ -1,5 +1,6 @@
-# AURA documentation
+# AURA Documentation
 
+- [Kế Hoạch Thực Hiện Đồ Án Chi Tiết](KE_HOACH_THUC_HIEN_DO_AN.md) *(Bản kế hoạch chi tiết theo đề bài đồ án)*
 - `01-requirements`: MVP scope, roadmap, and traceability
 - `02-analysis`: actors, business rules, and use cases
 - `03-architecture`: system context, integration, and security
@@ -11,4 +12,3 @@
 
 Documents are expanded alongside their implementation phase. They must never
 contain real credentials, signed URLs, or patient data.
-
