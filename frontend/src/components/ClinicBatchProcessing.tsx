@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ClinicBatchJob } from '../types/cds';
-import { UploadCloud, Building2, CreditCard, Play, Pause, CheckCircle2, Clock, AlertTriangle, Search, Filter } from 'lucide-react';
+import { CreditPurchaseModal } from './CreditPurchaseModal';
+import { UploadCloud, Building2, CreditCard, Play, Pause, CheckCircle2, Clock, AlertTriangle, Search, Download, FileSpreadsheet } from 'lucide-react';
 
 interface ClinicBatchProcessingProps {
   batchJob: ClinicBatchJob;
@@ -9,6 +10,8 @@ interface ClinicBatchProcessingProps {
 export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({ batchJob }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
+  const [clinicCredits, setClinicCredits] = useState(1880);
 
   const filteredItems = batchJob.items.filter((item) => {
     const matchesSearch =
@@ -20,6 +23,29 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({ ba
   });
 
   const percentComplete = Math.round((batchJob.processedCount / batchJob.totalImages) * 100);
+
+  const handleExportCSV = () => {
+    const headers = ['STT', 'Ma_MRN', 'Ho_Ten_Benh_Nhan', 'Mat_Kham', 'File_Anh', 'Trang_Thai_AI', 'Muc_Rui_Ro', 'Diem_Rui_Ro_Phan_Tram'];
+    const rows = batchJob.items.map((it, idx) => [
+      idx + 1,
+      `"${it.mrn}"`,
+      `"${it.patientName}"`,
+      `"${it.eye}"`,
+      `"${it.fileName}"`,
+      `"${it.status}"`,
+      `"${it.riskLevel || 'N/A'}"`,
+      it.riskScore || 0,
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `AURA_Clinic_Screening_Report_${batchJob.batchId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="space-y-6">
@@ -68,12 +94,15 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({ ba
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono-data">Enterprise</span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold font-mono-data">1,880</span>
+            <span className="text-3xl font-extrabold font-mono-data">{clinicCredits.toLocaleString()}</span>
             <span className="text-xs text-cyan-200">/ 2,500 Lượt AI Screening Còn Lại</span>
           </div>
           <div className="text-[11px] text-cyan-100 flex justify-between items-center pt-1">
             <span>Hạn dùng: 31/12/2026</span>
-            <button className="bg-white text-[#0891B2] hover:bg-cyan-50 px-2.5 py-1 rounded-lg font-bold text-xs shadow-xs">
+            <button
+              onClick={() => setIsCreditModalOpen(true)}
+              className="bg-white text-[#0891B2] hover:bg-cyan-50 px-2.5 py-1 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all"
+            >
               + Mua Thêm Credit
             </button>
           </div>
@@ -106,9 +135,15 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({ ba
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Xuất Báo Cáo CSV
+            </button>
             <button className="px-4 py-2 bg-[#0891B2] text-white rounded-xl text-xs font-bold shadow-sm hover:bg-[#0E7490] transition-colors flex items-center gap-1.5">
-              <UploadCloud className="w-4 h-4" /> Tải Lên Tập Thư Mục Hàng Loạt (Zip/DICOM)
+              <UploadCloud className="w-4 h-4" /> Tải Lên Tập Hàng Loạt (≥100 Ảnh DICOM)
             </button>
           </div>
         </div>
@@ -120,7 +155,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({ ba
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono-data">
                 <th className="py-3 px-4">STT</th>
                 <th className="py-3 px-4">Bệnh Nhân & Mã MRN</th>
-                <th className="py-3 px-4">Thắt Chụp</th>
+                <th className="py-3 px-4">Mắt Chụp</th>
                 <th className="py-3 px-4">File Ảnh DICOM</th>
                 <th className="py-3 px-4">Trạng Thái AI</th>
                 <th className="py-3 px-4">Mức Nguy Cơ AI</th>
@@ -184,6 +219,14 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({ ba
           </table>
         </div>
       </div>
+
+      <CreditPurchaseModal
+        isOpen={isCreditModalOpen}
+        onClose={() => setIsCreditModalOpen(false)}
+        userRole="clinic"
+        currentCredit={clinicCredits}
+        onSuccess={(added) => setClinicCredits((prev) => prev + added)}
+      />
     </div>
   );
 };

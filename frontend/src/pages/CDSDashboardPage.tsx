@@ -5,7 +5,9 @@ import { PatientUploader } from '../components/PatientUploader';
 import { InteractiveCDSViewer } from '../components/InteractiveCDSViewer';
 import { RiskAssessmentPanel } from '../components/RiskAssessmentPanel';
 import { ClinicalValidationBar } from '../components/ClinicalValidationBar';
-import { UserCheck, Stethoscope, Activity, RefreshCcw } from 'lucide-react';
+import { MedicalReportModal } from '../components/MedicalReportModal';
+import { ConsultationChatModal } from '../components/ConsultationChatModal';
+import { UserCheck, MessageSquare, Download, CheckCircle2 } from 'lucide-react';
 
 export const CDSDashboardPage: React.FC = () => {
   const [activePatient, setActivePatient] = useState<PatientProfile>(MOCK_PATIENTS[0]);
@@ -15,6 +17,9 @@ export const CDSDashboardPage: React.FC = () => {
     status: '',
     percent: 0,
   });
+
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
 
   const handleStartAnalysis = async (request: FundusAnalysisRequest) => {
     setIsAnalyzing(true);
@@ -60,23 +65,41 @@ export const CDSDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Patient Switcher Select */}
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <span className="text-xs text-slate-500 font-semibold hidden lg:block">Đổi Bệnh Nhân:</span>
-          <select
-            value={activePatient.id}
-            onChange={(e) => {
-              const p = MOCK_PATIENTS.find((item) => item.id === e.target.value);
-              if (p) setActivePatient(p);
-            }}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-[#0891B2]"
+        {/* Action Controls & Patient Switcher */}
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <button
+            onClick={() => setIsChatModalOpen(true)}
+            className="px-3 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-cyan-200"
           >
-            {MOCK_PATIENTS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.fullName} ({p.mrn}) — {p.age}t
-              </option>
-            ))}
-          </select>
+            <MessageSquare className="w-4 h-4 text-cyan-700" />
+            Tư Vấn Bệnh Nhân
+          </button>
+
+          <button
+            onClick={() => setIsReportModalOpen(true)}
+            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-emerald-200"
+          >
+            <Download className="w-4 h-4 text-emerald-700" />
+            Xuất Phiếu Khám PDF
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 font-semibold hidden xl:block">Đổi BN:</span>
+            <select
+              value={activePatient.id}
+              onChange={(e) => {
+                const p = MOCK_PATIENTS.find((item) => item.id === e.target.value);
+                if (p) setActivePatient(p);
+              }}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-[#0891B2]"
+            >
+              {MOCK_PATIENTS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.fullName} ({p.mrn}) — {p.age}t
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -105,6 +128,22 @@ export const CDSDashboardPage: React.FC = () => {
       <ClinicalValidationBar
         analysisId={analysisResult.analysisId}
         onSaveFeedback={handleSaveFeedback}
+      />
+
+      {/* Modals */}
+      <MedicalReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        patient={activePatient}
+        result={analysisResult}
+      />
+
+      <ConsultationChatModal
+        isOpen={isChatModalOpen}
+        onClose={() => setIsChatModalOpen(false)}
+        currentUserRole="doctor"
+        patientName={activePatient.fullName}
+        patientMrn={activePatient.mrn}
       />
     </div>
   );

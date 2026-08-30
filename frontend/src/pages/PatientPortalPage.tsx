@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { UserSession } from '../types/auth';
 import { PatientUploader } from '../components/PatientUploader';
 import { InteractiveCDSViewer } from '../components/InteractiveCDSViewer';
+import { MedicalReportModal } from '../components/MedicalReportModal';
+import { ConsultationChatModal } from '../components/ConsultationChatModal';
+import { CreditPurchaseModal } from '../components/CreditPurchaseModal';
 import { MOCK_PATIENTS, MOCK_SAMPLE_RESULT, MockAIService } from '../services/mockAiEngine';
 import { AIRiskResult, FundusAnalysisRequest } from '../types/cds';
-import { Eye, Heart, Activity, Download, ShieldCheck, Calendar, CheckCircle2, UserCheck, AlertCircle, FileText, Sliders, Layers, Sparkles } from 'lucide-react';
+import { Eye, Heart, Activity, Download, ShieldCheck, UserCheck, CheckCircle2, Sparkles, MessageSquare, CreditCard } from 'lucide-react';
 
 interface PatientPortalPageProps {
   user: UserSession;
@@ -20,6 +23,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({ user }) =>
     percent: 0,
   });
 
+  // Modals state
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
+  const [userCredits, setUserCredits] = useState(5);
+
   const handleStartAnalysis = async (request: FundusAnalysisRequest) => {
     setIsAnalyzing(true);
     setAnalysisProgress({ status: 'Mã hóa HIPAA & Gửi ảnh sang AI Processing...', percent: 10 });
@@ -34,10 +43,6 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({ user }) =>
     } finally {
       setIsAnalyzing(false);
     }
-  };
-
-  const handleDownloadReport = () => {
-    alert('Tải báo cáo kết quả sàng lọc vi mạch võng mạc cá nhân (PDF) thành công!');
   };
 
   return (
@@ -68,12 +73,32 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({ user }) =>
           </div>
         </div>
 
-        <button
-          onClick={handleDownloadReport}
-          className="z-10 px-4 py-2.5 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold rounded-xl text-xs shadow-lg transition-all flex items-center gap-2 border border-emerald-400/30 active:scale-95"
-        >
-          <Download className="w-4 h-4" /> Tải báo cáo PDF
-        </button>
+        {/* Top Actions Buttons */}
+        <div className="z-10 flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setIsChatModalOpen(true)}
+            className="px-3.5 py-2.5 bg-cyan-800/80 hover:bg-cyan-700 text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center gap-1.5 border border-cyan-400/30 active:scale-95"
+          >
+            <MessageSquare className="w-4 h-4 text-cyan-200" />
+            Nhắn Tin Bác Sĩ
+          </button>
+
+          <button
+            onClick={() => setIsCreditModalOpen(true)}
+            className="px-3.5 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center gap-1.5 border border-slate-600 active:scale-95"
+          >
+            <CreditCard className="w-4 h-4 text-amber-300" />
+            <span>Nạp Lượt Khám ({userCredits})</span>
+          </button>
+
+          <button
+            onClick={() => setIsReportModalOpen(true)}
+            className="px-4 py-2.5 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold rounded-xl text-xs shadow-lg transition-all flex items-center gap-2 border border-emerald-400/30 active:scale-95"
+          >
+            <Download className="w-4 h-4" />
+            Tải Báo Cáo PDF
+          </button>
+        </div>
       </div>
 
       {/* Main Grid: Upload New Scan vs AI Results Summary */}
@@ -146,9 +171,17 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({ user }) =>
 
             {/* Personal Doctor Advice Box */}
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 shadow-xs">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#16A34A]">
-                <CheckCircle2 className="w-4 h-4" />
-                Lời Khuyên Tối Ưu Lối Sống Từ Bác Sĩ Chuyên Khoa:
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#16A34A]">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Lời Khuyên Tối Ưu Lối Sống Từ Bác Sĩ Chuyên Khoa:
+                </div>
+                <button
+                  onClick={() => setIsChatModalOpen(true)}
+                  className="text-[11px] font-bold text-cyan-800 underline hover:text-cyan-900 flex items-center gap-1"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" /> Chat với bác sĩ
+                </button>
               </div>
               <p className="text-xs text-slate-700 leading-relaxed italic">
                 "Cần kiểm soát chỉ số huyết áp tâm thu dưới 130 mmHg và duy trì HbA1c dưới 7.0%. Khuyến cáo tái khám chuyên khoa Mắt và soi đáy mắt định kỳ 6 tháng/lần."
@@ -230,6 +263,30 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({ user }) =>
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <MedicalReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        patient={patient}
+        result={analysisResult}
+      />
+
+      <ConsultationChatModal
+        isOpen={isChatModalOpen}
+        onClose={() => setIsChatModalOpen(false)}
+        currentUserRole="patient"
+        patientName={patient.fullName}
+        patientMrn={patient.mrn}
+      />
+
+      <CreditPurchaseModal
+        isOpen={isCreditModalOpen}
+        onClose={() => setIsCreditModalOpen(false)}
+        userRole="patient"
+        currentCredit={userCredits}
+        onSuccess={(added) => setUserCredits((prev) => prev + added)}
+      />
     </div>
   );
 };
