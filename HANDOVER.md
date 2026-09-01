@@ -139,10 +139,10 @@ Hệ thống đã có sẵn 4 tài khoản mặc định đại diện cho 4 ph�
 
 | Phân hệ / Role | Email Đăng nhập | Mật khẩu | Phạm vi Giao diện & Chức năng |
 | :--- | :--- | :--- | :--- |
-| **Bệnh nhân (Patient / USER)** | `patient@aura.com` | `patient123` | Upload ảnh Fundus (OD/OS), xem kết quả nguy cơ, xem Heatmap, lịch sử khám, nạp credit, xuất PDF/CSV, chat với bác sĩ. |
-| **Bác sĩ (Doctor / DOCTOR)** | `doctor@aura.com` | `doctor123` | Bảng điều khiển CDS Dashboard, xem chỉ số vi mạch AVR/Tortuosity, duyệt/hiệu chỉnh mức nguy cơ, ghi chẩn đoán, chat tư vấn. |
-| **Phòng khám (Clinic / CLINIC)** | `clinic@aura.com` | `clinic123` | Cổng thông tin phòng khám, quản lý danh sách bác sĩ/bệnh nhân, upload batch ảnh hàng loạt. |
-| **Quản trị viên (Admin / ADMIN)** | `admin@aura.com` | `admin123` | Quản lý người dùng, phân quyền, cấu hình hệ thống, xem Audit Logs bảo mật, quản lý phản hồi y tế. |
+| **Bệnh nhân (Patient / USER)** | `patient@aura.com` | `Password123@Aura` | Upload ảnh Fundus (OD/OS), xem kết quả nguy cơ, xem Heatmap, lịch sử khám, nạp credit, xuất PDF/CSV, chat với bác sĩ. |
+| **Bác sĩ (Doctor / DOCTOR)** | `doctor@aura.com` | `Password123@Aura` | Bảng điều khiển CDS Dashboard, xem chỉ số vi mạch AVR/Tortuosity, duyệt/hiệu chỉnh mức nguy cơ, ghi chẩn đoán, chat tư vấn. |
+| **Phòng khám (Clinic / CLINIC)** | `clinic@aura.com` | `Password123@Aura` | Cổng thông tin phòng khám, quản lý danh sách bác sĩ/bệnh nhân, upload batch ảnh hàng loạt. |
+| **Quản trị viên (Admin / ADMIN)** | `admin@aura.com` | `Password123@Aura` | Quản lý người dùng, phân quyền, cấu hình hệ thống, xem Audit Logs bảo mật, quản lý phản hồi y tế. |
 
 ---
 
