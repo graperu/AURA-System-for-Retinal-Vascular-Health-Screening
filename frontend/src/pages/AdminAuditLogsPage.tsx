@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Download, ShieldAlert, Filter, CheckCircle2, AlertTriangle, Info, User, Users, Sliders, CreditCard, ShieldCheck, Building2, Stethoscope, Lock, Unlock, Eye, Sparkles } from 'lucide-react';
+import { auditApi, adminUserApi } from '../services/api';
 
 export const AdminAuditLogsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'audit' | 'users' | 'ai-config'>('audit');
@@ -7,8 +8,7 @@ export const AdminAuditLogsPage: React.FC = () => {
   // Audit Logs State
   const [severityFilter, setSeverityFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-
-  const logs = [
+  const [logsList, setLogsList] = useState<any[]>([
     {
       id: 'LOG-1001',
       timestamp: '2026-08-30 14:32:01',
@@ -53,15 +53,14 @@ export const AdminAuditLogsPage: React.FC = () => {
       userType: 'person',
       ip: '192.168.1.55',
     },
-  ];
+  ]);
 
   // User Management State
   const [usersList, setUsersList] = useState([
-    { id: 'U-1', name: 'BS. CKII Nguyễn Thị Thanh', email: 'thanh.nguyen@auraclinic.vn', role: 'DOCTOR', status: 'ACTIVE', department: 'Khoa Mắt Kỹ Thuật Cao', exams: 142 },
-    { id: 'U-2', name: 'BS. Phan Định', email: 'dr.phandinh@aura.vn', role: 'DOCTOR', status: 'ACTIVE', department: 'Khoa Tim Mạch', exams: 98 },
-    { id: 'U-3', name: 'Trần Văn Hoàng', email: 'hoang.tran@gmail.com', role: 'PATIENT', status: 'ACTIVE', department: 'Bệnh nhân cá nhân', exams: 4 },
-    { id: 'U-4', name: 'Phòng Khám Đa Khoa An Tâm', email: 'contact@antamclinic.vn', role: 'CLINIC', status: 'PENDING_APPROVAL', department: 'Cơ sở Y tế Tuyến Quận', exams: 0 },
-    { id: 'U-5', name: 'Nguyễn Thị Bích', email: 'bich.nguyen@gmail.com', role: 'PATIENT', status: 'SUSPENDED', department: 'Bệnh nhân cá nhân', exams: 1 },
+    { id: '11111111-1111-1111-1111-111111111111', name: 'Nguyễn Trọng Nam', email: 'patient@aura.com', role: 'ROLE_USER', status: 'ACTIVE', department: 'Bệnh nhân cá nhân', exams: 12 },
+    { id: '22222222-2222-2222-2222-222222222222', name: 'BS. CKII Nguyễn Thị Thanh', email: 'doctor@aura.com', role: 'ROLE_DOCTOR', status: 'ACTIVE', department: 'Khoa Mắt Kỹ Thuật Cao', exams: 142 },
+    { id: '33333333-3333-3333-3333-333333333333', name: 'Phòng Khám Đa Khoa AURA Clinic', email: 'clinic@aura.com', role: 'ROLE_CLINIC', status: 'ACTIVE', department: 'Cơ sở Y tế Tuyến Quận', exams: 250 },
+    { id: '44444444-4444-4444-4444-444444444444', name: 'Quản Trị Viên Hệ Thống', email: 'admin@aura.com', role: 'ROLE_ADMIN', status: 'ACTIVE', department: 'Ban Giám Đốc CNTT', exams: 0 },
   ]);
 
   // AI Configuration State
@@ -70,7 +69,71 @@ export const AdminAuditLogsPage: React.FC = () => {
   const [retrainThreshold, setRetrainThreshold] = useState(50);
   const [isSavedAI, setIsSavedAI] = useState(false);
 
-  const filteredLogs = logs.filter((log) => {
+  // Fetch real audit logs & users from PostgreSQL
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        const auditRes = await auditApi.getLogs();
+        if (auditRes.success && auditRes.data?.items && auditRes.data.items.length > 0) {
+          const mapped = auditRes.data.items.map((a: any) => ({
+            id: `LOG-${a.id?.slice(0, 6).toUpperCase() || '1000'}`,
+            timestamp: a.createdAt ? new Date(a.createdAt).toLocaleString('vi-VN') : '2026-08-31 14:00',
+            tz: 'ICT (+7)',
+            severity: a.severity || 'Info',
+            title: a.action || 'Sự kiện hệ thống',
+            desc: a.details || 'Đã ghi nhận kiểm toán HIPAA bảo mật.',
+            user: a.actorEmail || 'System',
+            userType: a.actorRole === 'SYSTEM' ? 'system' : 'person',
+            ip: a.ipAddress || '127.0.0.1',
+          }));
+          setLogsList(mapped);
+        }
+      } catch (e) {
+        console.warn('Could not fetch audit logs:', e);
+      }
+
+      try {
+        const userRes = await adminUserApi.getUsers();
+        if (userRes.success && userRes.data?.items && userRes.data.items.length > 0) {
+          const mappedUsers = userRes.data.items.map((u: any) => ({
+            id: u.id,
+            name: u.fullName || u.email,
+            email: u.email,
+            role: u.roles?.[0] || 'ROLE_USER',
+            status: u.active ? 'ACTIVE' : 'SUSPENDED',
+            department: u.roles?.[0] === 'ROLE_DOCTOR' ? 'Khoa Mắt Kỹ Thuật Cao' : u.roles?.[0] === 'ROLE_CLINIC' ? 'Phòng Khám Đa Khoa' : 'Cổng Bệnh Nhân',
+            exams: u.totalScreenings || 0,
+          }));
+          setUsersList(mappedUsers);
+        }
+      } catch (e) {
+        console.warn('Could not fetch users:', e);
+      }
+    };
+    fetchAdminData();
+  }, []);
+
+  const handleExportLogs = async () => {
+    try {
+      const res = await auditApi.exportLogs();
+      const exportData = (res.success && res.data) ? res.data : logsList;
+      const csvContent = 'data:text/csv;charset=utf-8,' + 
+        ['Mã Log,Thời Gian,Mức Độ,Sự Kiện,Người Thực Hiện,IP',
+          ...exportData.map((l: any) => `"${l.id}","${l.timestamp}","${l.severity}","${l.title} - ${l.desc}","${l.user}","${l.ip}"`)
+        ].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `AURA_HIPAA_Audit_Logs_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.warn('Export logs error:', e);
+    }
+  };
+
+  const filteredLogs = logsList.filter((log) => {
     const matchesSeverity = severityFilter === 'All' || log.severity === severityFilter;
     const matchesSearch =
       log.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -80,16 +143,22 @@ export const AdminAuditLogsPage: React.FC = () => {
     return matchesSeverity && matchesSearch;
   });
 
-  const toggleUserStatus = (id: string) => {
+  const toggleUserStatus = async (id: string) => {
+    const targetUser = usersList.find(u => u.id === id);
+    const nextStatus = targetUser?.status === 'ACTIVE' ? false : true;
     setUsersList((prev) =>
       prev.map((u) => {
         if (u.id === id) {
-          const nextStatus = u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-          return { ...u, status: nextStatus };
+          return { ...u, status: nextStatus ? 'ACTIVE' : 'SUSPENDED' };
         }
         return u;
       })
     );
+    try {
+      await adminUserApi.updateStatus(id, nextStatus);
+    } catch (err) {
+      console.warn('Failed to update user status in DB:', err);
+    }
   };
 
   const approveClinic = (id: string) => {
@@ -185,7 +254,10 @@ export const AdminAuditLogsPage: React.FC = () => {
                 <option value="Info">Info (Thông tin)</option>
               </select>
 
-              <button className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors">
+              <button 
+                onClick={handleExportLogs}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
                 <Download className="w-4 h-4" /> Xuất Log (CSV)
               </button>
             </div>

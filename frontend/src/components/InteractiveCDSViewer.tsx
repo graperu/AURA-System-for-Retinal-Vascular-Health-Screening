@@ -139,15 +139,14 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             className="w-full h-full flex items-center justify-center transition-transform duration-200 relative p-2"
             style={{ transform: `scale(${zoomLevel})` }}
           >
-            {/* Real High-Resolution Medical Retinal Fundus Scan Image */}
-            <div className="relative max-w-[380px] w-full aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-slate-800">
+            {/* Real High-Resolution Medical Retinal Fundus Scan Image (User's Uploaded Image) */}
+            <div className="relative max-w-[380px] w-full aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-slate-800 bg-black">
               <img
-                src="/assets/images/fundus_original.png"
+                src={analysisResult.imageUrl || "/assets/images/fundus_original.png"}
                 alt="Retinal Fundus Original Scan"
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  // Fallback if asset path is relative
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=800&q=80';
+                  (e.target as HTMLImageElement).src = '/assets/images/fundus_original.png';
                 }}
               />
 
@@ -174,13 +173,20 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             className="w-full h-full flex items-center justify-center transition-transform duration-200 relative p-2"
             style={{ transform: `scale(${zoomLevel})` }}
           >
-            {/* Real AI Heatmap Vessel Overlay Image */}
-            <div className="relative max-w-[380px] w-full aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-cyan-700">
+            {/* Real AI Heatmap Vessel Overlay Image (Matching Uploaded Image) */}
+            <div className="relative max-w-[380px] w-full aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-cyan-700 bg-black">
+              {/* Underlying Base Image */}
               <img
-                src="/assets/images/fundus_heatmap.png"
+                src={analysisResult.imageUrl || "/assets/images/fundus_original.png"}
+                alt="Base Image"
+                className="w-full h-full object-cover absolute inset-0"
+              />
+              {/* Dynamic Grad-CAM Heatmap Layer with Opacity */}
+              <img
+                src={analysisResult.annotatedMap.heatmapUrl || "/assets/images/fundus_heatmap.png"}
                 alt="AI Retinal Heatmap Overlay"
-                className="w-full h-full object-cover transition-opacity duration-300"
-                style={{ opacity: Math.max(0.2, heatmapOpacity) }}
+                className="w-full h-full object-cover absolute inset-0 transition-opacity duration-300"
+                style={{ opacity: Math.max(0.05, heatmapOpacity) }}
               />
 
               {/* Interactive SVG ROI Overlay for Anomalies */}

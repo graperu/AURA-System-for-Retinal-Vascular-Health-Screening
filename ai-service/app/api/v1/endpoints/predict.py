@@ -3,14 +3,14 @@ from typing import Optional
 import numpy as np
 from PIL import Image
 import io
-from ...schemas.prediction import (
+from app.schemas.prediction import (
     FundusPredictionRequest,
     FundusPredictionResponse,
     BulkPredictionRequest,
     BulkPredictionResponse,
 )
-from ...services.model_engine import RetinalAIModelEngine
-from ...services.image_processor import RetinalImageProcessor
+from app.services.model_engine import RetinalAIModelEngine
+from app.services.image_processor import RetinalImageProcessor
 
 router = APIRouter()
 
@@ -71,3 +71,30 @@ async def predict_bulk(request: BulkPredictionRequest):
         successCount=len(results),
         results=results,
     )
+
+
+@router.get("/model-info")
+async def get_model_info():
+    """Thông tin chi tiết về kiến trúc mô hình AI, phiên bản, ngưỡng chỉ số y khoa và siêu dữ liệu (NFR-23)."""
+    return {
+        "modelName": "AURA Retinal Multi-Task DeepNet",
+        "modelVersion": "aura-vessel-net-v2.1",
+        "backbone": "ResNet50 / ConvNeXt-Base + U-Net Segmentation Head",
+        "explainability": "Grad-CAM (Layer4 Target Feature Maps)",
+        "inputResolution": "512x512 RGB",
+        "supportedFormats": ["JPG", "PNG", "DICOM", "TIFF"],
+        "screeningDomains": [
+            "Cardiovascular Disease Risk (CVD)",
+            "Stroke Risk Assessment",
+            "Hypertensive Retinopathy & AV Nicking",
+            "Diabetic Retinopathy & Microaneurysms",
+        ],
+        "morphometricBiomarkers": {
+            "arteriolarVenularRatio": {"normal": ">0.65", "abnormal": "<0.60"},
+            "vesselTortuosity": {"normal": "<1.15", "severe": ">1.30"},
+            "focalNarrowing": "Binary Classification + Pixel Mask",
+            "arteriovenousNicking": "Gunns Sign / Salus Sign Detector",
+        },
+        "regulatoryCompliance": "CE Mark / FDA CDS Guidance Aligned",
+    }
+

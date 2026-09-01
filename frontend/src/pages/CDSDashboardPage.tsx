@@ -9,6 +9,8 @@ import { MedicalReportModal } from '../components/MedicalReportModal';
 import { ConsultationChatModal } from '../components/ConsultationChatModal';
 import { UserCheck, MessageSquare, Download, CheckCircle2 } from 'lucide-react';
 
+import { screeningApi, feedbackApi } from '../services/api';
+
 export const CDSDashboardPage: React.FC = () => {
   const [activePatient, setActivePatient] = useState<PatientProfile>(MOCK_PATIENTS[0]);
   const [analysisResult, setAnalysisResult] = useState<AIRiskResult>(MOCK_SAMPLE_RESULT);
@@ -20,6 +22,7 @@ export const CDSDashboardPage: React.FC = () => {
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
 
   const handleStartAnalysis = async (request: FundusAnalysisRequest) => {
     setIsAnalyzing(true);
@@ -37,8 +40,22 @@ export const CDSDashboardPage: React.FC = () => {
     }
   };
 
-  const handleSaveFeedback = (feedback: DoctorFeedback) => {
+  const handleSaveFeedback = async (feedback: DoctorFeedback) => {
     console.log('Saved Doctor Feedback:', feedback);
+    try {
+      // Save doctor feedback and review into PostgreSQL DB
+      await feedbackApi.submit({
+        screeningId: feedback.analysisId || '84099cb3-562f-49ca-b0a4-fc4093e505cf',
+        clinicalDecision: feedback.decision || 'APPROVED',
+        doctorNotes: feedback.clinicalNotes || 'Bác sĩ đã xác nhận kết quả chẩn đoán',
+        correctRiskLevel: feedback.adjustedCardioRisk || 'HIGH',
+        eligibleForRetraining: true,
+      });
+      setFeedbackSuccessToast(true);
+      setTimeout(() => setFeedbackSuccessToast(false), 5000);
+    } catch (err) {
+      console.warn('Feedback submission error:', err);
+    }
   };
 
   return (

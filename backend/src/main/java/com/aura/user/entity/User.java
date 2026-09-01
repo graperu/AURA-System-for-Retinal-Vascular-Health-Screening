@@ -88,6 +88,10 @@ public class User {
     return active;
   }
 
+  public void setActive(boolean active) {
+    this.active = active;
+  }
+
   public boolean isEmailVerified() {
     return emailVerified;
   }

@@ -2,12 +2,12 @@ import numpy as np
 import cv2
 import time
 from typing import Dict, Any, List
-from ..schemas.prediction import (
+from app.schemas.prediction import (
     FundusPredictionResponse,
     DiseasePrediction,
     BiomarkerMetrics,
 )
-from .image_processor import RetinalImageProcessor
+from app.services.image_processor import RetinalImageProcessor
 
 
 class RetinalAIModelEngine:

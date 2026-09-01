@@ -16,4 +16,13 @@ public record PageResponse<T>(List<T> items, int page, int size, long totalItems
                 page.getTotalElements(),
                 page.getTotalPages());
     }
+
+    public static <T> PageResponse<T> from(Page<T> page) {
+        return new PageResponse<>(
+                page.getContent(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages());
+    }
 }

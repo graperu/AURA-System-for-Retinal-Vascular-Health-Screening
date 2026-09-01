@@ -16,6 +16,14 @@
 
 > **AURA là công cụ hỗ trợ quyết định và sàng lọc ban đầu, không thay thế chẩn đoán, kết luận hoặc chỉ định điều trị của bác sĩ.**
 
+---
+
+### 📚 TÀI LIỆU BÀN GIAO & KHẢO SÁT HỆ THỐNG
+* 📋 **[HANDOVER.md](HANDOVER.md)**: **Tài liệu bàn giao chi tiết toàn diện** (Hướng dẫn cài đặt Zero-to-One, Tài khoản kiểm thử, Kiến trúc, 11 Migrations, API Endpoints, Checklist).
+* 🔍 **[AUDIT_REPORT.md](AUDIT_REPORT.md)**: **Báo cáo Nghiệm thu Hiện trạng Kỹ thuật** đối chiếu 39 FR & 23 NFR theo chuẩn Đề bài.
+* 📝 **[WORKLOG_2026-08-31.md](WORKLOG_2026-08-31.md)**: Nhật ký thực thi, sửa lỗi UI Modal & hoàn thành an toàn y khoa P0-1.
+* 🚀 **[start-system.bat](start-system.bat)**: Trình khởi chạy 1-Click cho toàn bộ hệ thống (Docker Compose / Local Services).
+
 </div>
 
 ---

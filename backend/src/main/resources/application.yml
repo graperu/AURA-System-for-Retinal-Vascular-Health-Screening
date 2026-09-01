@@ -7,10 +7,11 @@ spring:
     password: ${DB_PASSWORD:aura_password123}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
     open-in-view: false
   flyway:
-    enabled: false
+    enabled: ${FLYWAY_ENABLED:true}
+    baseline-on-migrate: true
 
 server:
   port: ${SERVER_PORT:8081}

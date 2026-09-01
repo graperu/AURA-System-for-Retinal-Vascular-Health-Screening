@@ -1,4 +1,4 @@
-CREATE TABLE user_roles (
+CREATE TABLE IF NOT EXISTS user_roles (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
     role_id UUID NOT NULL REFERENCES roles(id),
@@ -6,5 +6,5 @@ CREATE TABLE user_roles (
     CONSTRAINT uk_user_roles_user_role UNIQUE (user_id, role_id)
 );
 
-CREATE INDEX idx_user_roles_user_id ON user_roles (user_id);
-CREATE INDEX idx_user_roles_role_id ON user_roles (role_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON user_roles (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles (role_id);

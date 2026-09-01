@@ -76,3 +76,109 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
     };
   }
 }
+
+// ============================================================================
+// REAL PRODUCTION BACKEND API CLIENT MODULES (PostgreSQL & Spring Boot 3.4)
+// ============================================================================
+
+export const screeningApi = {
+  create: (imageUrl: string) =>
+    apiFetch<any>('/api/v1/screenings', {
+      method: 'POST',
+      body: JSON.stringify({ imageUrl }),
+    }),
+
+  getAll: () =>
+    apiFetch<any[]>('/api/v1/screenings', {
+      method: 'GET',
+    }),
+
+  getById: (id: string) =>
+    apiFetch<any>(`/api/v1/screenings/${id}`, {
+      method: 'GET',
+    }),
+
+  doctorReview: (id: string, doctorNotes: string, riskLevel: string) =>
+    apiFetch<any>(`/api/v1/screenings/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ doctorNotes, riskLevel }),
+    }),
+};
+
+export const chatApi = {
+  sendMessage: (receiverId: string, content: string, screeningId?: string) =>
+    apiFetch<any>('/api/v1/chat/messages', {
+      method: 'POST',
+      body: JSON.stringify({ receiverId, content, screeningId }),
+    }),
+
+  getConversation: (otherUserId: string) =>
+    apiFetch<any[]>(`/api/v1/chat/conversation/${otherUserId}`, {
+      method: 'GET',
+    }),
+
+  markAsRead: (senderId: string) =>
+    apiFetch<void>(`/api/v1/chat/read/${senderId}`, {
+      method: 'PUT',
+    }),
+};
+
+export const billingApi = {
+  purchase: (packageId: number) =>
+    apiFetch<any>(`/api/v1/me/packages/${packageId}/purchase`, {
+      method: 'POST',
+    }),
+
+  mySubscriptions: () =>
+    apiFetch<any[]>('/api/v1/me/subscriptions', {
+      method: 'GET',
+    }),
+
+  myPayments: () =>
+    apiFetch<any[]>('/api/v1/me/payments', {
+      method: 'GET',
+    }),
+};
+
+export const feedbackApi = {
+  submit: (request: any) =>
+    apiFetch<any>('/api/v1/doctor/feedback', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
+
+  getDoctorFeedbacks: (page = 0, size = 20) =>
+    apiFetch<any>(`/api/v1/doctor/feedback?page=${page}&size=${size}`, {
+      method: 'GET',
+    }),
+
+  getByScreening: (screeningId: string) =>
+    apiFetch<any[]>(`/api/v1/doctor/feedback/screening/${screeningId}`, {
+      method: 'GET',
+    }),
+};
+
+export const auditApi = {
+  getLogs: (page = 0, size = 20) =>
+    apiFetch<any>(`/api/v1/admin/audit-logs?page=${page}&size=${size}`, {
+      method: 'GET',
+    }),
+
+  exportLogs: () =>
+    apiFetch<any[]>('/api/v1/admin/audit-logs/export', {
+      method: 'GET',
+    }),
+};
+
+export const adminUserApi = {
+  getUsers: (page = 0, size = 20) =>
+    apiFetch<any>(`/api/v1/admin/users?page=${page}&size=${size}`, {
+      method: 'GET',
+    }),
+
+  updateStatus: (userId: string, active: boolean) =>
+    apiFetch<any>(`/api/v1/admin/users/${userId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active }),
+    }),
+};

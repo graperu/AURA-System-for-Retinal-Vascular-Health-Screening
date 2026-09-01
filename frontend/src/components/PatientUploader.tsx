@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileImage, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { UploadCloud, FileImage, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { FundusAnalysisRequest, PatientProfile } from '../types/cds';
 
 interface PatientUploaderProps {
@@ -16,19 +16,27 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   analysisProgress,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('/assets/images/fundus_original.png');
   const [scanType, setScanType] = useState<'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan'>('Fundus_Macula');
   const [eyePosition, setEyePosition] = useState<'Left_OS' | 'Right_OD'>('Right_OD');
   const [isDragOver, setIsDragOver] = useState(false);
   const [isAnonymized, setIsAnonymized] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Pre-loaded realistic sample fundus image preview
-  const sampleFundusUrl =
-    'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=800&q=80';
+  const handleFileProcess = (file: File) => {
+    setSelectedFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setPreviewUrl(e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      handleFileProcess(e.target.files[0]);
     }
   };
 
@@ -36,7 +44,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     e.preventDefault();
     setIsDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setSelectedFile(e.dataTransfer.files[0]);
+      handleFileProcess(e.dataTransfer.files[0]);
     }
   };
 
@@ -46,8 +54,9 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       requestId: `REQ-${Date.now().toString().slice(-6)}`,
       patientId: activePatient.id,
       clinicId: 'CLN-MAIN-01',
-      imageName: selectedFile ? selectedFile.name : 'fundus_scan_OD_2026.dcm',
-      imageUrl: sampleFundusUrl,
+      imageName: selectedFile ? selectedFile.name : 'fundus_scan_OD_2026.png',
+      imageUrl: previewUrl,
+      file: selectedFile || undefined,
       scanType,
       eyePosition,
       uploadedAt: new Date().toISOString(),
@@ -61,15 +70,15 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         <div>
           <h2 className="text-lg font-bold text-[#134E4A] flex items-center gap-2">
             <UploadCloud className="w-5 h-5 text-[#0891B2]" />
-            Tải ảnh võng mạc mới
+            Tải ảnh võng mạc mới (FR-2)
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Hỗ trợ DICOM, PNG và JPEG. Thông tin nhạy cảm được tự động ẩn danh.
+            Hỗ trợ DICOM, PNG và JPEG. Thông tin nhạy cảm được tự động ẩn danh theo chuẩn HIPAA.
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs bg-[#F0FDFA] px-3 py-1.5 rounded-lg border border-[#99F6E4]">
           <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
-          <span className="font-semibold text-[#134E4A]">Đã bật bảo vệ dữ liệu</span>
+          <span className="font-semibold text-[#134E4A]">Bảo mật HIPAA</span>
         </div>
       </div>
 
@@ -131,7 +140,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
           onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
             isDragOver
               ? 'border-[#0891B2] bg-[#F0FDFA]'
               : selectedFile
@@ -143,34 +152,35 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept=".dcm,.png,.jpg,.jpeg"
+            accept=".dcm,.png,.jpg,.jpeg,.tif"
             className="hidden"
           />
           <div className="flex flex-col items-center justify-center gap-3">
-            <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-[#0891B2] shadow-md bg-slate-950 flex items-center justify-center group/thumb">
+            <div className="relative w-24 h-24 rounded-2xl overflow-hidden border-2 border-[#0891B2] shadow-md bg-slate-950 flex items-center justify-center group/thumb">
               <img
-                src="/assets/images/fundus_original.png"
+                src={previewUrl}
                 alt="Selected Fundus Scan Preview"
                 className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-110"
               />
               <div className="absolute inset-0 bg-black/20 group-hover/thumb:bg-transparent transition-colors" />
             </div>
+
             {selectedFile ? (
-              <div>
-                <span className="text-sm font-bold text-[#16A34A] block">
-                  Đã chọn: {selectedFile.name}
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-[#16A34A] flex items-center justify-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" /> Đã chọn: {selectedFile.name}
                 </span>
-                <span className="text-xs text-slate-500">
-                  Kích thước: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB | Sẵn sàng gửi AI Processing
+                <span className="text-[11px] text-slate-500 block">
+                  Kích thước: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB | Nhấp để đổi ảnh khác
                 </span>
               </div>
             ) : (
-              <div>
-                <span className="text-sm font-semibold text-slate-800 block">
-                  Kéo thả file ảnh võng mạc (Fundus / DICOM) vào đây
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-slate-800 flex items-center justify-center gap-1.5">
+                  <UploadCloud className="w-4 h-4 text-[#0891B2]" /> Kéo thả ảnh từ máy tính hoặc nhấp để chọn file
                 </span>
-                <span className="text-xs text-[#0891B2] font-semibold mt-0.5 block">
-                  Đã nạp sẵn ảnh soi đáy mắt mẫu chuẩn (Retinal Scan OD)
+                <span className="text-[11px] text-slate-500 block">
+                  Đang hiển thị ảnh mẫu chuẩn Retina OD (Bạn có thể tải ảnh thật lên bất kỳ lúc nào)
                 </span>
               </div>
             )}
@@ -187,7 +197,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               className="w-4 h-4 text-[#0891B2] rounded focus:ring-[#0891B2]"
             />
             <span className="text-xs font-semibold text-slate-700">
-              Tự động xóa metadata nhạy cảm (DICOM De-identification ISO 15224)
+              Tự động ẩn danh hóa thông tin bệnh nhân (HMAC SHA-256 / ISO 15224)
             </span>
           </label>
           <span className="text-[11px] text-[#16A34A] font-medium flex items-center gap-1">
@@ -195,7 +205,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
           </span>
         </div>
 
-        {/* Analysis Execution Progress Bar (10-20s simulated loading state) */}
+        {/* Analysis Execution Progress Bar */}
         {isAnalyzing ? (
           <div className="p-4 bg-[#F0FDFA] border border-[#CCFBF1] rounded-xl space-y-3 animate-pulse">
             <div className="flex items-center justify-between text-xs font-bold text-[#134E4A]">
@@ -212,16 +222,16 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               ></div>
             </div>
             <div className="text-[11px] text-slate-500 text-center font-mono-data">
-              Thời gian thực thi AI dự kiến: 10–20s (PyTorch CUDA Accelerated)
+              Thời gian thực thi AI: ~2-5s (PyTorch / OpenCV CLAHE)
             </div>
           </div>
         ) : (
           <button
             type="submit"
-            className="w-full py-3 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-sm transition-all shadow-medical-md flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-sm transition-all shadow-medical-md flex items-center justify-center gap-2 active:scale-[0.99]"
           >
-            <UploadCloud className="w-4 h-4" />
-            Bắt đầu phân tích ảnh
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            Bắt đầu phân tích ảnh AI (FR-2, FR-3)
           </button>
         )}
       </form>

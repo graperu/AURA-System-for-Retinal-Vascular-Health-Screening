@@ -24,6 +24,7 @@ export interface FundusAnalysisRequest {
   clinicId: string;
   imageName: string;
   imageUrl: string;
+  file?: File;
   scanType: 'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan';
   eyePosition: 'Left_OS' | 'Right_OD';
   uploadedAt: string;
@@ -49,6 +50,7 @@ export interface AnnotatedVesselMap {
 
 export interface AIRiskResult {
   analysisId: string;
+  imageUrl?: string;
   status: 'QUEUED' | 'SEGMENTING_VESSELS' | 'CALCULATING_METRICS' | 'SCORING_RISK' | 'COMPLETED' | 'FAILED';
   executionTimeMs: number;
   overallVascularRiskScore: number; // 0 - 100
