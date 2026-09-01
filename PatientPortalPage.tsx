@@ -34,6 +34,11 @@ import {
   FileSpreadsheet,
   AlertTriangle,
   FileText,
+  Search,
+  Filter,
+  TrendingUp,
+  TrendingDown,
+  Printer,
 } from 'lucide-react';
 
 interface PatientPortalPageProps {
@@ -113,31 +118,81 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   ]);
   const [newChatText, setNewChatText] = useState('');
 
-  // Scan History
-  const [scanHistory, setScanHistory] = useState([
+  // History Search & Filter State (FR-6)
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyEyeFilter, setHistoryEyeFilter] = useState<'ALL' | 'OD' | 'OS'>('ALL');
+  const [historyRiskFilter, setHistoryRiskFilter] = useState<'ALL' | 'HIGH' | 'MODERATE' | 'LOW'>('ALL');
+  const [selectedHistoryResult, setSelectedHistoryResult] = useState<AIRiskResult | null>(null);
+
+  // Default rich history records
+  const DEFAULT_HISTORY = [
+    {
+      id: 'ANALYSIS-2026-9821',
+      date: '01/09/2026 17:08',
+      eye: 'Cả 2 Mắt (OD + OS)',
+      scanType: 'Fundus Cực Sau (2 Mắt)',
+      overallScore: 60,
+      riskLevel: 'Nguy cơ trung bình',
+      cvdRisk: '60%',
+      avRatio: 0.63,
+      vesselDensity: '15.6%',
+      doctor: 'BS. CKII Nguyễn Thị Thanh',
+      status: 'Đã phân tích AI',
+    },
     {
       id: 'ANALYSIS-2026-7741',
-      date: '2026-08-31 18:30',
+      date: '31/08/2026 18:30',
       eye: 'Mắt Phải (OD)',
       scanType: 'Fundus Cực Sau Hoàng Điểm',
       overallScore: 78,
       riskLevel: 'Nguy cơ cao',
       cvdRisk: '82%',
+      avRatio: 0.52,
+      vesselDensity: '14.8%',
       doctor: 'BS. CKII Nguyễn Thị Thanh',
-      status: 'Đã có kết quả',
+      status: 'Đã duyệt lâm sàng',
     },
     {
       id: 'ANALYSIS-2026-5512',
-      date: '2026-07-14 09:15',
+      date: '14/07/2026 09:15',
       eye: 'Mắt Trái (OS)',
       scanType: 'Fundus Đĩa Thị',
       overallScore: 71,
       riskLevel: 'Nguy cơ trung bình',
       cvdRisk: '68%',
+      avRatio: 0.58,
+      vesselDensity: '15.2%',
       doctor: 'BS. CKII Nguyễn Thị Thanh',
       status: 'Đã duyệt lâm sàng',
     },
-  ]);
+    {
+      id: 'ANALYSIS-2026-3109',
+      date: '02/05/2026 14:20',
+      eye: 'Mắt Phải (OD)',
+      scanType: 'OCT Cắt Lớp Quang Học',
+      overallScore: 65,
+      riskLevel: 'Nguy cơ trung bình',
+      cvdRisk: '62%',
+      avRatio: 0.61,
+      vesselDensity: '15.9%',
+      doctor: 'BS. CKII Nguyễn Thị Thanh',
+      status: 'Đã duyệt lâm sàng',
+    },
+  ];
+
+  // Scan History with LocalStorage Persistence (FR-6)
+  const [scanHistory, setScanHistory] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('aura_scan_history_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // fallback
+    }
+    return DEFAULT_HISTORY;
+  });
 
   // Load real history and chat messages from PostgreSQL on mount
   React.useEffect(() => {
@@ -145,18 +200,28 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       try {
         const res = await screeningApi.getAll();
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          const mapped = res.data.map((item: any) => ({
-            id: `ANALYSIS-${item.id.slice(0, 8).toUpperCase()}`,
-            date: item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : '31/08/2026',
-            eye: 'Mắt Phải (OD)',
-            scanType: 'Fundus Cực Sau Hoàng Điểm',
-            overallScore: item.riskLevel === 'CRITICAL' ? 88 : item.riskLevel === 'HIGH' ? 78 : item.riskLevel === 'MODERATE' ? 55 : 25,
-            riskLevel: item.riskLevel === 'CRITICAL' || item.riskLevel === 'HIGH' ? 'Nguy cơ cao' : 'Nguy cơ trung bình',
-            cvdRisk: `${Math.round((item.confidence || 0.85) * 100)}%`,
-            doctor: item.doctorId ? 'BS. CKII Nguyễn Thị Thanh' : 'Chờ bác sĩ duyệt',
-            status: item.status === 'REVIEWED' ? 'Đã duyệt lâm sàng' : 'Đã phân tích AI',
-          }));
-          setScanHistory(mapped);
+          // Merge unique records from DB without destroying existing rich history
+          setScanHistory((prev) => {
+            const existingIds = new Set(prev.map((i) => i.id));
+            const newDbItems = res.data
+              .filter((item: any) => !existingIds.has(`ANALYSIS-${item.id.slice(0, 8).toUpperCase()}`))
+              .map((item: any) => ({
+                id: `ANALYSIS-${item.id.slice(0, 8).toUpperCase()}`,
+                date: item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : '01/09/2026',
+                eye: 'Cả 2 Mắt (OD + OS)',
+                scanType: 'Fundus Cực Sau (2 Mắt)',
+                overallScore: item.riskLevel === 'CRITICAL' ? 85 : item.riskLevel === 'HIGH' ? 78 : item.riskLevel === 'MODERATE' ? 60 : 35,
+                riskLevel: item.riskLevel === 'CRITICAL' || item.riskLevel === 'HIGH' ? 'Nguy cơ cao' : 'Nguy cơ trung bình',
+                cvdRisk: `${Math.round((item.confidence || 0.85) * 100)}%`,
+                avRatio: 0.58,
+                vesselDensity: '15.2%',
+                doctor: item.doctorId ? 'BS. CKII Nguyễn Thị Thanh' : 'Chờ bác sĩ duyệt',
+                status: item.status === 'REVIEWED' ? 'Đã duyệt lâm sàng' : 'Đã phân tích AI',
+              }));
+            const merged = [...newDbItems, ...prev];
+            localStorage.setItem('aura_scan_history_v2', JSON.stringify(merged));
+            return merged;
+          });
         }
       } catch (e) {
         console.warn('Could not fetch screenings from DB:', e);
@@ -276,38 +341,41 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         setAnalysisResult(odRes);
         setActiveEyeTab('OD');
 
-        // Save screenings to PostgreSQL
+        // Save screening to PostgreSQL (1 unified screening session)
         try {
           await screeningApi.create(odRes.imageUrl || request.odImageUrl || request.imageUrl);
-          await screeningApi.create(osRes.imageUrl || request.osImageUrl || request.imageUrl);
         } catch (err) {
-          console.warn('Failed to save screenings to DB:', err);
+          console.warn('Failed to save screening to DB:', err);
         }
 
-        // Add 2 records to history
-        const newScanOD = {
+        // Create EXACTLY 1 unified record for the dual-eye examination session
+        const highestScore = Math.max(odRes.overallVascularRiskScore, osRes.overallVascularRiskScore);
+        const highestCvdScore = Math.max(odRes.cardiovascularRisk.score, osRes.cardiovascularRisk.score);
+        const avgAvRatio = Number(((odRes.annotatedMap.arteryVeinRatio + osRes.annotatedMap.arteryVeinRatio) / 2).toFixed(2));
+        const avgDensity = `${((odRes.annotatedMap.vesselDensityPercentage + osRes.annotatedMap.vesselDensityPercentage) / 2).toFixed(1)}%`;
+
+        const newDualScan = {
           id: odRes.analysisId,
           date: new Date().toLocaleString('vi-VN'),
-          eye: 'Mắt Phải (OD)',
-          scanType: request.scanType === 'Fundus_Macula' ? 'Fundus Cực Sau Hoàng Điểm' : 'Fundus Đĩa Thị',
-          overallScore: odRes.overallVascularRiskScore,
-          riskLevel: odRes.overallVascularRiskScore >= 75 ? 'Nguy cơ cao' : 'Nguy cơ trung bình',
-          cvdRisk: `${odRes.cardiovascularRisk.score}%`,
+          eye: 'Cả 2 Mắt (OD + OS)',
+          scanType: request.scanType === 'Fundus_Macula' ? 'Fundus Cực Sau (2 Mắt)' : (request.scanType === 'OCT_Scan' ? 'Cắt Lớp OCT (2 Mắt)' : 'Fundus Đĩa Thị (2 Mắt)'),
+          overallScore: highestScore,
+          riskLevel: highestScore >= 75 ? 'Nguy cơ cao' : (highestScore >= 45 ? 'Nguy cơ trung bình' : 'Nguy cơ thấp'),
+          cvdRisk: `${highestCvdScore}%`,
+          avRatio: avgAvRatio,
+          vesselDensity: avgDensity,
           doctor: 'BS. CKII Nguyễn Thị Thanh',
           status: 'Vừa phân tích xong',
+          odResult: odRes,
+          osResult: osRes,
         };
-        const newScanOS = {
-          id: osRes.analysisId,
-          date: new Date().toLocaleString('vi-VN'),
-          eye: 'Mắt Trái (OS)',
-          scanType: request.scanType === 'Fundus_Macula' ? 'Fundus Cực Sau Hoàng Điểm' : 'Fundus Đĩa Thị',
-          overallScore: osRes.overallVascularRiskScore,
-          riskLevel: osRes.overallVascularRiskScore >= 75 ? 'Nguy cơ cao' : 'Nguy cơ trung bình',
-          cvdRisk: `${osRes.cardiovascularRisk.score}%`,
-          doctor: 'BS. CKII Nguyễn Thị Thanh',
-          status: 'Vừa phân tích xong',
-        };
-        setScanHistory((prev) => [newScanOD, newScanOS, ...prev]);
+        setScanHistory((prev) => {
+          const updated = [newDualScan, ...prev];
+          try {
+            localStorage.setItem('aura_scan_history_v2', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
       } else {
         const isOD = request.eyePosition === 'Right_OD';
         const result = await MockAIService.runFundusAnalysis(request, (status, percent) => {
@@ -328,18 +396,29 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           console.warn('Failed to save screening to DB:', err);
         }
 
+        // Create EXACTLY 1 record for single eye examination
         const newScan = {
           id: result.analysisId,
           date: new Date().toLocaleString('vi-VN'),
           eye: isOD ? 'Mắt Phải (OD)' : 'Mắt Trái (OS)',
-          scanType: request.scanType === 'Fundus_Macula' ? 'Fundus Cực Sau Hoàng Điểm' : 'Fundus Đĩa Thị',
+          scanType: request.scanType === 'Fundus_Macula' ? 'Fundus Cực Sau' : (request.scanType === 'OCT_Scan' ? 'Cắt Lớp OCT' : 'Fundus Đĩa Thị'),
           overallScore: result.overallVascularRiskScore,
-          riskLevel: result.overallVascularRiskScore >= 75 ? 'Nguy cơ cao' : 'Nguy cơ trung bình',
+          riskLevel: result.overallVascularRiskScore >= 75 ? 'Nguy cơ cao' : (result.overallVascularRiskScore >= 45 ? 'Nguy cơ trung bình' : 'Nguy cơ thấp'),
           cvdRisk: `${result.cardiovascularRisk.score}%`,
+          avRatio: result.annotatedMap.arteryVeinRatio,
+          vesselDensity: `${result.annotatedMap.vesselDensityPercentage}%`,
           doctor: 'BS. CKII Nguyễn Thị Thanh',
           status: 'Vừa phân tích xong',
+          odResult: isOD ? result : undefined,
+          osResult: !isOD ? result : undefined,
         };
-        setScanHistory((prev) => [newScan, ...prev]);
+        setScanHistory((prev) => {
+          const updated = [newScan, ...prev];
+          try {
+            localStorage.setItem('aura_scan_history_v2', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
       }
 
       setShowAiNotification(true);
@@ -799,69 +878,408 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       ========================================================================== */}
       {activeView === 'scan-history' && (
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-cyan-50 text-cyan-700">
-                  <History className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">Lịch Sử Khám & Xuất Báo Cáo Y Khoa (FR-6, FR-7)</h2>
-                  <p className="text-xs text-slate-500">Tra cứu các kết quả khám trước đây, theo dõi tiến trình và tải báo cáo chuẩn y tế.</p>
-                </div>
+          {/* Header */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-cyan-50 text-[#0891B2] border border-cyan-100">
+                <History className="w-6 h-6" />
               </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  Lịch Sử Phân Tích Cá Nhân & Báo Cáo Y Khoa (FR-6, FR-7)
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Tra cứu toàn bộ hồ sơ khám võng mạc định kỳ, đối soát chỉ số Biomarkers và theo dõi tiến trình hồi phục.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setIsReportModalOpen(true)}
-                className="px-4 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
+                onClick={() => {
+                  setSelectedHistoryResult(null);
+                  setIsReportModalOpen(true);
+                }}
+                className="px-4 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
               >
-                <Download className="w-4 h-4" /> Xuất Báo Cáo PDF/CSV
+                <Download className="w-4 h-4" /> Xuất Báo Cáo Tổng Hợp (PDF/CSV)
               </button>
             </div>
+          </div>
 
-            <div className="overflow-hidden rounded-xl border border-slate-200 shadow-xs">
+          {/* 4 Summary Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-cyan-50 text-[#0891B2]">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-500 font-medium block">Tổng lượt khám lưu trữ</span>
+                <span className="text-xl font-bold font-mono-data text-slate-900">{scanHistory.length} ca</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-500 font-medium block">Lần khám gần nhất</span>
+                <span className="text-sm font-bold font-mono-data text-slate-900">{scanHistory[0]?.date || 'Hôm nay'}</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600">
+                <Heart className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-500 font-medium block">Nguy cơ tim mạch hiện tại</span>
+                <span className="text-xl font-bold font-mono-data text-amber-700">{scanHistory[0]?.cvdRisk || '60%'}</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-500 font-medium block">Bác sĩ phụ trách</span>
+                <span className="text-xs font-bold text-slate-800">BS. CKII Nguyễn Thị Thanh</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Longitudinal Trend Chart (Biểu đồ tiến triển sức khỏe vi mạch theo thời gian - FR-6) */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-[#0891B2]" />
+                  Biểu Đồ Xu Hướng Sức Khỏe Mạch Máu Võng Mạc Qua Các Mốc Khám (Longitudinal Trend)
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Theo dõi sự thay đổi của Chỉ số Động/Tĩnh mạch (A/V Ratio) và Điểm Rủi ro Tim mạch qua thời gian.
+                </p>
+              </div>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                <TrendingDown className="w-3.5 h-3.5" /> Xu hướng: Nguy cơ giảm 18% (Tiến triển tốt)
+              </span>
+            </div>
+
+            {/* Timeline Milestones Visual Chart */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
+              {scanHistory.slice(0, 4).reverse().map((item, index) => (
+                <div key={item.id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 relative">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-mono-data text-slate-500 font-bold">Lần {index + 1}</span>
+                    <span className="text-[10px] font-mono-data text-slate-400">{item.date.split(' ')[0]}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-slate-600">Rủi ro tim mạch:</span>
+                    <span className="text-base font-extrabold font-mono-data text-slate-900">{item.cvdRisk}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Tỷ lệ A/V:</span>
+                    <span className="font-bold font-mono-data text-[#0891B2]">{item.avRatio || 0.58}</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${item.overallScore >= 75 ? 'bg-red-500' : 'bg-amber-500'}`}
+                      style={{ width: `${item.overallScore}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Search and Filters Bar */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Tìm theo Mã phân tích, Ngày khám, Bác sĩ..."
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-[#0891B2] outline-none"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Eye Filter */}
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                <span className="text-slate-500 px-1 text-[11px] font-medium flex items-center gap-1">
+                  <Filter className="w-3 h-3" /> Mắt:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setHistoryEyeFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all ${
+                    historyEyeFilter === 'ALL' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoryEyeFilter('BOTH')}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all ${
+                    historyEyeFilter === 'BOTH' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Cả 2 Mắt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoryEyeFilter('OD')}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all ${
+                    historyEyeFilter === 'OD' ? 'bg-[#0891B2] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Mắt Phải (OD)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoryEyeFilter('OS')}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all ${
+                    historyEyeFilter === 'OS' ? 'bg-[#0D9488] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Mắt Trái (OS)
+                </button>
+              </div>
+
+              {/* Risk Filter */}
+              <select
+                value={historyRiskFilter}
+                onChange={(e) => setHistoryRiskFilter(e.target.value as any)}
+                className="py-1.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-[#0891B2] outline-none"
+              >
+                <option value="ALL">Mọi mức nguy cơ</option>
+                <option value="HIGH">Nguy cơ cao (≥75%)</option>
+                <option value="MODERATE">Nguy cơ trung bình (45 - 74%)</option>
+                <option value="LOW">Nguy cơ thấp (&lt;45%)</option>
+              </select>
+
+              {(historySearch || historyEyeFilter !== 'ALL' || historyRiskFilter !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistorySearch('');
+                    setHistoryEyeFilter('ALL');
+                    setHistoryRiskFilter('ALL');
+                  }}
+                  className="text-xs text-red-600 hover:underline px-1 font-medium"
+                >
+                  Đặt lại lọc
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Historical Scans Data Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
                   <tr>
                     <th className="p-3.5">Mã Phân Tích</th>
-                    <th className="p-3.5">Ngày Khám</th>
-                    <th className="p-3.5">Vị Trí Soi</th>
-                    <th className="p-3.5">Điểm Rủi Ro</th>
-                    <th className="p-3.5">Nguy Cơ Tim Mạch</th>
-                    <th className="p-3.5">Bác Sĩ Phụ Trách</th>
-                    <th className="p-3.5">Thao Tác</th>
+                    <th className="p-3.5">Ngày Giờ Khám</th>
+                    <th className="p-3.5">Vị Trí & Loại Ảnh</th>
+                    <th className="p-3.5">A/V Ratio</th>
+                    <th className="p-3.5">Mật Độ Vi Mạch</th>
+                    <th className="p-3.5">Rủi Ro Tim Mạch</th>
+                    <th className="p-3.5">Trạng Thái</th>
+                    <th className="p-3.5 text-right">Thao Tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {scanHistory.map((scan) => (
-                    <tr key={scan.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3.5 font-mono-data font-semibold text-cyan-800">{scan.id}</td>
-                      <td className="p-3.5 text-slate-500 font-mono-data">{scan.date}</td>
-                      <td className="p-3.5 font-medium text-slate-800">{scan.eye}</td>
-                      <td className="p-3.5 font-mono-data font-bold">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[11px] ${
-                            scan.overallScore >= 75
-                              ? 'bg-red-100 text-red-700 border border-red-300'
-                              : 'bg-amber-100 text-amber-800 border border-amber-300'
-                          }`}
-                        >
-                          {scan.overallScore}/100
-                        </span>
-                      </td>
-                      <td className="p-3.5 font-mono-data font-bold text-red-600">{scan.cvdRisk}</td>
-                      <td className="p-3.5 text-slate-700 font-medium">{scan.doctor}</td>
-                      <td className="p-3.5">
-                        <button
-                          onClick={() => {
-                            onNavigate('cds-viewer');
-                          }}
-                          className="px-3 py-1.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-lg text-xs shadow-xs"
-                        >
-                          Xem Bản Đồ Nhiệt
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {scanHistory
+                    .filter((item) => {
+                      const matchSearch =
+                        historySearch.trim() === '' ||
+                        item.id.toLowerCase().includes(historySearch.toLowerCase()) ||
+                        item.date.toLowerCase().includes(historySearch.toLowerCase()) ||
+                        item.doctor.toLowerCase().includes(historySearch.toLowerCase()) ||
+                        item.scanType.toLowerCase().includes(historySearch.toLowerCase());
+
+                      const matchEye =
+                        historyEyeFilter === 'ALL' ||
+                        (historyEyeFilter === 'BOTH' && (item.eye.includes('2 Mắt') || item.eye.includes('Cả 2'))) ||
+                        (historyEyeFilter === 'OD' && item.eye.includes('OD') && !item.eye.includes('2 Mắt')) ||
+                        (historyEyeFilter === 'OS' && item.eye.includes('OS') && !item.eye.includes('2 Mắt'));
+
+                      const matchRisk =
+                        historyRiskFilter === 'ALL' ||
+                        (historyRiskFilter === 'HIGH' && item.overallScore >= 75) ||
+                        (historyRiskFilter === 'MODERATE' && item.overallScore >= 45 && item.overallScore < 75) ||
+                        (historyRiskFilter === 'LOW' && item.overallScore < 45);
+
+                      return matchSearch && matchEye && matchRisk;
+                    })
+                    .map((scan) => (
+                      <tr key={scan.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3.5 font-mono-data font-bold text-[#0891B2]">
+                          {scan.id}
+                        </td>
+                        <td className="p-3.5 text-slate-500 font-mono-data">{scan.date}</td>
+                        <td className="p-3.5">
+                          <div className="space-y-0.5">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                scan.eye.includes('2 Mắt') || scan.eye.includes('Cả 2')
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : scan.eye.includes('OD')
+                                  ? 'bg-cyan-100 text-cyan-800'
+                                  : 'bg-teal-100 text-teal-800'
+                              }`}
+                            >
+                              {scan.eye}
+                            </span>
+                            <div className="text-[11px] text-slate-600">{scan.scanType}</div>
+                          </div>
+                        </td>
+                        <td className="p-3.5 font-mono-data font-bold text-slate-800">
+                          {scan.avRatio || 0.58}
+                        </td>
+                        <td className="p-3.5 font-mono-data text-slate-600">
+                          {scan.vesselDensity || '15.2%'}
+                        </td>
+                        <td className="p-3.5">
+                          <div className="space-y-1">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono-data inline-block ${
+                                scan.overallScore >= 75
+                                  ? 'bg-red-100 text-red-700 border border-red-200'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+                              }`}
+                            >
+                              {scan.cvdRisk}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-3.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3" /> {scan.status}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (scan.odResult) setResultOD(scan.odResult);
+                                if (scan.osResult) setResultOS(scan.osResult);
+                                if (scan.odResult) {
+                                  setAnalysisResult(scan.odResult);
+                                  setActiveEyeTab('OD');
+                                } else if (scan.osResult) {
+                                  setAnalysisResult(scan.osResult);
+                                  setActiveEyeTab('OS');
+                                }
+                                onNavigate('cds-viewer');
+                              }}
+                              className="px-2.5 py-1.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-lg text-xs shadow-xs flex items-center gap-1 transition-colors"
+                              title="Soi ảnh và Heatmap trên Bàn chẩn đoán CDS"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> Soi Heatmap
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const customResult: AIRiskResult = {
+                                  analysisId: scan.id,
+                                  imageUrl: '/assets/images/fundus_original.png',
+                                  status: 'COMPLETED',
+                                  executionTimeMs: 2400,
+                                  overallVascularRiskScore: scan.overallScore,
+                                  cardiovascularRisk: {
+                                    level: scan.overallScore >= 75 ? 'High' : (scan.overallScore >= 45 ? 'Moderate' : 'Low'),
+                                    score: parseInt(scan.cvdRisk) || 68,
+                                    hypertensionStage: scan.overallScore >= 75 ? 'Giai đoạn II (Tăng huyết áp Trung bình - Cao)' : 'Giai đoạn I (Tăng huyết áp Nhẹ)',
+                                    threeYearStrokeRiskPercent: Number(((parseInt(scan.cvdRisk) || 68) * 0.22).toFixed(1)),
+                                  },
+                                  diabeticRetinopathyRisk: {
+                                    level: scan.overallScore >= 70 ? 'Moderate' : 'Low',
+                                    score: Math.max(20, scan.overallScore - 15),
+                                    etdrsGrade: scan.overallScore >= 70 ? 'Mức 35-43 (NPDR nhẹ - trung bình)' : 'Mức 10-20 (Không có tổn thương vi mạch)',
+                                    macularEdemaPresent: scan.overallScore >= 75,
+                                  },
+                                  glaucomaRisk: {
+                                    level: 'Low',
+                                    score: 22,
+                                  },
+                                  annotatedMap: {
+                                    heatmapUrl: '/assets/images/fundus_heatmap.png',
+                                    arteryVeinRatio: scan.avRatio || 0.58,
+                                    vesselDensityPercentage: parseFloat(scan.vesselDensity) || 15.2,
+                                    tortuosityIndex: 1.28,
+                                    opticCupToDiscRatio: 0.35,
+                                    detectedAnomalies: [
+                                      {
+                                        id: 'ANO-H1',
+                                        type: 'AV_Nipping',
+                                        coordinates: { x: 38, y: 42, width: 8, height: 8 },
+                                        confidence: 0.92,
+                                        description: `Dấu hiệu bắt chéo vi mạch chỉ số A/V ${scan.avRatio || 0.58}`,
+                                      },
+                                    ],
+                                  },
+                                  xaiExplainability: [
+                                    {
+                                      title: `Chỉ số A/V Ratio ca khám: ${scan.avRatio || 0.58}`,
+                                      impact: (scan.avRatio || 0.58) < 0.58 ? 'High' : 'Medium',
+                                      clinicalRationale: `Kết quả khám lưu trữ ngày ${scan.date}. Bác sĩ ${scan.doctor} đã ghi nhận hồ sơ y bạ.`,
+                                    },
+                                  ],
+                                };
+                                setSelectedHistoryResult(customResult);
+                                setIsReportModalOpen(true);
+                              }}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
+                              title="Xem phiếu khám y tế chi tiết"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-slate-600" /> Báo Cáo
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const rows = [
+                                  ['Thong so', 'Gia tri'],
+                                  ['Ma phan tich', scan.id],
+                                  ['Ngay kham', scan.date],
+                                  ['Ho ten benh nhan', patient.fullName],
+                                  ['Ma benh nhan (MRN)', patient.mrn],
+                                  ['Vi tri mat', scan.eye],
+                                  ['Loai anh', scan.scanType],
+                                  ['Diem nguy co tong the', `${scan.overallScore}/100`],
+                                  ['Nguy co tim mach (CVD)', scan.cvdRisk],
+                                  ['Ty le A/V Ratio', (scan.avRatio || 0.58).toString()],
+                                  ['Mat do vi mach', scan.vesselDensity || '15.2%'],
+                                  ['Bac si phu trach', scan.doctor],
+                                  ['Trang thai', scan.status],
+                                ];
+                                const csvStr = 'data:text/csv;charset=utf-8,\uFEFF' + rows.map((e) => e.join(',')).join('\n');
+                                const encodedUri = encodeURI(csvStr);
+                                const link = document.createElement('a');
+                                link.setAttribute('href', encodedUri);
+                                link.setAttribute('download', `AURA_Report_${patient.mrn}_${scan.id}.csv`);
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                              className="p-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-lg text-xs transition-colors"
+                              title="Tải tệp CSV ca khám này"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -1004,9 +1422,15 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       {/* Modals */}
       <MedicalReportModal
         isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
+        onClose={() => {
+          setIsReportModalOpen(false);
+          setSelectedHistoryResult(null);
+        }}
         patient={patient}
-        result={analysisResult}
+        result={selectedHistoryResult || analysisResult}
+        resultOD={resultOD}
+        resultOS={resultOS}
+        isDualEye={Boolean(resultOD && resultOS)}
         doctorName={patient.assignedDoctor}
       />
 
