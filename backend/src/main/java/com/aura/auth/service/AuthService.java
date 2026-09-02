@@ -24,6 +24,7 @@ public class AuthService {
   private final AuthenticationManager auth;
   private final JwtTokenProvider jwt;
   private final RefreshTokenService refresh;
+  private final OtpService otpService;
 
   public AuthService(
       UserRepository u,
@@ -32,7 +33,8 @@ public class AuthService {
       PasswordEncoder e,
       AuthenticationManager a,
       JwtTokenProvider j,
-      RefreshTokenService f) {
+      RefreshTokenService f,
+      OtpService o) {
     users = u;
     roles = r;
     userRoles = ur;
@@ -40,6 +42,39 @@ public class AuthService {
     auth = a;
     jwt = j;
     refresh = f;
+    otpService = o;
+  }
+
+  public long sendRegistrationOtp(SendOtpRequest q) {
+    String email = q.email().trim().toLowerCase(Locale.ROOT);
+    if (users.existsByEmailIgnoreCase(email)) {
+      throw new AuthException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email đã được sử dụng. Vui lòng đăng nhập hoặc sử dụng email khác.");
+    }
+    return otpService.sendOtp(email, q.fullName(), "REGISTER");
+  }
+
+  @Transactional
+  public LoginResult verifyOtpAndRegister(VerifyOtpRequest q) {
+    String email = q.email().trim().toLowerCase(Locale.ROOT);
+    if (users.existsByEmailIgnoreCase(email)) {
+      throw new AuthException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email đã được sử dụng.");
+    }
+
+    // Verify OTP code
+    otpService.verifyOtp(email, q.otp());
+
+    var user = new User(
+        email,
+        encoder.encode(q.password()),
+        q.fullName() == null ? null : q.fullName().trim()
+    );
+    user.setEmailVerified(true);
+    var savedUser = users.save(user);
+
+    var role = roles.findByName(RoleName.USER).orElseThrow();
+    userRoles.save(new UserRole(savedUser, role));
+
+    return result(savedUser, List.of("USER"));
   }
 
   @Transactional
@@ -72,6 +107,86 @@ public class AuthService {
     } catch (AuthenticationException e) {
       throw new AuthException(ErrorCode.INVALID_CREDENTIALS, "Email hoặc mật khẩu không chính xác");
     }
+  }
+
+  @Transactional
+  public LoginResult loginWithGoogle(GoogleLoginRequest q) {
+    return loginWithSocial(new SocialLoginRequest("google", q.idToken(), q.email(), q.fullName(), q.picture()));
+  }
+
+  @Transactional
+  public LoginResult loginWithSocial(SocialLoginRequest q) {
+    String provider = q.provider() != null ? q.provider().trim().toLowerCase(Locale.ROOT) : "google";
+    String email = null;
+    String name = null;
+
+    if (q.idToken() != null && q.idToken().contains(".")) {
+      try {
+        String[] parts = q.idToken().split("\\.");
+        if (parts.length >= 2) {
+          String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]), java.nio.charset.StandardCharsets.UTF_8);
+          com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+          var node = mapper.readTree(payloadJson);
+          if (node.has("email")) {
+            email = node.get("email").asText().trim().toLowerCase(Locale.ROOT);
+          }
+          if (node.has("name")) {
+            name = node.get("name").asText().trim();
+          }
+        }
+      } catch (Exception ignored) {
+      }
+    }
+
+    if (email == null && q.email() != null && !q.email().isBlank()) {
+      email = q.email().trim().toLowerCase(Locale.ROOT);
+    }
+    if (name == null && q.fullName() != null && !q.fullName().isBlank()) {
+      name = q.fullName().trim();
+    }
+
+    if (email == null || email.isBlank()) {
+      throw new AuthException(ErrorCode.INVALID_CREDENTIALS, "Không thể trích xuất thông tin email từ tài khoản " + provider);
+    }
+
+    final String providerDisplayName = switch (provider) {
+      case "microsoft" -> "Microsoft";
+      case "apple" -> "Apple";
+      case "facebook" -> "Facebook";
+      case "github" -> "GitHub";
+      default -> "Google";
+    };
+
+    final String finalName = name != null ? name : "Người dùng " + providerDisplayName;
+    final String targetEmail = email;
+
+    var user = users.findByEmailIgnoreCase(targetEmail).orElseGet(() -> {
+      var newUser = new User(targetEmail, encoder.encode(UUID.randomUUID().toString()), finalName);
+      newUser.setEmailVerified(true);
+      newUser.setActive(true);
+      var saved = users.save(newUser);
+      var userRole = roles.findByName(RoleName.USER).orElseThrow();
+      userRoles.save(new UserRole(saved, userRole));
+      return saved;
+    });
+
+    if (!user.isActive()) {
+      throw new AuthException(ErrorCode.ACCOUNT_DISABLED, "Tài khoản đã bị vô hiệu hóa");
+    }
+
+    if ((user.getFullName() == null || user.getFullName().isBlank()) && name != null) {
+      user.setFullName(name);
+      users.save(user);
+    }
+
+    var names = userRoles.findAllByUserId(user.getId()).stream()
+        .map(x -> x.getRole().getName().name())
+        .toList();
+    if (names.isEmpty()) {
+      names = List.of("USER");
+    }
+
+    return result(user, names);
   }
 
   public LoginResult refresh(String raw) {
