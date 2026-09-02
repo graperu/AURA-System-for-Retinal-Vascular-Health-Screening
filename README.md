@@ -1,210 +1,351 @@
-# AURA – Hệ thống sàng lọc sức khỏe mạch máu võng mạc
+<div align="center">
 
-AURA là dự án môn Java xây dựng nền tảng hỗ trợ sàng lọc sức khỏe mạch máu võng mạc. Milestone 1 tập trung vào bộ khung kỹ thuật tối thiểu và luồng phân tích mô phỏng từ giao diện đến AI Core.
+<p align="center">
+  <img
+    src="frontend/public/images/aura-web-preview.png"
+    alt="AURA Web Preview"
+    width="100%"
+  />
+</p>
 
-> Kết quả AI hiện tại là dữ liệu mock phục vụ phát triển. Hệ thống không thay thế chẩn đoán hoặc quyết định của bác sĩ.
+# AURA
 
-## Kiến trúc Milestone 1
+### Hệ Thống Sàng Lọc Sức Khỏe Mạch Máu Võng Mạc
 
-```text
-React + TypeScript ──HTTP/REST──> Java Spring Boot ──JPA──> PostgreSQL
-                                         │
-                                         └──HTTP──> Python FastAPI AI Core
-```
+**AURA** là hệ thống hỗ trợ sàng lọc sức khỏe thông qua phân tích ảnh võng mạc bằng trí tuệ nhân tạo. Hệ thống hướng tới việc hỗ trợ người dùng và nhân viên y tế nhận biết sớm các dấu hiệu bất thường trên ảnh Fundus, quản lý lịch sử phân tích và theo dõi kết quả trên nền tảng web.
 
-Frontend chỉ gọi backend Spring Boot. Backend kiểm tra request và gọi AI Core; frontend không gọi trực tiếp AI Core.
+> **AURA là công cụ hỗ trợ quyết định và sàng lọc ban đầu, không thay thế chẩn đoán, kết luận hoặc chỉ định điều trị của bác sĩ.**
 
-MongoDB được dự kiến cho các milestone sau nhưng chưa được cấu hình trong Milestone 1 vì chưa có use case lưu trữ tài liệu cụ thể.
+---
 
-## Công nghệ
+### 📚 TÀI LIỆU BÀN GIAO & KHẢO SÁT HỆ THỐNG
+* 📋 **[HANDOVER.md](HANDOVER.md)**: **Tài liệu bàn giao chi tiết toàn diện** (Hướng dẫn cài đặt Zero-to-One, Tài khoản kiểm thử, Kiến trúc, 11 Migrations, API Endpoints, Checklist).
+* 🔍 **[AUDIT_REPORT.md](AUDIT_REPORT.md)**: **Báo cáo Nghiệm thu Hiện trạng Kỹ thuật** đối chiếu 39 FR & 23 NFR theo chuẩn Đề bài.
+* 📝 **[WORKLOG_2026-08-31.md](WORKLOG_2026-08-31.md)**: Nhật ký thực thi, sửa lỗi UI Modal & hoàn thành an toàn y khoa P0-1.
+* 🚀 **[start-system.bat](start-system.bat)**: Trình khởi chạy 1-Click cho toàn bộ hệ thống (Docker Compose / Local Services).
 
-- Backend: Java 21, Spring Boot 3, Maven, Spring Web, Spring Data JPA.
-- Frontend: React, TypeScript, Vite, React Router, ESLint.
-- AI Core: Python, FastAPI, Pydantic, Uvicorn.
-- Database hiện tại: PostgreSQL 16.
-- Hạ tầng development: Docker Compose.
+</div>
 
-## Cấu trúc thư mục
+---
 
-```text
-backend/
-  pom.xml
-  src/main/java/com/aura/backend/
-    BackendApplication.java
-    common/
-      config/        CORS và cấu hình HTTP client
-      exception/     xử lý lỗi tập trung
-      response/      API envelope dùng chung
-    analysis/
-      client/        REST client gọi AI Core
-      controller/    endpoint phân tích
-      dto/           contract request/response
-      entity/        mô hình JPA nghiệp vụ
-      repository/    Spring Data repository
-      service/       nghiệp vụ phân tích
-    system/
-      controller/    health và system info
-      dto/           contract trạng thái hệ thống
-      service/       kiểm tra dependency
-  src/main/resources/application.yml
-  src/test/java/     test endpoint tối thiểu
-frontend/            React + TypeScript
-ai-core/             FastAPI mock service
-docs/                tài liệu kiến trúc
-scripts/             script kiểm tra
-docker-compose.yml
-```
+## 1. Tổng quan dự án
 
-## Yêu cầu môi trường
+Ảnh võng mạc có thể chứa nhiều thông tin liên quan đến tình trạng của mắt và hệ thống mạch máu. Tuy nhiên, việc đọc và đánh giá ảnh đòi hỏi kiến thức chuyên môn, thiết bị phù hợp và thời gian xử lý.
 
-Cách đơn giản nhất là dùng Docker Desktop hoặc Docker Engine có Docker Compose.
+AURA được xây dựng nhằm tạo ra một nền tảng web cho phép:
 
-Nếu chạy từng service trực tiếp, cần:
+- Tiếp nhận và quản lý ảnh võng mạc.
+- Hỗ trợ phân tích ảnh bằng mô hình AI.
+- Trả về kết quả dự đoán cùng độ tin cậy của mô hình.
+- Minh họa vùng hình ảnh được AI chú ý.
+- Lưu trữ lịch sử phân tích để theo dõi và đối chiếu.
+- Hỗ trợ bác sĩ hoặc người có chuyên môn xem xét kết quả.
+- Quản lý người dùng, vai trò và quyền truy cập trong hệ thống.
 
-- JDK 21.
-- Maven 3.9 trở lên.
-- Node.js 22 trở lên và npm.
-- Python 3.11 trở lên.
-- PostgreSQL 16.
+Dự án được phát triển theo kiến trúc tách biệt giữa giao diện người dùng, Backend nghiệp vụ và AI Service.
 
-## Chạy toàn bộ bằng Docker
+---
 
-Tại thư mục gốc:
+## 2. Mục tiêu
 
-```powershell
-Copy-Item .env.example .env
-docker compose up --build
-```
+AURA hướng đến các mục tiêu chính:
 
-Các địa chỉ mặc định:
+1. Xây dựng nền tảng web hỗ trợ tải lên và quản lý ảnh võng mạc.
+2. Ứng dụng Deep Learning để phân tích ảnh Fundus.
+3. Hỗ trợ phát hiện hoặc phân loại một số dấu hiệu bất thường trên võng mạc.
+4. Hiển thị xác suất dự đoán và mức độ tin cậy của mô hình.
+5. Cung cấp hình ảnh giải thích như heatmap để hỗ trợ người dùng hiểu kết quả.
+6. Lưu trữ kết quả phân tích và lịch sử xử lý.
+7. Bảo vệ dữ liệu bằng cơ chế xác thực và phân quyền.
+8. Thiết kế hệ thống có khả năng mở rộng thêm mô hình AI trong tương lai.
 
-- Frontend: <http://localhost:5173/dashboard>
-- Backend health: <http://localhost:8080/health>
-- Backend system info: <http://localhost:8080/api/v1/system/info>
-- AI Core health: <http://localhost:8000/health>
-- PostgreSQL: `localhost:5432`
+---
 
-Kiểm tra container:
+## 3. Phạm vi AI
 
-```powershell
-docker compose ps
-docker compose logs -f backend
-```
+Phiên bản AI thử nghiệm của dự án tập trung vào ảnh võng mạc và các nhóm phân loại như:
 
-Dừng hệ thống:
+- Normal — Không phát hiện dấu hiệu thuộc các lớp mà mô hình đã được huấn luyện.
+- Diabetic Retinopathy — Bệnh võng mạc do tiểu đường.
+- Glaucoma — Dấu hiệu liên quan đến tăng nhãn áp.
+- AMD — Thoái hóa điểm vàng do tuổi tác.
 
-```powershell
-docker compose down
-```
+Kết quả từ mô hình AI chỉ mang tính chất hỗ trợ sàng lọc.
 
-Không dùng `docker compose down -v` nếu muốn giữ dữ liệu PostgreSQL development.
-
-## Chạy từng service
-
-### PostgreSQL
-
-```powershell
-docker compose up postgres
-```
-
-### AI Core
-
-```powershell
-cd ai-core
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.txt
-python -m uvicorn app.main:app --reload --port 8000
-```
-
-### Backend Java
-
-```powershell
-cd backend
-mvn spring-boot:run
-```
-
-Backend dùng các biến `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `AI_CORE_BASE_URL` và `CORS_ALLOWED_ORIGINS`. Giá trị development mặc định nằm trong `application.yml`.
-
-### Frontend
-
-```powershell
-cd frontend
-npm.cmd ci
-npm.cmd run dev
-```
-
-Frontend lấy URL backend từ `VITE_BACKEND_API_URL`, mặc định là `http://localhost:8080`.
-
-## API hiện có
-
-| Method | Endpoint | Mục đích |
-|---|---|---|
-| GET | `/health` | Trạng thái backend, PostgreSQL và AI Core |
-| GET | `/api/v1/system/info` | Thông tin hệ thống cho dashboard |
-| POST | `/api/v1/analyses/demo` | Validation và chuyển yêu cầu mock tới AI Core |
-| GET | AI Core `/health` | Health check AI Core |
-| POST | AI Core `/api/v1/analyze` | Phân tích mô phỏng nội bộ |
-
-Backend trả response thống nhất:
+Ví dụ kết quả dự đoán:
 
 ```json
 {
-  "success": true,
-  "data": {},
-  "error": null,
-  "traceId": "..."
+  "predictedClass": "DIABETIC_RETINOPATHY",
+  "confidence": 0.82,
+  "modelVersion": "fundus-model-v1",
+  "status": "COMPLETED"
 }
 ```
 
-Endpoint demo chỉ nhận UUID và URL ảnh giả lập. Không dùng ảnh hoặc dữ liệu bệnh nhân thật.
+Giá trị `confidence` thể hiện mức độ tự tin của mô hình đối với kết quả dự đoán, không phải xác suất chắc chắn người dùng mắc bệnh.
 
-## Kiểm tra dự án
+---
 
-```powershell
-# Backend
-mvn -f backend/pom.xml test
+## 4. Kiến trúc hệ thống
 
-# AI Core
-cd ai-core
-python -m pytest
-
-# Frontend
-cd frontend
-npm.cmd ci
-npm.cmd run lint
-npm.cmd run build
-
-# Docker Compose
-docker compose config --quiet
+```text
+┌─────────────────────────────┐
+│       React Frontend        │
+│     TypeScript + Vite       │
+└──────────────┬──────────────┘
+               │ REST API
+               ▼
+┌─────────────────────────────┐
+│   Java Spring Boot Backend  │
+│ Auth, User, Analysis, Admin │
+└───────┬─────────────┬───────┘
+        │             │
+        │             │ Internal REST API
+        ▼             ▼
+┌───────────────┐  ┌──────────────────────┐
+│  PostgreSQL   │  │ Python AI Service    │
+│   Supabase    │  │ FastAPI + PyTorch    │
+└───────────────┘  └──────────┬───────────┘
+                              │
+                              ▼
+                   ┌──────────────────────┐
+                   │ Retinal AI Model     │
+                   │ Prediction + Heatmap │
+                   └──────────────────────┘
 ```
 
-Trên PowerShell có thể chạy `powershell -File scripts/verify.ps1` khi Java, Maven, Python, Node và Docker đều có trong `PATH`.
+### Luồng phân tích dự kiến
 
-## Phạm vi Milestone 1
+```text
+Người dùng tải ảnh Fundus
+        ↓
+Frontend gửi ảnh đến Java Backend
+        ↓
+Backend xác thực và lưu thông tin ảnh
+        ↓
+Backend gửi yêu cầu đến Python AI Service
+        ↓
+AI tiền xử lý và chạy mô hình
+        ↓
+AI trả dự đoán, độ tin cậy và dữ liệu giải thích
+        ↓
+Backend lưu kết quả vào PostgreSQL
+        ↓
+Frontend hiển thị kết quả cho người dùng
+```
 
-Đã triển khai trong bộ khung:
+Frontend không gọi trực tiếp AI Service. Java Backend đóng vai trò trung tâm trong việc xác thực, quản lý nghiệp vụ, lưu dữ liệu và điều phối yêu cầu phân tích.
 
-- Backend Java/Spring Boot theo các lớp controller, service, client, repository, entity và DTO.
-- PostgreSQL qua Spring Data JPA.
-- Luồng frontend → backend → AI Core mock.
-- Validation, response envelope, global exception handler và CORS.
-- Test Java tối thiểu cho health, system info và demo analysis.
-- Dockerfile cho từng service và Docker Compose.
+---
 
-Chưa triển khai trong Milestone 1:
+## 5. Công nghệ sử dụng
 
-- JWT và đăng nhập hoàn chỉnh.
-- Phân quyền RBAC và phân tách dữ liệu phòng khám.
-- MongoDB và nghiệp vụ cần lưu document.
-- Flyway, OpenAPI và mô hình AI thật.
-- Các module bệnh nhân, ca khám, review, báo cáo, thanh toán và thông báo hoàn chỉnh.
+| Thành phần | Công nghệ |
+|---|---|
+| Frontend | React, TypeScript, Vite, TailwindCSS |
+| Backend | Java 21, Spring Boot 3 |
+| Bảo mật | Spring Security, JWT |
+| Database | Supabase PostgreSQL |
+| Storage | Supabase Storage |
+| AI Service | Python, FastAPI |
+| AI Framework | PyTorch hoặc TensorFlow |
+| Database Migration | Flyway |
+| Backend Testing | JUnit, Mockito, Testcontainers |
+| Containerization | Docker, Docker Desktop |
+| Frontend Deployment | Vercel |
+| Backend và AI Deployment | VPS, Render, Railway hoặc Cloud |
 
-## Lỗi thường gặp
+---
 
-- `mvn` không tồn tại: cài Maven và JDK 21, sau đó kiểm tra `mvn --version`.
-- Port `8080` đã được sử dụng: đổi `BACKEND_PORT` và `VITE_BACKEND_API_URL` trong `.env`, rồi build lại frontend.
-- PostgreSQL unavailable: kiểm tra `docker compose ps` và các biến `DATABASE_*`.
-- AI Core unavailable: kiểm tra `docker compose logs ai-core` và `AI_CORE_BASE_URL`.
-- CORS: bảo đảm `CORS_ALLOWED_ORIGINS` đúng origin của trình duyệt.
-- Docker tải image lỗi: thử lại `docker compose pull` khi kết nối registry ổn định.
+## 6. Chức năng hệ thống
+
+### Chức năng đã xây dựng
+
+- Đăng ký tài khoản bằng email và mật khẩu.
+- Đăng nhập bằng email và mật khẩu.
+- Xác thực bằng JWT access token.
+- Refresh token được quản lý bằng HttpOnly cookie.
+- Làm mới access token.
+- Đăng xuất và thu hồi refresh token.
+- Lấy thông tin người dùng đang đăng nhập.
+- Phân quyền theo vai trò: `USER`, `DOCTOR`, `ADMIN`, `CLINIC`.
+- Bàn làm việc Hỗ trợ Quyết định Lâm sàng (CDS Dashboard) cho Bác sĩ.
+- Trình xem ảnh võng mạc tương tác Side-by-Side kèm bản đồ nhiệt (XAI Heatmap).
+- Cổng quản lý chiến dịch sàng lọc hàng loạt (Clinic Batch Processing & Credit Quota).
+- Nhật ký kiểm toán bảo mật (Admin Audit Logs & Security Trails).
+- Cổng theo dõi sức khỏe và lịch sử tầm soát cho Bệnh nhân (Patient Portal).
+- Health Check API.
+- Validation dữ liệu đầu vào.
+- Xử lý lỗi tập trung.
+- Database migration bằng Flyway.
+- Unit test và integration test cho chức năng backend.
+
+---
+
+## 7. API xác thực & hệ thống
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| `POST` | `/api/v1/auth/register` | Đăng ký tài khoản |
+| `POST` | `/api/v1/auth/login` | Đăng nhập |
+| `POST` | `/api/v1/auth/refresh` | Cấp access token mới |
+| `POST` | `/api/v1/auth/logout` | Đăng xuất |
+| `GET` | `/api/v1/auth/me` | Lấy thông tin người dùng hiện tại |
+| `GET` | `/api/v1/system/health` | Kiểm tra trạng thái Backend |
+
+---
+
+## 8. Cấu trúc repository
+
+```text
+AURA-System-for-Retinal-Vascular-Health-Screening/
+├── backend/                 # Java Spring Boot Backend
+│   ├── src/
+│   ├── pom.xml
+│   ├── mvnw
+│   └── mvnw.cmd
+│
+├── frontend/                # React + TypeScript Frontend
+│   ├── public/
+│   ├── src/
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── ai-service/              # Python FastAPI AI Service
+├── database/                # Tài liệu thiết kế cơ sở dữ liệu
+├── infrastructure/          # Cấu hình triển khai hệ thống
+├── docs/                    # Tài liệu yêu cầu, phân tích và kiến trúc
+├── docker-compose.yml
+├── .env.example
+├── CONTRIBUTING.md
+├── CHANGELOG.md
+└── README.md
+```
+
+---
+
+## 9. Chạy dự án
+
+### Yêu cầu môi trường
+
+- Java 21
+- Node.js và npm
+- Python 3.10 trở lên
+- Docker Desktop
+- PostgreSQL hoặc Supabase PostgreSQL
+- Git
+
+### Chạy Backend
+
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Kiểm tra Backend:
+
+```http
+GET http://localhost:8081/api/v1/system/health
+```
+
+### Chạy Frontend
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Địa chỉ Frontend mặc định:
+
+```text
+http://localhost:5173
+```
+
+### Build Frontend
+
+```powershell
+cd frontend
+npm run build
+```
+
+---
+
+## 10. Biến môi trường
+
+Sử dụng `.env.example` làm mẫu và tạo file `.env` riêng trên máy cá nhân:
+
+```env
+DB_URL=jdbc:postgresql://localhost:5432/aura_db
+DB_USERNAME=postgres
+DB_PASSWORD=your_secure_password
+
+JWT_SECRET=your_jwt_secret_key_at_least_256_bits_length
+JWT_ACCESS_EXPIRATION=900000
+JWT_REFRESH_EXPIRATION=604800000
+
+AI_SERVICE_BASE_URL=http://localhost:8000
+FRONTEND_URL=http://localhost:5173
+```
+
+---
+
+## 11. Nguyên tắc bảo mật
+
+- Không commit `.env` chứa thông tin thật.
+- Không lưu refresh token trong `localStorage`.
+- Refresh token được quản lý bằng HttpOnly cookie.
+- Mật khẩu phải được băm trước khi lưu vào database.
+- Endpoint riêng tư phải yêu cầu JWT hợp lệ.
+- Kiểm tra quyền truy cập dữ liệu theo người dùng và vai trò.
+- Không công khai ảnh y tế hoặc kết quả phân tích.
+- Không ghi dữ liệu nhạy cảm vào log.
+- AI Service chỉ nên được Backend truy cập qua mạng nội bộ hoặc cơ chế xác thực service-to-service.
+
+---
+
+## 12. Trạng thái dự án
+
+| Hạng mục | Trạng thái |
+|---|---|
+| Nền tảng Spring Boot Backend | Hoàn thành |
+| Đăng ký và đăng nhập email | Hoàn thành |
+| JWT và refresh token | Hoàn thành |
+| Phân quyền đa vai trò (Doctor, Patient, Admin, Clinic) | Hoàn thành |
+| Giao diện lâm sàng CDS Dashboard | Hoàn thành |
+| Cổng Bệnh nhân & Cổng Phòng khám | Hoàn thành |
+| Nhật ký kiểm toán Admin | Hoàn thành |
+| Supabase PostgreSQL Migration | Hoàn thành |
+| Upload & Xử lý hàng loạt | Đang hoàn thiện |
+| AI Service Microservice | Đang phát triển |
+
+---
+
+## 13. Nguyên tắc sử dụng AI y tế
+
+AURA không được sử dụng để tự động đưa ra chẩn đoán y khoa cuối cùng.
+
+Kết quả AI phải luôn đi kèm cảnh báo:
+
+> **Kết quả chỉ hỗ trợ sàng lọc và không thay thế chẩn đoán của bác sĩ.**
+
+Mọi kết quả bất thường cần được bác sĩ hoặc người có chuyên môn xem xét lại.
+
+---
+
+## 14. Đóng góp
+
+Xem hướng dẫn tại [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+---
+
+<div align="center">
+
+### AURA
+
+**AI-assisted Retinal Vascular Health Screening**
+
+*Kết quả chỉ hỗ trợ sàng lọc và không thay thế chẩn đoán của bác sĩ.*
+
+</div>

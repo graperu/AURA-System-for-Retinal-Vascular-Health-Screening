@@ -1,36 +1,75 @@
-# Environment and local settings
+# Environment and local configuration
 .env
-.env.local
+.env.*
 !.env.example
+application-local.yml
+application-local.properties
 
-# Build output
-**/bin/
-**/obj/
-**/target/
-**/dist/
-*.user
-*.suo
+# Keys and credentials
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+credentials/
+service-account*.json
 
-# Node
-**/node_modules/
+# Java
+target/
+*.class
+*.jar
+*.war
+
+# JavaScript
+node_modules/
+dist/
+.vite/
 *.tsbuildinfo
 
 # Python
-**/__pycache__/
-**/.pytest_cache/
-**/.venv/
-**/.mypy_cache/
-**/.ruff_cache/
-**/htmlcov/
+__pycache__/
 *.py[cod]
-.coverage
-coverage.xml
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# IDE / OS
+# Editors and operating systems
 .idea/
 .vscode/
+*.iml
 .DS_Store
 Thumbs.db
+.agents/
+.augment/
+.claude/
+.codebuddy/
+.codewhale/
+.continue/
+.cursor/
+.factory/
+.gemini/
+.kilocode/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.warp/
+.windsurf/
 
-# Local data
-postgres-data/
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+
+# Models, datasets, and medical images
+*.pt
+*.pth
+*.onnx
+models/weights/
+datasets/
+patient-images/
+retinal-images/

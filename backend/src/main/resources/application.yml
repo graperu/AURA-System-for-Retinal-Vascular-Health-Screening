@@ -1,61 +1,43 @@
-server:
-  port: ${SERVER_PORT:8080}
-
 spring:
   application:
     name: aura-backend
-
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/aura}
-    username: ${DATABASE_USERNAME:postgres}
-    password: ${DATABASE_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      connection-timeout: 2000
-      validation-timeout: 1000
-
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/aura_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:aura_password123}
   jpa:
-    open-in-view: false
     hibernate:
-      ddl-auto: update
-    show-sql: false
-    properties:
-      hibernate:
-        format_sql: false
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
+    open-in-view: false
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    baseline-on-migrate: true
 
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID:}
-            client-secret: ${GOOGLE_CLIENT_SECRET:}
-            scope: openid,email,profile
-        provider:
-          google:
-            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
-            token-uri: https://oauth2.googleapis.com/token
-            user-info-uri: https://openidconnect.googleapis.com/v1/userinfo
-            user-name-attribute: sub
+server:
+  port: ${SERVER_PORT:8081}
 
-ai-core:
-  base-url: ${AI_CORE_BASE_URL:http://localhost:8000}
-  connect-timeout: ${AI_CORE_CONNECT_TIMEOUT:2s}
-  read-timeout: ${AI_CORE_READ_TIMEOUT:10s}
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
 
-cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
-
-# NFR-12 / FR-1 / FR-32: JWT-based auth + RBAC.
-# JWT_SECRET MUST be overridden (>=32 bytes, random) outside local dev - see .env.example.
-security:
-  jwt:
-    secret: ${JWT_SECRET:dev-only-change-me-this-is-not-a-secure-secret-key-32bytes+}
-    issuer: aura-backend
-    access-token-ttl: ${JWT_ACCESS_TTL:15m}
-    refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
-
-# Where the SPA reads tokens after Google redirects back (FR-1 social login).
-oauth2:
-  frontend-redirect-uri: ${OAUTH2_FRONTEND_REDIRECT:http://localhost:5173/oauth2/callback}
+aura:
+  auth:
+    jwt-secret: ${JWT_SECRET:AURA_SYSTEM_JWT_SECRET_KEY_2026_MINIMUM_32_BYTES_REQUIRED_FOR_HS256}
+    access-token-minutes: ${ACCESS_TOKEN_MINUTES:30}
+    refresh-token-days: ${REFRESH_TOKEN_DAYS:7}
+    cookie-same-site: ${COOKIE_SAME_SITE:Strict}
+    cookie-secure: ${COOKIE_SECURE:false}
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://localhost:5173
+      - http://127.0.0.1:3000
+      - http://127.0.0.1:5173
+  ai-service:
+    url: ${AI_SERVICE_URL:http://localhost:8000}
+    simulate-if-offline: true
+  anonymization:
+    hmac-secret: AURA_HIPAA_NFR_JAVA_HMAC_SECRET_2026

@@ -3,86 +3,57 @@ name: aura
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: aura-postgres
+    restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-aura}
-      POSTGRES_USER: ${POSTGRES_USER:-aura}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aura_dev_password}
+      POSTGRES_DB: aura_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: aura_password123
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
-      - aura-postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aura_db"]
       interval: 5s
       timeout: 5s
-      retries: 10
-    networks: [aura-network]
-
-  ai-core:
-    build:
-      context: ./ai-core
-    environment:
-      AI_CORE_SERVICE_NAME: AURA AI Core
-      AI_CORE_MODEL_VERSION: mock-retinal-v1
-    ports:
-      - "${AI_CORE_PORT:-8000}:8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks: [aura-network]
+      retries: 5
 
   backend:
     build:
       context: ./backend
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-aura}
-      DATABASE_USERNAME: ${POSTGRES_USER:-aura}
-      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-aura_dev_password}
-      AI_CORE_BASE_URL: http://ai-core:8000
-      CORS_ALLOWED_ORIGINS: ${FRONTEND_ORIGIN:-http://localhost:5173}
-      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-this-is-not-a-secure-secret-key-32bytes+}
-      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
-      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      OAUTH2_FRONTEND_REDIRECT: ${OAUTH2_FRONTEND_REDIRECT:-http://localhost:5173/oauth2/callback}
+      dockerfile: Dockerfile
+    container_name: aura-backend
+    restart: always
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "8081:8081"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/aura_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: aura_password123
+      SERVER_PORT: 8081
+      AI_SERVICE_URL: http://ai-service:8000
     depends_on:
       postgres:
         condition: service_healthy
-      ai-core:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks: [aura-network]
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: aura-ai-service
+    restart: always
+    ports:
+      - "8000:8000"
 
   frontend:
     build:
       context: ./frontend
-      args:
-        VITE_BACKEND_API_URL: ${VITE_BACKEND_API_URL:-http://localhost:8080}
+      dockerfile: Dockerfile
+    container_name: aura-frontend
+    restart: always
     ports:
-      - "${FRONTEND_PORT:-5173}:80"
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks: [aura-network]
-
-networks:
-  aura-network:
-    driver: bridge
+      - "3000:80"
 
 volumes:
-  aura-postgres-data:
+  postgres_data:
