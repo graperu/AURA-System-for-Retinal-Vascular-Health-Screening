@@ -95,7 +95,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
         fullName: patient.fullName || '',
         dateOfBirth: patient.dateOfBirth || '',
         age: patient.age != null ? String(patient.age) : '',
-        gender: patient.gender || 'Other',
+        gender: (patient.gender === 'Female' ? 'Female' : patient.gender === 'Male' ? 'Male' : 'Other') as 'Male' | 'Female' | 'Other',
         phoneNumber: patient.phoneNumber || '',
         address: patient.address || '',
         bloodType: patient.bloodType || '',

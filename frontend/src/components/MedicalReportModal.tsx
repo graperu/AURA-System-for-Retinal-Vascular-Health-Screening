@@ -60,7 +60,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
       ['Ty le Cup/Disc (CDR)', result.annotatedMap.opticCupToDiscRatio.toString()],
       ['Bac si phu trach', doctorName],
     ]
-      .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','))
+      .map((row) => row.map((cell) => `"${(cell ?? '').replace(/"/g, '""')}"`).join(','))
       .join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });

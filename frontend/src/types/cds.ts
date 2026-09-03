@@ -5,12 +5,12 @@ export type RiskLevel = 'Low' | 'Moderate' | 'High' | 'Severe';
 export interface PatientProfile {
   id?: string;
   userId?: string;
-  mrn: string; // Medical Record Number
-  fullName: string;
-  email?: string;
+  mrn?: string | null; // Medical Record Number
+  fullName?: string | null;
+  email?: string | null;
   dateOfBirth?: string | null;
   age?: number | null;
-  gender: 'Male' | 'Female' | 'Other';
+  gender?: 'Male' | 'Female' | 'Other' | string | null;
   phoneNumber?: string | null;
   address?: string | null;
   bloodType?: string | null;

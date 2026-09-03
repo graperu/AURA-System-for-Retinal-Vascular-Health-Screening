@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PatientProfile, FundusAnalysisRequest, AIRiskResult, DoctorFeedback } from '../types/cds';
-import { MOCK_SAMPLE_RESULT, MockAIService } from '../services/mockAiEngine';
 import { PatientUploader } from '../components/PatientUploader';
 import { InteractiveCDSViewer } from '../components/InteractiveCDSViewer';
 import { RiskAssessmentPanel } from '../components/RiskAssessmentPanel';
@@ -15,20 +14,22 @@ import {
   Users,
   RefreshCw,
   Loader2,
-  FileSpreadsheet,
   CheckCircle2,
+  Eye,
+  FileSpreadsheet,
 } from 'lucide-react';
-import { screeningApi, feedbackApi, doctorApi } from '../services/api';
+import { feedbackApi, doctorApi, screeningApi } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
+import { MockAIService } from '../services/mockAiEngine';
 
 export interface DoctorPatientSummary {
   patientId: string;
-  mrn: string;
-  fullName: string;
-  email: string;
+  mrn?: string | null;
+  fullName?: string | null;
+  email?: string | null;
   dateOfBirth?: string | null;
   age?: number | null;
-  gender: 'Male' | 'Female' | 'Other' | string;
+  gender?: string | null;
   phoneNumber?: string | null;
   address?: string | null;
   systolicBp?: number | null;
@@ -50,7 +51,9 @@ export const CDSDashboardPage: React.FC = () => {
   const [isLoadingPatients, setIsLoadingPatients] = useState<boolean>(true);
   const [patientsError, setPatientsError] = useState<string | null>(null);
 
-  const [analysisResult, setAnalysisResult] = useState<AIRiskResult>(MOCK_SAMPLE_RESULT);
+  // BUG 1 & 3 FIX: Initial state is null, NEVER MOCK_SAMPLE_RESULT
+  const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(null);
+  const [isScreeningLoading, setIsScreeningLoading] = useState<boolean>(false);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisProgress, setAnalysisProgress] = useState<{ status: string; percent: number }>({
     status: '',
@@ -64,6 +67,11 @@ export const CDSDashboardPage: React.FC = () => {
   const [feedbackSuccessMsg, setFeedbackSuccessMsg] = useState<string>('Đã lưu xác nhận chẩn đoán thành công');
 
   const loadPatientDetails = useCallback(async (patientId: string, summaryFallback?: DoctorPatientSummary) => {
+    // RESET analysisResult immediately when starting to switch patient
+    setAnalysisResult(null);
+    setIsScreeningLoading(true);
+    setAnalysisErrorMsg(null);
+
     try {
       // 1. Fetch official Patient Profile from Backend
       const profileRes = await doctorApi.getPatientById(patientId);
@@ -72,57 +80,64 @@ export const CDSDashboardPage: React.FC = () => {
         const mapped: PatientProfile = {
           id: d.userId || patientId,
           userId: d.userId || patientId,
-          mrn: d.mrn || (summaryFallback?.mrn ?? 'MRN-N/A'),
-          fullName: d.fullName || (summaryFallback?.fullName ?? 'Bệnh nhân'),
-          email: d.email || summaryFallback?.email,
-          dateOfBirth: d.dateOfBirth,
-          age: d.age ?? summaryFallback?.age,
-          gender: (d.gender === 'Female' ? 'Female' : d.gender === 'Male' ? 'Male' : 'Other') as 'Male' | 'Female' | 'Other',
-          phoneNumber: d.phoneNumber || summaryFallback?.phoneNumber,
-          address: d.address || summaryFallback?.address,
-          bloodType: d.bloodType,
-          systolicBp: d.systolicBp ?? summaryFallback?.systolicBp,
-          diastolicBp: d.diastolicBp ?? summaryFallback?.diastolicBp,
-          hba1c: d.hba1c ?? summaryFallback?.hba1c,
-          hasDiabetes: d.hasDiabetes ?? summaryFallback?.hasDiabetes,
-          diabetesType: d.diabetesType,
-          diabetesDurationYears: d.diabetesDurationYears,
-          hasHypertension: d.hasHypertension ?? summaryFallback?.hasHypertension,
-          historyOfSmoking: d.historyOfSmoking,
-          historyOfHeartDisease: d.historyOfHeartDisease,
-          historyOfStroke: d.historyOfStroke,
-          currentMedications: d.currentMedications,
-          allergies: d.allergies,
-          emergencyContactName: d.emergencyContactName,
-          emergencyContactPhone: d.emergencyContactPhone,
-          assignedDoctor: d.assignedDoctor,
+          mrn: d.mrn || null,
+          fullName: d.fullName || null,
+          email: d.email || summaryFallback?.email || null,
+          dateOfBirth: d.dateOfBirth || null,
+          age: d.age ?? summaryFallback?.age ?? null,
+          gender: d.gender || null,
+          phoneNumber: d.phoneNumber || summaryFallback?.phoneNumber || null,
+          address: d.address || summaryFallback?.address || null,
+          bloodType: d.bloodType || null,
+          systolicBp: d.systolicBp ?? summaryFallback?.systolicBp ?? null,
+          diastolicBp: d.diastolicBp ?? summaryFallback?.diastolicBp ?? null,
+          hba1c: d.hba1c ?? summaryFallback?.hba1c ?? null,
+          hasDiabetes: d.hasDiabetes ?? summaryFallback?.hasDiabetes ?? null,
+          diabetesType: d.diabetesType || null,
+          diabetesDurationYears: d.diabetesDurationYears ?? null,
+          hasHypertension: d.hasHypertension ?? summaryFallback?.hasHypertension ?? null,
+          historyOfSmoking: d.historyOfSmoking ?? null,
+          historyOfHeartDisease: d.historyOfHeartDisease ?? null,
+          historyOfStroke: d.historyOfStroke ?? null,
+          currentMedications: d.currentMedications || null,
+          allergies: d.allergies || null,
+          emergencyContactName: d.emergencyContactName || null,
+          emergencyContactPhone: d.emergencyContactPhone || null,
+          assignedDoctor: d.assignedDoctor || null,
         };
         setActivePatient(mapped);
       } else if (summaryFallback) {
         setActivePatient({
           id: summaryFallback.patientId,
           userId: summaryFallback.patientId,
-          mrn: summaryFallback.mrn,
-          fullName: summaryFallback.fullName,
-          email: summaryFallback.email,
-          gender: (summaryFallback.gender === 'Female' ? 'Female' : summaryFallback.gender === 'Male' ? 'Male' : 'Other') as 'Male' | 'Female' | 'Other',
-          age: summaryFallback.age,
-          systolicBp: summaryFallback.systolicBp,
-          diastolicBp: summaryFallback.diastolicBp,
-          hba1c: summaryFallback.hba1c,
-          hasDiabetes: summaryFallback.hasDiabetes,
-          hasHypertension: summaryFallback.hasHypertension,
+          mrn: summaryFallback.mrn || null,
+          fullName: summaryFallback.fullName || null,
+          email: summaryFallback.email || null,
+          gender: summaryFallback.gender || null,
+          age: summaryFallback.age ?? null,
+          systolicBp: summaryFallback.systolicBp ?? null,
+          diastolicBp: summaryFallback.diastolicBp ?? null,
+          hba1c: summaryFallback.hba1c ?? null,
+          hasDiabetes: summaryFallback.hasDiabetes ?? null,
+          hasHypertension: summaryFallback.hasHypertension ?? null,
         });
       }
 
       // 2. Fetch Patient Screenings
       const screeningsRes = await doctorApi.getPatientScreenings(patientId);
-      if (screeningsRes.success && screeningsRes.data && screeningsRes.data.length > 0) {
+      if (screeningsRes.success && Array.isArray(screeningsRes.data) && screeningsRes.data.length > 0) {
         const latestScreening = screeningsRes.data[0];
         setAnalysisResult(mapScreeningToAIRiskResult(latestScreening, latestScreening.imageUrl));
+      } else {
+        // Explicitly set null if no screenings exist for this patient
+        setAnalysisResult(null);
       }
     } catch (err) {
       console.warn('Error loading patient details:', err);
+      setAnalysisResult(null);
+      setAnalysisErrorMsg('Không thể tải kết quả sàng lọc của bệnh nhân.');
+    } finally {
+      setIsScreeningLoading(false);
     }
   }, []);
 
@@ -140,6 +155,7 @@ export const CDSDashboardPage: React.FC = () => {
         } else {
           setSelectedPatientId(null);
           setActivePatient(null);
+          setAnalysisResult(null);
         }
       } else {
         setPatientsError(res.message || 'Không thể tải danh sách bệnh nhân được phân công.');
@@ -163,31 +179,63 @@ export const CDSDashboardPage: React.FC = () => {
     }
   };
 
+  // BUG 2 FIX: Upload screening specifically for active assigned patient via POST /doctor/patients/{patientId}/screenings
   const handleStartAnalysis = async (request: FundusAnalysisRequest) => {
+    if (!selectedPatientId || !activePatient) {
+      setAnalysisErrorMsg('Vui lòng chọn một bệnh nhân được phân công trước khi tải ảnh.');
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysisErrorMsg(null);
     setAnalysisProgress({ status: 'Khởi tạo kết nối AI Microservice...', percent: 15 });
 
     try {
-      setAnalysisProgress({ status: 'Đang gửi ảnh đến AURA AI Core (FastAPI)...', percent: 45 });
-      try {
-        const res = await screeningApi.create(request.imageUrl);
-        if (res.success && res.data && res.data.status !== 'FAILED') {
-          setAnalysisProgress({ status: 'Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...', percent: 85 });
-          setAnalysisResult(mapScreeningToAIRiskResult(res.data, request.imageUrl));
+      setAnalysisProgress({ status: 'Đang gửi ảnh đến AURA AI Core cho bệnh nhân...', percent: 45 });
+
+      // Call doctor-specific screening endpoint
+      const res = await doctorApi.createScreeningForPatient(selectedPatientId, request.imageUrl);
+
+      if (res.success && res.data && res.data.status !== 'FAILED') {
+        // Assert data integrity: patientId in response must match selectedPatientId
+        if (res.data.patientId && res.data.patientId !== selectedPatientId) {
+          setAnalysisErrorMsg('Lỗi toàn vẹn dữ liệu: Ca sàng lọc không thuộc về bệnh nhân đang chọn.');
+          setAnalysisResult(null);
           return;
         }
-      } catch (backendErr) {
-        console.warn('Backend screening call failed, using mock AI fallback:', backendErr);
+
+        setAnalysisProgress({ status: 'Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...', percent: 85 });
+        const mapped = mapScreeningToAIRiskResult(res.data, request.imageUrl);
+        setAnalysisResult(mapped);
+
+        // Refresh screening count in assigned patients list silently
+        doctorApi.getAssignedPatients().then((r) => {
+          if (r.success && Array.isArray(r.data)) {
+            setAssignedPatients(r.data);
+          }
+        });
+        return;
       }
 
-      // Fallback to local mock engine if backend AI microservice is not reachable
-      const result = await MockAIService.runFundusAnalysis(request, (status, percent) => {
-        setAnalysisProgress({ status, percent });
-      });
-      setAnalysisResult(result);
+      // Explicit Mock AI only if explicit dev environment flag is set
+      const enableMockAi = import.meta.env.VITE_ENABLE_MOCK_AI === 'true';
+      if (enableMockAi) {
+        console.warn('VITE_ENABLE_MOCK_AI is enabled. Falling back to local mock AI engine.');
+        const result = await MockAIService.runFundusAnalysis(request, (status, percent) => {
+          setAnalysisProgress({ status, percent });
+        });
+        setAnalysisResult(result);
+        return;
+      }
+
+      // Production behavior: Fail cleanly without fake data
+      setAnalysisResult(null);
+      setAnalysisErrorMsg(
+        res.message || 'Máy chủ AI không thể phân tích ảnh hoặc đang ngoại tuyến. Vui lòng thử lại sau.'
+      );
     } catch (err) {
-      console.error(err);
+      console.error('Doctor screening upload error:', err);
+      setAnalysisResult(null);
       setAnalysisErrorMsg(
         err instanceof Error ? err.message : 'Không thể kết nối đến máy chủ phân tích. Vui lòng thử lại.'
       );
@@ -198,8 +246,7 @@ export const CDSDashboardPage: React.FC = () => {
 
   const handleSaveFeedback = async (feedback: DoctorFeedback) => {
     try {
-      // 1. Submit Doctor Review directly to Screening API
-      if (feedback.analysisId && feedback.analysisId !== '84099cb3-562f-49ca-b0a4-fc4093e505cf') {
+      if (feedback.analysisId) {
         await screeningApi.doctorReview(
           feedback.analysisId,
           feedback.clinicalNotes || 'Bác sĩ đã xác nhận kết quả chẩn đoán',
@@ -207,9 +254,8 @@ export const CDSDashboardPage: React.FC = () => {
         );
       }
 
-      // 2. Submit Audit/Feedback record
       await feedbackApi.submit({
-        screeningId: feedback.analysisId || '84099cb3-562f-49ca-b0a4-fc4093e505cf',
+        screeningId: feedback.analysisId || '00000000-0000-0000-0000-000000000000',
         clinicalDecision: feedback.decision || 'APPROVED',
         doctorNotes: feedback.clinicalNotes || 'Bác sĩ đã xác nhận kết quả chẩn đoán',
         correctRiskLevel: feedback.adjustedCardioRisk || 'HIGH',
@@ -308,7 +354,7 @@ export const CDSDashboardPage: React.FC = () => {
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div className="flex-1 space-y-1">
-            <h4 className="text-xs font-bold text-slate-900">Không Thể Phân Tích Ảnh</h4>
+            <h4 className="text-xs font-bold text-slate-900">Thông Báo Sàng Lọc</h4>
             <p className="text-xs text-slate-600 leading-snug">{analysisErrorMsg}</p>
           </div>
           <button onClick={() => setAnalysisErrorMsg(null)} className="text-slate-400 hover:text-slate-600 text-xs font-bold">
@@ -325,16 +371,16 @@ export const CDSDashboardPage: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-bold text-[#134E4A]">{activePatient.fullName}</h2>
+              <h2 className="text-base font-bold text-[#134E4A]">{activePatient.fullName || 'Chưa cập nhật tên'}</h2>
               <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-[#0891B2] font-semibold font-mono-data">
-                {activePatient.mrn}
+                {activePatient.mrn || 'Chưa có MRN'}
               </span>
               <span className="text-xs text-slate-500 font-medium">
-                ({activePatient.age ? `${activePatient.age} tuổi` : 'Chưa rõ tuổi'} • {activePatient.gender === 'Female' ? 'Nữ' : activePatient.gender === 'Male' ? 'Nam' : 'Khác'})
+                ({activePatient.age ? `${activePatient.age} tuổi` : 'Chưa cập nhật tuổi'} • {activePatient.gender === 'Female' ? 'Nữ' : activePatient.gender === 'Male' ? 'Nam' : activePatient.gender || 'Chưa cập nhật'})
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Huyết áp: <strong className="text-slate-800 font-mono-data">{activePatient.systolicBp && activePatient.diastolicBp ? `${activePatient.systolicBp}/${activePatient.diastolicBp} mmHg` : 'Chưa đo'}</strong> | HbA1c: <strong className="text-slate-800 font-mono-data">{activePatient.hba1c ? `${activePatient.hba1c}%` : 'Chưa xét nghiệm'}</strong> | Tiền sử: {activePatient.hasDiabetes ? 'Đái tháo đường' : activePatient.hasDiabetes === false ? 'Không ĐTĐ' : 'Chưa có dữ liệu'}
+              Huyết áp: <strong className="text-slate-800 font-mono-data">{activePatient.systolicBp && activePatient.diastolicBp ? `${activePatient.systolicBp}/${activePatient.diastolicBp} mmHg` : 'Chưa đo'}</strong> | HbA1c: <strong className="text-slate-800 font-mono-data">{activePatient.hba1c ? `${activePatient.hba1c}%` : 'Chưa xét nghiệm'}</strong> | Tiền sử: {activePatient.hasDiabetes === true ? 'Đái tháo đường' : activePatient.hasDiabetes === false ? 'Không ĐTĐ' : 'Chưa cập nhật'}
             </p>
           </div>
         </div>
@@ -349,13 +395,15 @@ export const CDSDashboardPage: React.FC = () => {
             Tư Vấn Bệnh Nhân
           </button>
 
-          <button
-            onClick={() => setIsReportModalOpen(true)}
-            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-emerald-200"
-          >
-            <Download className="w-4 h-4 text-emerald-700" />
-            Xuất Phiếu Khám PDF
-          </button>
+          {analysisResult && (
+            <button
+              onClick={() => setIsReportModalOpen(true)}
+              className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-emerald-200"
+            >
+              <Download className="w-4 h-4 text-emerald-700" />
+              Xuất Phiếu Khám PDF
+            </button>
+          )}
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500 font-semibold hidden xl:block">Bệnh nhân phân công:</span>
@@ -366,7 +414,7 @@ export const CDSDashboardPage: React.FC = () => {
             >
               {assignedPatients.map((p) => (
                 <option key={p.patientId} value={p.patientId}>
-                  {p.fullName} ({p.mrn}) — {p.age ? `${p.age}t` : 'N/A'} ({p.screeningCount} ca khám)
+                  {p.fullName || 'Bệnh nhân'} ({p.mrn || 'Chưa có MRN'}) — {p.age ? `${p.age}t` : 'N/A'} ({p.screeningCount} ca khám)
                 </option>
               ))}
             </select>
@@ -381,7 +429,7 @@ export const CDSDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Grid: Left Uploader & Controls / Right CDS Viewer */}
+      {/* Main Grid: Left Uploader Workspace (4 cols) & Right CDS Viewer / Empty State (8 cols) */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Column: Image Uploader Workspace (4 cols) */}
         <div className="xl:col-span-4 space-y-6">
@@ -393,35 +441,59 @@ export const CDSDashboardPage: React.FC = () => {
           />
         </div>
 
-        {/* Right Column: Interactive Side-by-Side CDS Viewer & XAI Panel (8 cols) */}
+        {/* Right Column: Interactive Side-by-Side CDS Viewer OR Clean Empty State (8 cols) */}
         <div className="xl:col-span-8 space-y-6">
-          <InteractiveCDSViewer analysisResult={analysisResult} selectedEye="OD (Mắt Phải)" />
+          {isScreeningLoading ? (
+            <div className="bg-white border border-[#CCFBF1] rounded-2xl p-8 shadow-medical-sm text-center flex flex-col items-center justify-center min-h-[380px] space-y-3">
+              <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
+              <p className="text-xs text-slate-500 font-medium">Đang tải lịch sử ca sàng lọc của bệnh nhân...</p>
+            </div>
+          ) : analysisResult ? (
+            <InteractiveCDSViewer analysisResult={analysisResult} selectedEye="OD (Mắt Phải)" />
+          ) : (
+            <div className="bg-white border border-[#CCFBF1] rounded-2xl p-8 shadow-medical-sm text-center flex flex-col items-center justify-center min-h-[380px] space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600">
+                <Eye className="w-8 h-8" />
+              </div>
+              <div className="space-y-1.5 max-w-md">
+                <h3 className="text-base font-bold text-slate-800">Chưa Có Kết Quả Sàng Lọc</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Bệnh nhân <strong className="text-slate-700">{activePatient.fullName || activePatient.mrn || 'này'}</strong> chưa có ca sàng lọc nào trong hệ thống.
+                  Bác sĩ có thể tải lên ảnh chụp đáy mắt (Fundus) ở bảng bên trái để thực hiện phân tích và đánh giá nguy cơ vi mạch.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Full-Width Risk Assessment & Biomarkers Panel */}
-      <RiskAssessmentPanel result={analysisResult} />
+      {/* Full-Width Risk Assessment & Biomarkers Panel (ONLY when analysisResult exists) */}
+      {analysisResult && <RiskAssessmentPanel result={analysisResult} />}
 
-      {/* Doctor Audit Validation Bar & Sign-Off */}
-      <ClinicalValidationBar
-        analysisId={analysisResult.analysisId}
-        onSaveFeedback={handleSaveFeedback}
-      />
+      {/* Doctor Audit Validation Bar & Sign-Off (ONLY when analysisResult exists) */}
+      {analysisResult && (
+        <ClinicalValidationBar
+          analysisId={analysisResult.analysisId}
+          onSaveFeedback={handleSaveFeedback}
+        />
+      )}
 
       {/* Modals */}
-      <MedicalReportModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        patient={activePatient}
-        result={analysisResult}
-      />
+      {analysisResult && (
+        <MedicalReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          patient={activePatient}
+          result={analysisResult}
+        />
+      )}
 
       <ConsultationChatModal
         isOpen={isChatModalOpen}
         onClose={() => setIsChatModalOpen(false)}
         currentUserRole="doctor"
-        patientName={activePatient.fullName}
-        patientMrn={activePatient.mrn}
+        patientName={activePatient.fullName || 'Bệnh nhân'}
+        patientMrn={activePatient.mrn || 'Chưa có MRN'}
       />
     </div>
   );

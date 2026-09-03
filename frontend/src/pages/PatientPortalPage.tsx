@@ -972,8 +972,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         isOpen={isChatModalOpen}
         onClose={() => setIsChatModalOpen(false)}
         currentUserRole="patient"
-        patientName={patient.fullName}
-        patientMrn={patient.mrn}
+        patientName={patient.fullName || 'Bệnh nhân'}
+        patientMrn={patient.mrn || 'Chưa có MRN'}
       />
 
       <CreditPurchaseModal

@@ -228,6 +228,12 @@ export const doctorApi = {
     apiFetch<any[]>(`/api/v1/doctor/patients/${patientId}/screenings`, {
       method: 'GET',
     }),
+
+  createScreeningForPatient: (patientId: string, imageUrl: string) =>
+    apiFetch<any>(`/api/v1/doctor/patients/${patientId}/screenings`, {
+      method: 'POST',
+      body: JSON.stringify({ imageUrl }),
+    }),
 };
 
 
