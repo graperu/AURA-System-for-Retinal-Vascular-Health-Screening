@@ -25,12 +25,15 @@ class ScreeningServiceTest {
   @Mock
   private ScreeningRepository screeningRepository;
 
+  @Mock
+  private com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository;
+
   private ScreeningService screeningService;
 
   @BeforeEach
   void setUp() {
     RestClient.Builder builder = RestClient.builder();
-    screeningService = new ScreeningService(screeningRepository, builder);
+    screeningService = new ScreeningService(screeningRepository, assignmentRepository, builder);
   }
 
   @Test

@@ -67,12 +67,77 @@ class PatientProfileServiceTest {
 
     assertThat(res).isNotNull();
     assertThat(res.mrn()).startsWith("MRN-");
-    // New profile should NOT have fake mock vitals
+    // New profile should NOT have fake mock vitals, blood type, assigned doctor, or mock conditions
     assertThat(res.systolicBp()).isNull();
     assertThat(res.diastolicBp()).isNull();
     assertThat(res.hba1c()).isNull();
     assertThat(res.age()).isNull();
+    assertThat(res.bloodType()).isNull();
+    assertThat(res.assignedDoctor()).isNull();
+    assertThat(res.hasDiabetes()).isNull();
+    assertThat(res.hasHypertension()).isNull();
+    assertThat(res.historyOfSmoking()).isNull();
+    assertThat(res.historyOfHeartDisease()).isNull();
+    assertThat(res.historyOfStroke()).isNull();
     verify(profileRepository).save(any(PatientMedicalProfile.class));
+  }
+
+  @Test
+  void updateProfile_withTriStateConditions_persistsExactlyWithoutConvertingNullToFalse() {
+    var profile = new PatientMedicalProfile(mockUser, "MRN-2026-0001");
+    when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+    when(profileRepository.findByUserIdWithUser(userId)).thenReturn(Optional.of(profile));
+    when(profileRepository.save(any(PatientMedicalProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    // Test with hasDiabetes = false, hasHypertension = true, historyOfSmoking = null
+    var request = new UpdatePatientProfileRequest(
+        "Nguyen Van A", null, 30, "Male", null, null, null,
+        null, null, null, false, null, null, true, null, false, null, null, null, null, null
+    );
+
+    var res = service.updateProfile(userId, request);
+
+    assertThat(res.hasDiabetes()).isFalse();
+    assertThat(res.hasHypertension()).isTrue();
+    assertThat(res.historyOfSmoking()).isNull();
+    assertThat(res.historyOfHeartDisease()).isFalse();
+    assertThat(res.historyOfStroke()).isNull();
+    assertThat(res.bloodType()).isNull();
+  }
+
+  @Test
+  void updateProfile_withBloodTypeA_persistsCorrectly() {
+    var profile = new PatientMedicalProfile(mockUser, "MRN-2026-0001");
+    when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+    when(profileRepository.findByUserIdWithUser(userId)).thenReturn(Optional.of(profile));
+    when(profileRepository.save(any(PatientMedicalProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    var request = new UpdatePatientProfileRequest(
+        "Nguyen Van A", null, 30, "Male", null, null, "A+",
+        null, null, null, null, null, null, null, null, null, null, null, null, null, null
+    );
+
+    var res = service.updateProfile(userId, request);
+
+    assertThat(res.bloodType()).isEqualTo("A+");
+  }
+
+  @Test
+  void updateProfile_withEmptyBloodType_persistsNull() {
+    var profile = new PatientMedicalProfile(mockUser, "MRN-2026-0001");
+    profile.setBloodType("O+");
+    when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+    when(profileRepository.findByUserIdWithUser(userId)).thenReturn(Optional.of(profile));
+    when(profileRepository.save(any(PatientMedicalProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    var request = new UpdatePatientProfileRequest(
+        "Nguyen Van A", null, 30, "Male", null, null, "",
+        null, null, null, null, null, null, null, null, null, null, null, null, null, null
+    );
+
+    var res = service.updateProfile(userId, request);
+
+    assertThat(res.bloodType()).isNull();
   }
 
   @Test

@@ -99,7 +99,56 @@ class PatientProfileIntegrationTest {
         .andExpect(jsonPath("$.data.mrn").exists())
         .andExpect(jsonPath("$.data.systolicBp").value(org.hamcrest.Matchers.nullValue()))
         .andExpect(jsonPath("$.data.diastolicBp").value(org.hamcrest.Matchers.nullValue()))
-        .andExpect(jsonPath("$.data.hba1c").value(org.hamcrest.Matchers.nullValue()));
+        .andExpect(jsonPath("$.data.hba1c").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.data.bloodType").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.data.assignedDoctor").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.data.hasDiabetes").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.data.hasHypertension").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.data.historyOfSmoking").value(org.hamcrest.Matchers.nullValue()));
+  }
+
+  @Test
+  void updateProfile_withTriStateAndNullBloodType_persistsCorrectly() throws Exception {
+    String updatePayload = """
+        {
+          "fullName": "Le Van TriState",
+          "bloodType": null,
+          "hasDiabetes": false,
+          "hasHypertension": null,
+          "historyOfSmoking": true,
+          "historyOfHeartDisease": false,
+          "historyOfStroke": null
+        }
+        """;
+
+    mvc.perform(
+            put("/api/v1/patient/profile")
+                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updatePayload))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.fullName").value("Le Van TriState"))
+        .andExpect(jsonPath("$.data.bloodType").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.data.hasDiabetes").value(false))
+        .andExpect(jsonPath("$.data.hasHypertension").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.data.historyOfSmoking").value(true))
+        .andExpect(jsonPath("$.data.historyOfHeartDisease").value(false))
+        .andExpect(jsonPath("$.data.historyOfStroke").value(org.hamcrest.Matchers.nullValue()));
+
+    // Verify GET immediately returns the exact tri-state values
+    mvc.perform(
+            get("/api/v1/patient/profile")
+                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.bloodType").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.data.hasDiabetes").value(false))
+        .andExpect(jsonPath("$.data.hasHypertension").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.data.historyOfSmoking").value(true))
+        .andExpect(jsonPath("$.data.historyOfHeartDisease").value(false))
+        .andExpect(jsonPath("$.data.historyOfStroke").value(org.hamcrest.Matchers.nullValue()));
   }
 
   @Test
