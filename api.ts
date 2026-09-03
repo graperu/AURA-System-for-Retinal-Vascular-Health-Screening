@@ -81,12 +81,26 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
 // REAL PRODUCTION BACKEND API CLIENT MODULES (PostgreSQL & Spring Boot 3.4)
 // ============================================================================
 
+export interface CreateScreeningPayload {
+  imageUrl: string;
+  eyePosition?: string;
+  scanType?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  riskScore?: number;
+  avRatio?: number;
+  vesselDensity?: string;
+}
+
 export const screeningApi = {
-  create: (imageUrl: string) =>
-    apiFetch<any>('/api/v1/screenings', {
+  create: (payload: string | CreateScreeningPayload) => {
+    const body = typeof payload === 'string' ? { imageUrl: payload } : payload;
+    return apiFetch<any>('/api/v1/screenings', {
       method: 'POST',
-      body: JSON.stringify({ imageUrl }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
 
   getAll: () =>
     apiFetch<any[]>('/api/v1/screenings', {
