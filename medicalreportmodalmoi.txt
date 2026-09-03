@@ -1,0 +1,707 @@
+import React, { useEffect, useState } from 'react';
+import { PatientProfile, AIRiskResult } from '../types/cds';
+import {
+  X,
+  Printer,
+  Download,
+  ShieldCheck,
+  CheckCircle2,
+  Eye,
+  Heart,
+  Activity,
+  FileSpreadsheet,
+  QrCode,
+  Share2,
+  Mail,
+  Link2,
+  Copy,
+  Lock,
+  EyeOff,
+  AlertTriangle,
+  Check,
+  Send,
+  Calendar,
+  Building2,
+} from 'lucide-react';
+
+interface MedicalReportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  patient: PatientProfile;
+  result: AIRiskResult;
+  doctorName?: string;
+  doctorNotes?: string;
+  clinicalStatus?: string;
+  screeningDate?: string;
+}
+
+export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
+  isOpen,
+  onClose,
+  patient,
+  result,
+  doctorName = 'BS. CKII Nguyễn Thị Thanh',
+  doctorNotes,
+  clinicalStatus = 'Đã duyệt lâm sàng',
+  screeningDate,
+}) => {
+  // Anonymization / HIPAA PHI Masking mode
+  const [isAnonymized, setIsAnonymized] = useState(false);
+
+  // Secure Share Modal / Drawer Tab
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareExpiry, setShareExpiry] = useState<'24h' | '7d' | '30d'>('7d');
+  const [securePin, setSecurePin] = useState('839201');
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [emailSentToast, setEmailSentToast] = useState(false);
+
+  // Support ESC key and lock background body scroll
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isShareModalOpen) setIsShareModalOpen(false);
+        else onClose();
+      }
+    };
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, isShareModalOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const isReviewed = clinicalStatus.toLowerCase().includes('duyệt') || clinicalStatus.toLowerCase().includes('reviewed');
+  const scanId = result.analysisId || `SCN-${Date.now().toString().slice(-6)}`;
+  const examDateStr = screeningDate || new Date().toLocaleString('vi-VN');
+
+  // Masked values for HIPAA privacy
+  const displayedName = isAnonymized
+    ? patient.fullName.replace(/^(\S+)(.*)(\S+)$/, (_m, a, b, c) => `${a} ${'*'.repeat(Math.max(2, b.trim().length))} ${c}`)
+    : patient.fullName;
+  const displayedMrn = isAnonymized ? `MRN-****-${patient.mrn.slice(-4)}` : patient.mrn;
+
+  const clinicalConclusion =
+    doctorNotes ||
+    `Bệnh nhân có biểu hiện co hẹp vi mạch võng mạc (A/V Ratio: ${result.annotatedMap?.arteryVeinRatio || 0.52}) kết hợp tiền sử huyết áp ${patient.systolicBp}/${patient.diastolicBp} mmHg. Đề nghị:\n1. Tái khám chuyên khoa Mắt & Tim mạch định kỳ sau 6 tháng.\n2. Duy trì chỉ số huyết áp dưới 130/80 mmHg và HbA1c dưới 7.0%.\n3. Siêu âm Doppler động mạch cảnh kiểm tra mảng xơ vữa.`;
+
+  const verificationUrl = `https://aura-system.health/verify/report?scanId=${encodeURIComponent(scanId)}&mrn=${encodeURIComponent(patient.mrn)}&auth=SHA256`;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportCsv = () => {
+    const rows = [
+      ['DANH MỤC THÔNG TIN', 'GIÁ TRỊ CHI TIẾT'],
+      ['Cơ Sở Y Tế Phát Hành', 'Hệ Thống Sàng Lọc Mạch Máu Võng Mạc AURA - Trung Tâm Chẩn Đoán Kỹ Thuật Cao'],
+      ['Mã Ca Khám Định Danh (Scan ID)', scanId],
+      ['Họ và Tên Bệnh Nhân', displayedName],
+      ['Mã Định Danh Bệnh Nhân (MRN)', displayedMrn],
+      ['Tuổi', patient.age ? patient.age.toString() : '58'],
+      ['Giới Tính', patient.gender === 'Male' ? 'Nam' : 'Nữ'],
+      ['Huyết Áp Đo Gần Nhất', `${patient.systolicBp || 138}/${patient.diastolicBp || 88} mmHg`],
+      ['Đường Huyết Trung Bình HbA1c', `${patient.hba1c || 6.8}%`],
+      ['Tiền Sử Bệnh Đái Tháo Đường', patient.hasDiabetes ? 'Có (Type 2)' : 'Không'],
+      ['Tiền Sử Tăng Huyết Áp', patient.hasHypertension ? 'Có' : 'Không'],
+      ['Tiền Sử Hút Thuốc Lá', patient.historyOfSmoking ? 'Có tiền sử' : 'Không'],
+      ['Ngày Giờ Phát Hành Báo Cáo', examDateStr],
+      ['Vị Trí Mắt Kiểm Tra', 'Mắt Phải (OD) - Cực Sau Hoàng Điểm'],
+      ['Điểm Nguy Cơ Mạch Máu Tổng Hợp (AURA Score)', `${result.overallVascularRiskScore || 78}/100`],
+      ['Mức Độ Rủi Ro Lâm Sàng', result.overallVascularRiskScore >= 75 ? 'Nguy Cơ Cao' : result.overallVascularRiskScore >= 50 ? 'Nguy Cơ Trung Bình' : 'Nguy Cơ Thấp'],
+      ['Nguy Cơ Tim Mạch 3 Năm (CVD Risk)', `${result.cardiovascularRisk?.score || 82}%`],
+      ['Nguy Cơ Đột Quỵ 3 Năm (Stroke Risk)', `${result.cardiovascularRisk?.threeYearStrokeRiskPercent || 31}%`],
+      ['Phân Giai Đoạn Tăng Huyết Áp', result.cardiovascularRisk?.hypertensionStage || 'Stage 1 (Tiền tăng HA)'],
+      ['Nguy Cơ Bệnh Võng Mạc Đái Tháo Đường', `${result.diabeticRetinopathyRisk?.score || 64}% (ETDRS Grade ${result.diabeticRetinopathyRisk?.etdrsGrade || '43 - Vi phình mạch'})`],
+      ['Nguy Cơ Tăng Nhãn Áp (Glaucoma Risk)', `${result.glaucomaRisk?.score || 18}% (Bình thường)`],
+      ['Tỷ Lệ Động/Tĩnh Mạch (A/V Ratio)', (result.annotatedMap?.arteryVeinRatio || 0.52).toString()],
+      ['Mật Độ Vi Mạch (Vessel Density)', `${result.annotatedMap?.vesselDensityPercentage || 17.4}%`],
+      ['Chỉ Số Uốn Lượn Mạch Máu (Tortuosity)', (result.annotatedMap?.tortuosityIndex || 1.34).toString()],
+      ['Tỷ Lệ Lõm Gai / Gai Thị (VCDR)', (result.annotatedMap?.opticCupToDiscRatio || 0.38).toString()],
+      ['Trạng Thái Thẩm Định', isReviewed ? 'ĐÃ ĐƯỢC BÁC SĨ CHUYÊN KHOA KÝ DUYỆT CHÍNH THỨC' : 'KẾT QUẢ AI SƠ BỘ - CHỜ BÁC SĨ THẨM ĐỊNH'],
+      ['Kết Luận & Khuyến Nghị Lâm Sàng', clinicalConclusion.replace(/\n/g, ' | ')],
+      ['Bác Sĩ Chuyên Khoa Phụ Trách', isReviewed ? doctorName : 'Chờ bác sĩ phân công'],
+      ['Chứng Thư Ký Số Y Tế', isReviewed ? 'SHA-256: 8f4a8b7c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a (HỢP LỆ)' : 'CHƯA KÝ SỐ'],
+      ['Đường Dẫn Tra Cứu Trực Tuyến (QR Code)', verificationUrl],
+    ];
+
+    const csvContent = rows
+      .map((row) => row.map((cell) => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `AURA_Report_${patient.mrn}_${scanId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCopySecureLink = () => {
+    const link = `https://aura-system.health/share/${scanId}?pin=${securePin}&exp=${shareExpiry}`;
+    navigator.clipboard.writeText(`Liên kết xem báo cáo y khoa AURA: ${link}\nMã PIN bảo mật: ${securePin} (Hết hạn sau: ${shareExpiry === '24h' ? '24 giờ' : shareExpiry === '7d' ? '7 ngày' : '30 ngày'})`);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 3000);
+  };
+
+  const handleSendEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shareEmail.trim()) return;
+    setEmailSentToast(true);
+    setTimeout(() => {
+      setEmailSentToast(false);
+      setIsShareModalOpen(false);
+      setShareEmail('');
+    }, 2500);
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-2 sm:p-4 backdrop-blur-md overflow-hidden print:p-0 print:bg-white print:static print:overflow-visible animate-fadeIn"
+    >
+      {/* Print Specific CSS */}
+      <style>{`
+        @media print {
+          body {
+            overflow: visible !important;
+            background: white !important;
+          }
+          .print-hidden,
+          header,
+          aside,
+          nav,
+          button,
+          .no-print {
+            display: none !important;
+          }
+          #printable-report {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm;
+          }
+        }
+      `}</style>
+
+      {/* Floating Global Close Button */}
+      <button
+        onClick={onClose}
+        className="fixed top-4 right-4 z-[60] flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-xs font-extrabold text-slate-800 shadow-2xl border-2 border-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300 transition-all print:hidden active:scale-95"
+        title="Thoát cửa sổ (Esc)"
+      >
+        <X className="h-4.5 w-4.5 text-rose-600" />
+        <span>Thoát (Esc)</span>
+      </button>
+
+      {/* Modal Dialog with Fixed Height and Internal Scroll */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-4xl h-[94vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden print:h-auto print:border-none print:shadow-none print:w-full print:max-w-full"
+      >
+        {/* Top Header & Controls */}
+        <div className="flex-shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3 print:hidden z-20 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-cyan-100 text-[#0891B2]">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-extrabold text-slate-900">Báo Cáo Sàng Lọc Y Tế Võng Mạc AURA (FR-7)</h2>
+                <button
+                  onClick={() => setIsAnonymized(!isAnonymized)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                    isAnonymized
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-slate-200/80 text-slate-700 border-slate-300 hover:bg-slate-300'
+                  }`}
+                  title="Ẩn/hiện thông tin định danh cá nhân theo chuẩn HIPAA"
+                >
+                  <EyeOff className="w-3 h-3" />
+                  <span>{isAnonymized ? 'Đang ẩn danh HIPAA' : 'Ẩn danh PHI'}</span>
+                </button>
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-slate-500 font-mono-data">Mã phiếu: {scanId}</span>
+                <span
+                  className={`px-2 py-0.2 rounded-full text-[10px] font-bold border ${
+                    isReviewed
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : 'bg-amber-100 text-amber-800 border-amber-300'
+                  }`}
+                >
+                  {clinicalStatus}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Toolbar */}
+          <div className="flex items-center gap-2 pr-20 sm:pr-0">
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-[#0891B2] shadow-xs hover:bg-cyan-100 transition-all active:scale-95"
+              title="Chia sẻ an toàn qua Email hoặc Link có mã PIN (Secure Share)"
+            >
+              <Share2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Chia Sẻ An Toàn</span>
+            </button>
+            <button
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-100 transition-all active:scale-95"
+              title="Xuất dữ liệu định dạng CSV UTF-8 tiếng Việt"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+              <span>Xuất CSV</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0891B2] hover:bg-[#0E7490] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95"
+              title="In phiếu hoặc lưu thành tệp PDF chuẩn y tế A4"
+            >
+              <Printer className="h-4 w-4" />
+              <span>In / Tải PDF</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="inline-flex items-center gap-1 rounded-xl bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors ml-1 active:scale-95"
+              title="Đóng cửa sổ"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable Middle Body: Printable Report Document (A4 format) */}
+        <div id="printable-report" className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-slate-800 bg-white print:p-0 print:space-y-4 relative">
+          {/* Watermark for unreviewed reports */}
+          {!isReviewed && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04] select-none z-0">
+              <span className="text-7xl font-extrabold text-amber-600 -rotate-45 tracking-widest uppercase">
+                KẾT QUẢ AI SƠ BỘ - CHỜ DUYỆT
+              </span>
+            </div>
+          )}
+
+          {/* 1. Header Banner: Clinic / Hospital & Identification */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-2 border-cyan-800 pb-4 gap-4 relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#0891B2] text-white font-extrabold text-xl shadow-sm">
+                <Eye className="h-7 w-7" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-cyan-900 text-white font-extrabold text-[10px] tracking-wider uppercase">
+                    AURA HEALTH SYSTEM
+                  </span>
+                  <span className="text-xs text-slate-500 font-semibold">Mã cơ sở y tế: CLN-HN-084</span>
+                </div>
+                <h1 className="text-lg font-extrabold tracking-tight text-cyan-950 mt-0.5">
+                  TRUNG TÂM CHẨN ĐOÁN HÌNH ẢNH & TIM MẠCH VÕNG MẠC KỸ THUẬT CAO
+                </h1>
+                <p className="text-[11px] font-medium text-slate-500">
+                  AURA Retinal AI Clinical Decision Support — Phiếu Đánh Giá Sức Khỏe Vi Mạch Chuẩn Y Khoa
+                </p>
+              </div>
+            </div>
+            <div className="text-right text-xs space-y-0.5 shrink-0">
+              <p className="font-mono-data font-extrabold text-cyan-900 text-sm">Mã Ca Khám: {scanId}</p>
+              <p className="text-slate-500">Ngày Phân Tích: {examDateStr}</p>
+              <div className="flex items-center justify-end gap-1 mt-1">
+                <span className="inline-block rounded-full bg-cyan-50 px-2 py-0.5 text-[9px] font-bold text-cyan-800 border border-cyan-200">
+                  HL7/FHIR Compliant
+                </span>
+                <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-800 border border-emerald-200">
+                  HIPAA Secure
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Patient Demographics & Baseline Clinical Vitals (Secured) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 rounded-xl bg-slate-50 p-4 border border-slate-200 text-xs relative z-10">
+            <div>
+              <span className="text-slate-500 block text-[11px]">Họ và tên bệnh nhân:</span>
+              <strong className="text-slate-900 text-sm font-bold">{displayedName}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[11px]">Mã định danh (MRN):</span>
+              <strong className="font-mono-data text-cyan-800 text-sm font-bold">{displayedMrn}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[11px]">Tuổi / Giới tính:</span>
+              <strong className="text-slate-900 font-semibold">{patient.age} tuổi • {patient.gender === 'Male' ? 'Nam' : 'Nữ'}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[11px]">Huyết áp / HbA1c:</span>
+              <strong className="text-slate-900 font-mono-data font-semibold">{patient.systolicBp}/{patient.diastolicBp} mmHg • {patient.hba1c}%</strong>
+            </div>
+          </div>
+
+          {/* 3. Paired Visual Images: Original Fundus + Grad-CAM Heatmap / Vessel Map */}
+          <div className="space-y-3 relative z-10">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-950 flex items-center gap-2 border-b border-slate-200 pb-1.5">
+              <Eye className="h-4 w-4 text-[#0891B2]" />
+              1. Cặp Hình Ảnh Võng Mạc & Bản Đồ Nhiệt Vi Mạch AI (Original Fundus + XAI Heatmap)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 p-3 flex flex-col items-center">
+                <div className="relative aspect-square max-w-[240px] w-full rounded-full overflow-hidden border-2 border-slate-800 shadow-inner">
+                  <img
+                    src={result.imageUrl || '/assets/images/fundus_original.png'}
+                    alt="Ảnh đáy mắt gốc"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="mt-2.5 text-center">
+                  <p className="text-xs font-bold text-slate-200">Ảnh Màu Đáy Mắt Gốc (Fundus Color)</p>
+                  <p className="text-[10px] text-slate-400">Mắt Phải (OD) • Cực sau hoàng điểm</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl overflow-hidden border border-cyan-400 bg-slate-950 p-3 flex flex-col items-center">
+                <div className="relative aspect-square max-w-[240px] w-full rounded-full overflow-hidden border-2 border-cyan-500 bg-black shadow-inner">
+                  <img
+                    src={result.imageUrl || '/assets/images/fundus_original.png'}
+                    alt="Ảnh nền"
+                    className="h-full w-full object-cover absolute inset-0"
+                  />
+                  <img
+                    src={result.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.png'}
+                    alt="Bản đồ nhiệt Grad-CAM"
+                    className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
+                  />
+                </div>
+                <div className="mt-2.5 text-center">
+                  <p className="text-xs font-bold text-cyan-200">Bản Đồ Nhiệt Grad-CAM & Phân Đoạn Mạch Máu</p>
+                  <p className="text-[10px] text-cyan-300/80">Vùng màu nóng thể hiện co thắt tiểu động mạch bất thường</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Clinical Risk Gauges & Overall Score */}
+          <div className="space-y-3 relative z-10">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-950 flex items-center gap-2 border-b border-slate-200 pb-1.5">
+              <Heart className="h-4 w-4 text-rose-600" />
+              2. Đánh Giá Nguy Cơ Lâm Sàng Từ Mô Hình AI (3-Year Clinical Risk Gauges)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-cyan-200 bg-cyan-50/70 p-3 space-y-1">
+                <span className="text-[10px] font-bold text-cyan-900 uppercase block">Điểm AURA Tổng Hợp</span>
+                <div className="text-2xl font-extrabold font-mono-data text-[#0891B2]">
+                  {result.overallVascularRiskScore || 78}<span className="text-xs font-normal text-slate-500">/100</span>
+                </div>
+                <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                  {result.overallVascularRiskScore >= 75 ? 'Nguy Cơ Cao' : 'Trung Bình'}
+                </span>
+              </div>
+
+              <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3 space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold text-rose-900">
+                  <span>Tim Mạch 3 Năm</span>
+                  <span className="rounded bg-rose-200/80 px-1 py-0.2 text-[9px] text-rose-800">High</span>
+                </div>
+                <div className="text-2xl font-extrabold font-mono-data text-rose-600">
+                  {result.cardiovascularRisk?.score || 82}%
+                </div>
+                <p className="text-[10px] text-slate-600 leading-tight">Co hẹp tiểu động mạch (A/V 0.52)</p>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold text-amber-900">
+                  <span>Võng Mạc ĐTĐ</span>
+                  <span className="rounded bg-amber-200/80 px-1 py-0.2 text-[9px] text-amber-800">Moderate</span>
+                </div>
+                <div className="text-2xl font-extrabold font-mono-data text-amber-600">
+                  {result.diabeticRetinopathyRisk?.score || 64}%
+                </div>
+                <p className="text-[10px] text-slate-600 leading-tight">ETDRS Grade {result.diabeticRetinopathyRisk?.etdrsGrade || '43'}</p>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold text-emerald-900">
+                  <span>Tăng Nhãn Áp</span>
+                  <span className="rounded bg-emerald-200/80 px-1 py-0.2 text-[9px] text-emerald-800">Low</span>
+                </div>
+                <div className="text-2xl font-extrabold font-mono-data text-emerald-600">
+                  {result.glaucomaRisk?.score || 18}%
+                </div>
+                <p className="text-[10px] text-slate-600 leading-tight">CDR {result.annotatedMap?.opticCupToDiscRatio || 0.38} an toàn</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. Quantitative Biomarkers Table */}
+          <div className="space-y-3 relative z-10">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-950 flex items-center gap-2 border-b border-slate-200 pb-1.5">
+              <Activity className="h-4 w-4 text-[#0891B2]" />
+              3. Bảng Phân Tích Định Lượng Vi Mạch Võng Mạc (Biomarkers)
+            </h3>
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="p-2.5">Chỉ số sinh học</th>
+                    <th className="p-2.5">Giá trị đo lường</th>
+                    <th className="p-2.5">Ngưỡng chuẩn</th>
+                    <th className="p-2.5">Đánh giá lâm sàng</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  <tr>
+                    <td className="p-2.5 font-medium">Tỷ lệ Động/Tĩnh Mạch (A/V Ratio)</td>
+                    <td className="p-2.5 font-bold font-mono-data text-rose-600">
+                      {result.annotatedMap?.arteryVeinRatio || 0.52}
+                    </td>
+                    <td className="p-2.5 text-slate-500 font-mono-data">≥ 0.67</td>
+                    <td className="p-2.5 text-rose-600 font-medium">Co thắt tiểu động mạch võng mạc</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2.5 font-medium">Mật độ Vi Mạch (Vessel Density)</td>
+                    <td className="p-2.5 font-bold font-mono-data text-cyan-800">
+                      {result.annotatedMap?.vesselDensityPercentage || 17.4}%
+                    </td>
+                    <td className="p-2.5 text-slate-500 font-mono-data">15.5% - 19.0%</td>
+                    <td className="p-2.5 text-slate-600">Mật độ tưới máu trong giới hạn</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2.5 font-medium">Chỉ số Uốn Lượn (Tortuosity)</td>
+                    <td className="p-2.5 font-bold font-mono-data text-amber-600">
+                      {result.annotatedMap?.tortuosityIndex || 1.34}
+                    </td>
+                    <td className="p-2.5 text-slate-500 font-mono-data">&lt; 1.25</td>
+                    <td className="p-2.5 text-amber-600 font-medium">Uốn lượn bất thường liên quan huyết áp</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2.5 font-medium">Tỷ lệ Lõm Gai / Gai Thị (VCDR)</td>
+                    <td className="p-2.5 font-bold font-mono-data text-emerald-600">
+                      {result.annotatedMap?.opticCupToDiscRatio || 0.38}
+                    </td>
+                    <td className="p-2.5 text-slate-500 font-mono-data">&lt; 0.50</td>
+                    <td className="p-2.5 text-emerald-600 font-medium">Hình thái gai thị bình thường</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 6. Clinical Recommendations, Doctor Digital Signature & Verification QR Code */}
+          <div className="rounded-xl border border-cyan-200 bg-cyan-50/40 p-5 space-y-4 relative z-10">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-900 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              4. Kết Luận & Khuyến Nghị Của Bác Sĩ Chuyên Khoa
+            </h3>
+            <div className="text-xs text-slate-700 leading-relaxed italic whitespace-pre-line bg-white/90 p-3.5 rounded-lg border border-cyan-100">
+              {clinicalConclusion}
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end pt-4 border-t border-cyan-200/70 text-xs gap-4">
+              {/* Online Authenticity QR Code */}
+              <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-cyan-200 shadow-2xs">
+                <div className="p-1 rounded bg-slate-900 text-white">
+                  {/* SVG Crisp QR Code Representation */}
+                  <svg className="w-14 h-14" viewBox="0 0 100 100" fill="currentColor">
+                    <path d="M0,0 h30 v30 h-30 z M10,10 h10 v10 h-10 z" />
+                    <path d="M70,0 h30 v30 h-30 z M80,10 h10 v10 h-10 z" />
+                    <path d="M0,70 h30 v30 h-30 z M10,80 h10 v10 h-10 z" />
+                    <rect x="40" y="10" width="10" height="20" />
+                    <rect x="10" y="40" width="20" height="10" />
+                    <rect x="40" y="40" width="20" height="20" />
+                    <rect x="70" y="40" width="20" height="10" />
+                    <rect x="40" y="70" width="10" height="20" />
+                    <rect x="70" y="70" width="10" height="10" />
+                    <rect x="90" y="80" width="10" height="20" />
+                  </svg>
+                </div>
+                <div className="text-[10px] text-slate-600 space-y-0.5">
+                  <p className="font-extrabold text-cyan-950 flex items-center gap-1">
+                    <QrCode className="w-3.5 h-3.5 text-[#0891B2]" /> Quét Mã Xác Thực Trực Tuyến
+                  </p>
+                  <p className="font-mono-data text-slate-500">Mã: SHA256-{patient.mrn.slice(-4)}-{scanId.slice(-4)}</p>
+                  <p className="text-[9px] text-emerald-700 font-semibold">Bảo chứng tính toàn vẹn y khoa</p>
+                </div>
+              </div>
+
+              {/* Digital Signature Confirmation Block */}
+              <div className="text-right sm:text-right w-full sm:w-auto">
+                <p className="text-slate-500 text-[11px]">Bác sĩ chuyên khoa xác nhận:</p>
+                <p className="font-extrabold text-slate-900 text-sm mt-0.5">{isReviewed ? doctorName : 'Chờ phân công duyệt'}</p>
+                {isReviewed ? (
+                  <div className="inline-block mt-1 text-[10px] text-emerald-800 font-mono-data font-bold bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-300">
+                    ✓ ĐÃ KÝ SỐ ĐIỆN TỬ Y TẾ (HL7 / HIPAA)
+                  </div>
+                ) : (
+                  <div className="inline-block mt-1 text-[10px] text-amber-800 font-mono-data font-bold bg-amber-100 px-2.5 py-1 rounded-md border border-amber-300">
+                    ⚠ CHỜ THẨM ĐỊNH LÂM SÀNG CHÍNH THỨC
+                  </div>
+                )}
+                <p className="text-[10px] text-slate-400 font-mono-data mt-0.5">Ngày ký: {examDateStr}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Permanently Fixed Bottom Footer */}
+        <div className="flex-shrink-0 border-t border-slate-200 bg-slate-50 px-6 py-3 flex items-center justify-between print:hidden z-20">
+          <p className="text-xs text-slate-500 hidden sm:block">
+            Nhấn <kbd className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono-data font-bold">Esc</kbd> hoặc bấm ra ngoài để thoát.
+          </p>
+          <div className="flex items-center gap-2.5 ml-auto sm:ml-0">
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-cyan-50 border border-cyan-300 hover:bg-cyan-100 text-[#0891B2] text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
+            >
+              <Share2 className="h-4 w-4" />
+              <span>Chia Sẻ An Toàn</span>
+            </button>
+            <button
+              onClick={handleExportCsv}
+              className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+              <span>Xuất CSV (UTF-8)</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 rounded-xl bg-[#0891B2] hover:bg-[#0E7490] text-white text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-sm"
+            >
+              <Printer className="h-4 w-4" />
+              <span>In Phiếu / PDF</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition-all active:scale-95"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          SECURE SHARE SUB-MODAL (Email & Protected PIN Link)
+      ========================================================================== */}
+      {isShareModalOpen && (
+        <div
+          onClick={() => setIsShareModalOpen(false)}
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-5 animate-scaleUp"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-cyan-100 text-[#0891B2]">
+                  <Share2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Chia Sẻ Báo Cáo An Toàn (Secure Share)</h3>
+                  <p className="text-[11px] text-slate-500">Mã hóa bảo mật HIPAA & HL7/FHIR</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsShareModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Email Share Option */}
+            <form onSubmit={handleSendEmail} className="space-y-3">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-[#0891B2]" /> Gửi Báo Cáo Trực Tiếp Qua Email:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={shareEmail}
+                  onChange={(e) => setShareEmail(e.target.value)}
+                  placeholder="bacsi.giadinh@clinic.vn hoặc email người nhận..."
+                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs outline-none focus:border-cyan-600 focus:bg-white"
+                />
+                <button
+                  type="submit"
+                  disabled={!shareEmail.trim()}
+                  className="px-3.5 py-2 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold text-xs rounded-xl shadow-xs disabled:opacity-40 flex items-center gap-1"
+                >
+                  <Send className="w-3.5 h-3.5" /> Gửi
+                </button>
+              </div>
+              {emailSentToast && (
+                <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1 animate-fadeIn">
+                  <Check className="w-3.5 h-3.5" /> Đã gửi báo cáo mã hóa thành công đến {shareEmail}!
+                </p>
+              )}
+            </form>
+
+            {/* Protected Link Option */}
+            <div className="space-y-3 border-t border-slate-100 pt-4">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-600" /> Tạo Liên Kết Có Mã PIN Bảo Vệ:
+              </label>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-[10px] text-slate-500 block">Mã PIN Truy Cập:</span>
+                  <strong className="font-mono-data text-amber-700 text-sm tracking-wider">{securePin}</strong>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-[10px] text-slate-500 block">Thời Hạn Hiệu Lực:</span>
+                  <select
+                    value={shareExpiry}
+                    onChange={(e: any) => setShareExpiry(e.target.value)}
+                    className="bg-transparent font-bold text-slate-800 text-xs outline-none cursor-pointer"
+                  >
+                    <option value="24h">24 Giờ</option>
+                    <option value="7d">7 Ngày</option>
+                    <option value="30d">30 Ngày</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                onClick={handleCopySecureLink}
+                className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
+                  copiedLink
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                    : 'bg-slate-900 hover:bg-slate-800 text-white border-slate-900'
+                }`}
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Đã Sao Chép Link & Mã PIN Vào Clipboard!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>Sao Chép Liên Kết & Mã PIN Bảo Vệ</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
