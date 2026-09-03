@@ -358,4 +358,136 @@ class DoctorPatientAssignmentSecurityTest {
       assignmentRepository.saveAndFlush(new DoctorPatientAssignment(doctorA, patientA, AssignmentStatus.ACTIVE, adminUser.getId()));
     }).isInstanceOf(DataIntegrityViolationException.class);
   }
+
+  @Test
+  @DisplayName("CASE 16: Doctor A tạo screening cho Patient A được phân công -> 201 Created và DB lưu patient_id = Patient A (không phải Doctor A)")
+  void case16_doctorA_createScreeningForAssignedPatientA_success() throws Exception {
+    String createPayload = """
+        {
+          "imageUrl": "https://cdn.aura.com/scan_new_patient_a.png"
+        }
+        """;
+
+    String response = mvc.perform(
+            post("/api/v1/doctor/patients/" + patientA.getId() + "/screenings")
+                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDoctorA)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createPayload))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.patientId").value(patientA.getId().toString()))
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
+
+    UUID screeningId = UUID.fromString(mapper.readTree(response).at("/data/id").asText());
+    Screening inDb = screeningRepository.findById(screeningId).orElseThrow();
+    assertThat(inDb.getPatientId()).isEqualTo(patientA.getId());
+    assertThat(inDb.getPatientId()).isNotEqualTo(doctorA.getId());
+  }
+
+  @Test
+  @DisplayName("CASE 17: Doctor A tạo screening cho Patient C (không được phân công) -> 403 Forbidden")
+  void case17_doctorA_createScreeningForUnassignedPatientC_returns403() throws Exception {
+    String createPayload = """
+        {
+          "imageUrl": "https://cdn.aura.com/scan_new_patient_c.png"
+        }
+        """;
+
+    mvc.perform(
+            post("/api/v1/doctor/patients/" + patientC.getId() + "/screenings")
+                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDoctorA)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createPayload))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("CASE 18: Patient A gọi endpoint doctor create screening -> 403 Forbidden")
+  void case18_patientA_callsDoctorCreateScreening_returns403() throws Exception {
+    String createPayload = """
+        {
+          "imageUrl": "https://cdn.aura.com/scan_by_patient.png"
+        }
+        """;
+
+    mvc.perform(
+            post("/api/v1/doctor/patients/" + patientA.getId() + "/screenings")
+                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenPatientA)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createPayload))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("CASE 19: Unauthenticated gọi doctor create screening -> 401 Unauthorized")
+  void case19_unauthenticated_callsDoctorCreateScreening_returns401() throws Exception {
+    String createPayload = """
+        {
+          "imageUrl": "https://cdn.aura.com/scan_unauth.png"
+        }
+        """;
+
+    mvc.perform(
+            post("/api/v1/doctor/patients/" + patientA.getId() + "/screenings")
+                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createPayload))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("CASE 20: Inactive assignment giữa Doctor B và Patient A -> Doctor B tạo screening -> 403 Forbidden")
+  void case20_inactiveAssignment_doctorB_createScreeningPatientA_returns403() throws Exception {
+    assignmentRepository.save(new DoctorPatientAssignment(doctorB, patientA, AssignmentStatus.INACTIVE, adminUser.getId()));
+
+    String createPayload = """
+        {
+          "imageUrl": "https://cdn.aura.com/scan_inactive.png"
+        }
+        """;
+
+    mvc.perform(
+            post("/api/v1/doctor/patients/" + patientA.getId() + "/screenings")
+                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDoctorB)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createPayload))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("CASE 21: Sau khi Doctor A tạo screening cho Patient A, GET danh sách ca khám của Patient A chứa ca khám mới")
+  void case21_doctorA_getScreeningsAfterCreate_containsNewScreening() throws Exception {
+    String createPayload = """
+        {
+          "imageUrl": "https://cdn.aura.com/scan_patient_a_second.png"
+        }
+        """;
+
+    String response = mvc.perform(
+            post("/api/v1/doctor/patients/" + patientA.getId() + "/screenings")
+                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDoctorA)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createPayload))
+        .andExpect(status().isCreated())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
+
+    UUID newScreeningId = UUID.fromString(mapper.readTree(response).at("/data/id").asText());
+
+    mvc.perform(
+            get("/api/v1/doctor/patients/" + patientA.getId() + "/screenings")
+                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDoctorA))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data[?(@.id == '%s')]", newScreeningId.toString()).exists());
+  }
 }
