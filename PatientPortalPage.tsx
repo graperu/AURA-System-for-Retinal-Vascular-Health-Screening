@@ -118,10 +118,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   ]);
   const [newChatText, setNewChatText] = useState('');
 
-  // History Search & Filter State (FR-6)
+  // History Search, Filter & Pagination State (FR-6, FR-18)
   const [historySearch, setHistorySearch] = useState('');
-  const [historyEyeFilter, setHistoryEyeFilter] = useState<'ALL' | 'OD' | 'OS'>('ALL');
+  const [historyEyeFilter, setHistoryEyeFilter] = useState<'ALL' | 'BOTH' | 'OD' | 'OS'>('ALL');
   const [historyRiskFilter, setHistoryRiskFilter] = useState<'ALL' | 'HIGH' | 'MODERATE' | 'LOW'>('ALL');
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(5);
   const [selectedHistoryResult, setSelectedHistoryResult] = useState<AIRiskResult | null>(null);
 
   // Default rich history records
@@ -1095,8 +1099,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {scanHistory
-                    .filter((item) => {
+                  {(() => {
+                    const filtered = scanHistory.filter((item) => {
                       const matchSearch =
                         historySearch.trim() === '' ||
                         item.id.toLowerCase().includes(historySearch.toLowerCase()) ||
@@ -1117,8 +1121,22 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                         (historyRiskFilter === 'LOW' && item.overallScore < 45);
 
                       return matchSearch && matchEye && matchRisk;
-                    })
-                    .map((scan) => (
+                    });
+
+                    const startIndex = (historyPage - 1) * historyPageSize;
+                    const paginated = filtered.slice(startIndex, startIndex + historyPageSize);
+
+                    if (paginated.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={8} className="p-8 text-center text-slate-500">
+                            Không tìm thấy ca khám nào khớp với điều kiện lọc.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return paginated.map((scan) => (
                       <tr key={scan.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="p-3.5 font-mono-data font-bold text-[#0891B2]">
                           {scan.id}
@@ -1279,9 +1297,35 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    ));
+                  })()}
                 </tbody>
               </table>
+            </div>
+
+            {/* Pagination Controls for Patient Scan History */}
+            <div className="p-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-600">
+              <span className="font-medium">
+                Quản lý lịch sử khám sàng lọc ({scanHistory.length} ca đã lưu)
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={historyPage <= 1}
+                  onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                  className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-slate-100 transition-colors"
+                >
+                  Trước
+                </button>
+                <span className="px-2 font-bold font-mono-data text-[#0891B2]">Trang {historyPage}</span>
+                <button
+                  type="button"
+                  onClick={() => setHistoryPage((p) => p + 1)}
+                  className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-100 transition-colors"
+                >
+                  Sau
+                </button>
+              </div>
             </div>
           </div>
         </div>

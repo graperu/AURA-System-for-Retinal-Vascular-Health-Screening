@@ -16,6 +16,12 @@ export interface PatientProfile {
   historyOfSmoking: boolean;
   lastExamDate: string;
   assignedDoctor: string;
+  phone?: string;
+  riskLevel?: RiskLevel | 'Alarm' | 'Normal';
+  riskScore?: number;
+  reviewStatus?: 'PENDING_REVIEW' | 'REVIEWED' | 'CRITICAL';
+  findingsSummary?: string;
+  avatarColor?: string;
 }
 
 export interface BatchImageItem {
