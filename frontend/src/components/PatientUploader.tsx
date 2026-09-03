@@ -52,7 +52,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     e.preventDefault();
     const request: FundusAnalysisRequest = {
       requestId: `REQ-${Date.now().toString().slice(-6)}`,
-      patientId: activePatient.id,
+      patientId: activePatient.id || activePatient.mrn || 'PATIENT-01',
       clinicId: 'CLN-MAIN-01',
       imageName: selectedFile ? selectedFile.name : 'fundus_scan_OD_2026.png',
       imageUrl: previewUrl,

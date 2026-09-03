@@ -194,3 +194,46 @@ export const adminUserApi = {
       body: JSON.stringify({ active }),
     }),
 };
+
+export const patientApi = {
+  getProfile: () =>
+    apiFetch<any>('/api/v1/patient/profile', {
+      method: 'GET',
+    }),
+
+  updateProfile: (profile: any) =>
+    apiFetch<any>('/api/v1/patient/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profile),
+    }),
+
+  getPatientById: (patientId: string) =>
+    apiFetch<any>(`/api/v1/patient/profile/${patientId}`, {
+      method: 'GET',
+    }),
+};
+
+export const doctorApi = {
+  getAssignedPatients: () =>
+    apiFetch<any[]>('/api/v1/doctor/patients', {
+      method: 'GET',
+    }),
+
+  getPatientById: (patientId: string) =>
+    apiFetch<any>(`/api/v1/doctor/patients/${patientId}`, {
+      method: 'GET',
+    }),
+
+  getPatientScreenings: (patientId: string) =>
+    apiFetch<any[]>(`/api/v1/doctor/patients/${patientId}/screenings`, {
+      method: 'GET',
+    }),
+
+  createScreeningForPatient: (patientId: string, imageUrl: string) =>
+    apiFetch<any>(`/api/v1/doctor/patients/${patientId}/screenings`, {
+      method: 'POST',
+      body: JSON.stringify({ imageUrl }),
+    }),
+};
+
+

@@ -31,6 +31,16 @@ public class DoctorFeedbackService {
             request.isAccurate(),
             request.feedbackNotes(),
             request.vesselAnnotationData());
+
+    // FR-19: chỉ đưa vào kho dữ liệu tái huấn luyện các mẫu có giá trị hiệu
+    // chỉnh thật sự - tức là bác sĩ đánh giá AI sai (isAccurate = false) hoặc
+    // có kèm chú thích vùng tổn thương cụ thể. Feedback "đồng ý hoàn toàn với
+    // AI, không có chú thích" thì không mang thêm tín hiệu huấn luyện mới.
+    boolean hasLesionAnnotation =
+        request.vesselAnnotationData() != null && !request.vesselAnnotationData().isBlank();
+    boolean eligibleForRetraining = Boolean.FALSE.equals(request.isAccurate()) || hasLesionAnnotation;
+    feedback.setIncludedInRetraining(eligibleForRetraining);
+
     DoctorFeedback saved = doctorFeedbackRepository.save(feedback);
     return DoctorFeedbackResponse.fromEntity(saved);
   }

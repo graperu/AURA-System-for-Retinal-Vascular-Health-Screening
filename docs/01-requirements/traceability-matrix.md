@@ -21,23 +21,23 @@
 | FR-5 | Patient reports and alerts | Partial | `PatientDashboardPage` |
 | FR-6 | Analysis history storage | Partial `screening` table + GET APIs |
 | FR-7 | Export PDF/CSV | Planned | UI alert only |
-| FR-8 | Bulk upload | Out of MVP | `mvp-scope.md` |
+| FR-8 | Patient Medical Profile & History Management | Done | `V013`/`V014`, `PatientMedicalProfile`, `PatientProfileController`, `PatientProfileIntegrationTest`, `MedicalProfileModal` |
 | FR-9 | Event-based notifications | Partial | UI only |
 | FR-10 | Doctor-patient messaging | Partial | Chat mock `PatientDashboardPage` |
 | FR-11 | Subscription plan management | Planned | Mock text admin/ckinic |
 | FR-12 | Payment processing | Out of MVP | - |
-| FR-13 | OAuth2/social login | Out of MVP | - |
+| FR-13 | Doctor assigned patient profile management | Done | `V016`, `DoctorPatientAssignment`, `DoctorPatientController`, `PatientAccessService`, `CDSDashboardPage`, `DoctorPatientAssignmentSecurityTest` |
 | FR-14 | Clinical Decision Support access to AI results | Partial | `DoctorAnalysisPage` + screenings API |
 | FR-15 | AI-generated image annotations | Partial | UI overlay, no AI asset |  
 | FR-16 | Result confirmation and correction | Partial | `Post .../ review`,`ScreeningService.addDoctorReview` |
 | FR-17 | Time-based patient history retrieval | Partial | `findByPatientIdOrderByCreatedAtDesc` |
-| FR-18 | Doctors can only access assigned patients | Doctor sees all in `ScreeningController ` |
+| FR-18 | Doctors can only access assigned patients | Done | Enforced by `PatientAccessService`, `@PreAuthorize`, `DoctorPatientAssignmentSecurityTest` (15/15 cases PASS) |
 | FR-19 | Email verification | Planned | Column `email_verified`, no flow |
 | FR-20 | Consulation chat | Planned | UI mock |
 | FR-21 | Clinic patient management dashboard | Partial | `ClinicManagementPage` mock |
 | FR-22 | Clinic registration | Planned | - |
 | FR-23 | Internal doctor and patient management | Planned | - |
-| FR-24 | Doctor–patient assignment | Planned | - |
+| FR-24 | Doctor–patient assignment | Done | `doctor_patient_assignments` table (`V016`), `DoctorPatientAssignmentService` |
 | FR-25 | Aggregated risk statistics | Partial | UI KPI mock |
 | FR-26 | Clinic activity reports | Partial | UI mock |
 | FR-27 | Clinic profile management | Planned | - |
@@ -45,7 +45,7 @@
 | FR-29 | Notification configuration | Planned | - |
 | FR-30 | Clinic-level consolidated report export | Planned | - |
 | FR-31 | User account administration | Planned | Register forces `USER` only |
-| FR-32 | RBAC | Partial | `RoleName`, JWT authorities ; no method-level on screenings |
+| FR-32 | RBAC Security & IDOR Protection | Done | `RoleName`, JWT authorities, method-level security `@PreAuthorize`, `PatientAccessService`, CORS domain whitelist |
 | FR-33 | Subscription renewal reminders | Planned | - |
 | FR-34 | Payment gateway integration | Out of MVP | - |
 | FR-35 | Administrative campaign reports | Partial | `GlobalAdminPage` |

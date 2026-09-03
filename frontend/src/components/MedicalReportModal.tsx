@@ -15,7 +15,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
   onClose,
   patient,
   result,
-  doctorName = 'BS. CKII Nguyễn Thị Thanh',
+  doctorName = patient.assignedDoctor || 'Chưa được phân công',
 }) => {
   // Support ESC key and lock background body scroll
   useEffect(() => {
@@ -46,7 +46,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
       ['Ma bao cao', result.analysisId],
       ['Ho va ten', patient.fullName],
       ['Ma benh nhan (MRN)', patient.mrn],
-      ['Tuoi', patient.age.toString()],
+      ['Tuoi', patient.age != null ? patient.age.toString() : 'Chua cap nhat'],
       ['Gioi tinh', patient.gender],
       ['Ngay kham', new Date().toLocaleDateString('vi-VN')],
       ['Diem nguy co mach mau tong hop', `${result.overallVascularRiskScore}/100`],
@@ -60,7 +60,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
       ['Ty le Cup/Disc (CDR)', result.annotatedMap.opticCupToDiscRatio.toString()],
       ['Bac si phu trach', doctorName],
     ]
-      .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','))
+      .map((row) => row.map((cell) => `"${(cell ?? '').replace(/"/g, '""')}"`).join(','))
       .join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -168,11 +168,11 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             </div>
             <div>
               <span className="text-slate-500 block">Tuổi / Giới tính:</span>
-              <strong className="text-slate-900">{patient.age} tuổi • {patient.gender === 'Male' ? 'Nam' : 'Nữ'}</strong>
+              <strong className="text-slate-900">{patient.age != null ? `${patient.age} tuổi` : 'Chưa cập nhật'} • {patient.gender === 'Male' ? 'Nam' : patient.gender === 'Female' ? 'Nữ' : 'Khác'}</strong>
             </div>
             <div>
               <span className="text-slate-500 block">Huyết áp / HbA1c:</span>
-              <strong className="text-slate-900 font-mono-data">{patient.systolicBp}/{patient.diastolicBp} mmHg • {patient.hba1c}%</strong>
+              <strong className="text-slate-900 font-mono-data">{patient.systolicBp != null && patient.diastolicBp != null ? `${patient.systolicBp}/${patient.diastolicBp} mmHg` : 'Huyết áp: N/A'} • {patient.hba1c != null ? `HbA1c: ${patient.hba1c}%` : 'HbA1c: N/A'}</strong>
             </div>
           </div>
 
@@ -335,15 +335,21 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
 
             <div className="flex justify-between items-end pt-4 border-t border-cyan-200/60 text-xs">
               <div className="text-slate-500 text-[11px]">
-                <p>Hệ thống AURA Retinal AI v2.1</p>
-                <p>Khuyến nghị tuân thủ hướng dẫn AHA/ACC 2026</p>
+                <p>Hệ thống AURA Retinal AI Screening</p>
+                <p>Dữ liệu y tế được bảo vệ theo quy chuẩn bảo mật</p>
               </div>
               <div className="text-right">
                 <p className="text-slate-500 text-[11px]">Bác sĩ chuyên khoa xác nhận:</p>
                 <p className="font-bold text-slate-900 text-sm mt-1">{doctorName}</p>
-                <span className="text-[10px] text-cyan-700 font-mono-data font-semibold">
-                  (Đã ký số điện tử y tế)
-                </span>
+                {patient.assignedDoctor ? (
+                  <span className="text-[10px] text-cyan-700 font-mono-data font-semibold">
+                    (Đã ký số điện tử y tế)
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-mono-data">
+                    (Chờ phân công bác sĩ)
+                  </span>
+                )}
               </div>
             </div>
           </div>

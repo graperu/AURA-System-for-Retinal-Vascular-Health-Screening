@@ -22,13 +22,18 @@ public class ScreeningService {
   private static final Logger log = LoggerFactory.getLogger(ScreeningService.class);
 
   private final ScreeningRepository screeningRepository;
+  private final com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository;
   private final RestClient restClient;
 
   @Value("${aura.ai-service.url:http://localhost:8000}")
   private String aiServiceUrl;
 
-  public ScreeningService(ScreeningRepository screeningRepository, RestClient.Builder restClientBuilder) {
+  public ScreeningService(
+      ScreeningRepository screeningRepository,
+      com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      RestClient.Builder restClientBuilder) {
     this.screeningRepository = screeningRepository;
+    this.assignmentRepository = assignmentRepository;
     this.restClient = restClientBuilder.build();
   }
 
@@ -161,6 +166,16 @@ public class ScreeningService {
   @Transactional(readOnly = true)
   public List<Screening> getScreeningsForPatient(UUID patientId) {
     return screeningRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
+  }
+
+  @Transactional(readOnly = true)
+  public List<Screening> getScreeningsForDoctor(UUID doctorId) {
+    List<UUID> assignedPatientIds = assignmentRepository.findPatientIdsByDoctorIdAndStatus(
+        doctorId, com.aura.doctor.entity.AssignmentStatus.ACTIVE);
+    if (assignedPatientIds == null || assignedPatientIds.isEmpty()) {
+      return List.of();
+    }
+    return screeningRepository.findByPatientIdInOrderByCreatedAtDesc(assignedPatientIds);
   }
 
   @Transactional(readOnly = true)

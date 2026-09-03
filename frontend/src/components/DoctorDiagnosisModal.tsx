@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { DoctorFeedback, RiskLevel } from '../types/cds';
+import { DoctorFeedback, RiskLevel, LesionAnnotationMarker } from '../types/cds';
 import { X, CheckCircle2, Edit3, XCircle, ShieldCheck, Tag, FileText, Download } from 'lucide-react';
+import { LesionAnnotationCanvas } from './LesionAnnotationCanvas';
 
 interface DoctorDiagnosisModalProps {
   isOpen: boolean;
   onClose: () => void;
   analysisId: string;
+  imageUrl?: string;
   patientName: string;
   mrn: string;
   onSaveFeedback: (feedback: DoctorFeedback) => void;
@@ -15,6 +17,7 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
   isOpen,
   onClose,
   analysisId,
+  imageUrl,
   patientName,
   mrn,
   onSaveFeedback,
@@ -29,6 +32,7 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
   const [clinicalNotes, setClinicalNotes] = useState<string>(
     'Bệnh nhân có biểu hiện co hẹp động mạch võng mạc diện rộng (Gunn sign dương tính) phù hợp với tăng huyết áp tâm thu 154 mmHg. Đồng ý với kết quả gợi ý nguy cơ tim mạch cao của AI. Khuyến cáo khám chuyên khoa Tim mạch và theo dõi chỉ số HbA1c sau 3 tháng.'
   );
+  const [lesionAnnotations, setLesionAnnotations] = useState<LesionAnnotationMarker[]>([]);
 
   if (!isOpen) return null;
 
@@ -62,6 +66,7 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
       clinicalNotes,
       reviewedAt: new Date().toISOString(),
       signedDigitalSignature: 'RSA2048-AURA-DOC-SIGN-9912-VERIFIED',
+      lesionAnnotations,
     };
     onSaveFeedback(feedback);
     onClose();
@@ -170,6 +175,13 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* Lesion Annotation Canvas (FR-19) */}
+          <LesionAnnotationCanvas
+            imageUrl={imageUrl}
+            markers={lesionAnnotations}
+            onChange={setLesionAnnotations}
+          />
 
           {/* ICD-10 Selection */}
           <div>

@@ -83,18 +83,22 @@ public class GlobalExceptionHandler {
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
-  ResponseEntity<ApiErrorResponse> handleIllegalArgument() {
+  ResponseEntity<ApiErrorResponse> handleIllegalArgument(IllegalArgumentException exception) {
+    String msg = exception.getMessage() != null && !exception.getMessage().isBlank()
+        ? exception.getMessage()
+        : "Yêu cầu không hợp lệ";
     return response(
         HttpStatus.BAD_REQUEST,
-        ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, "Request is invalid", List.of()));
+        ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, msg, List.of()));
   }
 
   @ExceptionHandler(Exception.class)
-  ResponseEntity<ApiErrorResponse> handleUnexpected() {
+  ResponseEntity<ApiErrorResponse> handleUnexpected(Exception exception) {
+    org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Unexpected error in request: ", exception);
     return response(
         HttpStatus.INTERNAL_SERVER_ERROR,
         ApiErrorResponse.of(
-            ErrorCode.INTERNAL_SERVER_ERROR, "An unexpected error occurred", List.of()));
+            ErrorCode.INTERNAL_SERVER_ERROR, "An unexpected error occurred: " + exception.getMessage(), List.of()));
   }
 
   private ErrorDetail toDetail(FieldError error) {

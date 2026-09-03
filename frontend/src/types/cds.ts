@@ -3,19 +3,34 @@ export type UserRole = 'patient' | 'doctor' | 'clinic' | 'admin';
 export type RiskLevel = 'Low' | 'Moderate' | 'High' | 'Severe';
 
 export interface PatientProfile {
-  id: string;
-  mrn: string; // Medical Record Number
-  fullName: string;
-  age: number;
-  gender: 'Male' | 'Female' | 'Other';
-  systolicBp: number;
-  diastolicBp: number;
-  hba1c: number; // %
-  hasDiabetes: boolean;
-  hasHypertension: boolean;
-  historyOfSmoking: boolean;
-  lastExamDate: string;
-  assignedDoctor: string;
+  id?: string;
+  userId?: string;
+  mrn?: string | null; // Medical Record Number
+  fullName?: string | null;
+  email?: string | null;
+  dateOfBirth?: string | null;
+  age?: number | null;
+  gender?: 'Male' | 'Female' | 'Other' | string | null;
+  phoneNumber?: string | null;
+  address?: string | null;
+  bloodType?: string | null;
+  systolicBp?: number | null;
+  diastolicBp?: number | null;
+  hba1c?: number | null; // %
+  hasDiabetes?: boolean | null;
+  diabetesType?: string | null;
+  diabetesDurationYears?: number | null;
+  hasHypertension?: boolean | null;
+  historyOfSmoking?: boolean | null;
+  historyOfHeartDisease?: boolean | null;
+  historyOfStroke?: boolean | null;
+  currentMedications?: string | null;
+  allergies?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  lastExamDate?: string | null;
+  assignedDoctor?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface FundusAnalysisRequest {
@@ -78,6 +93,13 @@ export interface AIRiskResult {
   }[];
 }
 
+export interface LesionAnnotationMarker {
+  id: string;
+  xPercent: number; // 0-100, relative to image width
+  yPercent: number; // 0-100, relative to image height
+  note?: string;
+}
+
 export interface DoctorFeedback {
   feedbackId: string;
   analysisId: string;
@@ -90,6 +112,7 @@ export interface DoctorFeedback {
   clinicalNotes: string;
   reviewedAt: string;
   signedDigitalSignature?: string;
+  lesionAnnotations?: LesionAnnotationMarker[];
 }
 
 export interface ClinicBatchJobItem {

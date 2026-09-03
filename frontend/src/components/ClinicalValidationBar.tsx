@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { DoctorFeedback, RiskLevel } from '../types/cds';
+import { DoctorFeedback, RiskLevel, LesionAnnotationMarker } from '../types/cds';
 import { CheckCircle2, Edit3, XCircle, FileText, Download, ShieldCheck, Tag, ExternalLink } from 'lucide-react';
 import { DoctorDiagnosisModal } from './DoctorDiagnosisModal';
+import { LesionAnnotationCanvas } from './LesionAnnotationCanvas';
 
 interface ClinicalValidationBarProps {
   analysisId: string;
+  imageUrl?: string;
   patientName?: string;
   mrn?: string;
   onSaveFeedback: (feedback: DoctorFeedback) => void;
@@ -12,6 +14,7 @@ interface ClinicalValidationBarProps {
 
 export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   analysisId,
+  imageUrl,
   patientName = 'Trần Văn Hoàng',
   mrn = 'MRN-2026-0941',
   onSaveFeedback,
@@ -28,6 +31,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   );
   const [isSaved, setIsSaved] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [lesionAnnotations, setLesionAnnotations] = useState<LesionAnnotationMarker[]>([]);
 
   const icd10Options = [
     'H35.0 — Biến đổi mạch máu võng mạc (Retinal vascular changes)',
@@ -59,6 +63,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       clinicalNotes,
       reviewedAt: new Date().toISOString(),
       signedDigitalSignature: 'RSA2048-AURA-DOC-SIGN-9912-VERIFIED',
+      lesionAnnotations,
     };
     onSaveFeedback(feedback);
     setIsSaved(true);
@@ -179,6 +184,13 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
             </div>
           )}
 
+          {/* Lesion Annotation Canvas (FR-19) */}
+          <LesionAnnotationCanvas
+            imageUrl={imageUrl}
+            markers={lesionAnnotations}
+            onChange={setLesionAnnotations}
+          />
+
           {/* ICD-10 Selection */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 font-mono-data flex items-center gap-1.5">
@@ -247,6 +259,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         analysisId={analysisId}
+        imageUrl={imageUrl}
         patientName={patientName}
         mrn={mrn}
         onSaveFeedback={onSaveFeedback}

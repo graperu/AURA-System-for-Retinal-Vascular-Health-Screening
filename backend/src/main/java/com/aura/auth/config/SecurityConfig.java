@@ -34,7 +34,11 @@ public class SecurityConfig {
   @Bean
   CorsConfigurationSource cors(CorsProperties properties) {
     CorsConfiguration config = new CorsConfiguration();
-    config.setAllowedOriginPatterns(List.of("*"));
+    List<String> origins = properties != null ? properties.allowedOrigins() : null;
+    if (origins == null || origins.isEmpty()) {
+      origins = List.of("http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173");
+    }
+    config.setAllowedOrigins(origins);
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
     config.setAllowedHeaders(List.of("*"));
     config.setExposedHeaders(List.of("Authorization", "Set-Cookie"));
@@ -74,6 +78,9 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/system/health")
                     .permitAll()
+                    .requestMatchers("/api/v1/doctor/**").hasRole("DOCTOR")
+                    .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                    .requestMatchers("/api/v1/clinic/**").hasAnyRole("CLINIC", "ADMIN")
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(origin, UsernamePasswordAuthenticationFilter.class)
