@@ -51,25 +51,25 @@ public class PatientMedicalProfile {
   private Double hba1c;
 
   @Column(name = "has_diabetes")
-  private Boolean hasDiabetes = false;
+  private Boolean hasDiabetes;
 
   @Column(name = "diabetes_type", length = 32)
-  private String diabetesType = "None";
+  private String diabetesType;
 
   @Column(name = "diabetes_duration_years")
-  private Integer diabetesDurationYears = 0;
+  private Integer diabetesDurationYears;
 
   @Column(name = "has_hypertension")
-  private Boolean hasHypertension = false;
+  private Boolean hasHypertension;
 
   @Column(name = "history_of_smoking")
-  private Boolean historyOfSmoking = false;
+  private Boolean historyOfSmoking;
 
   @Column(name = "history_of_heart_disease")
-  private Boolean historyOfHeartDisease = false;
+  private Boolean historyOfHeartDisease;
 
   @Column(name = "history_of_stroke")
-  private Boolean historyOfStroke = false;
+  private Boolean historyOfStroke;
 
   @Column(name = "current_medications", columnDefinition = "TEXT")
   private String currentMedications;
@@ -84,7 +84,7 @@ public class PatientMedicalProfile {
   private String emergencyContactPhone;
 
   @Column(name = "assigned_doctor", length = 150)
-  private String assignedDoctor = "BS. CKII Nguyễn Thị Thanh";
+  private String assignedDoctor;
 
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;

@@ -45,10 +45,12 @@ public class PatientProfileService {
 
           PatientMedicalProfile newProfile = new PatientMedicalProfile(user, generatedMrn);
           newProfile.setGender("Other");
-          newProfile.setHasDiabetes(false);
-          newProfile.setHasHypertension(false);
-          newProfile.setHistoryOfSmoking(false);
-          newProfile.setAssignedDoctor("BS. CKII Nguyễn Thị Thanh");
+          newProfile.setHasDiabetes(null);
+          newProfile.setHasHypertension(null);
+          newProfile.setHistoryOfSmoking(null);
+          newProfile.setHistoryOfHeartDisease(null);
+          newProfile.setHistoryOfStroke(null);
+          newProfile.setAssignedDoctor(null);
           return profileRepository.save(newProfile);
         });
 
@@ -103,20 +105,24 @@ public class PatientProfileService {
     if (request.gender() != null && !request.gender().isBlank()) profile.setGender(request.gender());
     if (request.phoneNumber() != null) profile.setPhoneNumber(request.phoneNumber().trim());
     if (request.address() != null) profile.setAddress(request.address().trim());
-    if (request.bloodType() != null) profile.setBloodType(request.bloodType().trim());
-
-    if (request.hasDiabetes() != null) {
-      profile.setHasDiabetes(request.hasDiabetes());
-      if (Boolean.TRUE.equals(request.hasDiabetes())) {
-        if (request.diabetesType() != null) profile.setDiabetesType(request.diabetesType());
-        if (request.diabetesDurationYears() != null) profile.setDiabetesDurationYears(request.diabetesDurationYears());
-      }
+    if (request.bloodType() != null) {
+      String bt = request.bloodType().trim();
+      profile.setBloodType(bt.isEmpty() ? null : bt);
     }
 
-    if (request.hasHypertension() != null) profile.setHasHypertension(request.hasHypertension());
-    if (request.historyOfSmoking() != null) profile.setHistoryOfSmoking(request.historyOfSmoking());
-    if (request.historyOfHeartDisease() != null) profile.setHistoryOfHeartDisease(request.historyOfHeartDisease());
-    if (request.historyOfStroke() != null) profile.setHistoryOfStroke(request.historyOfStroke());
+    profile.setHasDiabetes(request.hasDiabetes());
+    if (Boolean.TRUE.equals(request.hasDiabetes())) {
+      profile.setDiabetesType(request.diabetesType() != null && !request.diabetesType().isBlank() ? request.diabetesType().trim() : "Type2");
+      profile.setDiabetesDurationYears(request.diabetesDurationYears() != null ? request.diabetesDurationYears() : 0);
+    } else {
+      profile.setDiabetesType(null);
+      profile.setDiabetesDurationYears(null);
+    }
+
+    profile.setHasHypertension(request.hasHypertension());
+    profile.setHistoryOfSmoking(request.historyOfSmoking());
+    profile.setHistoryOfHeartDisease(request.historyOfHeartDisease());
+    profile.setHistoryOfStroke(request.historyOfStroke());
     if (request.currentMedications() != null) profile.setCurrentMedications(request.currentMedications().trim());
     if (request.allergies() != null) profile.setAllergies(request.allergies().trim());
     if (request.emergencyContactName() != null) profile.setEmergencyContactName(request.emergencyContactName().trim());

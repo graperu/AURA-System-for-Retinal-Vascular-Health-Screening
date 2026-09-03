@@ -50,19 +50,19 @@ public record PatientProfileResponse(
         profile.getSystolicBp(),
         profile.getDiastolicBp(),
         profile.getHba1c(),
-        Boolean.TRUE.equals(profile.getHasDiabetes()),
-        profile.getDiabetesType() != null ? profile.getDiabetesType() : "None",
+        profile.getHasDiabetes(),
+        profile.getDiabetesType(),
         profile.getDiabetesDurationYears(),
-        Boolean.TRUE.equals(profile.getHasHypertension()),
-        Boolean.TRUE.equals(profile.getHistoryOfSmoking()),
-        Boolean.TRUE.equals(profile.getHistoryOfHeartDisease()),
-        Boolean.TRUE.equals(profile.getHistoryOfStroke()),
+        profile.getHasHypertension(),
+        profile.getHistoryOfSmoking(),
+        profile.getHistoryOfHeartDisease(),
+        profile.getHistoryOfStroke(),
         profile.getCurrentMedications(),
         profile.getAllergies(),
         profile.getEmergencyContactName(),
         profile.getEmergencyContactPhone(),
-        profile.getAssignedDoctor() != null ? profile.getAssignedDoctor() : "BS. CKII Nguyễn Thị Thanh",
-        profile.getUpdatedAt() != null ? profile.getUpdatedAt().toString() : ""
+        profile.getAssignedDoctor(),
+        profile.getUpdatedAt() != null ? profile.getUpdatedAt().toString() : null
     );
   }
 }

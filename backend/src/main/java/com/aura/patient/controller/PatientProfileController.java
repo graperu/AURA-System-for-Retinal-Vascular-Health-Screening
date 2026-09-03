@@ -45,9 +45,10 @@ public class PatientProfileController {
   }
 
   @GetMapping("/{patientId}")
-  @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN', 'CLINIC')")
+  @PreAuthorize("@patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<PatientProfileResponse> getPatientProfileById(
-      @PathVariable UUID patientId) {
+      @PathVariable UUID patientId,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
     PatientProfileResponse response = profileService.getProfileByPatientId(patientId);
     return ApiResponse.success("Tra cứu thông tin hồ sơ bệnh nhân thành công", response);
   }
