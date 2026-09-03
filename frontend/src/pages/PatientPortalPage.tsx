@@ -8,7 +8,7 @@ import { CreditPurchaseModal } from '../components/CreditPurchaseModal';
 import { MedicalProfileModal } from '../components/MedicalProfileModal';
 import { MOCK_PATIENTS, MOCK_SAMPLE_RESULT, MockAIService } from '../services/mockAiEngine';
 import { AIRiskResult, FundusAnalysisRequest, PatientProfile } from '../types/cds';
-import { screeningApi, chatApi, billingApi } from '../services/api';
+import { screeningApi, chatApi, billingApi, patientApi } from '../services/api';
 import {
   Eye,
   Heart,
@@ -159,6 +159,21 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         }
       } catch (e) {
         console.warn('Could not fetch chat from DB:', e);
+      }
+
+      // Fetch real Patient Medical Profile (FR-8) from PostgreSQL
+      try {
+        const profileRes = await patientApi.getProfile();
+        if (profileRes.success && profileRes.data) {
+          setPatient((prev) => ({
+            ...prev,
+            ...profileRes.data,
+            fullName: profileRes.data.fullName || prev.fullName,
+            mrn: profileRes.data.mrn || prev.mrn,
+          }));
+        }
+      } catch (e) {
+        console.warn('Could not fetch patient medical profile from DB:', e);
       }
     };
     fetchRealData();
@@ -555,12 +570,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân (FR-8)</h2>
-                  <p className="text-xs text-slate-500">Mã bệnh nhân: <strong className="text-slate-800 font-mono-data">{patient.mrn}</strong></p>
+                  <p className="text-xs text-slate-500">Mã bệnh nhân: <strong className="text-teal-700 font-mono-data">{patient.mrn}</strong></p>
                 </div>
               </div>
               <button
                 onClick={() => setIsProfileModalOpen(true)}
-                className="px-4 py-2 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
               >
                 <UserCog className="w-4 h-4" /> Chỉnh Sửa Thông Tin
               </button>
@@ -574,11 +589,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               </div>
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-500 block mb-1">Tuổi & Giới tính:</span>
-                <strong className="text-slate-900 text-sm">{patient.age} tuổi • {patient.gender === 'Male' ? 'Nam' : 'Nữ'}</strong>
+                <strong className="text-slate-900 text-sm">{patient.age} tuổi • {patient.gender === 'Male' ? 'Nam' : patient.gender === 'Female' ? 'Nữ' : 'Khác'}</strong>
               </div>
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-slate-500 block mb-1">Bác sĩ phụ trách:</span>
-                <strong className="text-slate-900 text-sm">{patient.assignedDoctor}</strong>
+                <span className="text-slate-500 block mb-1">Nhóm máu & SĐT:</span>
+                <strong className="text-slate-900 text-sm">{patient.bloodType || 'O+'} • {patient.phoneNumber || 'Chưa cập nhật'}</strong>
               </div>
             </div>
 
@@ -599,9 +614,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   <span className="text-[11px] text-slate-500 block mt-0.5">Đường huyết trung bình 3 tháng</span>
                 </div>
                 <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
-                  <span className="text-slate-500 block text-xs">Lần khám gần nhất</span>
-                  <span className="text-xl font-bold font-mono-data text-slate-800">{patient.lastExamDate}</span>
-                  <span className="text-[11px] text-emerald-600 block mt-0.5">Định kỳ 6 tháng/lần</span>
+                  <span className="text-slate-500 block text-xs">Bác sĩ phụ trách</span>
+                  <span className="text-sm font-bold text-slate-800 line-clamp-1 mt-1">{patient.assignedDoctor}</span>
+                  <span className="text-[11px] text-emerald-600 block mt-0.5">Theo dõi hồ sơ liên tục</span>
                 </div>
               </div>
             </div>
@@ -609,13 +624,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             {/* Medical Conditions */}
             <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <Heart className="w-4 h-4 text-red-500" /> Tiền Sử Bệnh Lý
+                <Heart className="w-4 h-4 text-red-500" /> Tiền Sử Bệnh Lý Mạn Tính
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
                   <span>Đái tháo đường:</span>
                   <strong className={patient.hasDiabetes ? 'text-red-600' : 'text-emerald-600'}>
-                    {patient.hasDiabetes ? 'Có (Type 2)' : 'Không'}
+                    {patient.hasDiabetes ? `Có (${patient.diabetesType || 'Type 2'})` : 'Không'}
                   </strong>
                 </div>
                 <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
@@ -630,6 +645,38 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     {patient.historyOfSmoking ? 'Có tiền sử' : 'Không'}
                   </strong>
                 </div>
+                <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                  <span>Bệnh tim mạch:</span>
+                  <strong className={patient.historyOfHeartDisease ? 'text-red-600' : 'text-emerald-600'}>
+                    {patient.historyOfHeartDisease ? 'Có tiền sử' : 'Không'}
+                  </strong>
+                </div>
+                <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                  <span>Tiền sử đột quỵ:</span>
+                  <strong className={patient.historyOfStroke ? 'text-red-600' : 'text-emerald-600'}>
+                    {patient.historyOfStroke ? 'Có tiền sử' : 'Không'}
+                  </strong>
+                </div>
+                <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                  <span>Dị ứng thuốc:</span>
+                  <strong className={patient.allergies ? 'text-amber-600' : 'text-slate-600'}>
+                    {patient.allergies || 'Không'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Medications & Emergency Contact */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-500 font-semibold block">Thuốc đang điều trị:</span>
+                <p className="text-slate-800">{patient.currentMedications || 'Không sử dụng thuốc điều trị thường xuyên'}</p>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-500 font-semibold block">Người liên hệ khẩn cấp:</span>
+                <p className="text-slate-800">
+                  {patient.emergencyContactName ? `${patient.emergencyContactName} (${patient.emergencyContactPhone || 'Chưa có SĐT'})` : 'Chưa cập nhật thông tin'}
+                </p>
               </div>
             </div>
           </div>

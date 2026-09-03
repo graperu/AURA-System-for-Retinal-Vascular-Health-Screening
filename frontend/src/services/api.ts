@@ -194,3 +194,22 @@ export const adminUserApi = {
       body: JSON.stringify({ active }),
     }),
 };
+
+export const patientApi = {
+  getProfile: () =>
+    apiFetch<any>('/api/v1/patient/profile', {
+      method: 'GET',
+    }),
+
+  updateProfile: (profile: any) =>
+    apiFetch<any>('/api/v1/patient/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profile),
+    }),
+
+  getPatientById: (patientId: string) =>
+    apiFetch<any>(`/api/v1/patient/profile/${patientId}`, {
+      method: 'GET',
+    }),
+};
+

@@ -3,18 +3,32 @@ export type UserRole = 'patient' | 'doctor' | 'clinic' | 'admin';
 export type RiskLevel = 'Low' | 'Moderate' | 'High' | 'Severe';
 
 export interface PatientProfile {
-  id: string;
+  id?: string;
+  userId?: string;
   mrn: string; // Medical Record Number
   fullName: string;
+  email?: string;
+  dateOfBirth?: string;
   age: number;
   gender: 'Male' | 'Female' | 'Other';
+  phoneNumber?: string;
+  address?: string;
+  bloodType?: string;
   systolicBp: number;
   diastolicBp: number;
   hba1c: number; // %
   hasDiabetes: boolean;
+  diabetesType?: string;
+  diabetesDurationYears?: number;
   hasHypertension: boolean;
   historyOfSmoking: boolean;
-  lastExamDate: string;
+  historyOfHeartDisease?: boolean;
+  historyOfStroke?: boolean;
+  currentMedications?: string;
+  allergies?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  lastExamDate?: string;
   assignedDoctor: string;
 }
 
