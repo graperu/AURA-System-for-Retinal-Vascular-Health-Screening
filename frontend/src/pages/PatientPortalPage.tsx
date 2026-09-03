@@ -49,9 +49,19 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   onNavigate = () => undefined,
 }) => {
   const [patient, setPatient] = useState<PatientProfile>({
-    ...MOCK_PATIENTS[0],
-    fullName: user.name || 'Nguyen Trong Nam',
-    mrn: user.mrn || 'MRN-2026-0941',
+    fullName: user.name || 'Bệnh nhân',
+    mrn: user.mrn || '',
+    gender: 'Other',
+    age: null,
+    systolicBp: null,
+    diastolicBp: null,
+    hba1c: null,
+    hasDiabetes: false,
+    hasHypertension: false,
+    historyOfSmoking: false,
+    historyOfHeartDisease: false,
+    historyOfStroke: false,
+    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
   });
 
   const [analysisResult, setAnalysisResult] = useState<AIRiskResult>(MOCK_SAMPLE_RESULT);
@@ -161,16 +171,37 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         console.warn('Could not fetch chat from DB:', e);
       }
 
-      // Fetch real Patient Medical Profile (FR-8) from PostgreSQL
+      // Fetch real Patient Medical Profile from PostgreSQL
       try {
         const profileRes = await patientApi.getProfile();
         if (profileRes.success && profileRes.data) {
-          setPatient((prev) => ({
-            ...prev,
-            ...profileRes.data,
-            fullName: profileRes.data.fullName || prev.fullName,
-            mrn: profileRes.data.mrn || prev.mrn,
-          }));
+          setPatient({
+            id: profileRes.data.id,
+            userId: profileRes.data.userId,
+            fullName: profileRes.data.fullName || user.name || 'Bệnh nhân',
+            mrn: profileRes.data.mrn || user.mrn || '',
+            gender: profileRes.data.gender || 'Other',
+            dateOfBirth: profileRes.data.dateOfBirth,
+            age: profileRes.data.age,
+            phoneNumber: profileRes.data.phoneNumber,
+            address: profileRes.data.address,
+            bloodType: profileRes.data.bloodType || 'O+',
+            systolicBp: profileRes.data.systolicBp,
+            diastolicBp: profileRes.data.diastolicBp,
+            hba1c: profileRes.data.hba1c,
+            hasDiabetes: Boolean(profileRes.data.hasDiabetes),
+            diabetesType: profileRes.data.diabetesType,
+            diabetesDurationYears: profileRes.data.diabetesDurationYears,
+            hasHypertension: Boolean(profileRes.data.hasHypertension),
+            historyOfSmoking: Boolean(profileRes.data.historyOfSmoking),
+            historyOfHeartDisease: Boolean(profileRes.data.historyOfHeartDisease),
+            historyOfStroke: Boolean(profileRes.data.historyOfStroke),
+            currentMedications: profileRes.data.currentMedications,
+            allergies: profileRes.data.allergies,
+            emergencyContactName: profileRes.data.emergencyContactName,
+            emergencyContactPhone: profileRes.data.emergencyContactPhone,
+            assignedDoctor: profileRes.data.assignedDoctor || 'BS. CKII Nguyễn Thị Thanh',
+          });
         }
       } catch (e) {
         console.warn('Could not fetch patient medical profile from DB:', e);
