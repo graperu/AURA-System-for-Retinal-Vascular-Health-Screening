@@ -44,12 +44,12 @@ Xác minh và kiểm chứng toàn diện mọi chức năng của hệ thống 
 | `TC-USER-09` | Nhắn tin với Bác sĩ (`FR-10`)| Mở Modal Chat, nhập tin nhắn và gửi | Tin nhắn xuất hiện ngay trên khung chat hai chiều | ✅ PASS |
 | `TC-USER-10` | Nạp Credit & Mua gói (`FR-11, FR-12`)| Chọn gói Standard, quét mã thanh toán | Số dư Credit tăng thêm tương ứng, lưu giao dịch vào lịch sử | ✅ PASS |
 
-### 2.2. Nhóm Phân hệ Bác sĩ (FR-13 đến FR-21)
+### 2.2. Nhóm Phân hệ Bác sĩ & Bảo Mật RBAC/IDOR (FR-13 đến FR-21 & FR-32)
 | Mã TC | Chức năng kiểm thử | Các bước thực hiện | Kết quả mong đợi | Trạng thái |
 |---|---|---|---|:---:|
-| `TC-DOC-01` | Chuyển đổi bệnh nhân (`FR-13`)| Chọn bệnh nhân từ danh sách chờ khám | Dữ liệu hình ảnh và lịch sử của bệnh nhân đó lập tức hiển thị | ✅ PASS |
+| `TC-DOC-01` | Chuyển đổi bệnh nhân (`FR-13`)| Chọn bệnh nhân từ danh sách phân công tiếp nhận | Dữ liệu hình ảnh và lịch sử của bệnh nhân đó lập tức hiển thị | ✅ PASS |
 | `TC-DOC-02` | Phân tích chi tiết vi mạch (`FR-14`)| Dùng chế độ Side-by-Side & Zoom | Quan sát rõ mạng lưới mao mạch và các chỉ số AVR, Tortuosity | ✅ PASS |
-| `TC-DOC-03` | Xác nhận kết quả AI (`FR-15`)| Bấm nút "Xác Nhận (Đồng Ý)" | Cập nhật trạng thái ca khám thành VALIDATED | ✅ PASS |
+| `TC-DOC-03` | Xác nhận kết quả AI (`FR-15`)| Bấm nút "Xác Nhận (Đồng Ý)" | Cập nhật trạng thái ca khám thành VALIDATED/REVIEWED | ✅ PASS |
 | `TC-DOC-04` | Hiệu chỉnh nguy cơ AI (`FR-15`)| Bấm "Chỉnh Sửa Nguy Cơ" sang mức CAO | Mức độ rủi ro được cập nhật theo quyết định của bác sĩ | ✅ PASS |
 | `TC-DOC-05` | Nhập ghi chú lâm sàng (`FR-16`)| Mở Modal Chẩn đoán, nhập chỉ định thuốc | Ghi chú được lưu vào bệnh án và nhúng vào báo cáo PDF | ✅ PASS |
 | `TC-DOC-06` | Xem dữ liệu xu hướng (`FR-17`)| Xem biểu đồ "Xu hướng lịch sử" | Đồ thị hiển thị biến thiên chỉ số AVR qua các lần khám | ✅ PASS |
@@ -57,6 +57,25 @@ Xác minh và kiểm chứng toàn diện mọi chức năng của hệ thống 
 | `TC-DOC-08` | Gửi phản hồi Retraining (`FR-19`)| Bấm "Phản Hồi AI", nhập ghi chú sai số | Dữ liệu lưu vào bảng `doctor_feedback` với cờ retraining | ✅ PASS |
 | `TC-DOC-09` | Tư vấn trực tuyến (`FR-20`)| Trả lời câu hỏi của bệnh nhân qua chat | Bệnh nhân nhận được phản hồi tư vấn của bác sĩ | ✅ PASS |
 | `TC-DOC-10` | Thống kê hiệu suất (`FR-21`)| Xem thẻ tổng quan Doctor CDS | Hiển thị tổng số ca đã khám và tỷ lệ tương đồng chẩn đoán | ✅ PASS |
+
+### 2.2.1. Bộ 15 Ca Kiểm Thử Bảo Mật & Phân Quyền RBAC/IDOR (Integration Test Suite)
+| Mã Test Case | Mục tiêu kiểm thử bảo mật | Phương pháp kiểm thử | Kết quả thực tế | Trạng thái |
+|---|---|---|---|:---:|
+| `TC-SEC-01` | Doctor A chỉ thấy bệnh nhân A & B | `GET /api/v1/doctor/patients` (Bearer Doctor A) | Trả về 2 bệnh nhân A & B, không chứa bệnh nhân C | ✅ PASS |
+| `TC-SEC-02` | Doctor B chỉ thấy bệnh nhân C | `GET /api/v1/doctor/patients` (Bearer Doctor B) | Trả về duy nhất 1 bệnh nhân C | ✅ PASS |
+| `TC-SEC-03` | Patient gọi API Doctor | `GET /api/v1/doctor/patients` (Bearer Patient A) | HTTP 403 Forbidden | ✅ PASS |
+| `TC-SEC-04` | Unauthenticated gọi API Doctor | `GET /api/v1/doctor/patients` (No token) | HTTP 401 Unauthorized | ✅ PASS |
+| `TC-SEC-05` | IDOR Profile: Doctor A xem Patient C | `GET /api/v1/patient/profile/{patientCId}` (Bearer Doctor A) | HTTP 403 Forbidden | ✅ PASS |
+| `TC-SEC-06` | Allowed Profile: Doctor A xem Patient A | `GET /api/v1/patient/profile/{patientAId}` (Bearer Doctor A) | HTTP 200 OK | ✅ PASS |
+| `TC-SEC-07` | IDOR Screening: Doctor A xem scan Patient C | `GET /api/v1/screenings/{screeningCId}` (Bearer Doctor A) | HTTP 403 Forbidden | ✅ PASS |
+| `TC-SEC-08` | Allowed Screening: Doctor A xem scan Patient A | `GET /api/v1/screenings/{screeningAId}` (Bearer Doctor A) | HTTP 200 OK | ✅ PASS |
+| `TC-SEC-09` | Review Auth: Patient tự review ca khám | `POST /api/v1/screenings/{screeningAId}/review` (Bearer Patient A) | HTTP 403 Forbidden | ✅ PASS |
+| `TC-SEC-10` | Review Auth: Doctor A review scan Patient C | `POST /api/v1/screenings/{screeningCId}/review` (Bearer Doctor A) | HTTP 403 Forbidden | ✅ PASS |
+| `TC-SEC-11` | Review Auth: Doctor A review scan Patient A | `POST /api/v1/screenings/{screeningAId}/review` (Bearer Doctor A) | HTTP 200 OK, `doctorId` lưu đúng ID Doctor A | ✅ PASS |
+| `TC-SEC-12` | IDOR Screening: Patient A xem scan Patient B | `GET /api/v1/screenings/{screeningBId}` (Bearer Patient A) | HTTP 403 Forbidden | ✅ PASS |
+| `TC-SEC-13` | Global Admin Access: Admin xem mọi ca khám | `GET /api/v1/screenings/{screeningAId}` (Bearer Admin) | HTTP 200 OK | ✅ PASS |
+| `TC-SEC-14` | Inactive Assignment: Doctor B truy cập Patient A đã hủy | `GET /api/v1/patient/profile/{patientAId}` (Bearer Doctor B, INACTIVE) | HTTP 403 Forbidden | ✅ PASS |
+| `TC-SEC-15` | Constraint: Chống trùng lặp phân công | `save(DoctorPatientAssignment(doctorA, patientA))` | Bắt `DataIntegrityViolationException` từ UNIQUE constraint DB | ✅ PASS |
 
 ### 2.3. Nhóm Phân hệ Phòng khám (FR-22 đến FR-30)
 | Mã TC | Chức năng kiểm thử | Các bước thực hiện | Kết quả mong đợi | Trạng thái |
