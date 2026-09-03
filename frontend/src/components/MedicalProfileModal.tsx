@@ -133,7 +133,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân (FR-8)
+                Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân
               </h2>
               <p className="text-xs text-slate-500 font-mono-data">Mã hồ sơ bệnh án: <strong className="text-teal-700">{formData.mrn}</strong></p>
             </div>

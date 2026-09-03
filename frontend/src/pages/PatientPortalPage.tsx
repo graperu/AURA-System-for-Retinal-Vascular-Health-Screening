@@ -569,7 +569,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   <UserCog className="w-6 h-6" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân (FR-8)</h2>
+                  <h2 className="text-lg font-bold text-slate-900">Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân</h2>
                   <p className="text-xs text-slate-500">Mã bệnh nhân: <strong className="text-teal-700 font-mono-data">{patient.mrn}</strong></p>
                 </div>
               </div>
