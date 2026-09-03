@@ -15,7 +15,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
   onClose,
   patient,
   result,
-  doctorName = 'BS. CKII Nguyễn Thị Thanh',
+  doctorName = patient.assignedDoctor || 'Chưa được phân công',
 }) => {
   // Support ESC key and lock background body scroll
   useEffect(() => {
@@ -335,15 +335,21 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
 
             <div className="flex justify-between items-end pt-4 border-t border-cyan-200/60 text-xs">
               <div className="text-slate-500 text-[11px]">
-                <p>Hệ thống AURA Retinal AI v2.1</p>
-                <p>Khuyến nghị tuân thủ hướng dẫn AHA/ACC 2026</p>
+                <p>Hệ thống AURA Retinal AI Screening</p>
+                <p>Dữ liệu y tế được bảo vệ theo quy chuẩn bảo mật</p>
               </div>
               <div className="text-right">
                 <p className="text-slate-500 text-[11px]">Bác sĩ chuyên khoa xác nhận:</p>
                 <p className="font-bold text-slate-900 text-sm mt-1">{doctorName}</p>
-                <span className="text-[10px] text-cyan-700 font-mono-data font-semibold">
-                  (Đã ký số điện tử y tế)
-                </span>
+                {patient.assignedDoctor ? (
+                  <span className="text-[10px] text-cyan-700 font-mono-data font-semibold">
+                    (Đã ký số điện tử y tế)
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-mono-data">
+                    (Chờ phân công bác sĩ)
+                  </span>
+                )}
               </div>
             </div>
           </div>

@@ -17,19 +17,20 @@ export interface PatientProfile {
   systolicBp?: number | null;
   diastolicBp?: number | null;
   hba1c?: number | null; // %
-  hasDiabetes: boolean;
+  hasDiabetes?: boolean | null;
   diabetesType?: string | null;
   diabetesDurationYears?: number | null;
-  hasHypertension: boolean;
-  historyOfSmoking: boolean;
-  historyOfHeartDisease?: boolean;
-  historyOfStroke?: boolean;
+  hasHypertension?: boolean | null;
+  historyOfSmoking?: boolean | null;
+  historyOfHeartDisease?: boolean | null;
+  historyOfStroke?: boolean | null;
   currentMedications?: string | null;
   allergies?: string | null;
   emergencyContactName?: string | null;
   emergencyContactPhone?: string | null;
   lastExamDate?: string | null;
-  assignedDoctor: string;
+  assignedDoctor?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface FundusAnalysisRequest {

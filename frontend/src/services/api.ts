@@ -213,3 +213,21 @@ export const patientApi = {
     }),
 };
 
+export const doctorApi = {
+  getAssignedPatients: () =>
+    apiFetch<any[]>('/api/v1/doctor/patients', {
+      method: 'GET',
+    }),
+
+  getPatientById: (patientId: string) =>
+    apiFetch<any>(`/api/v1/doctor/patients/${patientId}`, {
+      method: 'GET',
+    }),
+
+  getPatientScreenings: (patientId: string) =>
+    apiFetch<any[]>(`/api/v1/doctor/patients/${patientId}/screenings`, {
+      method: 'GET',
+    }),
+};
+
+
