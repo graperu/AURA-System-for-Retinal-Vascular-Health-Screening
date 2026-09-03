@@ -55,26 +55,28 @@ public class DoctorPatientAssignmentService {
       // Retrieve or ensure profile exists
       PatientMedicalProfile profile = profileRepository.findByUserId(patientId).orElse(null);
 
-      String mrn = profile != null ? profile.getMrn() : "MRN-" + patientId.toString().substring(0, 8).toUpperCase();
+      // Real MRN from DB only, never generate synthetic MRN
+      String mrn = profile != null ? profile.getMrn() : null;
       String fullName = profile != null && profile.getUser() != null && profile.getUser().getFullName() != null
           ? profile.getUser().getFullName()
-          : (patientUser.getFullName() != null ? patientUser.getFullName() : "Bệnh nhân " + mrn);
+          : (patientUser != null ? patientUser.getFullName() : null);
 
-      List<Screening> screenings = screeningRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
-      long count = screenings.size();
-      Instant lastScreeningAt = screenings.isEmpty() ? null : screenings.get(0).getCreatedAt();
-      String latestRisk = screenings.isEmpty() || screenings.get(0).getRiskLevel() == null
-          ? null
-          : screenings.get(0).getRiskLevel().name();
+      long count = screeningRepository.countByPatientId(patientId);
+      Optional<Screening> latestScreeningOpt = screeningRepository.findTopByPatientIdOrderByCreatedAtDesc(patientId);
+      Instant lastScreeningAt = latestScreeningOpt.map(Screening::getCreatedAt).orElse(null);
+      String latestRisk = latestScreeningOpt
+          .map(Screening::getRiskLevel)
+          .map(com.aura.screening.entity.RiskLevel::name)
+          .orElse(null);
 
       DoctorPatientSummaryResponse summary = new DoctorPatientSummaryResponse(
           patientId,
           mrn,
           fullName,
-          patientUser.getEmail(),
+          patientUser != null ? patientUser.getEmail() : null,
           profile != null ? profile.getDateOfBirth() : null,
           profile != null ? profile.getAge() : null,
-          profile != null ? profile.getGender() : "Khác",
+          profile != null ? profile.getGender() : null,
           profile != null ? profile.getPhoneNumber() : null,
           profile != null ? profile.getAddress() : null,
           profile != null ? profile.getSystolicBp() : null,
