@@ -51,20 +51,26 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
     setErrorMessage(null);
 
     try {
+      const parsedAge = (formData.age as any) === '' || isNaN(Number(formData.age)) ? 45 : Number(formData.age);
+      const parsedSystolic = (formData.systolicBp as any) === '' || isNaN(Number(formData.systolicBp)) ? 120 : Number(formData.systolicBp);
+      const parsedDiastolic = (formData.diastolicBp as any) === '' || isNaN(Number(formData.diastolicBp)) ? 80 : Number(formData.diastolicBp);
+      const parsedHba1c = (formData.hba1c as any) === '' || isNaN(Number(formData.hba1c)) ? 5.6 : Number(formData.hba1c);
+      const parsedDuration = (formData.diabetesDurationYears as any) === '' || isNaN(Number(formData.diabetesDurationYears)) ? 0 : Number(formData.diabetesDurationYears);
+
       const payload = {
         fullName: formData.fullName,
         dateOfBirth: formData.dateOfBirth || null,
-        age: formData.age,
+        age: parsedAge,
         gender: formData.gender,
         phoneNumber: formData.phoneNumber || '',
         address: formData.address || '',
         bloodType: formData.bloodType || 'O+',
-        systolicBp: formData.systolicBp,
-        diastolicBp: formData.diastolicBp,
-        hba1c: formData.hba1c,
+        systolicBp: parsedSystolic,
+        diastolicBp: parsedDiastolic,
+        hba1c: parsedHba1c,
         hasDiabetes: formData.hasDiabetes,
         diabetesType: formData.diabetesType || 'None',
-        diabetesDurationYears: formData.diabetesDurationYears || 0,
+        diabetesDurationYears: parsedDuration,
         hasHypertension: formData.hasHypertension,
         historyOfSmoking: formData.historyOfSmoking,
         historyOfHeartDisease: formData.historyOfHeartDisease || false,
@@ -89,7 +95,14 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
         }, 1200);
       } else {
         // Fallback optimistic update if backend is unreachable
-        onSave(formData);
+        onSave({
+          ...formData,
+          age: parsedAge,
+          systolicBp: parsedSystolic,
+          diastolicBp: parsedDiastolic,
+          hba1c: parsedHba1c,
+          diabetesDurationYears: parsedDuration,
+        });
         setIsSavedSuccess(true);
         setTimeout(() => {
           setIsSavedSuccess(false);
@@ -215,8 +228,13 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                     <label className="block text-xs font-bold text-slate-700 mb-1">Tuổi *</label>
                     <input
                       type="number"
-                      value={formData.age}
-                      onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
+                      value={formData.age ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          age: e.target.value === '' ? ('' as any) : Number(e.target.value),
+                        })
+                      }
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                       required
                       min={1}
@@ -291,8 +309,13 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">Huyết áp tâm thu (mmHg)</label>
                     <input
                       type="number"
-                      value={formData.systolicBp}
-                      onChange={(e) => setFormData({ ...formData, systolicBp: Number(e.target.value) })}
+                      value={formData.systolicBp ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          systolicBp: e.target.value === '' ? ('' as any) : Number(e.target.value),
+                        })
+                      }
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono-data focus:ring-2 focus:ring-teal-500 outline-none bg-white"
                       placeholder="120"
                       min={50}
@@ -304,8 +327,13 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">Huyết áp tâm trương (mmHg)</label>
                     <input
                       type="number"
-                      value={formData.diastolicBp}
-                      onChange={(e) => setFormData({ ...formData, diastolicBp: Number(e.target.value) })}
+                      value={formData.diastolicBp ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          diastolicBp: e.target.value === '' ? ('' as any) : Number(e.target.value),
+                        })
+                      }
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono-data focus:ring-2 focus:ring-teal-500 outline-none bg-white"
                       placeholder="80"
                       min={30}
@@ -318,8 +346,13 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={formData.hba1c}
-                      onChange={(e) => setFormData({ ...formData, hba1c: Number(e.target.value) })}
+                      value={formData.hba1c ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          hba1c: e.target.value === '' ? ('' as any) : e.target.value as any,
+                        })
+                      }
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono-data focus:ring-2 focus:ring-teal-500 outline-none bg-white"
                       placeholder="5.6"
                       min={2}
@@ -419,8 +452,13 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">Số năm mắc bệnh</label>
                       <input
                         type="number"
-                        value={formData.diabetesDurationYears || 0}
-                        onChange={(e) => setFormData({ ...formData, diabetesDurationYears: Number(e.target.value) })}
+                        value={formData.diabetesDurationYears ?? ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            diabetesDurationYears: e.target.value === '' ? ('' as any) : Number(e.target.value),
+                          })
+                        }
                         className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none"
                         min={0}
                         max={80}
