@@ -58,7 +58,6 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       icd10Codes: selectedIcd10,
       clinicalNotes,
       reviewedAt: new Date().toISOString(),
-      signedDigitalSignature: 'RSA2048-AURA-DOC-SIGN-9912-VERIFIED',
     };
     onSaveFeedback(feedback);
     setIsSaved(true);

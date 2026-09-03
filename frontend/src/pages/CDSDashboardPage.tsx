@@ -18,9 +18,14 @@ import {
   Eye,
   FileSpreadsheet,
 } from 'lucide-react';
-import { feedbackApi, doctorApi, screeningApi } from '../services/api';
+import { doctorApi, screeningApi } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
 import { MockAIService } from '../services/mockAiEngine';
+
+const toApiRiskLevel = (riskLevel: string | undefined) => {
+  if (!riskLevel) return undefined;
+  return riskLevel === 'Severe' ? 'CRITICAL' : riskLevel.toUpperCase();
+};
 
 export interface DoctorPatientSummary {
   patientId: string;
@@ -249,18 +254,15 @@ export const CDSDashboardPage: React.FC = () => {
       if (feedback.analysisId) {
         await screeningApi.doctorReview(
           feedback.analysisId,
-          feedback.clinicalNotes || 'Bác sĩ đã xác nhận kết quả chẩn đoán',
-          feedback.adjustedCardioRisk || 'HIGH'
+          {
+            decision: feedback.decision,
+            doctorNotes: feedback.clinicalNotes || 'Bác sĩ đã xác nhận kết quả chẩn đoán',
+            adjustedCardioRisk: toApiRiskLevel(feedback.adjustedCardioRisk),
+            adjustedDrRisk: toApiRiskLevel(feedback.adjustedDrRisk),
+            icd10Codes: feedback.icd10Codes,
+          }
         );
       }
-
-      await feedbackApi.submit({
-        screeningId: feedback.analysisId || '00000000-0000-0000-0000-000000000000',
-        clinicalDecision: feedback.decision || 'APPROVED',
-        doctorNotes: feedback.clinicalNotes || 'Bác sĩ đã xác nhận kết quả chẩn đoán',
-        correctRiskLevel: feedback.adjustedCardioRisk || 'HIGH',
-        eligibleForRetraining: true,
-      });
 
       setFeedbackSuccessMsg('Đã lưu đánh giá chuyên môn và cập nhật hồ sơ sàng lọc của bệnh nhân');
       setFeedbackSuccessToast(true);

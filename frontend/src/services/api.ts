@@ -110,10 +110,16 @@ export const screeningApi = {
       method: 'GET',
     }),
 
-  doctorReview: (id: string, doctorNotes: string, riskLevel: string) =>
+  doctorReview: (id: string, payload: {
+    decision: 'APPROVED' | 'MODIFIED' | 'REJECTED';
+    doctorNotes: string;
+    adjustedCardioRisk?: string;
+    adjustedDrRisk?: string;
+    icd10Codes: string[];
+  }) =>
     apiFetch<any>(`/api/v1/screenings/${id}/review`, {
       method: 'POST',
-      body: JSON.stringify({ doctorNotes, riskLevel }),
+      body: JSON.stringify(payload),
     }),
 };
 

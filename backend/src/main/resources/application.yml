@@ -41,3 +41,5 @@ aura:
     simulate-if-offline: true
   anonymization:
     hmac-secret: AURA_HIPAA_NFR_JAVA_HMAC_SECRET_2026
+  signature:
+    secret: ${REVIEW_SIGNATURE_SECRET:AURA_REVIEW_SIGNATURE_SECRET_2026}

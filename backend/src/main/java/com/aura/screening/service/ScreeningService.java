@@ -2,12 +2,18 @@ package com.aura.screening.service;
 
 import com.aura.common.exception.ResourceNotFoundException;
 import com.aura.screening.entity.RiskLevel;
+import com.aura.screening.entity.ReviewDecision;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.entity.ScreeningStatus;
 import com.aura.screening.repository.ScreeningRepository;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +33,9 @@ public class ScreeningService {
 
   @Value("${aura.ai-service.url:http://localhost:8000}")
   private String aiServiceUrl;
+
+  @Value("${aura.signature.secret:AURA_REVIEW_SIGNATURE_SECRET_2026}")
+  private String signatureSecret = "AURA_REVIEW_SIGNATURE_SECRET_2026";
 
   public ScreeningService(
       ScreeningRepository screeningRepository,
@@ -191,15 +200,64 @@ public class ScreeningService {
   }
 
   @Transactional
-  public Screening addDoctorReview(UUID screeningId, UUID doctorId, String doctorNotes, RiskLevel updatedRiskLevel) {
+  public Screening addDoctorReview(
+      UUID screeningId,
+      UUID doctorId,
+      ReviewDecision decision,
+      String doctorNotes,
+      RiskLevel adjustedCardioRisk,
+      RiskLevel adjustedDrRisk,
+      List<String> icd10Codes) {
     Screening screening = getScreeningById(screeningId);
+    if (decision == ReviewDecision.MODIFIED && adjustedCardioRisk == null && adjustedDrRisk == null) {
+      throw new IllegalArgumentException("Thẩm định MODIFIED phải có ít nhất một mức nguy cơ điều chỉnh");
+    }
+    if (screening.getOriginalAiRiskLevel() == null) {
+      screening.setOriginalAiRiskLevel(screening.getRiskLevel());
+    }
     screening.setDoctorId(doctorId);
     screening.setDoctorNotes(doctorNotes);
-    if (updatedRiskLevel != null) {
-      screening.setRiskLevel(updatedRiskLevel);
+    screening.setReviewDecision(decision);
+    screening.setDoctorCardiovascularRiskLevel(adjustedCardioRisk);
+    screening.setDoctorDiabeticRetinopathyRiskLevel(adjustedDrRisk);
+    screening.setIcd10Codes(icd10Codes == null ? null : String.join("\n", icd10Codes));
+    if (adjustedCardioRisk != null) {
+      screening.setRiskLevel(adjustedCardioRisk);
     }
     screening.setStatus(ScreeningStatus.REVIEWED);
+    Instant signedAt = Instant.now();
+    screening.setSignedAt(signedAt);
+    screening.setDigitalSignature(createReviewSignature(
+        screening, doctorId, decision, doctorNotes, adjustedCardioRisk, adjustedDrRisk, icd10Codes, signedAt));
     return screeningRepository.save(screening);
+  }
+
+  private String createReviewSignature(
+      Screening screening,
+      UUID doctorId,
+      ReviewDecision decision,
+      String doctorNotes,
+      RiskLevel adjustedCardioRisk,
+      RiskLevel adjustedDrRisk,
+      List<String> icd10Codes,
+      Instant signedAt) {
+    String payload = String.join("|",
+        String.valueOf(screening.getId()),
+        doctorId.toString(),
+        decision.name(),
+        doctorNotes,
+        String.valueOf(adjustedCardioRisk),
+        String.valueOf(adjustedDrRisk),
+        icd10Codes == null ? "" : String.join(",", icd10Codes),
+        signedAt.toString());
+    try {
+      Mac mac = Mac.getInstance("HmacSHA256");
+      mac.init(new SecretKeySpec(signatureSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+      return "HMAC-SHA256:" + Base64.getUrlEncoder().withoutPadding()
+          .encodeToString(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
+    } catch (java.security.GeneralSecurityException exception) {
+      throw new IllegalStateException("Không thể tạo chữ ký thẩm định", exception);
+    }
   }
 
   /**
