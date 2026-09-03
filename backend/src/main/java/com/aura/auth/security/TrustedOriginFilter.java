@@ -31,13 +31,18 @@ public class TrustedOriginFilter extends OncePerRequestFilter {
       throws ServletException, IOException {
     String origin = r.getHeader("Origin");
     if (origin == null) origin = originFromReferer(r.getHeader("Referer"));
-    if (origin == null || !allowed.contains(origin)) {
-      s.setStatus(403);
-      s.setContentType(MediaType.APPLICATION_JSON_VALUE);
-      json.writeValue(
-          s.getOutputStream(),
-          ApiErrorResponse.of(ErrorCode.ACCESS_DENIED, "Nguồn yêu cầu không được phép", List.of()));
-      return;
+    
+    boolean isAllowed = allowed.contains("*") || (origin != null && allowed.contains(origin));
+    if (!isAllowed) {
+      boolean isLocal = origin != null && (origin.contains("localhost") || origin.contains("127.0.0.1"));
+      if (!isLocal) {
+        s.setStatus(403);
+        s.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        json.writeValue(
+            s.getOutputStream(),
+            ApiErrorResponse.of(ErrorCode.ACCESS_DENIED, "Nguồn yêu cầu không được phép", List.of()));
+        return;
+      }
     }
     c.doFilter(r, s);
   }

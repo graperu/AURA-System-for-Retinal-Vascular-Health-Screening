@@ -84,6 +84,10 @@ public class User {
     return fullName;
   }
 
+  public void setFullName(String fullName) {
+    this.fullName = fullName;
+  }
+
   public boolean isActive() {
     return active;
   }
@@ -94,6 +98,10 @@ public class User {
 
   public boolean isEmailVerified() {
     return emailVerified;
+  }
+
+  public void setEmailVerified(boolean emailVerified) {
+    this.emailVerified = emailVerified;
   }
 
   public Instant getCreatedAt() {

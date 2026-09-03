@@ -33,7 +33,7 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
       name: 'Gói Chăm Sóc Định Kỳ (Pro 5)',
       credits: 5,
       price: '590.000 đ',
-      desc: '5 lượt tầm soát toàn diện + Theo dõi xu hướng mạch máu + Tư vấn chuyên gia.',
+      desc: '5 lượt tầm soát toàn diện + Theo dõi xu hướng mạch máu + Hội chẩn Bác sĩ Chuyên khoa.',
       popular: true,
     },
   ];

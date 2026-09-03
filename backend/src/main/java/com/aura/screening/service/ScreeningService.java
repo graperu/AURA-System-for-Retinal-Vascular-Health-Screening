@@ -87,7 +87,6 @@ public class ScreeningService {
         }
 
         String findings = "Cấu trúc vi mạch võng mạc được phân tích bởi mô hình AURA AI. Đang giám sát nguy cơ tim mạch và tiểu đường.";
-
         // --- FR-3: parse per-category risk breakdown from the AI Core's `predictions` array ---
         List<Map> predictions = (List<Map>) body.get("predictions");
         if (predictions != null) {
@@ -101,9 +100,6 @@ public class ScreeningService {
             if (category.contains("Cardiovascular") || category.contains("Hypertensive")) {
               screening.setCardiovascularRiskScore(predScore);
               screening.setCardiovascularRiskLevel(predRiskLevel);
-              // The AI Core does not yet expose a dedicated stroke classifier: the 3-year
-              // stroke risk is derived from the same cardiovascular/hypertensive prediction
-              // until a standalone model is trained (see model_engine.py).
               screening.setStrokeRiskScore(predScore);
               screening.setStrokeRiskLevel(predRiskLevel);
               screening.setHypertensionRiskScore(predScore);
@@ -116,6 +112,11 @@ public class ScreeningService {
               screening.setDiabeticRetinopathyRiskLevel(predRiskLevel);
             }
           }
+        }
+
+        String xai = (String) body.get("xaiRationale");
+        if (xai != null && !xai.isBlank() && (findings == null || findings.contains("Cấu trúc vi mạch"))) {
+          findings = xai;
         }
 
         // --- FR-3 / FR-4: parse retinal vascular biomarkers ---

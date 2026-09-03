@@ -81,6 +81,18 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
 // REAL PRODUCTION BACKEND API CLIENT MODULES (PostgreSQL & Spring Boot 3.4)
 // ============================================================================
 
+export const authApi = {
+  loginWithGoogle: (payload: { idToken: string; email?: string; fullName?: string; picture?: string }) =>
+    apiFetch<any>('/api/v1/auth/google', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  loginWithSocial: (payload: { provider: string; idToken: string; email?: string; fullName?: string; picture?: string }) =>
+    apiFetch<any>('/api/v1/auth/social', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+};
 export const screeningApi = {
   create: (imageUrl: string) =>
     apiFetch<any>('/api/v1/screenings', {

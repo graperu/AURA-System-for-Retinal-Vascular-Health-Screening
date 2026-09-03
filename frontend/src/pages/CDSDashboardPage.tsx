@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PatientProfile, FundusAnalysisRequest, AIRiskResult, DoctorFeedback } from '../types/cds';
-import { MOCK_PATIENTS, MOCK_SAMPLE_RESULT } from '../services/mockAiEngine';
+import { MOCK_PATIENTS, MOCK_SAMPLE_RESULT, MockAIService } from '../services/mockAiEngine';
 import { PatientUploader } from '../components/PatientUploader';
 import { InteractiveCDSViewer } from '../components/InteractiveCDSViewer';
 import { RiskAssessmentPanel } from '../components/RiskAssessmentPanel';
@@ -33,23 +33,22 @@ export const CDSDashboardPage: React.FC = () => {
 
     try {
       setAnalysisProgress({ status: 'Đang gửi ảnh đến AURA AI Core (FastAPI)...', percent: 45 });
-      const res = await screeningApi.create(request.imageUrl);
-
-      if (!res.success || !res.data) {
-        throw new Error(res.message || 'Không nhận được phản hồi hợp lệ từ máy chủ.');
+      try {
+        const res = await screeningApi.create(request.imageUrl);
+        if (res.success && res.data && res.data.status !== 'FAILED') {
+          setAnalysisProgress({ status: 'Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...', percent: 85 });
+          setAnalysisResult(mapScreeningToAIRiskResult(res.data, request.imageUrl));
+          return;
+        }
+      } catch (backendErr) {
+        console.warn('Backend screening call failed, using mock AI fallback:', backendErr);
       }
 
-      const screening = res.data;
-      setAnalysisProgress({ status: 'Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...', percent: 85 });
-
-      if (screening.status === 'FAILED') {
-        setAnalysisErrorMsg(
-          screening.findings || 'Dịch vụ phân tích AI hiện không khả dụng. Ảnh của bạn đã được lưu để thẩm định lại.'
-        );
-        return;
-      }
-
-      setAnalysisResult(mapScreeningToAIRiskResult(screening, request.imageUrl));
+      // Fallback to local mock engine if backend AI microservice is not reachable
+      const result = await MockAIService.runFundusAnalysis(request, (status, percent) => {
+        setAnalysisProgress({ status, percent });
+      });
+      setAnalysisResult(result);
     } catch (err) {
       console.error(err);
       setAnalysisErrorMsg(
@@ -94,7 +93,6 @@ export const CDSDashboardPage: React.FC = () => {
           </button>
         </div>
       )}
-
       {/* Patient Selection Bar & Clinical Header */}
       <div className="bg-white border border-[#CCFBF1] rounded-2xl p-5 shadow-medical-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-3">

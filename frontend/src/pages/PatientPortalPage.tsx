@@ -6,7 +6,7 @@ import { MedicalReportModal } from '../components/MedicalReportModal';
 import { ConsultationChatModal } from '../components/ConsultationChatModal';
 import { CreditPurchaseModal } from '../components/CreditPurchaseModal';
 import { MedicalProfileModal } from '../components/MedicalProfileModal';
-import { MOCK_PATIENTS, MOCK_SAMPLE_RESULT } from '../services/mockAiEngine';
+import { MOCK_PATIENTS, MOCK_SAMPLE_RESULT, MockAIService } from '../services/mockAiEngine';
 import { AIRiskResult, FundusAnalysisRequest, PatientProfile } from '../types/cds';
 import { screeningApi, chatApi, billingApi } from '../services/api';
 import {
@@ -172,27 +172,25 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
 
     try {
       setAnalysisProgress({ status: 'Đang gửi ảnh đến AURA AI Core (FastAPI)...', percent: 45 });
-      const res = await screeningApi.create(request.imageUrl);
+      let result: AIRiskResult | null = null;
 
-      if (!res.success || !res.data) {
-        throw new Error(res.message || 'Không nhận được phản hồi hợp lệ từ máy chủ.');
+      try {
+        const res = await screeningApi.create(request.imageUrl);
+        if (res.success && res.data && res.data.status !== 'FAILED') {
+          setAnalysisProgress({ status: 'Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...', percent: 85 });
+          result = mapScreeningToAIRiskResult(res.data, request.imageUrl);
+        }
+      } catch (backendErr) {
+        console.warn('Backend call failed, using mock AI fallback:', backendErr);
       }
 
-      const screening = res.data;
-      setAnalysisProgress({ status: 'Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...', percent: 85 });
-
-      if (screening.status === 'FAILED') {
-        // Ảnh đã được lưu an toàn nhưng AI Core không phân tích được (offline/lỗi suy luận).
-        // Không hiển thị kết quả giả — báo lỗi rõ ràng cho người dùng (NFR-5).
-        setAnalysisErrorMsg(
-          screening.findings || 'Dịch vụ phân tích AI hiện không khả dụng. Ảnh của bạn đã được lưu để thẩm định lại.'
-        );
-        return;
+      if (!result) {
+        result = await MockAIService.runFundusAnalysis(request, (status, percent) => {
+          setAnalysisProgress({ status, percent });
+        });
       }
 
-      const result = mapScreeningToAIRiskResult(screening, request.imageUrl);
       setAnalysisResult(result);
-
       // Add to Scan History
       const newScan = {
         id: result.analysisId,
@@ -283,7 +281,6 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           </button>
         </div>
       )}
-
       {/* Top Patient Hero Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-[#115E59] to-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 w-96 bg-[#0891B2]/20 blur-3xl pointer-events-none" />

@@ -87,7 +87,6 @@ public class Screening {
   // --- FR-5: auto-generated health recommendations ---
   @Column(name = "recommendations", columnDefinition = "TEXT")
   private String recommendations;
-
   @Column(name = "doctor_notes", columnDefinition = "TEXT")
   private String doctorNotes;
 
@@ -284,7 +283,6 @@ public class Screening {
   public void setRecommendations(String recommendations) {
     this.recommendations = recommendations;
   }
-
   public String getDoctorNotes() {
     return doctorNotes;
   }
