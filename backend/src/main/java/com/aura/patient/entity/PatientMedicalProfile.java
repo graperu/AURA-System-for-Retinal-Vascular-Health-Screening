@@ -42,13 +42,13 @@ public class PatientMedicalProfile {
   private String bloodType;
 
   @Column(name = "systolic_bp")
-  private Integer systolicBp = 120;
+  private Integer systolicBp;
 
   @Column(name = "diastolic_bp")
-  private Integer diastolicBp = 80;
+  private Integer diastolicBp;
 
   @Column(name = "hba1c")
-  private Double hba1c = 5.6;
+  private Double hba1c;
 
   @Column(name = "has_diabetes")
   private Boolean hasDiabetes = false;

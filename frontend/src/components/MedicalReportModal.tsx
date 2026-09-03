@@ -46,7 +46,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
       ['Ma bao cao', result.analysisId],
       ['Ho va ten', patient.fullName],
       ['Ma benh nhan (MRN)', patient.mrn],
-      ['Tuoi', patient.age.toString()],
+      ['Tuoi', patient.age != null ? patient.age.toString() : 'Chua cap nhat'],
       ['Gioi tinh', patient.gender],
       ['Ngay kham', new Date().toLocaleDateString('vi-VN')],
       ['Diem nguy co mach mau tong hop', `${result.overallVascularRiskScore}/100`],
@@ -168,11 +168,11 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             </div>
             <div>
               <span className="text-slate-500 block">Tuổi / Giới tính:</span>
-              <strong className="text-slate-900">{patient.age} tuổi • {patient.gender === 'Male' ? 'Nam' : 'Nữ'}</strong>
+              <strong className="text-slate-900">{patient.age != null ? `${patient.age} tuổi` : 'Chưa cập nhật'} • {patient.gender === 'Male' ? 'Nam' : patient.gender === 'Female' ? 'Nữ' : 'Khác'}</strong>
             </div>
             <div>
               <span className="text-slate-500 block">Huyết áp / HbA1c:</span>
-              <strong className="text-slate-900 font-mono-data">{patient.systolicBp}/{patient.diastolicBp} mmHg • {patient.hba1c}%</strong>
+              <strong className="text-slate-900 font-mono-data">{patient.systolicBp != null && patient.diastolicBp != null ? `${patient.systolicBp}/${patient.diastolicBp} mmHg` : 'Huyết áp: N/A'} • {patient.hba1c != null ? `HbA1c: ${patient.hba1c}%` : 'HbA1c: N/A'}</strong>
             </div>
           </div>
 

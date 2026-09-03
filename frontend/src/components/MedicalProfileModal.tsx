@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   UserCheck,
@@ -12,6 +12,7 @@ import {
   PhoneCall,
   AlertCircle,
   Loader2,
+  Calendar,
 } from 'lucide-react';
 import { PatientProfile } from '../types/cds';
 import { patientApi } from '../services/api';
@@ -23,100 +24,201 @@ interface MedicalProfileModalProps {
   onSave: (updated: PatientProfile) => void;
 }
 
+interface FormState {
+  fullName: string;
+  dateOfBirth: string;
+  age: string;
+  gender: 'Male' | 'Female' | 'Other';
+  phoneNumber: string;
+  address: string;
+  bloodType: string;
+  systolicBp: string;
+  diastolicBp: string;
+  hba1c: string;
+  hasDiabetes: boolean;
+  diabetesType: string;
+  diabetesDurationYears: string;
+  hasHypertension: boolean;
+  historyOfSmoking: boolean;
+  historyOfHeartDisease: boolean;
+  historyOfStroke: boolean;
+  currentMedications: string;
+  allergies: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  assignedDoctor: string;
+  mrn: string;
+}
+
 export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
   isOpen,
   onClose,
   patient,
   onSave,
 }) => {
-  const [formData, setFormData] = useState<PatientProfile>({ ...patient });
+  const [formState, setFormState] = useState<FormState>({
+    fullName: '',
+    dateOfBirth: '',
+    age: '',
+    gender: 'Other',
+    phoneNumber: '',
+    address: '',
+    bloodType: 'O+',
+    systolicBp: '',
+    diastolicBp: '',
+    hba1c: '',
+    hasDiabetes: false,
+    diabetesType: 'None',
+    diabetesDurationYears: '',
+    hasHypertension: false,
+    historyOfSmoking: false,
+    historyOfHeartDisease: false,
+    historyOfStroke: false,
+    currentMedications: '',
+    allergies: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    mrn: '',
+  });
+
   const [activeTab, setActiveTab] = useState<'personal' | 'vitals' | 'history' | 'meds'>('personal');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setFormData({ ...patient });
+    if (isOpen && patient) {
+      setFormState({
+        fullName: patient.fullName || '',
+        dateOfBirth: patient.dateOfBirth || '',
+        age: patient.age != null ? String(patient.age) : '',
+        gender: patient.gender || 'Other',
+        phoneNumber: patient.phoneNumber || '',
+        address: patient.address || '',
+        bloodType: patient.bloodType || 'O+',
+        systolicBp: patient.systolicBp != null ? String(patient.systolicBp) : '',
+        diastolicBp: patient.diastolicBp != null ? String(patient.diastolicBp) : '',
+        hba1c: patient.hba1c != null ? String(patient.hba1c) : '',
+        hasDiabetes: Boolean(patient.hasDiabetes),
+        diabetesType: patient.diabetesType || 'Type2',
+        diabetesDurationYears: patient.diabetesDurationYears != null ? String(patient.diabetesDurationYears) : '',
+        hasHypertension: Boolean(patient.hasHypertension),
+        historyOfSmoking: Boolean(patient.historyOfSmoking),
+        historyOfHeartDisease: Boolean(patient.historyOfHeartDisease),
+        historyOfStroke: Boolean(patient.historyOfStroke),
+        currentMedications: patient.currentMedications || '',
+        allergies: patient.allergies || '',
+        emergencyContactName: patient.emergencyContactName || '',
+        emergencyContactPhone: patient.emergencyContactPhone || '',
+        assignedDoctor: patient.assignedDoctor || 'BS. CKII Nguyễn Thị Thanh',
+        mrn: patient.mrn || '',
+      });
       setErrorMessage(null);
       setIsSavedSuccess(false);
     }
   }, [isOpen, patient]);
 
+  const calculateAgeFromDob = (dobStr: string): number | null => {
+    if (!dobStr) return null;
+    const dob = new Date(dobStr);
+    if (isNaN(dob.getTime())) return null;
+    const today = new Date();
+    let calculated = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      calculated--;
+    }
+    return calculated >= 0 && calculated <= 120 ? calculated : null;
+  };
+
+  const handleDateOfBirthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const computedAge = calculateAgeFromDob(val);
+    setFormState((prev) => ({
+      ...prev,
+      dateOfBirth: val,
+      age: computedAge !== null ? String(computedAge) : prev.age,
+    }));
+  };
+
+  const bpValidationError = useMemo(() => {
+    const sys = formState.systolicBp.trim() !== '' ? Number(formState.systolicBp) : null;
+    const dia = formState.diastolicBp.trim() !== '' ? Number(formState.diastolicBp) : null;
+    if (sys !== null && (isNaN(sys) || sys < 50 || sys > 250)) return 'Huyết áp tâm thu phải từ 50 đến 250 mmHg';
+    if (dia !== null && (isNaN(dia) || dia < 30 || dia > 180)) return 'Huyết áp tâm trương phải từ 30 đến 180 mmHg';
+    if (sys !== null && dia !== null && sys <= dia) return 'Huyết áp tâm thu phải lớn hơn huyết áp tâm trương.';
+    return null;
+  }, [formState.systolicBp, formState.diastolicBp]);
+
+  const hba1cValidationError = useMemo(() => {
+    if (formState.hba1c.trim() === '') return null;
+    const val = Number(formState.hba1c);
+    if (isNaN(val) || val < 2.0 || val > 20.0) return 'Chỉ số HbA1c phải từ 2.0% đến 20.0% (để trống nếu chưa đo)';
+    return null;
+  }, [formState.hba1c]);
+
+  const ageValidationError = useMemo(() => {
+    if (formState.age.trim() === '') return null;
+    const val = Number(formState.age);
+    if (isNaN(val) || val < 1 || val > 120) return 'Tuổi phải từ 1 đến 120';
+    return null;
+  }, [formState.age]);
+
+  const isFormValid = !bpValidationError && !hba1cValidationError && !ageValidationError && formState.fullName.trim().length > 0;
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isFormValid) return;
+
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
-      const parsedAge = (formData.age as any) === '' || isNaN(Number(formData.age)) ? 45 : Number(formData.age);
-      const parsedSystolic = (formData.systolicBp as any) === '' || isNaN(Number(formData.systolicBp)) ? 120 : Number(formData.systolicBp);
-      const parsedDiastolic = (formData.diastolicBp as any) === '' || isNaN(Number(formData.diastolicBp)) ? 80 : Number(formData.diastolicBp);
-      const parsedHba1c = (formData.hba1c as any) === '' || isNaN(Number(formData.hba1c)) ? 5.6 : Number(formData.hba1c);
-      const parsedDuration = (formData.diabetesDurationYears as any) === '' || isNaN(Number(formData.diabetesDurationYears)) ? 0 : Number(formData.diabetesDurationYears);
-
       const payload = {
-        fullName: formData.fullName,
-        dateOfBirth: formData.dateOfBirth || null,
-        age: parsedAge,
-        gender: formData.gender,
-        phoneNumber: formData.phoneNumber || '',
-        address: formData.address || '',
-        bloodType: formData.bloodType || 'O+',
-        systolicBp: parsedSystolic,
-        diastolicBp: parsedDiastolic,
-        hba1c: parsedHba1c,
-        hasDiabetes: formData.hasDiabetes,
-        diabetesType: formData.diabetesType || 'None',
-        diabetesDurationYears: parsedDuration,
-        hasHypertension: formData.hasHypertension,
-        historyOfSmoking: formData.historyOfSmoking,
-        historyOfHeartDisease: formData.historyOfHeartDisease || false,
-        historyOfStroke: formData.historyOfStroke || false,
-        currentMedications: formData.currentMedications || '',
-        allergies: formData.allergies || '',
-        emergencyContactName: formData.emergencyContactName || '',
-        emergencyContactPhone: formData.emergencyContactPhone || '',
+        fullName: formState.fullName.trim(),
+        dateOfBirth: formState.dateOfBirth ? formState.dateOfBirth : null,
+        age: formState.age.trim() !== '' ? Number(formState.age) : null,
+        gender: formState.gender,
+        phoneNumber: formState.phoneNumber.trim() || null,
+        address: formState.address.trim() || null,
+        bloodType: formState.bloodType || 'O+',
+        systolicBp: formState.systolicBp.trim() !== '' ? Number(formState.systolicBp) : null,
+        diastolicBp: formState.diastolicBp.trim() !== '' ? Number(formState.diastolicBp) : null,
+        hba1c: formState.hba1c.trim() !== '' ? Number(formState.hba1c) : null,
+        hasDiabetes: formState.hasDiabetes,
+        diabetesType: formState.hasDiabetes ? (formState.diabetesType || 'Type2') : 'None',
+        diabetesDurationYears: formState.hasDiabetes && formState.diabetesDurationYears.trim() !== ''
+          ? Number(formState.diabetesDurationYears)
+          : 0,
+        hasHypertension: formState.hasHypertension,
+        historyOfSmoking: formState.historyOfSmoking,
+        historyOfHeartDisease: formState.historyOfHeartDisease,
+        historyOfStroke: formState.historyOfStroke,
+        currentMedications: formState.currentMedications.trim() || null,
+        allergies: formState.allergies.trim() || null,
+        emergencyContactName: formState.emergencyContactName.trim() || null,
+        emergencyContactPhone: formState.emergencyContactPhone.trim() || null,
       };
 
       const res = await patientApi.updateProfile(payload);
       if (res.success && res.data) {
-        const updatedProfile: PatientProfile = {
-          ...formData,
-          ...res.data,
-        };
-        onSave(updatedProfile);
+        onSave(res.data);
         setIsSavedSuccess(true);
         setTimeout(() => {
           setIsSavedSuccess(false);
           onClose();
         }, 1200);
       } else {
-        // Fallback optimistic update if backend is unreachable
-        onSave({
-          ...formData,
-          age: parsedAge,
-          systolicBp: parsedSystolic,
-          diastolicBp: parsedDiastolic,
-          hba1c: parsedHba1c,
-          diabetesDurationYears: parsedDuration,
-        });
-        setIsSavedSuccess(true);
-        setTimeout(() => {
-          setIsSavedSuccess(false);
-          onClose();
-        }, 1200);
+        setErrorMessage(res.message || 'Cập nhật hồ sơ y tế không thành công');
       }
-    } catch (err) {
-      console.warn('Backend update failed, applying local state fallback:', err);
-      onSave(formData);
-      setIsSavedSuccess(true);
-      setTimeout(() => {
-        setIsSavedSuccess(false);
-        onClose();
-      }, 1200);
+    } catch (err: any) {
+      console.error('Error updating patient profile:', err);
+      setErrorMessage(
+        err.response?.data?.message || err.message || 'Lỗi kết nối máy chủ. Vui lòng thử lại sau.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +227,6 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-teal-100 max-h-[90vh] overflow-y-auto space-y-5">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600 border border-teal-200">
@@ -135,7 +236,9 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân
               </h2>
-              <p className="text-xs text-slate-500 font-mono-data">Mã hồ sơ bệnh án: <strong className="text-teal-700">{formData.mrn}</strong></p>
+              <p className="text-xs text-slate-500 font-mono-data">
+                Mã hồ sơ bệnh án: <strong className="text-teal-700">{formState.mrn || 'Đang tạo...'}</strong>
+              </p>
             </div>
           </div>
           <button
@@ -146,107 +249,120 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Selector */}
         <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-2">
           <button
             type="button"
             onClick={() => setActiveTab('personal')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'personal'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <UserCheck className="w-3.5 h-3.5" /> Thông Tin Cá Nhân
+            <UserCheck className="w-3.5 h-3.5" /> 1. Thông Tin Cá Nhân
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('vitals')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'vitals'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Activity className="w-3.5 h-3.5" /> Chỉ Số Sinh Hiệu
+            <Activity className="w-3.5 h-3.5" /> 2. Chỉ Số Sinh Hiệu
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('history')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'history'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Heart className="w-3.5 h-3.5" /> Tiền Sử Bệnh Lý
+            <Heart className="w-3.5 h-3.5" /> 3. Tiền Sử Bệnh Lý
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('meds')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'meds'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Pill className="w-3.5 h-3.5" /> Thuốc & Cấp Cứu
+            <Pill className="w-3.5 h-3.5" /> 4. Thuốc & Liên Hệ
           </button>
         </div>
 
         {errorMessage && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         {isSavedSuccess ? (
-          <div className="p-6 text-center space-y-3 bg-emerald-50 rounded-xl border border-emerald-200 animate-fadeIn">
-            <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-            <h3 className="text-base font-bold text-emerald-900">Đã cập nhật hồ sơ y tế thành công!</h3>
-            <p className="text-xs text-emerald-700">Dữ liệu được mã hóa và lưu trữ an toàn theo tiêu chuẩn HIPAA y khoa.</p>
+          <div className="py-8 text-center space-y-2 animate-fadeIn">
+            <CheckCircle2 className="w-12 h-12 text-teal-600 mx-auto animate-bounce" />
+            <h3 className="text-base font-bold text-slate-800">Đã cập nhật hồ sơ y tế thành công!</h3>
+            <p className="text-xs text-slate-500">Dữ liệu đã được lưu trữ an toàn trong cơ sở dữ liệu bệnh viện.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* TAB 1: THÔNG TIN CÁ NHÂN */}
             {activeTab === 'personal' && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-3 animate-fadeIn">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">Họ và tên bệnh nhân *</label>
                     <input
                       type="text"
-                      value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      value={formState.fullName}
+                      onChange={(e) => setFormState({ ...formState, fullName: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                      placeholder="Nguyễn Văn A"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Tuổi *</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-teal-600" /> Ngày sinh
+                    </label>
+                    <input
+                      type="date"
+                      value={formState.dateOfBirth}
+                      onChange={handleDateOfBirthChange}
+                      max={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white font-mono-data"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tuổi {formState.dateOfBirth ? '(Tự động tính từ ngày sinh)' : ''}
+                    </label>
                     <input
                       type="number"
-                      value={formData.age ?? ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          age: e.target.value === '' ? ('' as any) : Number(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                      required
+                      value={formState.age}
+                      onChange={(e) => setFormState({ ...formState, age: e.target.value })}
+                      readOnly={Boolean(formState.dateOfBirth)}
+                      className={`w-full px-3 py-2 text-xs border border-slate-300 rounded-lg outline-none ${
+                        formState.dateOfBirth ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : 'bg-white focus:ring-2 focus:ring-teal-500'
+                      }`}
+                      placeholder="Chưa cập nhật"
                       min={1}
                       max={120}
                     />
+                    {ageValidationError && <p className="text-[11px] text-red-600 font-medium mt-1">{ageValidationError}</p>}
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">Giới tính</label>
                     <select
-                      value={formData.gender}
-                      onChange={(e) => setFormData({ ...formData, gender: e.target.value as any })}
+                      value={formState.gender}
+                      onChange={(e) => setFormState({ ...formState, gender: e.target.value as any })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white"
                     >
                       <option value="Male">Nam</option>
@@ -259,8 +375,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                     <label className="block text-xs font-bold text-slate-700 mb-1">Số điện thoại</label>
                     <input
                       type="text"
-                      value={formData.phoneNumber || ''}
-                      onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                      value={formState.phoneNumber}
+                      onChange={(e) => setFormState({ ...formState, phoneNumber: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none font-mono-data"
                       placeholder="0912345678"
                     />
@@ -269,8 +385,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">Nhóm máu</label>
                     <select
-                      value={formData.bloodType || 'O+'}
-                      onChange={(e) => setFormData({ ...formData, bloodType: e.target.value })}
+                      value={formState.bloodType}
+                      onChange={(e) => setFormState({ ...formState, bloodType: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white"
                     >
                       <option value="O+">O+</option>
@@ -284,12 +400,12 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                     </select>
                   </div>
 
-                  <div>
+                  <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-slate-700 mb-1">Địa chỉ cư trú</label>
                     <input
                       type="text"
-                      value={formData.address || ''}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      value={formState.address}
+                      onChange={(e) => setFormState({ ...formState, address: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                       placeholder="Số nhà, Đường, Quận/Huyện, TP..."
                     />
@@ -298,7 +414,6 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
               </div>
             )}
 
-            {/* TAB 2: CHỈ SỐ SINH HIỆU */}
             {activeTab === 'vitals' && (
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4 animate-fadeIn">
                 <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -309,15 +424,12 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">Huyết áp tâm thu (mmHg)</label>
                     <input
                       type="number"
-                      value={formData.systolicBp ?? ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          systolicBp: e.target.value === '' ? ('' as any) : Number(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono-data focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                      placeholder="120"
+                      value={formState.systolicBp}
+                      onChange={(e) => setFormState({ ...formState, systolicBp: e.target.value })}
+                      className={`w-full px-3 py-2 text-xs border rounded-lg font-mono-data outline-none bg-white ${
+                        bpValidationError ? 'border-red-400 focus:ring-2 focus:ring-red-400' : 'border-slate-300 focus:ring-2 focus:ring-teal-500'
+                      }`}
+                      placeholder="Chưa cập nhật (120)"
                       min={50}
                       max={250}
                     />
@@ -327,15 +439,12 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">Huyết áp tâm trương (mmHg)</label>
                     <input
                       type="number"
-                      value={formData.diastolicBp ?? ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          diastolicBp: e.target.value === '' ? ('' as any) : Number(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono-data focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                      placeholder="80"
+                      value={formState.diastolicBp}
+                      onChange={(e) => setFormState({ ...formState, diastolicBp: e.target.value })}
+                      className={`w-full px-3 py-2 text-xs border rounded-lg font-mono-data outline-none bg-white ${
+                        bpValidationError ? 'border-red-400 focus:ring-2 focus:ring-red-400' : 'border-slate-300 focus:ring-2 focus:ring-teal-500'
+                      }`}
+                      placeholder="Chưa cập nhật (80)"
                       min={30}
                       max={180}
                     />
@@ -346,15 +455,12 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={formData.hba1c ?? ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          hba1c: e.target.value === '' ? ('' as any) : e.target.value as any,
-                        })
-                      }
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono-data focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                      placeholder="5.6"
+                      value={formState.hba1c}
+                      onChange={(e) => setFormState({ ...formState, hba1c: e.target.value })}
+                      className={`w-full px-3 py-2 text-xs border rounded-lg font-mono-data outline-none bg-white ${
+                        hba1cValidationError ? 'border-red-400 focus:ring-2 focus:ring-red-400' : 'border-slate-300 focus:ring-2 focus:ring-teal-500'
+                      }`}
+                      placeholder="Chưa đo (< 5.7%)"
                       min={2}
                       max={20}
                     />
@@ -362,104 +468,143 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                   </div>
                 </div>
 
+                {bpValidationError && (
+                  <p className="text-[11px] text-red-600 font-semibold flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" /> {bpValidationError}
+                  </p>
+                )}
+                {hba1cValidationError && (
+                  <p className="text-[11px] text-red-600 font-semibold flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" /> {hba1cValidationError}
+                  </p>
+                )}
+
                 <div className="pt-2 border-t border-slate-200/80">
                   <label className="block text-xs font-bold text-slate-700 mb-1">Bác sĩ chuyên khoa phụ trách</label>
-                  <input
-                    type="text"
-                    value={formData.assignedDoctor}
-                    onChange={(e) => setFormData({ ...formData, assignedDoctor: e.target.value })}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                  />
+                  <div className="p-2.5 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                      <Stethoscope className="w-4 h-4 text-teal-600" /> {formState.assignedDoctor}
+                    </span>
+                    <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      Chỉ định bởi bệnh viện
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* TAB 3: TIỀN SỬ BỆNH LÝ */}
             {activeTab === 'history' && (
-              <div className="p-4 bg-teal-50/50 rounded-xl border border-teal-100 space-y-4 animate-fadeIn">
-                <h3 className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
-                  <Heart className="w-4 h-4 text-red-500" /> Tiền Sử Bệnh Lý Mạn Tính
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 bg-white p-3 rounded-lg border border-teal-200 cursor-pointer shadow-xs">
+              <div className="space-y-3 animate-fadeIn">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <label
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all cursor-pointer ${
+                      formState.hasDiabetes ? 'bg-teal-50/70 border-teal-300 text-teal-900' : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={formData.hasDiabetes}
-                      onChange={(e) => setFormData({ ...formData, hasDiabetes: e.target.checked })}
-                      className="w-4 h-4 text-teal-600 rounded"
+                      checked={formState.hasDiabetes}
+                      onChange={(e) => setFormState({ ...formState, hasDiabetes: e.target.checked })}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
                     />
                     <div>
-                      <span className="text-xs font-bold text-slate-800 block">Đái tháo đường</span>
-                      <span className="text-[10px] text-slate-500">Tăng nguy cơ biến chứng võng mạc (DR)</span>
+                      <p className="text-xs font-bold">Đái tháo đường (Tiểu đường)</p>
+                      <p className="text-[10px] text-slate-500">Tiền sử đường huyết cao hoặc điều trị insulin</p>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 bg-white p-3 rounded-lg border border-teal-200 cursor-pointer shadow-xs">
+                  <label
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all cursor-pointer ${
+                      formState.hasHypertension ? 'bg-teal-50/70 border-teal-300 text-teal-900' : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={formData.hasHypertension}
-                      onChange={(e) => setFormData({ ...formData, hasHypertension: e.target.checked })}
-                      className="w-4 h-4 text-teal-600 rounded"
+                      checked={formState.hasHypertension}
+                      onChange={(e) => setFormState({ ...formState, hasHypertension: e.target.checked })}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
                     />
                     <div>
-                      <span className="text-xs font-bold text-slate-800 block">Tăng huyết áp</span>
-                      <span className="text-[10px] text-slate-500">Gây co hẹp và xơ cứng tiểu động mạch</span>
+                      <p className="text-xs font-bold">Tăng huyết áp</p>
+                      <p className="text-[10px] text-slate-500">Đang dùng thuốc hạ áp hoặc đo định kỳ &gt; 130 mmHg</p>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 bg-white p-3 rounded-lg border border-teal-200 cursor-pointer shadow-xs">
+                  <label
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all cursor-pointer ${
+                      formState.historyOfSmoking ? 'bg-teal-50/70 border-teal-300 text-teal-900' : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={formData.historyOfSmoking}
-                      onChange={(e) => setFormData({ ...formData, historyOfSmoking: e.target.checked })}
-                      className="w-4 h-4 text-teal-600 rounded"
+                      checked={formState.historyOfSmoking}
+                      onChange={(e) => setFormState({ ...formState, historyOfSmoking: e.target.checked })}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
                     />
                     <div>
-                      <span className="text-xs font-bold text-slate-800 block">Hút thuốc lá</span>
-                      <span className="text-[10px] text-slate-500">Làm giảm tưới máu vi mạch võng mạc</span>
+                      <p className="text-xs font-bold">Tiền sử hút thuốc lá</p>
+                      <p className="text-[10px] text-slate-500">Đang hút hoặc đã từng hút thường xuyên</p>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 bg-white p-3 rounded-lg border border-teal-200 cursor-pointer shadow-xs">
+                  <label
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all cursor-pointer ${
+                      formState.historyOfHeartDisease ? 'bg-teal-50/70 border-teal-300 text-teal-900' : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={formData.historyOfHeartDisease || false}
-                      onChange={(e) => setFormData({ ...formData, historyOfHeartDisease: e.target.checked })}
-                      className="w-4 h-4 text-teal-600 rounded"
+                      checked={formState.historyOfHeartDisease}
+                      onChange={(e) => setFormState({ ...formState, historyOfHeartDisease: e.target.checked })}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
                     />
                     <div>
-                      <span className="text-xs font-bold text-slate-800 block">Tiền sử Tim Mạch / Nhồi máu cơ tim</span>
-                      <span className="text-[10px] text-slate-500">Gia đình hoặc bản thân</span>
+                      <p className="text-xs font-bold">Bệnh lý tim mạch</p>
+                      <p className="text-[10px] text-slate-500">Bệnh mạch vành, nhồi máu cơ tim, suy tim</p>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border sm:col-span-2 transition-all cursor-pointer ${
+                      formState.historyOfStroke ? 'bg-teal-50/70 border-teal-300 text-teal-900' : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formState.historyOfStroke}
+                      onChange={(e) => setFormState({ ...formState, historyOfStroke: e.target.checked })}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <div>
+                      <p className="text-xs font-bold">Tiền sử đột quỵ / Tai biến mạch máu não</p>
+                      <p className="text-[10px] text-slate-500">Đã từng có cơn thiếu máu não thoáng qua (TIA) hoặc đột quỵ</p>
                     </div>
                   </label>
                 </div>
 
-                {formData.hasDiabetes && (
+                {formState.hasDiabetes && (
                   <div className="p-3 bg-white rounded-lg border border-teal-200 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fadeIn">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">Loại Đái Tháo Đường</label>
                       <select
-                        value={formData.diabetesType || 'Type2'}
-                        onChange={(e) => setFormData({ ...formData, diabetesType: e.target.value })}
+                        value={formState.diabetesType}
+                        onChange={(e) => setFormState({ ...formState, diabetesType: e.target.value })}
                         className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none bg-white"
                       >
                         <option value="Type1">Type 1 (Phụ thuộc Insulin)</option>
                         <option value="Type2">Type 2 (Không phụ thuộc Insulin)</option>
                         <option value="Gestational">Đái tháo đường thai kỳ</option>
+                        <option value="Other">Khác</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">Số năm mắc bệnh</label>
                       <input
                         type="number"
-                        value={formData.diabetesDurationYears ?? ''}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            diabetesDurationYears: e.target.value === '' ? ('' as any) : Number(e.target.value),
-                          })
-                        }
+                        value={formState.diabetesDurationYears}
+                        onChange={(e) => setFormState({ ...formState, diabetesDurationYears: e.target.value })}
                         className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none"
+                        placeholder="Số năm mắc bệnh"
                         min={0}
                         max={80}
                       />
@@ -469,7 +614,6 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
               </div>
             )}
 
-            {/* TAB 4: THUỐC, DỊ ỨNG & LIÊN HỆ KHẨN CẤP */}
             {activeTab === 'meds' && (
               <div className="space-y-4 animate-fadeIn">
                 <div>
@@ -478,8 +622,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                   </label>
                   <textarea
                     rows={2}
-                    value={formData.currentMedications || ''}
-                    onChange={(e) => setFormData({ ...formData, currentMedications: e.target.value })}
+                    value={formState.currentMedications}
+                    onChange={(e) => setFormState({ ...formState, currentMedications: e.target.value })}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                     placeholder="Ví dụ: Metformin 500mg (1 viên/ngày), Amlodipine 5mg (1 viên/sáng)..."
                   />
@@ -487,14 +631,14 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Tiền Sử Dị Ứng (Thuốc / Thức ăn)
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Tiền Sử Dị Ứng (Thuốc / Thức ăn / Dị nguyên)
                   </label>
                   <input
                     type="text"
-                    value={formData.allergies || ''}
-                    onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
+                    value={formState.allergies}
+                    onChange={(e) => setFormState({ ...formState, allergies: e.target.value })}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                    placeholder="Ví dụ: Dị ứng Penicillin, Aspirin hoặc không có..."
+                    placeholder="Ví dụ: Penicillin, Aspirin hoặc Không có dị ứng..."
                   />
                 </div>
 
@@ -507,8 +651,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">Họ tên người liên hệ</label>
                       <input
                         type="text"
-                        value={formData.emergencyContactName || ''}
-                        onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
+                        value={formState.emergencyContactName}
+                        onChange={(e) => setFormState({ ...formState, emergencyContactName: e.target.value })}
                         className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white"
                         placeholder="Nguyễn Thị B (Vợ/Chồng)..."
                       />
@@ -517,8 +661,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">Số điện thoại khẩn cấp</label>
                       <input
                         type="text"
-                        value={formData.emergencyContactPhone || ''}
-                        onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
+                        value={formState.emergencyContactPhone}
+                        onChange={(e) => setFormState({ ...formState, emergencyContactPhone: e.target.value })}
                         className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white font-mono-data"
                         placeholder="0987654321"
                       />
@@ -528,10 +672,9 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
               </div>
             )}
 
-            {/* Bottom Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-teal-600" /> Mã hóa an toàn chuẩn HIPAA y khoa
+              <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-teal-600" /> Dữ liệu y tế được bảo vệ và chỉ sử dụng cho mục đích chăm sóc sức khỏe.
               </span>
               <div className="flex gap-2">
                 <button
@@ -544,8 +687,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isLoading}
-                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5 transition-all disabled:opacity-50"
+                  disabled={isLoading || !isFormValid}
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <>
@@ -565,4 +708,3 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
     </div>
   );
 };
-

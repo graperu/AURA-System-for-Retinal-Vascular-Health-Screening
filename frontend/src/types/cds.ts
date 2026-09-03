@@ -8,27 +8,27 @@ export interface PatientProfile {
   mrn: string; // Medical Record Number
   fullName: string;
   email?: string;
-  dateOfBirth?: string;
-  age: number;
+  dateOfBirth?: string | null;
+  age?: number | null;
   gender: 'Male' | 'Female' | 'Other';
-  phoneNumber?: string;
-  address?: string;
-  bloodType?: string;
-  systolicBp: number;
-  diastolicBp: number;
-  hba1c: number; // %
+  phoneNumber?: string | null;
+  address?: string | null;
+  bloodType?: string | null;
+  systolicBp?: number | null;
+  diastolicBp?: number | null;
+  hba1c?: number | null; // %
   hasDiabetes: boolean;
-  diabetesType?: string;
-  diabetesDurationYears?: number;
+  diabetesType?: string | null;
+  diabetesDurationYears?: number | null;
   hasHypertension: boolean;
   historyOfSmoking: boolean;
   historyOfHeartDisease?: boolean;
   historyOfStroke?: boolean;
-  currentMedications?: string;
-  allergies?: string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-  lastExamDate?: string;
+  currentMedications?: string | null;
+  allergies?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  lastExamDate?: string | null;
   assignedDoctor: string;
 }
 

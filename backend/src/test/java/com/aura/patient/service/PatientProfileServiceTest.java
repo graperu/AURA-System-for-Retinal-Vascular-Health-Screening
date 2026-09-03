@@ -1,6 +1,7 @@
 package com.aura.patient.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -51,11 +52,12 @@ class PatientProfileServiceTest {
     assertThat(res.fullName()).isEqualTo("Nguyen Van A");
     assertThat(res.age()).isEqualTo(50);
     assertThat(res.systolicBp()).isEqualTo(130);
+    assertThat(res.diastolicBp()).isEqualTo(85);
     verify(profileRepository, never()).save(any());
   }
 
   @Test
-  void getOrCreateProfile_whenProfileNotExists_createsDefault() {
+  void getOrCreateProfile_whenProfileNotExists_createsDefaultWithNullVitals() {
     when(profileRepository.findByUserIdWithUser(userId)).thenReturn(Optional.empty());
     when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
     when(profileRepository.existsByMrn(anyString())).thenReturn(false);
@@ -65,9 +67,90 @@ class PatientProfileServiceTest {
 
     assertThat(res).isNotNull();
     assertThat(res.mrn()).startsWith("MRN-");
+    // New profile should NOT have fake mock vitals
+    assertThat(res.systolicBp()).isNull();
+    assertThat(res.diastolicBp()).isNull();
+    assertThat(res.hba1c()).isNull();
+    assertThat(res.age()).isNull();
+    verify(profileRepository).save(any(PatientMedicalProfile.class));
+  }
+
+  @Test
+  void updateProfile_withValidDateOfBirth_calculatesAgeCorrectly() {
+    var profile = new PatientMedicalProfile(mockUser, "MRN-2026-0001");
+    when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+    when(profileRepository.findByUserIdWithUser(userId)).thenReturn(Optional.of(profile));
+    when(profileRepository.save(any(PatientMedicalProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    LocalDate dob = LocalDate.now().minusYears(25);
+    var request = new UpdatePatientProfileRequest(
+        "Nguyen Van A", dob, null, "Male", null, null, "O+",
+        120, 80, 5.6, false, "None", 0, false, false, false, false, null, null, null, null
+    );
+
+    var res = service.updateProfile(userId, request);
+
+    assertThat(res).isNotNull();
+    assertThat(res.dateOfBirth()).isEqualTo(dob);
+    assertThat(res.age()).isEqualTo(25);
+  }
+
+  @Test
+  void updateProfile_withFutureDateOfBirth_throwsException() {
+    when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+    LocalDate futureDob = LocalDate.now().plusDays(1);
+    var request = new UpdatePatientProfileRequest(
+        "Nguyen Van A", futureDob, null, "Male", null, null, "O+",
+        120, 80, 5.6, false, "None", 0, false, false, false, false, null, null, null, null
+    );
+
+    assertThatThrownBy(() -> service.updateProfile(userId, request))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Ngày sinh không được ở tương lai");
+  }
+
+  @Test
+  void updateProfile_withValidBloodPressure120_80_succeeds() {
+    var profile = new PatientMedicalProfile(mockUser, "MRN-2026-0001");
+    when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+    when(profileRepository.findByUserIdWithUser(userId)).thenReturn(Optional.of(profile));
+    when(profileRepository.save(any(PatientMedicalProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    var request = new UpdatePatientProfileRequest(
+        "Nguyen Van A", null, 30, "Male", null, null, "O+",
+        120, 80, null, false, "None", 0, false, false, false, false, null, null, null, null
+    );
+
+    var res = service.updateProfile(userId, request);
+
     assertThat(res.systolicBp()).isEqualTo(120);
     assertThat(res.diastolicBp()).isEqualTo(80);
-    verify(profileRepository).save(any(PatientMedicalProfile.class));
+  }
+
+  @Test
+  void updateProfile_withEqualBloodPressure96_96_throwsException() {
+    when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+    var request = new UpdatePatientProfileRequest(
+        "Nguyen Van A", null, 30, "Male", null, null, "O+",
+        96, 96, null, false, "None", 0, false, false, false, false, null, null, null, null
+    );
+
+    assertThatThrownBy(() -> service.updateProfile(userId, request))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Huyết áp tâm thu phải lớn hơn huyết áp tâm trương");
+  }
+
+  @Test
+  void updateProfile_withReversedBloodPressure80_100_throwsException() {
+    when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+    var request = new UpdatePatientProfileRequest(
+        "Nguyen Van A", null, 30, "Male", null, null, "O+",
+        80, 100, null, false, "None", 0, false, false, false, false, null, null, null, null
+    );
+
+    assertThatThrownBy(() -> service.updateProfile(userId, request))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Huyết áp tâm thu phải lớn hơn huyết áp tâm trương");
   }
 
   @Test
@@ -80,7 +163,7 @@ class PatientProfileServiceTest {
     var request = new UpdatePatientProfileRequest(
         "Nguyen Van A Updated",
         LocalDate.of(1980, 5, 15),
-        46,
+        null,
         "Male",
         "0912345678",
         "123 Nguyen Hue, Q1, HCMC",
@@ -94,7 +177,7 @@ class PatientProfileServiceTest {
         true,
         false,
         true,
-        false,
+        true, // history of stroke
         "Metformin 500mg, Amlodipine 5mg",
         "Penicillin",
         "Nguyen Thi B",
@@ -112,8 +195,11 @@ class PatientProfileServiceTest {
     assertThat(res.hasDiabetes()).isTrue();
     assertThat(res.diabetesType()).isEqualTo("Type2");
     assertThat(res.hasHypertension()).isTrue();
+    assertThat(res.historyOfStroke()).isTrue();
     assertThat(res.currentMedications()).contains("Metformin");
     assertThat(res.allergies()).isEqualTo("Penicillin");
     assertThat(res.emergencyContactName()).isEqualTo("Nguyen Thi B");
+    assertThat(res.emergencyContactPhone()).isEqualTo("0987654321");
   }
 }
+

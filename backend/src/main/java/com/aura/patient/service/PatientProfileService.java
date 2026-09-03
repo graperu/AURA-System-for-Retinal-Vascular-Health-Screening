@@ -7,6 +7,8 @@ import com.aura.patient.entity.PatientMedicalProfile;
 import com.aura.patient.repository.PatientMedicalProfileRepository;
 import com.aura.user.entity.User;
 import com.aura.user.repository.UserRepository;
+import java.time.LocalDate;
+import java.time.Period;
 import java.time.Year;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -42,11 +44,7 @@ public class PatientProfileService {
           }
 
           PatientMedicalProfile newProfile = new PatientMedicalProfile(user, generatedMrn);
-          newProfile.setAge(45);
           newProfile.setGender("Other");
-          newProfile.setSystolicBp(120);
-          newProfile.setDiastolicBp(80);
-          newProfile.setHba1c(5.6);
           newProfile.setHasDiabetes(false);
           newProfile.setHasHypertension(false);
           newProfile.setHistoryOfSmoking(false);
@@ -74,18 +72,47 @@ public class PatientProfileService {
           return new PatientMedicalProfile(user, generatedMrn);
         });
 
-    if (request.dateOfBirth() != null) profile.setDateOfBirth(request.dateOfBirth());
-    if (request.age() != null) profile.setAge(request.age());
-    if (request.gender() != null) profile.setGender(request.gender());
+    // Handle date of birth and calculate age
+    if (request.dateOfBirth() != null) {
+      LocalDate dob = request.dateOfBirth();
+      LocalDate today = LocalDate.now();
+      if (dob.isAfter(today)) {
+        throw new IllegalArgumentException("Ngày sinh không được ở tương lai");
+      }
+      int calculatedAge = Period.between(dob, today).getYears();
+      if (calculatedAge > 120) {
+        throw new IllegalArgumentException("Tuổi tính từ ngày sinh không được vượt quá 120");
+      }
+      profile.setDateOfBirth(dob);
+      profile.setAge(calculatedAge);
+    } else if (request.age() != null) {
+      profile.setAge(request.age());
+    }
+
+    // Cross-field validation: systolicBp must be greater than diastolicBp
+    Integer sys = request.systolicBp();
+    Integer dia = request.diastolicBp();
+    if (sys != null && dia != null && sys <= dia) {
+      throw new IllegalArgumentException("Huyết áp tâm thu phải lớn hơn huyết áp tâm trương");
+    }
+
+    profile.setSystolicBp(sys);
+    profile.setDiastolicBp(dia);
+    profile.setHba1c(request.hba1c());
+
+    if (request.gender() != null && !request.gender().isBlank()) profile.setGender(request.gender());
     if (request.phoneNumber() != null) profile.setPhoneNumber(request.phoneNumber().trim());
     if (request.address() != null) profile.setAddress(request.address().trim());
     if (request.bloodType() != null) profile.setBloodType(request.bloodType().trim());
-    if (request.systolicBp() != null) profile.setSystolicBp(request.systolicBp());
-    if (request.diastolicBp() != null) profile.setDiastolicBp(request.diastolicBp());
-    if (request.hba1c() != null) profile.setHba1c(request.hba1c());
-    if (request.hasDiabetes() != null) profile.setHasDiabetes(request.hasDiabetes());
-    if (request.diabetesType() != null) profile.setDiabetesType(request.diabetesType());
-    if (request.diabetesDurationYears() != null) profile.setDiabetesDurationYears(request.diabetesDurationYears());
+
+    if (request.hasDiabetes() != null) {
+      profile.setHasDiabetes(request.hasDiabetes());
+      if (Boolean.TRUE.equals(request.hasDiabetes())) {
+        if (request.diabetesType() != null) profile.setDiabetesType(request.diabetesType());
+        if (request.diabetesDurationYears() != null) profile.setDiabetesDurationYears(request.diabetesDurationYears());
+      }
+    }
+
     if (request.hasHypertension() != null) profile.setHasHypertension(request.hasHypertension());
     if (request.historyOfSmoking() != null) profile.setHistoryOfSmoking(request.historyOfSmoking());
     if (request.historyOfHeartDisease() != null) profile.setHistoryOfHeartDisease(request.historyOfHeartDisease());
@@ -108,3 +135,4 @@ public class PatientProfileService {
     return PatientProfileResponse.fromEntity(profile);
   }
 }
+

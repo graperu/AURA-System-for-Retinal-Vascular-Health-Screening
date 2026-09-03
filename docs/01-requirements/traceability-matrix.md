@@ -21,7 +21,7 @@
 | FR-5 | Patient reports and alerts | Partial | `PatientDashboardPage` |
 | FR-6 | Analysis history storage | Partial `screening` table + GET APIs |
 | FR-7 | Export PDF/CSV | Planned | UI alert only |
-| FR-8 | Bulk upload | Out of MVP | `mvp-scope.md` |
+| FR-8 | Patient Medical Profile & History Management | Done | `V013`/`V014`, `PatientMedicalProfile`, `PatientProfileController`, `PatientProfileIntegrationTest`, `MedicalProfileModal` |
 | FR-9 | Event-based notifications | Partial | UI only |
 | FR-10 | Doctor-patient messaging | Partial | Chat mock `PatientDashboardPage` |
 | FR-11 | Subscription plan management | Planned | Mock text admin/ckinic |

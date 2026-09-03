@@ -586,14 +586,22 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-500 block mb-1">Họ và tên:</span>
                 <strong className="text-slate-900 text-sm">{patient.fullName}</strong>
+                {patient.dateOfBirth && (
+                  <span className="text-[11px] text-slate-500 block mt-0.5 font-mono-data">NS: {patient.dateOfBirth}</span>
+                )}
               </div>
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-500 block mb-1">Tuổi & Giới tính:</span>
-                <strong className="text-slate-900 text-sm">{patient.age} tuổi • {patient.gender === 'Male' ? 'Nam' : patient.gender === 'Female' ? 'Nữ' : 'Khác'}</strong>
+                <strong className="text-slate-900 text-sm">
+                  {patient.age != null ? `${patient.age} tuổi` : 'Chưa cập nhật tuổi'} • {patient.gender === 'Male' ? 'Nam' : patient.gender === 'Female' ? 'Nữ' : 'Khác'}
+                </strong>
               </div>
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-500 block mb-1">Nhóm máu & SĐT:</span>
                 <strong className="text-slate-900 text-sm">{patient.bloodType || 'O+'} • {patient.phoneNumber || 'Chưa cập nhật'}</strong>
+                {patient.address && (
+                  <span className="text-[11px] text-slate-500 block mt-0.5 truncate" title={patient.address}>Đ/C: {patient.address}</span>
+                )}
               </div>
             </div>
 
@@ -605,13 +613,31 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
                   <span className="text-slate-500 block text-xs">Huyết áp (Systolic/Diastolic)</span>
-                  <span className="text-2xl font-extrabold font-mono-data text-slate-900">{patient.systolicBp}/{patient.diastolicBp}</span>
-                  <span className="text-[11px] text-slate-500 block mt-0.5">mmHg (Chỉ số đo gần nhất)</span>
+                  {patient.systolicBp != null && patient.diastolicBp != null ? (
+                    <>
+                      <span className="text-2xl font-extrabold font-mono-data text-slate-900">{patient.systolicBp}/{patient.diastolicBp}</span>
+                      <span className="text-[11px] text-slate-500 block mt-0.5">mmHg (Chỉ số đo gần nhất)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-base font-bold text-slate-400 block mt-1">Chưa cập nhật</span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5">Vui lòng cập nhật khi có kết quả đo</span>
+                    </>
+                  )}
                 </div>
                 <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
                   <span className="text-slate-500 block text-xs">Chỉ số HbA1c</span>
-                  <span className="text-2xl font-extrabold font-mono-data text-amber-700">{patient.hba1c}%</span>
-                  <span className="text-[11px] text-slate-500 block mt-0.5">Đường huyết trung bình 3 tháng</span>
+                  {patient.hba1c != null ? (
+                    <>
+                      <span className="text-2xl font-extrabold font-mono-data text-amber-700">{patient.hba1c}%</span>
+                      <span className="text-[11px] text-slate-500 block mt-0.5">Đường huyết trung bình 3 tháng</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-base font-bold text-slate-400 block mt-1">Chưa đo</span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5">Chưa có dữ liệu xét nghiệm máu</span>
+                    </>
+                  )}
                 </div>
                 <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
                   <span className="text-slate-500 block text-xs">Bác sĩ phụ trách</span>
@@ -630,7 +656,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
                   <span>Đái tháo đường:</span>
                   <strong className={patient.hasDiabetes ? 'text-red-600' : 'text-emerald-600'}>
-                    {patient.hasDiabetes ? `Có (${patient.diabetesType || 'Type 2'})` : 'Không'}
+                    {patient.hasDiabetes ? `Có (${patient.diabetesType || 'Type 2'}${patient.diabetesDurationYears ? ` - ${patient.diabetesDurationYears} năm` : ''})` : 'Không'}
                   </strong>
                 </div>
                 <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
@@ -658,8 +684,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </strong>
                 </div>
                 <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                  <span>Dị ứng thuốc:</span>
-                  <strong className={patient.allergies ? 'text-amber-600' : 'text-slate-600'}>
+                  <span>Dị ứng:</span>
+                  <strong className={patient.allergies ? 'text-amber-600 truncate max-w-[120px]' : 'text-slate-600'} title={patient.allergies || 'Không'}>
                     {patient.allergies || 'Không'}
                   </strong>
                 </div>
