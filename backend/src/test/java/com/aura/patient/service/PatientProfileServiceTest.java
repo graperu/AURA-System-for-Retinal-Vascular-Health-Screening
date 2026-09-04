@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 import com.aura.patient.dto.UpdatePatientProfileRequest;
 import com.aura.patient.entity.PatientMedicalProfile;
 import com.aura.patient.repository.PatientMedicalProfileRepository;
+import com.aura.doctor.repository.DoctorPatientAssignmentRepository;
 import com.aura.user.entity.User;
 import com.aura.user.repository.UserRepository;
 import java.time.LocalDate;
@@ -24,6 +25,7 @@ class PatientProfileServiceTest {
 
   @Mock private PatientMedicalProfileRepository profileRepository;
   @Mock private UserRepository userRepository;
+  @Mock private DoctorPatientAssignmentRepository assignmentRepository;
 
   private PatientProfileService service;
   private User mockUser;
@@ -31,7 +33,7 @@ class PatientProfileServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new PatientProfileService(profileRepository, userRepository);
+    service = new PatientProfileService(profileRepository, userRepository, assignmentRepository);
     userId = UUID.randomUUID();
     mockUser = new User("patient@example.com", "hash", "Nguyen Van A");
   }

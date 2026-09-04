@@ -17,6 +17,10 @@ public interface DoctorPatientAssignmentRepository extends JpaRepository<DoctorP
 
   List<DoctorPatientAssignment> findByPatientId(UUID patientId);
 
+  List<DoctorPatientAssignment> findByStatus(AssignmentStatus status);
+
+  List<DoctorPatientAssignment> findByPatientIdAndStatus(UUID patientId, AssignmentStatus status);
+
   boolean existsByDoctorIdAndPatientIdAndStatus(UUID doctorId, UUID patientId, AssignmentStatus status);
 
   Optional<DoctorPatientAssignment> findByDoctorIdAndPatientId(UUID doctorId, UUID patientId);

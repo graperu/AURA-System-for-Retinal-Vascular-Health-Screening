@@ -1,9 +1,13 @@
 package com.aura.admin.controller;
 
 import com.aura.admin.dto.AiConfigDto;
+import com.aura.admin.dto.AssignmentBoardResponse;
+import com.aura.admin.dto.BulkPatientAssignmentRequest;
 import com.aura.admin.dto.UpdateUserStatusRequest;
 import com.aura.admin.dto.UserSummaryDto;
+import com.aura.admin.service.AdminPatientAssignmentService;
 import com.aura.admin.service.AdminUserService;
+import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.common.response.ApiResponse;
 import com.aura.common.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +18,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -28,9 +34,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminUserController {
 
   private final AdminUserService adminUserService;
+  private final AdminPatientAssignmentService assignmentService;
 
-  public AdminUserController(AdminUserService adminUserService) {
+  public AdminUserController(
+      AdminUserService adminUserService,
+      AdminPatientAssignmentService assignmentService) {
     this.adminUserService = adminUserService;
+    this.assignmentService = assignmentService;
   }
 
   @GetMapping("/users")
@@ -81,5 +91,32 @@ public class AdminUserController {
   @Operation(summary = "Update global AI sensitivity, thresholds and retraining policy")
   public ApiResponse<AiConfigDto> updateAiConfig(@RequestBody AiConfigDto update) {
     return ApiResponse.success(adminUserService.updateAiConfig(update));
+  }
+
+  @GetMapping("/patient-assignments")
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Get the doctor-patient assignment board")
+  public ApiResponse<AssignmentBoardResponse> getPatientAssignments() {
+    return ApiResponse.success(assignmentService.getBoard());
+  }
+
+  @PutMapping("/patient-assignments")
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Assign one or more patients to a doctor")
+  public ApiResponse<AssignmentBoardResponse> assignPatients(
+      @AuthenticationPrincipal AuraUserPrincipal principal,
+      @Valid @RequestBody BulkPatientAssignmentRequest request) {
+    return ApiResponse.success("Phân công bệnh nhân thành công",
+        assignmentService.assign(request, principal.id()));
+  }
+
+  @DeleteMapping("/patient-assignments/{doctorId}/{patientId}")
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Remove a patient from a doctor's active worklist")
+  public ApiResponse<AssignmentBoardResponse> unassignPatient(
+      @PathVariable UUID doctorId,
+      @PathVariable UUID patientId) {
+    return ApiResponse.success("Hủy phân công bệnh nhân thành công",
+        assignmentService.unassign(doctorId, patientId));
   }
 }
