@@ -134,37 +134,8 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
       }
     }
 
-    // 2. Direct registration fallback if Firebase is not configured
-    try {
-      const targetEmail = `new.google.user.${Date.now()}@aura.health`;
-      const headerStr = JSON.stringify({ alg: 'RS256', typ: 'JWT' });
-      const payloadStr = JSON.stringify({
-        iss: 'https://accounts.google.com',
-        email: targetEmail,
-        name: 'Người dùng Google Enterprise',
-        email_verified: true,
-        sub: `google-new-user-${Date.now()}`
-      });
-
-      const b64Header = btoa(unescape(encodeURIComponent(headerStr)));
-      const b64Payload = btoa(unescape(encodeURIComponent(payloadStr)));
-      const mockToken = `${b64Header}.${b64Payload}.mockSignature`;
-
-      const result = await loginWithSocial({
-        provider: 'google',
-        idToken: mockToken,
-        email: targetEmail,
-        fullName: 'Người dùng Google Enterprise'
-      });
-
-      if (!result.success) {
-        setErrors({ form: result.message || 'Đăng ký Google không thành công. Vui lòng thử lại.' });
-      }
-    } catch {
-      setErrors({ form: 'Không thể kết nối dịch vụ định danh Google. Vui lòng thử lại.' });
-    } finally {
-      setSocialLoading(null);
-    }
+    setErrors({ form: 'Đăng ký Google chưa được cấu hình. Vui lòng đăng ký bằng email hoặc liên hệ quản trị viên.' });
+    setSocialLoading(null);
   };
 
   // OTP Verification Screen

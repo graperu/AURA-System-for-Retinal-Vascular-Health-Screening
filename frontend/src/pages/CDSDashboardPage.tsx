@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { feedbackApi, doctorApi, screeningApi } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
-import { MockAIService } from '../services/mockAiEngine';
 
 export interface DoctorPatientSummary {
   patientId: string;
@@ -51,7 +50,7 @@ export const CDSDashboardPage: React.FC = () => {
   const [isLoadingPatients, setIsLoadingPatients] = useState<boolean>(true);
   const [patientsError, setPatientsError] = useState<string | null>(null);
 
-  // BUG 1 & 3 FIX: Initial state is null, NEVER MOCK_SAMPLE_RESULT
+  // Medical analysis is empty until a successful backend response is received.
   const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(null);
   const [isScreeningLoading, setIsScreeningLoading] = useState<boolean>(false);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -217,18 +216,7 @@ export const CDSDashboardPage: React.FC = () => {
         return;
       }
 
-      // Explicit Mock AI only if explicit dev environment flag is set
-      const enableMockAi = import.meta.env.VITE_ENABLE_MOCK_AI === 'true';
-      if (enableMockAi) {
-        console.warn('VITE_ENABLE_MOCK_AI is enabled. Falling back to local mock AI engine.');
-        const result = await MockAIService.runFundusAnalysis(request, (status, percent) => {
-          setAnalysisProgress({ status, percent });
-        });
-        setAnalysisResult(result);
-        return;
-      }
-
-      // Production behavior: Fail cleanly without fake data
+      // Never fabricate a medical result when the AI service is unavailable.
       setAnalysisResult(null);
       setAnalysisErrorMsg(
         res.message || 'Máy chủ AI không thể phân tích ảnh hoặc đang ngoại tuyến. Vui lòng thử lại sau.'
