@@ -13,9 +13,11 @@ import {
   AlertCircle,
   Loader2,
   Calendar,
+  FileText,
 } from 'lucide-react';
 import { PatientProfile } from '../types/cds';
 import { patientApi } from '../services/api';
+import { LabDocumentsPanel } from './LabDocumentsPanel';
 
 interface MedicalProfileModalProps {
   isOpen: boolean;
@@ -84,7 +86,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
     updatedAt: null,
   });
 
-  const [activeTab, setActiveTab] = useState<'personal' | 'vitals' | 'history' | 'meds'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'vitals' | 'history' | 'meds' | 'labs'>('personal');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
@@ -367,6 +369,17 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
             }`}
           >
             <Pill className="w-3.5 h-3.5" /> 4. Thuốc & Liên Hệ
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('labs')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'labs'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" /> 5. Tệp Xét Nghiệm
           </button>
         </div>
 
@@ -700,6 +713,10 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                   </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'labs' && (
+              <LabDocumentsPanel patientId={patient.userId || patient.id} />
             )}
 
             {/* Bottom Actions */}

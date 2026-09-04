@@ -1,6 +1,10 @@
 spring:
   application:
     name: aura-backend
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aura_db}
     username: ${DB_USERNAME:postgres}

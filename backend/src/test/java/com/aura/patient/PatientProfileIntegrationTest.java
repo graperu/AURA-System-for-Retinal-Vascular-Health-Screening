@@ -2,6 +2,8 @@ package com.aura.patient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -236,5 +239,42 @@ class PatientProfileIntegrationTest {
             get("/api/v1/patient/profile")
                 .header(HttpHeaders.ORIGIN, ORIGIN))
         .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void labDocument_uploadListDownloadAndDelete_roundTripsBinaryFile() throws Exception {
+    String profileResponse = mvc.perform(get("/api/v1/patient/profile")
+            .header(HttpHeaders.ORIGIN, ORIGIN)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andReturn().getResponse().getContentAsString();
+    String patientId = mapper.readTree(profileResponse).at("/data/userId").asText();
+    MockMultipartFile file = new MockMultipartFile(
+        "file", "ket-qua.pdf", "application/pdf", "%PDF-test".getBytes());
+
+    String uploadResponse = mvc.perform(multipart("/api/v1/patient/profile/lab-documents")
+            .file(file)
+            .header(HttpHeaders.ORIGIN, ORIGIN)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.fileName").value("ket-qua.pdf"))
+        .andReturn().getResponse().getContentAsString();
+    String documentId = mapper.readTree(uploadResponse).at("/data/id").asText();
+
+    mvc.perform(get("/api/v1/patient/profile/lab-documents")
+            .header(HttpHeaders.ORIGIN, ORIGIN)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data[0].id").value(documentId));
+
+    mvc.perform(get("/api/v1/patient/profile/" + patientId + "/lab-documents/" + documentId + "/content")
+            .header(HttpHeaders.ORIGIN, ORIGIN)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray()).isEqualTo("%PDF-test".getBytes()));
+
+    mvc.perform(delete("/api/v1/patient/profile/lab-documents/" + documentId)
+            .header(HttpHeaders.ORIGIN, ORIGIN)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk());
   }
 }

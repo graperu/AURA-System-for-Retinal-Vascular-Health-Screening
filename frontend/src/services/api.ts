@@ -190,9 +190,16 @@ export const adminUserApi = {
 
   updateStatus: (userId: string, active: boolean) =>
     apiFetch<any>(`/api/v1/admin/users/${userId}/status`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify({ active }),
     }),
+
+  getAiConfig: () => apiFetch<any>('/api/v1/admin/ai-config', { method: 'GET' }),
+
+  updateAiConfig: (config: any) => apiFetch<any>('/api/v1/admin/ai-config', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  }),
 };
 
 export const patientApi = {
@@ -211,6 +218,37 @@ export const patientApi = {
     apiFetch<any>(`/api/v1/patient/profile/${patientId}`, {
       method: 'GET',
     }),
+
+  getLabDocuments: () =>
+    apiFetch<any[]>('/api/v1/patient/profile/lab-documents', { method: 'GET' }),
+
+  uploadLabDocument: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiFetch<any>('/api/v1/patient/profile/lab-documents', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  deleteLabDocument: (documentId: string) =>
+    apiFetch<void>(`/api/v1/patient/profile/lab-documents/${documentId}`, {
+      method: 'DELETE',
+    }),
+
+  downloadLabDocument: async (patientId: string, documentId: string, fileName: string) => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/patient/profile/${patientId}/lab-documents/${documentId}/content`,
+      { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}, credentials: 'include' }
+    );
+    if (!response.ok) throw new Error('Không thể tải tệp xét nghiệm');
+    const url = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
 };
 
 export const doctorApi = {
@@ -234,6 +272,33 @@ export const doctorApi = {
       method: 'POST',
       body: JSON.stringify({ imageUrl }),
     }),
+};
+
+export const assignmentApi = {
+  getBoard: () =>
+    apiFetch<any>('/api/v1/admin/patient-assignments', { method: 'GET' }),
+
+  assign: (doctorId: string, patientIds: string[], replaceExisting = true) =>
+    apiFetch<any>('/api/v1/admin/patient-assignments', {
+      method: 'PUT',
+      body: JSON.stringify({ doctorId, patientIds, replaceExisting }),
+    }),
+
+  unassign: (doctorId: string, patientId: string) =>
+    apiFetch<any>(`/api/v1/admin/patient-assignments/${doctorId}/${patientId}`, {
+      method: 'DELETE',
+    }),
+
+};
+
+export const bulkScreeningApi = {
+  getBatch: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, { method: 'GET' }),
+};
+
+export const servicePackageApi = {
+  browse: (scope: 'INDIVIDUAL' | 'CLINIC') =>
+    apiFetch<any[]>(`/api/v1/packages?scope=${scope}`, { method: 'GET' }),
 };
 
 
