@@ -1,6 +1,6 @@
 package com.aura.billing.entity;
 
-/** PENDING while the (mock) gateway processes it, then SUCCEEDED or FAILED. Never mutated after that. */
+/** PENDING while the gateway processes it, then SUCCEEDED or FAILED. */
 public enum PaymentStatus {
     PENDING,
     SUCCEEDED,

@@ -4,9 +4,8 @@ import java.math.BigDecimal;
 
 /**
  * Abstraction over "whoever actually moves money" — mirrors how AiCoreClient abstracts the
- * AI Core service. Today the only implementation is MockPaymentGateway; wiring in a real
- * provider (VNPay, Momo, Stripe) means adding a new implementation of this interface, not
- * touching BillingService or the controllers.
+ * AI Core service. A real provider (VNPay, Momo, Stripe) can be added without changing
+ * BillingService or the controllers. The default implementation fails closed.
  */
 public interface PaymentGateway {
 

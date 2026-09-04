@@ -61,10 +61,11 @@ public class BillingService {
                 .servicePackage(servicePackage)
                 .amount(servicePackage.getPrice())
                 .status(PaymentStatus.PENDING)
-                .provider("mock")
+                .provider("unconfigured")
                 .build());
 
         PaymentGateway.GatewayResult result = paymentGateway.charge(owner.getEmail(), servicePackage.getPrice());
+        transaction.setProvider(result.providerName());
 
         if (!result.success()) {
             transaction.setStatus(PaymentStatus.FAILED);

@@ -37,7 +37,7 @@ public class PaymentTransaction {
     @Column(nullable = false)
     private PaymentStatus status;
 
-    /** Which (mock, for now) gateway processed this. See MockPaymentGateway. */
+    /** Payment provider that processed or rejected this transaction. */
     @Column(nullable = false)
     private String provider;
 

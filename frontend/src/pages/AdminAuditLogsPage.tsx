@@ -1,72 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Download, ShieldAlert, Filter, CheckCircle2, AlertTriangle, Info, User, Users, Sliders, CreditCard, ShieldCheck, Building2, Stethoscope, Lock, Unlock, Eye, Sparkles } from 'lucide-react';
 import { auditApi, adminUserApi } from '../services/api';
+import { PatientAssignmentBoard } from '../components/PatientAssignmentBoard';
 
 export const AdminAuditLogsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'audit' | 'users' | 'ai-config'>('audit');
+  const [activeTab, setActiveTab] = useState<'audit' | 'users' | 'assignments' | 'ai-config'>('audit');
 
   // Audit Logs State
   const [severityFilter, setSeverityFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [logsList, setLogsList] = useState<any[]>([
-    {
-      id: 'LOG-1001',
-      timestamp: '2026-08-30 14:32:01',
-      tz: 'ICT (+7)',
-      severity: 'Critical',
-      title: 'Thay Đổi Ngưỡng Chẩn Đoán AI Microservice',
-      desc: 'Độ nhạy phát hiện Bệnh Glaucoma thay đổi từ 0.85 xuống 0.70. Yêu cầu xác thực 2FA từ Trưởng khoa.',
-      user: 'BS. Phan Định',
-      userType: 'person',
-      ip: '192.168.1.105',
-    },
-    {
-      id: 'LOG-1002',
-      timestamp: '2026-08-30 14:15:22',
-      tz: 'ICT (+7)',
-      severity: 'Info',
-      title: 'Đăng Ký Đơn Vị Phòng Khám Mới Thành Công',
-      desc: 'Trung tâm Mắt Kỹ thuật cao đã hoàn tất quy trình onboarding và cấp 2,500 Credits.',
-      user: 'Hệ thống Tự động',
-      userType: 'system',
-      ip: '10.0.4.22',
-    },
-    {
-      id: 'LOG-1003',
-      timestamp: '2026-08-30 13:45:09',
-      tz: 'ICT (+7)',
-      severity: 'Warning',
-      title: 'Đăng Nhập Thất Bại Nhiều Lần',
-      desc: '5 lần nhập sai mật khẩu tài khoản j.doe@auraclinical.com trong 2 phút. Khóa tài khoản 15 phút.',
-      user: 'Chưa Xác Thực',
-      userType: 'unknown',
-      ip: '203.0.113.45',
-    },
-    {
-      id: 'LOG-1004',
-      timestamp: '2026-08-30 11:20:00',
-      tz: 'ICT (+7)',
-      severity: 'Info',
-      title: 'Xuất Dữ Liệu Bệnh Nhân Hàng Loạt (Export CSV)',
-      desc: 'Xuất 142 bản ghi ảnh võng mạc mã hóa bảo mật HIPAA sang Cổng Nghiên cứu ID-883.',
-      user: 'BS. Lê Trang',
-      userType: 'person',
-      ip: '192.168.1.55',
-    },
-  ]);
+  const [logsList, setLogsList] = useState<any[]>([]);
 
   // User Management State
-  const [usersList, setUsersList] = useState([
-    { id: '11111111-1111-1111-1111-111111111111', name: 'Nguyễn Trọng Nam', email: 'patient@aura.com', role: 'ROLE_USER', status: 'ACTIVE', department: 'Bệnh nhân cá nhân', exams: 12 },
-    { id: '22222222-2222-2222-2222-222222222222', name: 'BS. CKII Nguyễn Thị Thanh', email: 'doctor@aura.com', role: 'ROLE_DOCTOR', status: 'ACTIVE', department: 'Khoa Mắt Kỹ Thuật Cao', exams: 142 },
-    { id: '33333333-3333-3333-3333-333333333333', name: 'Phòng Khám Đa Khoa AURA Clinic', email: 'clinic@aura.com', role: 'ROLE_CLINIC', status: 'ACTIVE', department: 'Cơ sở Y tế Tuyến Quận', exams: 250 },
-    { id: '44444444-4444-4444-4444-444444444444', name: 'Quản Trị Viên Hệ Thống', email: 'admin@aura.com', role: 'ROLE_ADMIN', status: 'ACTIVE', department: 'Ban Giám Đốc CNTT', exams: 0 },
-  ]);
+  const [usersList, setUsersList] = useState<any[]>([]);
 
   // AI Configuration State
-  const [glaucomaSensitivity, setGlaucomaSensitivity] = useState(0.70);
-  const [drConfidence, setDrConfidence] = useState(0.75);
-  const [retrainThreshold, setRetrainThreshold] = useState(50);
+  const [glaucomaSensitivity, setGlaucomaSensitivity] = useState(0);
+  const [drConfidence, setDrConfidence] = useState(0);
+  const [retrainThreshold, setRetrainThreshold] = useState(0);
   const [isSavedAI, setIsSavedAI] = useState(false);
 
   // Fetch real audit logs & users from PostgreSQL
@@ -77,14 +28,14 @@ export const AdminAuditLogsPage: React.FC = () => {
         if (auditRes.success && auditRes.data?.items && auditRes.data.items.length > 0) {
           const mapped = auditRes.data.items.map((a: any) => ({
             id: `LOG-${a.id?.slice(0, 6).toUpperCase() || '1000'}`,
-            timestamp: a.createdAt ? new Date(a.createdAt).toLocaleString('vi-VN') : '2026-08-31 14:00',
+            timestamp: a.createdAt ? new Date(a.createdAt).toLocaleString('vi-VN') : 'Không có thời gian',
             tz: 'ICT (+7)',
             severity: a.severity || 'Info',
             title: a.action || 'Sự kiện hệ thống',
-            desc: a.details || 'Đã ghi nhận kiểm toán HIPAA bảo mật.',
+            desc: a.details || 'Không có chi tiết.',
             user: a.actorEmail || 'System',
             userType: a.actorRole === 'SYSTEM' ? 'system' : 'person',
-            ip: a.ipAddress || '127.0.0.1',
+            ip: a.ipAddress || 'Không ghi nhận',
           }));
           setLogsList(mapped);
         }
@@ -108,6 +59,13 @@ export const AdminAuditLogsPage: React.FC = () => {
         }
       } catch (e) {
         console.warn('Could not fetch users:', e);
+      }
+
+      const configRes = await adminUserApi.getAiConfig();
+      if (configRes.success && configRes.data) {
+        setGlaucomaSensitivity(Number(configRes.data.sensitivityThreshold || 0));
+        setDrConfidence(Number(configRes.data.confidenceThreshold || 0));
+        setRetrainThreshold(Number(configRes.data.avrWarningThreshold || 0));
       }
     };
     fetchAdminData();
@@ -167,10 +125,15 @@ export const AdminAuditLogsPage: React.FC = () => {
     );
   };
 
-  const handleSaveAIConfig = (e: React.FormEvent) => {
+  const handleSaveAIConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSavedAI(true);
-    setTimeout(() => setIsSavedAI(false), 2500);
+    const response = await adminUserApi.updateAiConfig({
+      sensitivityThreshold: glaucomaSensitivity,
+      confidenceThreshold: drConfidence,
+      avrWarningThreshold: retrainThreshold,
+    });
+    setIsSavedAI(response.success);
+    if (response.success) setTimeout(() => setIsSavedAI(false), 2500);
   };
 
   return (
@@ -189,7 +152,7 @@ export const AdminAuditLogsPage: React.FC = () => {
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex items-center bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-xs font-bold">
+          <div className="flex w-full flex-wrap items-center gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-xs font-bold md:w-auto">
             <button
               onClick={() => setActiveTab('audit')}
               className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
@@ -211,6 +174,17 @@ export const AdminAuditLogsPage: React.FC = () => {
             >
               <Users className="w-4 h-4" />
               Quản Lý Tài Khoản ({usersList.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('assignments')}
+              className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
+                activeTab === 'assignments'
+                  ? 'bg-white text-cyan-800 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Stethoscope className="w-4 h-4" />
+              Phân Công Bệnh Nhân
             </button>
             <button
               onClick={() => setActiveTab('ai-config')}
@@ -423,6 +397,8 @@ export const AdminAuditLogsPage: React.FC = () => {
         </div>
       )}
 
+      {activeTab === 'assignments' && <PatientAssignmentBoard />}
+
       {/* TAB 3: AI CONFIGURATION & PRICING */}
       {activeTab === 'ai-config' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -516,38 +492,8 @@ export const AdminAuditLogsPage: React.FC = () => {
               <p className="text-xs text-slate-500 mt-1">Quản lý định giá gói cước cá nhân và gói phòng khám.</p>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center">
-                <div>
-                  <div className="font-bold text-slate-900">Gói Đơn Lẻ (Single)</div>
-                  <span className="text-slate-500 text-[11px]">1 lượt khám cá nhân</span>
-                </div>
-                <span className="font-mono-data font-bold text-cyan-800">150.000 đ</span>
-              </div>
-
-              <div className="p-3 rounded-xl border border-cyan-200 bg-cyan-50/50 flex justify-between items-center">
-                <div>
-                  <div className="font-bold text-cyan-950">Gói Pro 5 Lượt</div>
-                  <span className="text-slate-500 text-[11px]">Theo dõi định kỳ cá nhân</span>
-                </div>
-                <span className="font-mono-data font-bold text-cyan-800">590.000 đ</span>
-              </div>
-
-              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center">
-                <div>
-                  <div className="font-bold text-slate-900">Gói Phòng Khám 500</div>
-                  <span className="text-slate-500 text-[11px]">Chiến dịch sàng lọc lô</span>
-                </div>
-                <span className="font-mono-data font-bold text-cyan-800">12.500.000 đ</span>
-              </div>
-
-              <div className="p-3 rounded-xl border border-purple-200 bg-purple-50/50 flex justify-between items-center">
-                <div>
-                  <div className="font-bold text-purple-950">Gói Enterprise 2,500</div>
-                  <span className="text-slate-500 text-[11px]">Bệnh viện & Trung tâm lớn</span>
-                </div>
-                <span className="font-mono-data font-bold text-purple-800">48.000.000 đ</span>
-              </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-xs text-slate-600">
+              Bảng giá không còn được ghi cứng tại trang quản trị. Danh mục đang hoạt động được cung cấp bởi API gói dịch vụ và cơ sở dữ liệu.
             </div>
           </div>
         </div>

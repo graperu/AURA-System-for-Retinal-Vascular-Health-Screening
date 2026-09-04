@@ -1,6 +1,7 @@
 package com.aura.common.exception;
 
 import com.aura.auth.exception.AuthException;
+import com.aura.billing.exception.PaymentFailedException;
 import com.aura.common.response.ApiErrorResponse;
 import com.aura.common.response.ErrorCode;
 import com.aura.common.response.ErrorDetail;
@@ -90,6 +91,13 @@ public class GlobalExceptionHandler {
     return response(
         HttpStatus.BAD_REQUEST,
         ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, msg, List.of()));
+  }
+
+  @ExceptionHandler(PaymentFailedException.class)
+  ResponseEntity<ApiErrorResponse> handlePaymentUnavailable(PaymentFailedException exception) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        ApiErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR, exception.getMessage(), List.of()));
   }
 
   @ExceptionHandler(Exception.class)
