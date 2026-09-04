@@ -1,0 +1,9 @@
+aura:
+  auth:
+    jwt-secret: GENERATE_A_STRONG_SECRET_FOR_TESTS_ONLY
+    access-token-minutes: 15
+    refresh-token-days: 7
+    cookie-secure: false
+    cookie-same-site: Lax
+  cors:
+    allowed-origins: http://localhost:5173
