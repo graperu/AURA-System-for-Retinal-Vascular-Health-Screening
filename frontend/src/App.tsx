@@ -34,7 +34,7 @@ export const App: React.FC = () => {
     currentUser.role === 'patient' ? (
       <PatientPortalPage user={currentUser} activeView={activeSection} onNavigate={setActiveSection} />
     ) : currentUser.role === 'doctor' ? (
-      <CDSDashboardPage />
+      <CDSDashboardPage activeSection={activeSection} onNavigate={handleSelectSection} />
     ) : currentUser.role === 'clinic' ? (
       <ClinicPortalPage />
     ) : (

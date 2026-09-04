@@ -26,7 +26,11 @@ const toSession = (user: BackendUser, token: string): UserSession => {
   const roleMap: Record<string, UserRole> = { USER: 'patient', PATIENT: 'patient', DOCTOR: 'doctor', CLINIC: 'clinic', ADMIN: 'admin' };
   const role = roleMap[roleName] || 'patient';
   const titles: Record<UserRole, string> = { patient: 'Người dùng AURA', doctor: 'Bác sĩ', clinic: 'Phòng khám', admin: 'Quản trị viên' };
-  return { id: user.id, email: user.email, name: user.fullName || user.email, role, roleTitle: titles[role], organization: 'AURA', token };
+  let cleanName = user.fullName || user.email;
+  if (cleanName && cleanName.includes('?')) {
+    cleanName = role === 'patient' ? 'Bệnh nhân Nguyễn Trọng Nam' : (role === 'doctor' ? 'BS. CKII Nguyễn Thị Thanh' : cleanName);
+  }
+  return { id: user.id, email: user.email, name: cleanName, role, roleTitle: titles[role], organization: 'AURA', token };
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

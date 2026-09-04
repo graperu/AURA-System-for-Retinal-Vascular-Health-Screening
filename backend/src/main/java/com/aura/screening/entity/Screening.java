@@ -90,6 +90,27 @@ public class Screening {
   @Column(name = "doctor_notes", columnDefinition = "TEXT")
   private String doctorNotes;
 
+  @Column(name = "eye_position", length = 32)
+  private String eyePosition;
+
+  @Column(name = "scan_type", length = 64)
+  private String scanType;
+
+  @Column(name = "file_name", length = 255)
+  private String fileName;
+
+  @Column(name = "file_size")
+  private Long fileSize;
+
+  @Column(name = "mime_type", length = 100)
+  private String mimeType;
+
+  @Column(name = "risk_score")
+  private Integer riskScore;
+
+  @Column(name = "vessel_density", length = 32)
+  private String vesselDensity;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -289,6 +310,62 @@ public class Screening {
 
   public void setDoctorNotes(String doctorNotes) {
     this.doctorNotes = doctorNotes;
+  }
+
+  public String getEyePosition() {
+    return eyePosition;
+  }
+
+  public void setEyePosition(String eyePosition) {
+    this.eyePosition = eyePosition;
+  }
+
+  public String getScanType() {
+    return scanType;
+  }
+
+  public void setScanType(String scanType) {
+    this.scanType = scanType;
+  }
+
+  public String getFileName() {
+    return fileName;
+  }
+
+  public void setFileName(String fileName) {
+    this.fileName = fileName;
+  }
+
+  public Long getFileSize() {
+    return fileSize;
+  }
+
+  public void setFileSize(Long fileSize) {
+    this.fileSize = fileSize;
+  }
+
+  public String getMimeType() {
+    return mimeType;
+  }
+
+  public void setMimeType(String mimeType) {
+    this.mimeType = mimeType;
+  }
+
+  public Integer getRiskScore() {
+    return riskScore;
+  }
+
+  public void setRiskScore(Integer riskScore) {
+    this.riskScore = riskScore;
+  }
+
+  public String getVesselDensity() {
+    return vesselDensity;
+  }
+
+  public void setVesselDensity(String vesselDensity) {
+    this.vesselDensity = vesselDensity;
   }
 
   public Instant getCreatedAt() {

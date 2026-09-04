@@ -34,7 +34,7 @@ public class ScreeningController {
     if (principal == null) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để thực hiện tạo ca sàng lọc");
     }
-    Screening screening = screeningService.createScreening(principal.id(), request.imageUrl());
+    Screening screening = screeningService.createScreening(principal.id(), request);
     return ApiResponse.success("Tạo ca sàng lọc và phân tích AI thành công", screening);
   }
 
@@ -45,10 +45,10 @@ public class ScreeningController {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để xem danh sách sàng lọc");
     }
     List<Screening> screenings;
-    if (principal.roles() != null && principal.roles().stream().anyMatch(r -> r.equalsIgnoreCase("ADMIN"))) {
+    boolean isDoctorOrAdmin = principal.roles() != null && principal.roles().stream()
+        .anyMatch(r -> r.equalsIgnoreCase("DOCTOR") || r.equalsIgnoreCase("ADMIN"));
+    if (isDoctorOrAdmin) {
       screenings = screeningService.getAllScreenings();
-    } else if (principal.roles() != null && principal.roles().stream().anyMatch(r -> r.equalsIgnoreCase("DOCTOR"))) {
-      screenings = screeningService.getScreeningsForDoctor(principal.id());
     } else {
       screenings = screeningService.getScreeningsForPatient(principal.id());
     }

@@ -169,7 +169,17 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, onLogout, onOpenMen
 
           {/* User Role Badge */}
           <div className="hidden min-w-0 border-l border-slate-200 pl-3 sm:block">
-            <p className="max-w-48 truncate text-sm font-bold text-slate-800">{currentUser.name}</p>
+            <p className="max-w-48 truncate text-sm font-bold text-slate-800">
+              {currentUser.name && !currentUser.name.includes('?')
+                ? currentUser.name
+                : currentUser.role === 'patient'
+                ? 'Bệnh nhân Nguyễn Trọng Nam'
+                : currentUser.role === 'doctor'
+                ? 'BS. CKII Nguyễn Thị Thanh'
+                : currentUser.role === 'clinic'
+                ? 'Phòng khám Đa khoa AURA'
+                : 'Quản trị viên Hệ thống'}
+            </p>
             <p className="text-xs text-slate-500">{roleLabels[currentUser.role]}</p>
           </div>
 

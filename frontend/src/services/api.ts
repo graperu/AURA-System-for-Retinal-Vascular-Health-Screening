@@ -236,4 +236,52 @@ export const doctorApi = {
     }),
 };
 
+export const doctorPatientApi = {
+  getPatients: (params: {
+    search?: string;
+    risk?: string;
+    hasDiabetes?: boolean;
+    hasHypertension?: boolean;
+    historyOfSmoking?: boolean;
+    doctorName?: string;
+    reviewStatus?: string;
+    page?: number;
+    size?: number;
+    sort?: string;
+  } = {}) => {
+    const query = new URLSearchParams();
+    if (params.search) query.set('search', params.search);
+    if (params.risk && params.risk !== 'ALL') query.set('risk', params.risk);
+    if (params.hasDiabetes) query.set('hasDiabetes', 'true');
+    if (params.hasHypertension) query.set('hasHypertension', 'true');
+    if (params.historyOfSmoking) query.set('historyOfSmoking', 'true');
+    if (params.doctorName && params.doctorName !== 'ALL') query.set('doctorName', params.doctorName);
+    if (params.reviewStatus && params.reviewStatus !== 'ALL') query.set('reviewStatus', params.reviewStatus);
+    query.set('page', (params.page ?? 0).toString());
+    query.set('size', (params.size ?? 10).toString());
+    if (params.sort) query.set('sort', params.sort);
+
+    return apiFetch<any>(`/api/v1/doctor/patients?${query.toString()}`, {
+      method: 'GET',
+    });
+  },
+
+  getById: (id: string) =>
+    apiFetch<any>(`/api/v1/doctor/patients/${id}`, {
+      method: 'GET',
+    }),
+
+  create: (patientData: any) =>
+    apiFetch<any>('/api/v1/doctor/patients', {
+      method: 'POST',
+      body: JSON.stringify(patientData),
+    }),
+
+  update: (id: string, patientData: any) =>
+    apiFetch<any>(`/api/v1/doctor/patients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(patientData),
+    }),
+};
+
 

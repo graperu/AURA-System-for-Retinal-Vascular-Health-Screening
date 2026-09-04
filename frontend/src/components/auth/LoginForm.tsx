@@ -195,10 +195,10 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
           <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 text-center">
             <p className="mb-1.5 text-[11px] font-medium text-slate-400">Tài khoản demo kiểm thử:</p>
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              <button type="button" onClick={() => setDemo('patient@auraclinical.com', 'Patient@123456')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">👤 Bệnh nhân</button>
-              <button type="button" onClick={() => setDemo('doctor@auraclinical.com', 'Doctor@123456')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">👨‍⚕️ Bác sĩ</button>
-              <button type="button" onClick={() => setDemo('clinic@auraclinical.com', 'Clinic@123456')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">🏥 Phòng khám</button>
-              <button type="button" onClick={() => setDemo('admin@auraclinical.com', 'Admin@123456')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">🛡️ Admin</button>
+              <button type="button" onClick={() => setDemo('patient@aura.com', 'Password123@Aura')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">👤 Bệnh nhân</button>
+              <button type="button" onClick={() => setDemo('doctor@aura.com', 'Password123@Aura')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">👨‍⚕️ Bác sĩ</button>
+              <button type="button" onClick={() => setDemo('clinic@aura.com', 'Password123@Aura')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">🏥 Phòng khám</button>
+              <button type="button" onClick={() => setDemo('admin@aura.com', 'Password123@Aura')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">🛡️ Admin</button>
             </div>
           </div>
         </div>

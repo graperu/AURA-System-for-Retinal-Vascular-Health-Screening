@@ -38,6 +38,20 @@ public class ScreeningService {
   }
 
   @Transactional
+  public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request) {
+    Screening screening = createScreening(patientId, request.imageUrl());
+    if (request.eyePosition() != null) screening.setEyePosition(request.eyePosition());
+    if (request.scanType() != null) screening.setScanType(request.scanType());
+    if (request.fileName() != null) screening.setFileName(request.fileName());
+    if (request.fileSize() != null) screening.setFileSize(request.fileSize());
+    if (request.mimeType() != null) screening.setMimeType(request.mimeType());
+    if (request.riskScore() != null) screening.setRiskScore(request.riskScore());
+    if (request.avRatio() != null) screening.setAvRatio(request.avRatio());
+    if (request.vesselDensity() != null) screening.setVesselDensity(request.vesselDensity());
+    return screeningRepository.save(screening);
+  }
+
+  @Transactional
   public Screening createScreening(UUID patientId, String imageUrl) {
     Screening screening = new Screening(patientId, imageUrl);
 
