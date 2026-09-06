@@ -300,6 +300,12 @@ export const assignmentApi = {
 export const bulkScreeningApi = {
   getBatch: (batchId: string) =>
     apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, { method: 'GET' }),
+  getStatistics: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/statistics`, { method: 'GET' }),
+  getAlerts: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/alerts`, { method: 'GET' }),
+  listBatches: () =>
+    apiFetch<any[]>(`/api/v1/bulk-screening/batches`, { method: 'GET' }),
 };
 
 export const servicePackageApi = {
