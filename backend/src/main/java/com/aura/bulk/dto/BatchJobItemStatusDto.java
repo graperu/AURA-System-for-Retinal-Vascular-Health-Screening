@@ -8,7 +8,15 @@ public record BatchJobItemStatusDto(
     String fileName,
     String eyePosition,
     String pseudonymPatientId,
+    String patientName,
+    String rawMrn,
+    int patientAge,
+    String patientGender,
+    int systolicBp,
+    int diastolicBp,
+    double hbA1c,
     String status, // QUEUED, PROCESSING, COMPLETED, FAILED
     long durationMs,
     AiInferenceResultDto aiResult
 ) {}
+

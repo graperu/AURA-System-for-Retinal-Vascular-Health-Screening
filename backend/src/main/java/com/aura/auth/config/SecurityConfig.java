@@ -81,6 +81,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/v1/doctor/**").hasRole("DOCTOR")
                     .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .requestMatchers("/api/v1/clinic/**").hasAnyRole("CLINIC", "ADMIN")
+                    .requestMatchers("/api/v1/bulk-screening/**").permitAll()
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(origin, UsernamePasswordAuthenticationFilter.class)

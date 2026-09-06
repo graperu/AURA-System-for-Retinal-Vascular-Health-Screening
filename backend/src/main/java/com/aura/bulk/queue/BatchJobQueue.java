@@ -21,6 +21,7 @@ public class BatchJobQueue {
 
     private final LinkedBlockingQueue<BatchItemTask> taskQueue = new LinkedBlockingQueue<>(5000);
     private final ConcurrentHashMap<String, BatchJobState> batchStore = new ConcurrentHashMap<>();
+    private volatile String latestBatchId = null;
 
     public void enqueue(BatchItemTask task) throws InterruptedException {
         taskQueue.put(task);
@@ -30,7 +31,12 @@ public class BatchJobQueue {
         return taskQueue.take();
     }
 
+    public String getLatestBatchId() {
+        return latestBatchId;
+    }
+
     public void createBatchJob(String batchId, String clinicId, int totalImages) {
+        this.latestBatchId = batchId;
         BatchJobState state = new BatchJobState(
                 batchId,
                 clinicId,
@@ -53,7 +59,7 @@ public class BatchJobQueue {
         int processed = state.processedCount().get();
         int failed = state.failedCount().get();
         int remaining = state.totalImages() - processed - failed;
-        double estRemainingSeconds = Math.max(0, remaining * 14.0);
+        double estRemainingSeconds = Math.max(0, Math.ceil(remaining * 0.03));
 
         List<BatchJobItemStatusDto> itemsList = state.items().values().stream()
                 .sorted(Comparator.comparing(BatchJobItemStatusDto::itemId))
@@ -89,6 +95,13 @@ public class BatchJobQueue {
                     existingItem.fileName(),
                     existingItem.eyePosition(),
                     existingItem.pseudonymPatientId(),
+                    existingItem.patientName(),
+                    existingItem.rawMrn(),
+                    existingItem.patientAge(),
+                    existingItem.patientGender(),
+                    existingItem.systolicBp(),
+                    existingItem.diastolicBp(),
+                    existingItem.hbA1c(),
                     status,
                     durationMs,
                     result != null ? result : existingItem.aiResult()

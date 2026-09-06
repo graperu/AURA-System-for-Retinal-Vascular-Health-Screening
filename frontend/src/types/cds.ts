@@ -132,15 +132,43 @@ export interface DoctorFeedback {
   signedDigitalSignature?: string;
 }
 
+export interface BulkImageAiResult {
+  analysisId?: string;
+  executionTimeMs?: number;
+  overallVascularRiskScore?: number;
+  cardiovascularRiskScore?: number;
+  cardiovascularRiskLevel?: string;
+  diabeticRetinopathyScore?: number;
+  diabeticRetinopathyLevel?: string;
+  threeYearStrokeRiskPercent?: number;
+  arteryVeinRatio?: number;
+  vesselDensityPercentage?: number;
+  tortuosityIndex?: number;
+  opticCupToDiscRatio?: number;
+  heatmapOverlayUrl?: string;
+  detectedAnomaliesCount?: number;
+  xaiRationales?: string[];
+}
+
 export interface ClinicBatchJobItem {
   id: string;
   patientName: string;
   mrn: string;
+  pseudonymId?: string;
   eye: 'OD' | 'OS';
   fileName: string;
-  status: 'PENDING' | 'PROCESSING' | 'DONE' | 'ERROR';
+  status: 'PENDING' | 'PROCESSING' | 'DONE' | 'COMPLETED' | 'ERROR' | 'FAILED' | 'QUEUED';
   riskLevel?: RiskLevel;
   riskScore?: number;
+  patientAge?: number;
+  patientGender?: string;
+  systolicBp?: number;
+  diastolicBp?: number;
+  hbA1c?: number;
+  durationMs?: number;
+  aiResult?: BulkImageAiResult;
+  thumbnailUrl?: string;
+  createdAt?: string | number;
 }
 
 export interface ClinicBatchJob {
@@ -150,8 +178,9 @@ export interface ClinicBatchJob {
   totalImages: number;
   processedCount: number;
   failedCount: number;
-  status: 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED';
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED' | 'CANCELLED' | 'QUEUED';
   createdAt: string;
   estimatedTimeRemainingSec: number;
   items: ClinicBatchJobItem[];
 }
+

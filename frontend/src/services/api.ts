@@ -93,6 +93,7 @@ export const authApi = {
       body: JSON.stringify(payload),
     }),
 };
+
 export const screeningApi = {
   create: (imageUrl: string) =>
     apiFetch<any>('/api/v1/screenings', {
@@ -284,4 +285,59 @@ export const doctorPatientApi = {
     }),
 };
 
+export interface BulkUploadItemPayload {
+  fileName: string;
+  base64ImageContent: string;
+  previewUrl?: string;
+  eyePosition: string;
+  rawMrn: string;
+  rawPatientName: string;
+  patientAge: number;
+  patientGender: string;
+  systolicBp: number;
+  diastolicBp: number;
+  hbA1c: number;
+}
 
+export interface BulkUploadPayload {
+  clinicId: string;
+  campaignName: string;
+  imageItems: BulkUploadItemPayload[];
+}
+
+export const bulkScreeningApi = {
+  createBatch: (payload: BulkUploadPayload) =>
+    apiFetch<any>('/api/v1/bulk-screening/batch', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  createDemoBatch: (count: number = 100, campaignName?: string) => {
+    const params = new URLSearchParams();
+    params.set('count', count.toString());
+    if (campaignName) params.set('campaignName', campaignName);
+    return apiFetch<any>(`/api/v1/bulk-screening/demo-batch?${params.toString()}`, {
+      method: 'POST',
+    });
+  },
+
+  getBatchStatus: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${batchId}`, {
+      method: 'GET',
+    }),
+
+  getLatestBatch: () =>
+    apiFetch<any>('/api/v1/bulk-screening/latest', {
+      method: 'GET',
+    }),
+
+  getBatchItemResult: (batchId: string, itemId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${batchId}/items/${itemId}`, {
+      method: 'GET',
+    }),
+
+  cancelBatch: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${batchId}/cancel`, {
+      method: 'POST',
+    }),
+};
