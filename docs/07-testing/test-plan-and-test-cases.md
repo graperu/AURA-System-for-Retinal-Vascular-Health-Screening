@@ -40,14 +40,17 @@ Xác minh và kiểm chứng toàn diện mọi chức năng của hệ thống 
 | `TC-USER-05` | Tra cứu lịch sử khám (`FR-6`)| Vào trang Patient Portal | Hiển thị danh sách các lần khám trước theo dòng thời gian | ✅ PASS |
 | `TC-USER-06` | Xuất phiếu kết quả PDF (`FR-7`)| Bấm "Xuất Báo Cáo Y Khoa (PDF)" | Mở Modal PDF có logo AURA, ảnh Heatmap, chữ ký số và in ấn | ✅ PASS |
 | `TC-USER-07` | Cập nhật hồ sơ y tế (`FR-8`)| Sửa tiền sử bệnh án và bấm Lưu | Thông tin được cập nhật thành công | ✅ PASS |
+| `TC-USER-07-LAB` | Đính kèm xét nghiệm (`FR-8`)| Upload PDF/PNG/JPEG hợp lệ, tải xuống rồi xóa | Tệp lưu trong PostgreSQL, tải về đúng bytes và bị xóa đúng chủ sở hữu | ✅ PASS |
 | `TC-USER-08` | Trung tâm thông báo (`FR-9`)| AI hoàn tất ca phân tích | Chuông thông báo trên Header tăng badge đỏ và hiển thị popup | ✅ PASS |
 | `TC-USER-09` | Nhắn tin với Bác sĩ (`FR-10`)| Mở Modal Chat, nhập tin nhắn và gửi | Tin nhắn xuất hiện ngay trên khung chat hai chiều | ✅ PASS |
-| `TC-USER-10` | Nạp Credit & Mua gói (`FR-11, FR-12`)| Chọn gói Standard, quét mã thanh toán | Số dư Credit tăng thêm tương ứng, lưu giao dịch vào lịch sử | ✅ PASS |
+| `TC-USER-10` | Nạp Credit & Mua gói (`FR-11, FR-12`)| Chọn gói khi chưa cấu hình gateway | Trả `503`, không báo thành công giả và không cộng credit | ✅ PASS |
 
 ### 2.2. Nhóm Phân hệ Bác sĩ & Bảo Mật RBAC/IDOR (FR-13 đến FR-21 & FR-32)
 | Mã TC | Chức năng kiểm thử | Các bước thực hiện | Kết quả mong đợi | Trạng thái |
 |---|---|---|---|:---:|
 | `TC-DOC-01` | Chuyển đổi bệnh nhân (`FR-13`)| Chọn bệnh nhân từ danh sách phân công tiếp nhận | Dữ liệu hình ảnh và lịch sử của bệnh nhân đó lập tức hiển thị | ✅ PASS |
+| `TC-ADMIN-ASSIGN-01` | Phân công hàng loạt (`FR-13`)| Admin chọn/kéo bệnh nhân sang bác sĩ khác | Phân công mới Active, phân công cũ Inactive, worklist được cập nhật | ✅ PASS |
+| `TC-ADMIN-ASSIGN-02` | RBAC điều phối (`FR-13`)| Doctor gọi API bảng phân công Admin | Bị từ chối `403 Forbidden` | ✅ PASS |
 | `TC-DOC-02` | Phân tích chi tiết vi mạch (`FR-14`)| Dùng chế độ Side-by-Side & Zoom | Quan sát rõ mạng lưới mao mạch và các chỉ số AVR, Tortuosity | ✅ PASS |
 | `TC-DOC-03` | Xác nhận kết quả AI (`FR-15`)| Bấm nút "Xác Nhận (Đồng Ý)" | Cập nhật trạng thái ca khám thành VALIDATED/REVIEWED | ✅ PASS |
 | `TC-DOC-04` | Hiệu chỉnh nguy cơ AI (`FR-15`)| Bấm "Chỉnh Sửa Nguy Cơ" sang mức CAO | Mức độ rủi ro được cập nhật theo quyết định của bác sĩ | ✅ PASS |

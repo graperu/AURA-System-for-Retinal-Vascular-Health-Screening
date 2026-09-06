@@ -71,10 +71,12 @@ public class AuthService {
     user.setEmailVerified(true);
     var savedUser = users.save(user);
 
-    var role = roles.findByName(RoleName.USER).orElseThrow();
+    // FR-22: cho phép tự đăng ký vai trò CLINIC (Phòng khám); mặc định vẫn là USER (Bệnh nhân).
+    RoleName requestedRole = "CLINIC".equals(q.role()) ? RoleName.CLINIC : RoleName.USER;
+    var role = roles.findByName(requestedRole).orElseThrow();
     userRoles.save(new UserRole(savedUser, role));
 
-    return result(savedUser, List.of("USER"));
+    return result(savedUser, List.of(requestedRole.name()));
   }
 
   @Transactional
@@ -88,9 +90,12 @@ public class AuthService {
                 email,
                 encoder.encode(q.password()),
                 q.fullName() == null ? null : q.fullName().trim()));
-    var role = roles.findByName(RoleName.USER).orElseThrow();
+    // FR-22: cho phép tự đăng ký vai trò CLINIC (Phòng khám); mặc định vẫn là USER (Bệnh nhân).
+    // Vai trò DOCTOR/ADMIN không bao giờ được tự đăng ký, chỉ được cấp bởi Admin/Phòng khám.
+    RoleName requestedRole = "CLINIC".equals(q.role()) ? RoleName.CLINIC : RoleName.USER;
+    var role = roles.findByName(requestedRole).orElseThrow();
     userRoles.save(new UserRole(u, role));
-    return view(u, List.of("USER"));
+    return view(u, List.of(requestedRole.name()));
   }
 
   public LoginResult login(LoginRequest q) {

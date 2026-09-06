@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ClinicBatchJob } from '../types/cds';
 import { CreditPurchaseModal } from './CreditPurchaseModal';
 import { UploadCloud, Building2, CreditCard, Play, Pause, CheckCircle2, Clock, AlertTriangle, Search, Download, FileSpreadsheet } from 'lucide-react';
+import { billingApi } from '../services/api';
 
 interface ClinicBatchProcessingProps {
   batchJob: ClinicBatchJob;
@@ -11,7 +12,16 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({ ba
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
-  const [clinicCredits, setClinicCredits] = useState(1880);
+  const [clinicCredits, setClinicCredits] = useState(0);
+
+  useEffect(() => {
+    billingApi.mySubscriptions().then((response) => {
+      if (response.success && Array.isArray(response.data)) {
+        setClinicCredits(response.data.reduce((total: number, item: any) =>
+          total + (item.status === 'ACTIVE' ? Number(item.remainingCredits || 0) : 0), 0));
+      }
+    });
+  }, []);
 
   const filteredItems = batchJob.items.filter((item) => {
     const matchesSearch =
@@ -60,7 +70,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({ ba
             <h3 className="font-bold text-sm text-[#134E4A]">{batchJob.clinicName}</h3>
             <span className="text-xs text-slate-500 block">Mã Chiến Dịch: {batchJob.batchId}</span>
             <span className="text-[11px] text-[#16A34A] font-semibold flex items-center gap-1 mt-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Khám Sàng Lọc Diện Rộng Lần 4/2026
+              <CheckCircle2 className="w-3.5 h-3.5" /> Trạng thái: {batchJob.status}
             </span>
           </div>
         </div>
@@ -91,14 +101,14 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({ ba
             <span className="text-xs font-semibold uppercase tracking-wider text-cyan-100 flex items-center gap-1.5">
               <CreditCard className="w-4 h-4" /> Quản Lý Gói Credit Screening
             </span>
-            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono-data">Enterprise</span>
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono-data">Dữ liệu API</span>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-extrabold font-mono-data">{clinicCredits.toLocaleString()}</span>
-            <span className="text-xs text-cyan-200">/ 2,500 Lượt AI Screening Còn Lại</span>
+            <span className="text-xs text-cyan-200">lượt AI còn lại</span>
           </div>
           <div className="text-[11px] text-cyan-100 flex justify-between items-center pt-1">
-            <span>Hạn dùng: 31/12/2026</span>
+            <span>Lấy từ subscription đang hoạt động</span>
             <button
               onClick={() => setIsCreditModalOpen(true)}
               className="bg-white text-[#0891B2] hover:bg-cyan-50 px-2.5 py-1 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all"

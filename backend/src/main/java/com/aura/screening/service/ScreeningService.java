@@ -72,26 +72,27 @@ public class ScreeningService {
         Map body = mapper.readValue(response.body(), Map.class);
         log.info("Received AI response: {}", body);
 
-        RiskLevel calculatedRisk = RiskLevel.MODERATE;
+        RiskLevel calculatedRisk;
         Number overallRisk = (Number) body.get("overallVascularRiskScore");
         if (overallRisk == null) {
           overallRisk = (Number) body.get("overallRiskScore");
         }
-        if (overallRisk != null) {
-          int score = overallRisk.intValue();
-          if (score >= 80) calculatedRisk = RiskLevel.CRITICAL;
-          else if (score >= 65) calculatedRisk = RiskLevel.HIGH;
-          else if (score >= 40) calculatedRisk = RiskLevel.MODERATE;
-          else calculatedRisk = RiskLevel.LOW;
+        if (overallRisk == null) {
+          throw new IllegalStateException("AI response is missing overallVascularRiskScore");
         }
+        int score = overallRisk.intValue();
+        if (score >= 80) calculatedRisk = RiskLevel.CRITICAL;
+        else if (score >= 65) calculatedRisk = RiskLevel.HIGH;
+        else if (score >= 40) calculatedRisk = RiskLevel.MODERATE;
+        else calculatedRisk = RiskLevel.LOW;
 
-        double confidence = 0.92;
+        Double confidence = null;
         Number conf = (Number) body.get("confidence");
         if (conf != null) {
           confidence = conf.doubleValue();
         }
 
-        String findings = "Cấu trúc vi mạch võng mạc được phân tích bởi mô hình AURA AI. Đang giám sát nguy cơ tim mạch và tiểu đường.";
+        String findings = null;
         // --- FR-3: parse per-category risk breakdown from the AI Core's `predictions` array ---
         List<Map> predictions = (List<Map>) body.get("predictions");
         if (predictions != null) {
@@ -140,7 +141,7 @@ public class ScreeningService {
         }
 
         screening.setRiskLevel(calculatedRisk);
-        screening.setConfidence(Math.round(confidence * 100.0) / 100.0);
+        screening.setConfidence(confidence != null ? Math.round(confidence * 100.0) / 100.0 : null);
         screening.setFindings(findings);
         // --- FR-5: auto-generate health recommendations/warnings from the computed risk level ---
         screening.setRecommendations(generateRecommendations(calculatedRisk));

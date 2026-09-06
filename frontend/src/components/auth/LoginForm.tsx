@@ -66,46 +66,9 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
       }
     }
 
-    // 2. Direct Mock Login Fallback (when Firebase keys are not yet configured)
-    try {
-      const targetEmail = 'doctor.google@aura.health';
-      const headerStr = JSON.stringify({ alg: 'RS256', typ: 'JWT' });
-      const payloadStr = JSON.stringify({
-        iss: 'https://accounts.google.com',
-        email: targetEmail,
-        name: 'Bác sĩ Google Medical',
-        email_verified: true,
-        sub: 'google-oauth-user-12345'
-      });
-
-      const b64Header = btoa(unescape(encodeURIComponent(headerStr)));
-      const b64Payload = btoa(unescape(encodeURIComponent(payloadStr)));
-      const mockToken = `${b64Header}.${b64Payload}.mockSignature`;
-
-      const result = await loginWithSocial({
-        provider: 'google',
-        idToken: mockToken,
-        email: targetEmail,
-        fullName: 'Bác sĩ Google Medical'
-      });
-
-      if (!result.success) {
-        setErrors({ form: result.message || 'Đăng nhập Google thất bại. Vui lòng thử lại.' });
-      }
-    } catch {
-      setErrors({ form: 'Không thể kết nối dịch vụ định danh Google. Vui lòng thử lại.' });
-    } finally {
-      setSocialLoading(null);
-    }
+    setErrors({ form: 'Đăng nhập Google chưa được cấu hình. Vui lòng đăng nhập bằng email hoặc liên hệ quản trị viên.' });
+    setSocialLoading(null);
   };
-
-  const setDemo = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setErrors({});
-  };
-
-  const isDev = import.meta.env.DEV;
 
   return (
     <form onSubmit={submit} noValidate className="mt-5 space-y-4">
@@ -189,20 +152,6 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
         )}
       </button>
 
-      {/* Dev Demo Accounts (Only in DEV mode) */}
-      {isDev && (
-        <div className="pt-2">
-          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 text-center">
-            <p className="mb-1.5 text-[11px] font-medium text-slate-400">Tài khoản demo kiểm thử:</p>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              <button type="button" onClick={() => setDemo('patient@auraclinical.com', 'Patient@123456')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">👤 Bệnh nhân</button>
-              <button type="button" onClick={() => setDemo('doctor@auraclinical.com', 'Doctor@123456')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">👨‍⚕️ Bác sĩ</button>
-              <button type="button" onClick={() => setDemo('clinic@auraclinical.com', 'Clinic@123456')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">🏥 Phòng khám</button>
-              <button type="button" onClick={() => setDemo('admin@auraclinical.com', 'Admin@123456')} className="rounded-lg border border-slate-200/80 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-700 transition">🛡️ Admin</button>
-            </div>
-          </div>
-        </div>
-      )}
     </form>
   );
 };

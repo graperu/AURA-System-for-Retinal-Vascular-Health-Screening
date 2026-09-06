@@ -2,6 +2,14 @@ export type UserRole = 'patient' | 'doctor' | 'clinic' | 'admin';
 
 export type RiskLevel = 'Low' | 'Moderate' | 'High' | 'Severe';
 
+export interface LabDocument {
+  id: string;
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  uploadedAt: string;
+}
+
 export interface PatientProfile {
   id?: string;
   userId?: string;
@@ -93,13 +101,6 @@ export interface AIRiskResult {
   }[];
 }
 
-export interface LesionAnnotationMarker {
-  id: string;
-  xPercent: number; // 0-100, relative to image width
-  yPercent: number; // 0-100, relative to image height
-  note?: string;
-}
-
 export interface DoctorFeedback {
   feedbackId: string;
   analysisId: string;
@@ -112,7 +113,6 @@ export interface DoctorFeedback {
   clinicalNotes: string;
   reviewedAt: string;
   signedDigitalSignature?: string;
-  lesionAnnotations?: LesionAnnotationMarker[];
 }
 
 export interface ClinicBatchJobItem {

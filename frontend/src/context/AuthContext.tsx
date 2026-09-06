@@ -15,7 +15,7 @@ interface AuthContextType {
   loginWithSocial: (payload: { provider: string; idToken: string; email?: string; fullName?: string; picture?: string }) => Promise<AuthResult>;
   register: (data: { fullName?: string; email: string; password: string; phone?: string; role?: string }) => Promise<AuthResult>;
   sendOtp: (data: { email: string; fullName?: string; type?: string }) => Promise<AuthResult<{ email: string; expiresInSeconds: number }>>;
-  verifyOtpAndRegister: (data: { email: string; otp: string; fullName?: string; password: string }) => Promise<AuthResult>;
+  verifyOtpAndRegister: (data: { email: string; otp: string; fullName?: string; password: string; role?: string }) => Promise<AuthResult>;
   logout: () => Promise<void>;
 }
 
@@ -92,14 +92,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: response.success, message: response.message, code: response.code, details: response.details, data: response.data };
   };
 
-  const verifyOtpAndRegister = async (data: { email: string; otp: string; fullName?: string; password: string }): Promise<AuthResult> => {
+  const verifyOtpAndRegister = async (data: { email: string; otp: string; fullName?: string; password: string; role?: string }): Promise<AuthResult> => {
     const response = await apiFetch<LoginResponse>('/api/v1/auth/verify-otp', {
       method: 'POST',
       body: JSON.stringify({
         email: data.email.trim(),
         otp: data.otp.trim(),
         fullName: data.fullName?.trim(),
-        password: data.password
+        password: data.password,
+        ...(data.role ? { role: data.role } : {}),
       })
     });
     if (response.success && response.data) {
@@ -110,7 +111,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (data: { fullName?: string; email: string; password: string; phone?: string; role?: string }): Promise<AuthResult> => {
-    const payload = { email: data.email.trim(), password: data.password, ...(data.fullName?.trim() ? { fullName: data.fullName.trim() } : {}) };
+    const payload = {
+      email: data.email.trim(),
+      password: data.password,
+      ...(data.fullName?.trim() ? { fullName: data.fullName.trim() } : {}),
+      ...(data.role ? { role: data.role } : {}),
+    };
     const response = await apiFetch<BackendUser>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify(payload) });
     return { success: response.success, message: response.message, code: response.code, details: response.details };
   };

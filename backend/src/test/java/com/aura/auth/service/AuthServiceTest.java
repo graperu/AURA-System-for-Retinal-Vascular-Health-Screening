@@ -41,7 +41,7 @@ class AuthServiceTest {
     when(roles.findByName(RoleName.USER)).thenReturn(Optional.of(role));
     var response =
         service.register(
-            new RegisterRequest(" User@Example.Test ", "StrongPassword123!", "Test User"));
+            new RegisterRequest(" User@Example.Test ", "StrongPassword123!", "Test User", null));
     assertThat(response.email()).isEqualTo("user@example.test");
     assertThat(response.roles()).containsExactly("USER");
     verify(encoder).encode("StrongPassword123!");
@@ -54,7 +54,7 @@ class AuthServiceTest {
     assertThatThrownBy(
             () ->
                 service.register(
-                    new RegisterRequest("user@example.test", "StrongPassword123!", "Test")))
+                    new RegisterRequest("user@example.test", "StrongPassword123!", "Test", null)))
         .isInstanceOfSatisfying(
             AuthException.class,
             e -> assertThat(e.code()).isEqualTo(ErrorCode.EMAIL_ALREADY_EXISTS));
