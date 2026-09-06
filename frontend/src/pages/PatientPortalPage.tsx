@@ -7,7 +7,6 @@ import { ConsultationChatModal } from '../components/ConsultationChatModal';
 import { CreditPurchaseModal } from '../components/CreditPurchaseModal';
 import { MedicalProfileModal } from '../components/MedicalProfileModal';
 import { AIRiskResult, FundusAnalysisRequest, PatientProfile } from '../types/cds';
-import { MOCK_SAMPLE_RESULT, MockAIService } from '../services/mockAiEngine';
 import { screeningApi, chatApi, billingApi, patientApi } from '../services/api';
 import {
   Eye,
@@ -71,7 +70,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [isProfileLoading, setIsProfileLoading] = useState<boolean>(true);
   const [isProfileError, setIsProfileError] = useState<boolean>(false);
 
-  const [analysisResult, setAnalysisResult] = useState<AIRiskResult>(MOCK_SAMPLE_RESULT);
+  const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisProgress, setAnalysisProgress] = useState<{ status: string; percent: number }>({
     status: '',
@@ -87,17 +86,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [userCredits, setUserCredits] = useState(5);
+  const [userCredits, setUserCredits] = useState(0);
 
   // In-app chat messages for dedicated consultation view
-  const [chatMessages, setChatMessages] = useState([
-    {
-      id: 'm1',
-      sender: 'doctor',
-      text: 'Chào bạn! Tôi là bác sĩ phụ trách hồ sơ khám của bạn. Bạn hãy cập nhật đầy đủ thông tin sinh hiệu và tiền sử bệnh để nhận được tư vấn chính xác nhất nhé.',
-      time: '18:15',
-    },
-  ]);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [assignedDoctorId, setAssignedDoctorId] = useState<string | null>(null);
   const [newChatText, setNewChatText] = useState('');
 
   // Scan History
@@ -137,6 +130,22 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           assignedDoctor: profileRes.data.assignedDoctor || null,
           updatedAt: profileRes.data.updatedAt || null,
         });
+        setAssignedDoctorId(profileRes.data.assignedDoctorId || null);
+        if (profileRes.data.assignedDoctorId) {
+          const chatRes = await chatApi.getConversation(profileRes.data.assignedDoctorId);
+          if (chatRes.success && Array.isArray(chatRes.data)) {
+            setChatMessages(chatRes.data.map((message: any) => ({
+              id: message.id,
+              sender: message.senderId === profileRes.data.assignedDoctorId ? 'doctor' : 'patient',
+              text: message.messageText,
+              time: message.createdAt
+                ? new Date(message.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                : 'Không có thời gian',
+            })));
+          }
+        } else {
+          setChatMessages([]);
+        }
       }
     } catch (e) {
       console.warn('Could not fetch patient medical profile from DB:', e);
@@ -151,17 +160,23 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     const fetchRealData = async () => {
       try {
         const res = await screeningApi.getAll();
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           const mapped = res.data.map((item: any) => ({
             id: `ANALYSIS-${item.id.slice(0, 8).toUpperCase()}`,
-            date: item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : 'Mới đây',
-            eye: 'Mắt Phải (OD)',
-            scanType: 'Fundus Cực Sau Hoàng Điểm',
-            overallScore: item.riskLevel === 'CRITICAL' ? 88 : item.riskLevel === 'HIGH' ? 78 : item.riskLevel === 'MODERATE' ? 55 : 25,
-            riskLevel: item.riskLevel === 'CRITICAL' || item.riskLevel === 'HIGH' ? 'Nguy cơ cao' : 'Nguy cơ trung bình',
-            cvdRisk: `${Math.round((item.confidence || 0.85) * 100)}%`,
-            doctor: item.doctorId ? 'BS. CKII Chuyên Khoa' : 'Chờ bác sĩ duyệt',
-            status: item.status === 'REVIEWED' ? 'Đã duyệt lâm sàng' : 'Đã phân tích AI',
+            date: item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : 'Không có thời gian',
+            eye: item.eye || 'Chưa ghi nhận',
+            scanType: item.scanType || 'Chưa ghi nhận',
+            overallScore: item.overallVascularRiskScore ?? null,
+            riskLevel: item.riskLevel || 'Chưa có kết quả',
+            cvdRisk: item.cardiovascularRiskScore != null ? `${item.cardiovascularRiskScore}%` : 'Chưa có',
+            doctor: item.doctorName || (item.doctorId ? item.doctorId : 'Chờ bác sĩ duyệt'),
+            status: item.status === 'REVIEWED'
+              ? 'Đã duyệt lâm sàng'
+              : item.status === 'ANALYZED'
+                ? 'Đã phân tích AI'
+                : item.status === 'FAILED'
+                  ? 'Phân tích thất bại'
+                  : 'Đang chờ xử lý',
           }));
           setScanHistory(mapped);
         }
@@ -169,25 +184,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         console.warn('Could not fetch screenings from DB:', e);
       }
 
-      // Fetch real conversation with Doctor from PostgreSQL
-      try {
-        const doctorId = '22222222-2222-2222-2222-222222222222';
-        const chatRes = await chatApi.getConversation(doctorId);
-        if (chatRes.success && Array.isArray(chatRes.data) && chatRes.data.length > 0) {
-          const mappedChat = chatRes.data.map((m: any) => ({
-            id: m.id,
-            sender: m.senderId === doctorId ? 'doctor' : 'patient',
-            text: m.messageText,
-            time: m.createdAt ? new Date(m.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '18:30',
-          }));
-          setChatMessages(mappedChat);
-        }
-      } catch (e) {
-        console.warn('Could not fetch chat from DB:', e);
-      }
-
       // Fetch profile
       await fetchProfileData();
+
+      const subscriptions = await billingApi.mySubscriptions();
+      if (subscriptions.success && Array.isArray(subscriptions.data)) {
+        setUserCredits(subscriptions.data.reduce((total: number, item: any) =>
+          total + (item.status === 'ACTIVE' ? Number(item.remainingCredits || 0) : 0), 0));
+      }
     };
     fetchRealData();
   }, []);
@@ -200,23 +204,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
 
     try {
       setAnalysisProgress({ status: 'Đang gửi ảnh đến AURA AI Core (FastAPI)...', percent: 45 });
-      let result: AIRiskResult | null = null;
-
-      try {
-        const res = await screeningApi.create(request.imageUrl);
-        if (res.success && res.data && res.data.status !== 'FAILED') {
-          setAnalysisProgress({ status: 'Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...', percent: 85 });
-          result = mapScreeningToAIRiskResult(res.data, request.imageUrl);
-        }
-      } catch (backendErr) {
-        console.warn('Backend call failed, using mock AI fallback:', backendErr);
+      const res = await screeningApi.create(request.imageUrl);
+      if (!res.success || !res.data || res.data.status === 'FAILED') {
+        throw new Error(res.message || res.data?.findings || 'Dịch vụ AI chưa sẵn sàng. Không tạo kết quả giả.');
       }
-
-      if (!result) {
-        result = await MockAIService.runFundusAnalysis(request, (status, percent) => {
-          setAnalysisProgress({ status, percent });
-        });
-      }
+      setAnalysisProgress({ status: 'Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...', percent: 85 });
+      const result = mapScreeningToAIRiskResult(res.data, request.imageUrl);
 
       setAnalysisResult(result);
       // Add to Scan History
@@ -263,11 +256,15 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     };
     setChatMessages((prev) => [...prev, optimisticMsg]);
 
-    try {
-      const doctorId = '22222222-2222-2222-2222-222222222222';
-      await chatApi.sendMessage(doctorId, textToSend);
-    } catch (err) {
-      console.warn('Failed to send message to backend:', err);
+    if (!assignedDoctorId) {
+      setChatMessages((prev) => prev.filter((message) => message.id !== optimisticMsg.id));
+      setAnalysisErrorMsg('Chưa có bác sĩ được phân công nên không thể gửi tin nhắn.');
+      return;
+    }
+    const response = await chatApi.sendMessage(assignedDoctorId, textToSend);
+    if (!response.success) {
+      setChatMessages((prev) => prev.filter((message) => message.id !== optimisticMsg.id));
+      setAnalysisErrorMsg(response.message || 'Không thể gửi tin nhắn.');
     }
   };
 
@@ -299,7 +296,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Toast Notification (FR-9) */}
-      {showAiNotification && (
+      {showAiNotification && analysisResult && (
         <div className="fixed top-20 right-6 z-50 max-w-md bg-white border-2 border-emerald-500 rounded-2xl p-4 shadow-2xl animate-slideInRight flex items-start gap-3">
           <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
             <Bell className="w-5 h-5 animate-bounce" />
@@ -391,10 +388,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <div>
                 <span className="text-xs text-slate-500 font-medium">Nguy cơ Tim mạch 3 năm</span>
                 <div className="text-xl font-extrabold text-slate-900 font-mono-data">
-                  {analysisResult.cardiovascularRisk.score}%
+                  {analysisResult?.cardiovascularRisk.score ?? '--'}%
                 </div>
                 <span className="text-[11px] text-red-600 font-semibold">
-                  {analysisResult.cardiovascularRisk.hypertensionStage}
+                  {analysisResult?.cardiovascularRisk.hypertensionStage ?? 'Chưa có kết quả'}
                 </span>
               </div>
             </div>
@@ -406,10 +403,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <div>
                 <span className="text-xs text-slate-500 font-medium">Bệnh Võng Mạc Tiểu Đường</span>
                 <div className="text-xl font-extrabold text-slate-900 font-mono-data">
-                  {analysisResult.diabeticRetinopathyRisk.score}%
+                  {analysisResult?.diabeticRetinopathyRisk.score ?? '--'}%
                 </div>
                 <span className="text-[11px] text-cyan-700 font-semibold">
-                  {analysisResult.diabeticRetinopathyRisk.etdrsGrade}
+                  {analysisResult?.diabeticRetinopathyRisk.etdrsGrade ?? 'Chưa có kết quả'}
                 </span>
               </div>
             </div>
@@ -421,7 +418,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <div>
                 <span className="text-xs text-slate-500 font-medium">Nguy Cơ Đột Quỵ 3 Năm</span>
                 <div className="text-xl font-extrabold text-slate-900 font-mono-data">
-                  {analysisResult.cardiovascularRisk.threeYearStrokeRiskPercent}%
+                  {analysisResult?.cardiovascularRisk.threeYearStrokeRiskPercent ?? '--'}%
                 </div>
                 <span className="text-[11px] text-amber-600 font-semibold">Dựa trên vi mạch hoàng điểm</span>
               </div>
@@ -567,7 +564,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             </button>
           </div>
 
-          <InteractiveCDSViewer analysisResult={analysisResult} selectedEye="OD (Mắt Phải)" />
+          {analysisResult ? (
+            <InteractiveCDSViewer analysisResult={analysisResult} selectedEye="OD (Mắt Phải)" />
+          ) : (
+            <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+              Chưa có kết quả phân tích thật. Hãy tải ảnh võng mạc để bắt đầu.
+            </div>
+          )}
         </div>
       )}
 
@@ -802,7 +805,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                                 : 'bg-amber-100 text-amber-800 border border-amber-300'
                             }`}
                           >
-                            {scan.overallScore}/100
+                            {scan.overallScore != null ? `${scan.overallScore}/100` : 'Chưa có'}
                           </span>
                         </td>
                         <td className="p-3.5 font-mono-data font-bold text-red-600">{scan.cvdRisk}</td>
@@ -920,53 +923,23 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               </button>
             </div>
 
-            {/* Pricing Packages */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl border-2 border-slate-200 bg-white space-y-3 hover:border-teal-500 transition-all">
-                <div className="flex justify-between items-start">
-                  <h3 className="text-sm font-bold text-slate-900">Gói Khám Cơ Bản (Single Scan)</h3>
-                  <span className="text-xs font-bold text-teal-600 font-mono-data">1 lượt</span>
-                </div>
-                <div className="text-2xl font-extrabold text-slate-900 font-mono-data">150.000 đ</div>
-                <p className="text-xs text-slate-500">1 lượt phân tích ảnh võng mạc + Heatmap + Đánh giá nguy cơ 3 năm.</p>
-                <button
-                  onClick={() => setIsCreditModalOpen(true)}
-                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-colors"
-                >
-                  Nạp Gói Này
-                </button>
-              </div>
-
-              <div className="p-5 rounded-2xl border-2 border-teal-500 bg-teal-50/40 space-y-3 shadow-xs relative">
-                <span className="absolute -top-2.5 right-4 bg-teal-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs">
-                  Khuyên dùng
-                </span>
-                <div className="flex justify-between items-start">
-                  <h3 className="text-sm font-bold text-slate-900">Gói Chăm Sóc Định Kỳ (Pro 5)</h3>
-                  <span className="text-xs font-bold text-teal-600 font-mono-data">5 lượt</span>
-                </div>
-                <div className="text-2xl font-extrabold text-slate-900 font-mono-data">590.000 đ</div>
-                <p className="text-xs text-slate-500">5 lượt tầm soát toàn diện + Theo dõi xu hướng + Tư vấn chuyên gia.</p>
-                <button
-                  onClick={() => setIsCreditModalOpen(true)}
-                  className="w-full py-2 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold text-xs rounded-xl transition-colors"
-                >
-                  Nạp Gói Này
-                </button>
-              </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+              Tên gói, giá, số lượt và lịch sử thanh toán được tải trực tiếp từ máy chủ khi bạn mở danh mục gói dịch vụ.
             </div>
           </div>
         </div>
       )}
 
       {/* Modals */}
-      <MedicalReportModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        patient={patient}
-        result={analysisResult}
-        doctorName={patient.assignedDoctor || undefined}
-      />
+      {analysisResult && (
+        <MedicalReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          patient={patient}
+          result={analysisResult}
+          doctorName={patient.assignedDoctor || undefined}
+        />
+      )}
 
       <ConsultationChatModal
         isOpen={isChatModalOpen}

@@ -7,6 +7,8 @@ import com.aura.patient.entity.PatientMedicalProfile;
 import com.aura.patient.repository.PatientMedicalProfileRepository;
 import com.aura.user.entity.User;
 import com.aura.user.repository.UserRepository;
+import com.aura.doctor.entity.AssignmentStatus;
+import com.aura.doctor.repository.DoctorPatientAssignmentRepository;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.Year;
@@ -19,12 +21,15 @@ public class PatientProfileService {
 
   private final PatientMedicalProfileRepository profileRepository;
   private final UserRepository userRepository;
+  private final DoctorPatientAssignmentRepository assignmentRepository;
 
   public PatientProfileService(
       PatientMedicalProfileRepository profileRepository,
-      UserRepository userRepository) {
+      UserRepository userRepository,
+      DoctorPatientAssignmentRepository assignmentRepository) {
     this.profileRepository = profileRepository;
     this.userRepository = userRepository;
+    this.assignmentRepository = assignmentRepository;
   }
 
   @Transactional
@@ -54,7 +59,7 @@ public class PatientProfileService {
           return profileRepository.save(newProfile);
         });
 
-    return PatientProfileResponse.fromEntity(profile);
+    return toResponse(profile);
   }
 
   @Transactional
@@ -129,7 +134,7 @@ public class PatientProfileService {
     if (request.emergencyContactPhone() != null) profile.setEmergencyContactPhone(request.emergencyContactPhone().trim());
 
     PatientMedicalProfile saved = profileRepository.save(profile);
-    return PatientProfileResponse.fromEntity(saved);
+    return toResponse(saved);
   }
 
   @Transactional(readOnly = true)
@@ -138,7 +143,18 @@ public class PatientProfileService {
         .or(() -> profileRepository.findById(patientId))
         .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ y tế với ID: " + patientId));
 
-    return PatientProfileResponse.fromEntity(profile);
+    return toResponse(profile);
+  }
+
+  private PatientProfileResponse toResponse(PatientMedicalProfile profile) {
+    UUID patientId = profile.getUser() != null ? profile.getUser().getId() : null;
+    UUID doctorId = patientId == null ? null : assignmentRepository
+        .findByPatientIdAndStatus(patientId, AssignmentStatus.ACTIVE)
+        .stream()
+        .findFirst()
+        .map(assignment -> assignment.getDoctor().getId())
+        .orElse(null);
+    return PatientProfileResponse.fromEntity(profile, doctorId);
   }
 }
 

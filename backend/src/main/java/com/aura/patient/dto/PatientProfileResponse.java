@@ -31,9 +31,14 @@ public record PatientProfileResponse(
     String emergencyContactName,
     String emergencyContactPhone,
     String assignedDoctor,
+    UUID assignedDoctorId,
     String updatedAt
 ) {
   public static PatientProfileResponse fromEntity(PatientMedicalProfile profile) {
+    return fromEntity(profile, null);
+  }
+
+  public static PatientProfileResponse fromEntity(PatientMedicalProfile profile, UUID assignedDoctorId) {
     var user = profile.getUser();
     return new PatientProfileResponse(
         profile.getId(),
@@ -62,6 +67,7 @@ public record PatientProfileResponse(
         profile.getEmergencyContactName(),
         profile.getEmergencyContactPhone(),
         profile.getAssignedDoctor(),
+        assignedDoctorId,
         profile.getUpdatedAt() != null ? profile.getUpdatedAt().toString() : null
     );
   }

@@ -21,12 +21,12 @@
 | FR-5 | Patient reports and alerts | Partial | `PatientDashboardPage` |
 | FR-6 | Analysis history storage | Partial `screening` table + GET APIs |
 | FR-7 | Export PDF/CSV | Planned | UI alert only |
-| FR-8 | Patient Medical Profile & History Management | Done | `V013`/`V014`, `PatientMedicalProfile`, `PatientProfileController`, `PatientProfileIntegrationTest`, `MedicalProfileModal` |
+| FR-8 | Patient Medical Profile & History Management | Done | `V013`-`V017`, `PatientMedicalProfile`, `PatientLabDocument`, `PatientProfileController`, `PatientProfileIntegrationTest`, `PatientLabDocumentServiceTest`, `MedicalProfileModal`, `LabDocumentsPanel` |
 | FR-9 | Event-based notifications | Partial | UI only |
-| FR-10 | Doctor-patient messaging | Partial | Chat mock `PatientDashboardPage` |
-| FR-11 | Subscription plan management | Planned | Mock text admin/ckinic |
-| FR-12 | Payment processing | Out of MVP | - |
-| FR-13 | Doctor assigned patient profile management | Done | `V016`, `DoctorPatientAssignment`, `DoctorPatientController`, `PatientAccessService`, `CDSDashboardPage`, `DoctorPatientAssignmentSecurityTest` |
+| FR-10 | Doctor-patient messaging | Partial | PostgreSQL API; chưa có realtime WebSocket/SSE |
+| FR-11 | Subscription plan management | Partial | Danh mục gói và số dư dùng API/database thật |
+| FR-12 | Payment processing | Missing | Gateway mặc định fail-closed; chưa tích hợp nhà cung cấp thật |
+| FR-13 | Doctor assigned patient profile management | Done | `V016`, `DoctorPatientAssignment`, `AdminPatientAssignmentService`, `DoctorPatientController`, `AdminUserController`, `PatientAccessService`, `PatientAssignmentBoard`, `CDSDashboardPage`, `DoctorPatientAssignmentSecurityTest` |
 | FR-14 | Clinical Decision Support access to AI results | Partial | `DoctorAnalysisPage` + screenings API |
 | FR-15 | AI-generated image annotations | Partial | UI overlay, no AI asset |  
 | FR-16 | Result confirmation and correction | Partial | `Post .../ review`,`ScreeningService.addDoctorReview` |
