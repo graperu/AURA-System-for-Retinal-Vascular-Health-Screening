@@ -1,4 +1,4 @@
-CREATE TABLE screenings (
+CREATE TABLE IF NOT EXISTS screenings (
     id UUID PRIMARY KEY,
     patient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     doctor_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -12,6 +12,6 @@ CREATE TABLE screenings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_screenings_patient_id ON screenings(patient_id);
-CREATE INDEX idx_screenings_doctor_id ON screenings(doctor_id);
-CREATE INDEX idx_screenings_status ON screenings(status);
+CREATE INDEX IF NOT EXISTS idx_screenings_patient_id ON screenings(patient_id);
+CREATE INDEX IF NOT EXISTS idx_screenings_doctor_id ON screenings(doctor_id);
+CREATE INDEX IF NOT EXISTS idx_screenings_status ON screenings(status);

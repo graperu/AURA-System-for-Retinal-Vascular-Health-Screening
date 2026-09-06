@@ -8,6 +8,7 @@ import com.aura.auth.service.AuthService;
 import com.aura.common.response.*;
 import jakarta.validation.Valid;
 import java.time.Duration;
+import java.util.Map;
 import org.springframework.http.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,21 @@ public class AuthController {
     props = p;
   }
 
+  @PostMapping("/send-otp")
+  public ApiResponse<Map<String, Object>> sendOtp(@Valid @RequestBody SendOtpRequest q) {
+    long expiresIn = service.sendRegistrationOtp(q);
+    return ApiResponse.success(
+        "Mã OTP đã được gửi đến " + q.email(),
+        Map.of("email", q.email(), "expiresInSeconds", expiresIn)
+    );
+  }
+
+  @PostMapping("/verify-otp")
+  public ResponseEntity<ApiResponse<LoginResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest q) {
+    var r = service.verifyOtpAndRegister(q);
+    return withCookie(r, "Xác thực email và tạo tài khoản thành công");
+  }
+
   @PostMapping("/register")
   @ResponseStatus(HttpStatus.CREATED)
   public ApiResponse<UserResponse> register(@Valid @RequestBody RegisterRequest q) {
@@ -34,6 +50,18 @@ public class AuthController {
   public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest q) {
     var r = service.login(q);
     return withCookie(r, "Đăng nhập thành công");
+  }
+
+  @PostMapping("/google")
+  public ResponseEntity<ApiResponse<LoginResponse>> loginGoogle(@Valid @RequestBody GoogleLoginRequest q) {
+    var r = service.loginWithGoogle(q);
+    return withCookie(r, "Đăng nhập Google thành công");
+  }
+
+  @PostMapping("/social")
+  public ResponseEntity<ApiResponse<LoginResponse>> loginSocial(@Valid @RequestBody SocialLoginRequest q) {
+    var r = service.loginWithSocial(q);
+    return withCookie(r, "Đăng nhập mạng xã hội thành công");
   }
 
   @PostMapping("/refresh")

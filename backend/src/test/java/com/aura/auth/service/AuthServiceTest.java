@@ -26,7 +26,8 @@ class AuthServiceTest {
   AuthenticationManager manager = mock(AuthenticationManager.class);
   JwtTokenProvider jwt = mock(JwtTokenProvider.class);
   RefreshTokenService refresh = mock(RefreshTokenService.class);
-  AuthService service = new AuthService(users, roles, userRoles, encoder, manager, jwt, refresh);
+  OtpService otpService = mock(OtpService.class);
+  AuthService service = new AuthService(users, roles, userRoles, encoder, manager, jwt, refresh, otpService);
 
   @Test
   void registerNormalizesEmailHashesPasswordAndAssignsOnlyUser() throws Exception {

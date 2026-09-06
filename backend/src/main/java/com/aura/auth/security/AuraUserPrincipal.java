@@ -20,6 +20,10 @@ public record AuraUserPrincipal(
     return password;
   }
 
+  public UUID getId() {
+    return id;
+  }
+
   public boolean isEnabled() {
     return enabled;
   }

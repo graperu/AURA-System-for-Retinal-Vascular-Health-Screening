@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" role="img" aria-labelledby="title desc">
+  <title id="title">AURA</title>
+  <desc id="desc">AURA retinal vascular health screening</desc>
+  <g fill="none" stroke="#F8FBFF" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 60c30-35 68-45 105 0-37 45-75 35-105 0Z" stroke-width="7"/><circle cx="64" cy="60" r="22" stroke-width="6"/>
+    <path d="m64 43 4 13 12-7-7 12 13 4-13 4 7 12-12-7-4 13-4-13-12 7 7-12-13-4 13-4-7-12 12 7Z" stroke-width="3"/>
+  </g>
+  <path fill="#F8FBFF" d="M156 19h16v62c0 18 10 26 27 26s27-8 27-26V19h16v63c0 28-16 42-43 42s-43-14-43-42V19Zm104 0h47c24 0 38 12 38 31 0 15-8 26-23 30l28 41h-19l-25-38h-30v38h-16V19Zm16 14v36h29c15 0 23-6 23-18s-8-18-23-18h-29Zm81-14h70v14h-54v25h47v14h-47v35h-16V19Zm84 0h18l39 102h-17l-9-25h-44l-9 25h-17l39-102Zm-8 63h34l-17-47-17 47Z"/>
+</svg>
