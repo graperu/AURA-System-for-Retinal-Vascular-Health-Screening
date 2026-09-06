@@ -35,8 +35,8 @@
 | FR-19 | Email verification | Planned | Column `email_verified`, no flow |
 | FR-20 | Consulation chat | Planned | UI mock |
 | FR-21 | Clinic patient management dashboard | Partial | `ClinicManagementPage` mock |
-| FR-22 | Clinic registration | Planned | - |
-| FR-23 | Internal doctor and patient management | Planned | - |
+| FR-22 | Clinic registration | Implemented | `ClinicProfileController`, `ClinicProfileService`, `clinic_profiles` table, `ClinicProfileServiceTest` |
+| FR-23 | Internal doctor and patient management | Implemented | `ClinicMemberController`, `ClinicMemberService`, `clinic_members` table, `ClinicMemberServiceTest` |
 | FR-24 | Doctor–patient assignment | Done | `doctor_patient_assignments` table (`V016`), `DoctorPatientAssignmentService` |
 | FR-25 | Aggregated risk statistics | Partial | UI KPI mock |
 | FR-26 | Clinic activity reports | Partial | UI mock |
