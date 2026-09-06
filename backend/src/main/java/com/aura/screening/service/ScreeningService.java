@@ -1,6 +1,8 @@
 package com.aura.screening.service;
 
 import com.aura.common.exception.ResourceNotFoundException;
+import com.aura.notification.service.NotificationService;
+import com.aura.screening.dto.VascularTimelinePoint;
 import com.aura.screening.entity.RiskLevel;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.entity.ScreeningStatus;
@@ -24,6 +26,7 @@ public class ScreeningService {
   private final ScreeningRepository screeningRepository;
   private final com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository;
   private final RestClient restClient;
+  private final NotificationService notificationService;
 
   @Value("${aura.ai-service.url:http://localhost:8000}")
   private String aiServiceUrl;
@@ -31,10 +34,12 @@ public class ScreeningService {
   public ScreeningService(
       ScreeningRepository screeningRepository,
       com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
-      RestClient.Builder restClientBuilder) {
+      RestClient.Builder restClientBuilder,
+      NotificationService notificationService) {
     this.screeningRepository = screeningRepository;
     this.assignmentRepository = assignmentRepository;
     this.restClient = restClientBuilder.build();
+    this.notificationService = notificationService;
   }
 
   @Transactional
@@ -160,7 +165,11 @@ public class ScreeningService {
       screening.setFindings("Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
     }
 
-    return screeningRepository.save(screening);
+    Screening saved = screeningRepository.save(screening);
+    if (saved.getStatus() == ScreeningStatus.ANALYZED) {
+      notificationService.notifyAiReady(patientId, saved);
+    }
+    return saved;
   }
 
   @Transactional(readOnly = true)
@@ -176,6 +185,15 @@ public class ScreeningService {
       return List.of();
     }
     return screeningRepository.findByPatientIdInOrderByCreatedAtDesc(assignedPatientIds);
+  }
+
+  @Transactional(readOnly = true)
+  public List<VascularTimelinePoint> vascularTimeline(UUID patientId) {
+    return screeningRepository.findByPatientIdOrderByCreatedAtDesc(patientId).stream()
+        .filter(s -> s.getStatus() == ScreeningStatus.ANALYZED || s.getStatus() == ScreeningStatus.REVIEWED)
+        .sorted((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()))
+        .map(VascularTimelinePoint::from)
+        .toList();
   }
 
   @Transactional(readOnly = true)

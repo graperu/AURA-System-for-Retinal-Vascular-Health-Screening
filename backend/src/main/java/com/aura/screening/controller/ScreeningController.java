@@ -6,6 +6,7 @@ import com.aura.common.response.ApiResponse;
 import com.aura.common.response.ErrorCode;
 import com.aura.screening.dto.CreateScreeningRequest;
 import com.aura.screening.dto.ReviewScreeningRequest;
+import com.aura.screening.dto.VascularTimelinePoint;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.service.ScreeningService;
 import jakarta.validation.Valid;
@@ -54,6 +55,16 @@ public class ScreeningController {
     }
 
     return ApiResponse.success("Lấy danh sách ca sàng lọc thành công", screenings);
+  }
+
+  @GetMapping("/vascular-timeline")
+  public ApiResponse<List<VascularTimelinePoint>> vascularTimeline(
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    if (principal == null) {
+      throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập");
+    }
+    return ApiResponse.success(
+        "Timeline xu hướng vi mạch", screeningService.vascularTimeline(principal.id()));
   }
 
   @GetMapping("/{id}")

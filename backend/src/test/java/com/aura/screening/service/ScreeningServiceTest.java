@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.aura.notification.service.NotificationService;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.entity.ScreeningStatus;
 import com.aura.screening.repository.ScreeningRepository;
@@ -28,12 +29,15 @@ class ScreeningServiceTest {
   @Mock
   private com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository;
 
+  @Mock
+  private NotificationService notificationService;
+
   private ScreeningService screeningService;
 
   @BeforeEach
   void setUp() {
     RestClient.Builder builder = RestClient.builder();
-    screeningService = new ScreeningService(screeningRepository, assignmentRepository, builder);
+    screeningService = new ScreeningService(screeningRepository, assignmentRepository, builder, notificationService);
   }
 
   @Test

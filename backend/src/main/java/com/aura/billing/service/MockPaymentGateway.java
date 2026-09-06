@@ -1,22 +1,34 @@
 package com.aura.billing.service;
 
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.util.UUID;
+import org.springframework.stereotype.Component;
 
 /**
- * Milestone-2 stand-in for a real payment provider: every charge instantly "succeeds" and
- * gets a fake reference id, the same way AiCoreClient's Milestone-1 mock always returns
- * riskLevel="low_mock" instead of calling a real model. No money moves, no external call
- * happens. Swap for a real gateway before going anywhere near production billing.
+ * Cổng thanh toán 
  */
 @Component
 public class MockPaymentGateway implements PaymentGateway {
 
-    @Override
-    public GatewayResult charge(String buyerEmail, BigDecimal amount) {
-        String reference = "MOCK-" + UUID.randomUUID();
-        return new GatewayResult(true, "mock", reference, null);
+  @Override
+  public GatewayResult charge(String buyerEmail, BigDecimal amount, String provider, String simulateOutcome) {
+    String outcome = simulateOutcome == null || simulateOutcome.isBlank() ? "SUCCESS" : simulateOutcome.trim().toUpperCase();
+    String method = provider == null ? "VNPAY" : provider.toUpperCase();
+    if ("VIETQR".equals(method) && "SUCCESS".equals(outcome)) {
+      outcome = "PENDING";
     }
+    String reference = method + "-" + UUID.randomUUID();
+    if ("FAILED".equals(outcome) || "FAIL".equals(outcome)) {
+      return new GatewayResult(false, false, method, reference, "Cổng " + method + " từ chối giao dịch (demo thất bại).");
+    }
+    if ("PENDING".equals(outcome)) {
+      return new GatewayResult(false, true, method, reference, null);
+    }
+    return new GatewayResult(true, false, method, reference, null);
+  }
+
+  @Override
+  public GatewayResult refund(String providerReference) {
+    return new GatewayResult(true, false, "REFUND", providerReference, null);
+  }
 }

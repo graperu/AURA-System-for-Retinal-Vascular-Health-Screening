@@ -1,286 +1,381 @@
-import React, { useState } from 'react';
-import { X, CreditCard, CheckCircle2, ShieldCheck, Zap, Building2, UserCheck, Sparkles, QrCode, History, Clock, FileText } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import {
+  X,
+  CreditCard,
+  CheckCircle2,
+  Zap,
+  QrCode,
+  History,
+  Smartphone,
+  Wallet,
+  FileText,
+  AlertTriangle,
+  RotateCcw,
+} from "lucide-react";
+import { billingApi } from "../services/api";
 
 interface CreditPurchaseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userRole: 'patient' | 'doctor' | 'clinic' | 'admin';
+  userRole: "patient" | "doctor" | "clinic" | "admin";
   currentCredit?: number;
   onSuccess?: (addedCredits: number) => void;
 }
+
+const METHODS = [
+  { id: "VNPAY", label: "VNPay", icon: Wallet },
+  { id: "MOMO", label: "MoMo", icon: Smartphone },
+  { id: "ZALOPAY", label: "ZaloPay", icon: Smartphone },
+  { id: "VIETQR", label: "VietQR", icon: QrCode },
+  { id: "CARD", label: "Visa/Mastercard", icon: CreditCard },
+] as const;
 
 export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
   isOpen,
   onClose,
   userRole,
-  currentCredit = 5,
+  currentCredit = 0,
   onSuccess,
 }) => {
-  const isClinic = userRole === 'clinic';
-  const [activeTab, setActiveTab] = useState<'packages' | 'history'>('packages');
-
-  const patientPackages = [
-    {
-      id: 'p1',
-      name: 'Gói Cơ Bản (Single Scan)',
-      credits: 1,
-      price: '150.000 đ',
-      desc: '1 lượt phân tích ảnh võng mạc + Heatmap + Đánh giá nguy cơ tim mạch 3 năm.',
-      popular: false,
-    },
-    {
-      id: 'p2',
-      name: 'Gói Chăm Sóc Định Kỳ (Pro 5)',
-      credits: 5,
-      price: '590.000 đ',
-      desc: '5 lượt tầm soát toàn diện + Theo dõi xu hướng mạch máu + Hội chẩn Bác sĩ Chuyên khoa.',
-      popular: true,
-    },
-  ];
-
-  const clinicPackages = [
-    {
-      id: 'c1',
-      name: 'Gói Chiến Dịch Sàng Lọc (Bulk 500)',
-      credits: 500,
-      price: '12.500.000 đ',
-      desc: '500 lượt phân tích lô hàng loạt + Phân công bác sĩ + Xuất báo cáo CSV phòng khám.',
-      popular: false,
-    },
-    {
-      id: 'c2',
-      name: 'Gói Bệnh Viện & Trung Tâm (Enterprise 2,500)',
-      credits: 2500,
-      price: '48.000.000 đ',
-      desc: '2,500 lượt phân tích + Ưu tiên hàng đợi GPU PyTorch + Hỗ trợ tích hợp camera DICOM.',
-      popular: true,
-    },
-  ];
-
-  const packages = isClinic ? clinicPackages : patientPackages;
-  const [selectedPkgId, setSelectedPkgId] = useState(packages[1].id);
-  const [paymentMethod, setPaymentMethod] = useState<'vietqr' | 'card'>('vietqr');
+  const isClinic = userRole === "clinic";
+  const [activeTab, setActiveTab] = useState<"packages" | "history">(
+    "packages",
+  );
+  const [packages, setPackages] = useState<any[]>([]);
+  const [selectedPkgId, setSelectedPkgId] = useState<number | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<string>("VNPAY");
+  const [voucherCode, setVoucherCode] = useState("");
+  const [simulateOutcome, setSimulateOutcome] = useState<
+    "SUCCESS" | "FAILED" | "PENDING"
+  >("SUCCESS");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<number | null>(null);
+  const [payments, setPayments] = useState<any[]>([]);
 
-  // Sample transaction history for FR-12
-  const [transactionHistory] = useState([
-    {
-      id: 'TXN-998241',
-      date: '2026-08-15 09:30',
-      packageName: 'Gói Chăm Sóc Định Kỳ (Pro 5)',
-      amount: '590.000 đ',
-      credits: '+5 lượt',
-      status: 'THÀNH CÔNG',
-      method: 'VietQR Banking',
-    },
-    {
-      id: 'TXN-881023',
-      date: '2026-07-02 14:15',
-      packageName: 'Gói Cơ Bản (Single Scan)',
-      amount: '150.000 đ',
-      credits: '+1 lượt',
-      status: 'THÀNH CÔNG',
-      method: 'Thẻ Visa/Master',
-    },
-  ]);
+  const load = async () => {
+    const pkgRes = await billingApi.packages(
+      isClinic ? "CLINIC" : "INDIVIDUAL",
+    );
+    if (pkgRes.success && Array.isArray(pkgRes.data)) {
+      setPackages(pkgRes.data);
+      if (pkgRes.data.length > 0) setSelectedPkgId(pkgRes.data[0].id);
+    }
+    const payRes = await billingApi.myPayments();
+    if (payRes.success && Array.isArray(payRes.data)) setPayments(payRes.data);
+  };
+
+  useEffect(() => {
+    if (isOpen) void load();
+  }, [isOpen, isClinic]);
 
   if (!isOpen) return null;
 
-  const selectedPkg = packages.find((p) => p.id === selectedPkgId) || packages[0];
+  const selectedPkg =
+    packages.find((p) => p.id === selectedPkgId) || packages[0];
 
-  const handlePay = () => {
+  const handlePay = async () => {
+    if (!selectedPkg) return;
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsSuccess(true);
-      if (onSuccess) onSuccess(selectedPkg.credits);
-      setTimeout(() => {
-        setIsSuccess(false);
-        onClose();
-      }, 1600);
-    }, 1200);
+    setError(null);
+    setMessage(null);
+    const outcome = paymentMethod === "VIETQR" ? "PENDING" : simulateOutcome;
+    const res = await billingApi.purchase(selectedPkg.id, {
+      paymentMethod,
+      voucherCode: voucherCode.trim() || undefined,
+      simulateOutcome: outcome,
+    });
+    setIsProcessing(false);
+    if (!res.success) {
+      setError(
+        res.message ||
+          "Thanh toán thất bại. Có thể thử hoàn tiền nếu đã trừ nhầm (Refund Policy).",
+      );
+      await load();
+      return;
+    }
+    if (res.data?.status === "PENDING") {
+      setPendingId(res.data.id);
+      setMessage(
+        "Giao dịch đang treo — quét VietQR rồi bấm Xác nhận, hoặc Hủy nếu timeout.",
+      );
+      await load();
+      return;
+    }
+    setMessage(
+      `Thanh toán thành công qua ${paymentMethod}. Đã cộng ${selectedPkg.credits} lượt.`,
+    );
+    onSuccess?.(selectedPkg.credits);
+    await load();
+  };
+
+  const confirmPending = async () => {
+    if (!pendingId) return;
+    const res = await billingApi.confirmPayment(pendingId);
+    if (res.success) {
+      setMessage("Đã xác nhận VietQR — credit đã cộng.");
+      setPendingId(null);
+      onSuccess?.(selectedPkg?.credits || 0);
+      await load();
+    } else setError(res.message || "Không xác nhận được.");
+  };
+
+  const cancelPending = async () => {
+    if (!pendingId) return;
+    await billingApi.failPayment(pendingId, "Timeout / hủy quét VietQR");
+    setPendingId(null);
+    setMessage("Đã ghi nhận giao dịch thất bại.");
+    await load();
+  };
+
+  const downloadInvoice = async (id: number) => {
+    const res = await billingApi.invoice(id);
+    if (!res.success || !res.data?.html) {
+      setError(res.message || "Không xuất được hóa đơn");
+      return;
+    }
+    const blob = new Blob([res.data.html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${res.data.invoiceNumber || "hoa-don"}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const refund = async (id: number) => {
+    const res = await billingApi.refund(
+      id,
+      "Hoàn tiền theo chính sách AURA (demo)",
+    );
+    if (res.success) {
+      setMessage("Đã hoàn tiền và trừ credit tương ứng.");
+      await load();
+    } else setError(res.message || "Không hoàn được.");
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-teal-100 max-h-[90vh] overflow-y-auto space-y-6">
-        {/* Header */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-teal-100 max-h-[90vh] overflow-y-auto space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600 border border-teal-200">
-              <CreditCard className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                Nạp Lượt Khám & Gói Dịch Vụ Phân Tích (FR-11, FR-12)
-              </h2>
-              <p className="text-xs text-slate-500">
-                Số lượt phân tích còn lại của bạn:{' '}
-                <strong className="text-teal-600 font-mono-data text-sm">{currentCredit} lượt</strong>
-              </p>
-            </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">
+              Mua / gia hạn gói phân tích (FR-11, FR-12)
+            </h2>
+            <p className="text-xs text-slate-500">
+              Số lượt còn lại:{" "}
+              <strong className="text-teal-600 font-mono-data">
+                {currentCredit}
+              </strong>
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Tab Switcher */}
         <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
           <button
-            onClick={() => setActiveTab('packages')}
-            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'packages' ? 'bg-white text-teal-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            onClick={() => setActiveTab("packages")}
+            className={`flex-1 py-2 rounded-lg ${activeTab === "packages" ? "bg-white text-teal-700 shadow-xs" : "text-slate-600"}`}
           >
-            <Zap className="w-3.5 h-3.5" /> Mua Thêm Gói Khám (FR-11)
+            <span className="inline-flex items-center gap-1.5 justify-center w-full">
+              <Zap className="w-3.5 h-3.5" /> Mua gói
+            </span>
           </button>
           <button
-            onClick={() => setActiveTab('history')}
-            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'history' ? 'bg-white text-teal-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            onClick={() => setActiveTab("history")}
+            className={`flex-1 py-2 rounded-lg ${activeTab === "history" ? "bg-white text-teal-700 shadow-xs" : "text-slate-600"}`}
           >
-            <History className="w-3.5 h-3.5" /> Lịch Sử Thanh Toán (FR-12)
+            <span className="inline-flex items-center gap-1.5 justify-center w-full">
+              <History className="w-3.5 h-3.5" /> Lịch sử & hóa đơn
+            </span>
           </button>
         </div>
 
-        {activeTab === 'packages' ? (
-          <>
-            {isSuccess ? (
-              <div className="p-8 text-center space-y-3 bg-emerald-50 rounded-2xl border border-emerald-200 animate-fadeIn">
-                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                <h3 className="text-base font-bold text-emerald-900">Thanh toán thành công!</h3>
-                <p className="text-xs text-emerald-700">
-                  Đã cộng <strong>+{selectedPkg.credits} lượt phân tích</strong> vào tài khoản của bạn.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Packages Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {packages.map((pkg) => (
-                    <div
-                      key={pkg.id}
-                      onClick={() => setSelectedPkgId(pkg.id)}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all relative ${
-                        selectedPkgId === pkg.id
-                          ? 'border-teal-500 bg-teal-50/40 shadow-sm'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      {pkg.popular && (
-                        <span className="absolute -top-2.5 right-3 text-[10px] font-bold bg-teal-600 text-white px-2 py-0.5 rounded-full shadow-xs">
-                          Khuyên dùng
-                        </span>
-                      )}
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="text-xs font-bold text-slate-900">{pkg.name}</h4>
-                        <span className="text-xs font-extrabold text-teal-600 font-mono-data">
-                          {pkg.credits} lượt
-                        </span>
-                      </div>
-                      <div className="text-base font-extrabold text-slate-800 font-mono-data mb-2">
-                        {pkg.price}
-                      </div>
-                      <p className="text-[11px] text-slate-500 leading-tight">{pkg.desc}</p>
-                    </div>
-                  ))}
-                </div>
+        {error && (
+          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" /> {error}
+          </div>
+        )}
+        {message && (
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
+            {message}
+          </div>
+        )}
 
-                {/* Payment Methods */}
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                  <span className="text-xs font-bold text-slate-700 block">Phương thức thanh toán bảo mật</span>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label
-                      onClick={() => setPaymentMethod('vietqr')}
-                      className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer text-xs font-semibold ${
-                        paymentMethod === 'vietqr'
-                          ? 'bg-white border-teal-500 text-teal-800 shadow-xs'
-                          : 'bg-slate-100 border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      <QrCode className="w-4 h-4 text-teal-600" />
-                      VietQR Quét Mã Ngân Hàng
-                    </label>
-
-                    <label
-                      onClick={() => setPaymentMethod('card')}
-                      className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer text-xs font-semibold ${
-                        paymentMethod === 'card'
-                          ? 'bg-white border-teal-500 text-teal-800 shadow-xs'
-                          : 'bg-slate-100 border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      <CreditCard className="w-4 h-4 text-teal-600" />
-                      Thẻ Visa / Master / ATM
-                    </label>
+        {activeTab === "packages" ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {packages.map((pkg) => (
+                <button
+                  type="button"
+                  key={pkg.id}
+                  onClick={() => setSelectedPkgId(pkg.id)}
+                  className={`text-left p-4 rounded-xl border-2 ${
+                    selectedPkgId === pkg.id
+                      ? "border-teal-500 bg-teal-50/40"
+                      : "border-slate-200"
+                  }`}
+                >
+                  <div className="flex justify-between">
+                    <h4 className="text-xs font-bold text-slate-900">
+                      {pkg.name}
+                    </h4>
+                    <span className="text-xs font-extrabold text-teal-600">
+                      {pkg.credits} lượt
+                    </span>
                   </div>
-                </div>
+                  <div className="text-base font-extrabold font-mono-data mt-1">
+                    {Number(pkg.price).toLocaleString("vi-VN")} đ
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {pkg.description}
+                  </p>
+                </button>
+              ))}
+            </div>
 
-                {/* Submit button */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <span className="text-xs text-slate-500">
-                    Tổng thanh toán: <strong className="text-slate-900 text-sm font-mono-data">{selectedPkg.price}</strong>
-                  </span>
+            <div>
+              <span className="text-xs font-bold text-slate-700 block mb-2">
+                Cổng thanh toán
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {METHODS.map((m) => (
                   <button
-                    onClick={handlePay}
-                    disabled={isProcessing}
-                    className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+                    type="button"
+                    key={m.id}
+                    onClick={() => setPaymentMethod(m.id)}
+                    className={`flex items-center gap-2 p-2.5 rounded-lg border text-[11px] font-semibold ${
+                      paymentMethod === m.id
+                        ? "border-teal-500 bg-white text-teal-800"
+                        : "border-slate-200 text-slate-600"
+                    }`}
                   >
-                    {isProcessing ? (
-                      <>Đang xử lý kết nối ngân hàng...</>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-4 h-4" /> Thanh Toán Ngay
-                      </>
-                    )}
+                    <m.icon className="w-4 h-4 text-teal-600" /> {m.label}
                   </button>
-                </div>
+                ))}
+              </div>
+            </div>
+
+            <label className="block text-xs font-bold text-slate-700">
+              Mã giảm giá / voucher
+              <input
+                value={voucherCode}
+                onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                placeholder="AURA10, TET2026, FAMILY15"
+                className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono-data"
+              />
+            </label>
+
+            <label className="block text-xs font-bold text-slate-700">
+              Mô phỏng ngoại lệ (đồ án)
+              <select
+                value={simulateOutcome}
+                onChange={(e) => setSimulateOutcome(e.target.value as any)}
+                className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
+              >
+                <option value="SUCCESS">Thành công</option>
+                <option value="FAILED">Thất bại (cổng từ chối)</option>
+                <option value="PENDING">Treo (chờ xác nhận)</option>
+              </select>
+            </label>
+
+            {pendingId && (
+              <div className="flex gap-2">
+                <button
+                  onClick={confirmPending}
+                  className="flex-1 py-2 bg-teal-600 text-white text-xs font-bold rounded-xl"
+                >
+                  Xác nhận VietQR
+                </button>
+                <button
+                  onClick={cancelPending}
+                  className="flex-1 py-2 bg-slate-200 text-slate-800 text-xs font-bold rounded-xl"
+                >
+                  Hủy giao dịch treo
+                </button>
               </div>
             )}
-          </>
+
+            <button
+              onClick={handlePay}
+              disabled={isProcessing || !selectedPkg}
+              className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl disabled:opacity-50"
+            >
+              {isProcessing
+                ? "Đang kết nối cổng thanh toán..."
+                : "Thanh toán / Gia hạn"}
+            </button>
+            <p className="text-[10px] text-slate-400">
+              Refund Policy: giao dịch SUCCEEDED có thể hoàn tiền; credit bị trừ
+              lại. Giao dịch FAILED không cộng lượt. VietQR PENDING không cộng
+              lượt đến khi xác nhận.
+            </p>
+          </div>
         ) : (
-          /* Transaction History Table for FR-12 */
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-xl border border-slate-200 shadow-xs">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+          <div className="space-y-3">
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-[11px]">
+                <thead className="bg-slate-50 text-slate-600 font-bold">
                   <tr>
-                    <th className="p-3">Mã GD</th>
-                    <th className="p-3">Thời Gian</th>
-                    <th className="p-3">Gói Dịch Vụ</th>
-                    <th className="p-3">Số Tiền</th>
-                    <th className="p-3">Lượt Cộng</th>
-                    <th className="p-3">Trạng Thái</th>
+                    <th className="p-2">Mã</th>
+                    <th className="p-2">Gói</th>
+                    <th className="p-2">Cổng</th>
+                    <th className="p-2">Số tiền</th>
+                    <th className="p-2">Trạng thái</th>
+                    <th className="p-2">HĐ / Hoàn</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {transactionHistory.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono-data font-semibold text-slate-800">{tx.id}</td>
-                      <td className="p-3 text-slate-500 font-mono-data">{tx.date}</td>
-                      <td className="p-3 text-slate-800 font-medium">{tx.packageName}</td>
-                      <td className="p-3 font-mono-data font-bold text-slate-900">{tx.amount}</td>
-                      <td className="p-3 font-mono-data font-bold text-emerald-600">{tx.credits}</td>
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          {tx.status}
-                        </span>
+                  {payments.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="p-6 text-center text-slate-400"
+                      >
+                        Chưa có giao dịch
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    payments.map((tx) => (
+                      <tr key={tx.id}>
+                        <td className="p-2 font-mono-data">
+                          {tx.invoiceNumber || tx.id}
+                        </td>
+                        <td className="p-2">{tx.servicePackageName}</td>
+                        <td className="p-2">{tx.provider}</td>
+                        <td className="p-2 font-mono-data">
+                          {Number(tx.amount).toLocaleString("vi-VN")} đ
+                        </td>
+                        <td className="p-2">{tx.status}</td>
+                        <td className="p-2 flex gap-1">
+                          <button
+                            onClick={() => downloadInvoice(tx.id)}
+                            className="p-1 rounded bg-slate-100"
+                            title="Xuất HĐĐT"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                          </button>
+                          {tx.status === "SUCCEEDED" && (
+                            <button
+                              onClick={() => refund(tx.id)}
+                              className="p-1 rounded bg-amber-50 text-amber-700"
+                              title="Hoàn tiền"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
-            </div>
-
-            <div className="p-3 bg-teal-50 rounded-xl border border-teal-200 flex items-center justify-between text-xs">
-              <span className="text-teal-900 font-medium">Hạn mức phân tích khả dụng:</span>
-              <span className="text-teal-900 font-bold font-mono-data text-sm">{currentCredit} Lượt Khám</span>
             </div>
           </div>
         )}
