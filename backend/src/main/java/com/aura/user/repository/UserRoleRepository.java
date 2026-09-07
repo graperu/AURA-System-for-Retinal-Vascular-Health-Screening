@@ -19,4 +19,6 @@ public interface UserRoleRepository extends JpaRepository<UserRole, UUID> {
 
   @Query("select ur.user from UserRole ur where ur.role.name = :role and ur.user.active = true order by ur.user.fullName, ur.user.email")
   List<User> findActiveUsersByRole(@Param("role") RoleName role);
+  void deleteAllByUserId(UUID userId);
+  long countByRole_NameAndUser_ActiveTrue(RoleName role);
 }
