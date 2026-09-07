@@ -29,7 +29,12 @@ import {
   screeningApi,
   timelineApi,
 } from "../services/api";
-import { mapScreeningToAIRiskResult } from "../services/screeningMapper";
+import {
+  mapScreeningToAIRiskResult,
+  toBackendRiskLevel,
+  toFrontendRiskLevel,
+} from "../services/screeningMapper";
+
 import { MockAIService } from "../services/mockAiEngine";
 import {
   VascularTrendChart,
@@ -319,6 +324,7 @@ export const CDSDashboardPage: React.FC = () => {
 
   const handleSaveFeedback = async (feedback: DoctorFeedback) => {
     try {
+      const beRisk = toBackendRiskLevel(feedback.adjustedCardioRisk);
       if (feedback.analysisId) {
         await screeningApi.doctorReview(
           feedback.analysisId,
