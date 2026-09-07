@@ -8,4 +8,6 @@ public record RegisterRequest(
         @Size(min = 12, max = 128)
         @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).+$")
         String password,
-    @Size(max = 150) String fullName) {}
+    @Size(max = 150) String fullName,
+    @Pattern(regexp = "USER|CLINIC", message = "Chỉ được tự đăng ký vai trò USER hoặc CLINIC")
+        String role) {}

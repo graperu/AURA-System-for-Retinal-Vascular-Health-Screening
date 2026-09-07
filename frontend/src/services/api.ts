@@ -436,3 +436,44 @@ export const clinicAnalyticsApi = {
     URL.revokeObjectURL(url);
   },
 };
+
+// FR-22: Đăng ký & xác minh hồ sơ tổ chức phòng khám
+export const clinicApi = {
+  getProfile: () => apiFetch<any>('/api/v1/clinic/profile', { method: 'GET' }),
+
+  submitProfile: (payload: { organizationName: string; licenseNumber?: string; licenseDocumentUrl?: string }) =>
+    apiFetch<any>('/api/v1/clinic/profile', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // FR-23: Quản lý bác sĩ & bệnh nhân trực thuộc phòng khám
+  listMembers: () => apiFetch<any[]>('/api/v1/clinic/members', { method: 'GET' }),
+
+  addMember: (doctorEmail: string) =>
+    apiFetch<any>('/api/v1/clinic/members', {
+      method: 'POST',
+      body: JSON.stringify({ doctorEmail }),
+    }),
+
+  removeMember: (memberId: string) =>
+    apiFetch<void>(`/api/v1/clinic/members/${memberId}`, { method: 'DELETE' }),
+
+  assignPatientToDoctor: (doctorId: string, patientId: string) =>
+    apiFetch<void>(`/api/v1/clinic/members/${doctorId}/patients/${patientId}`, { method: 'POST' }),
+
+  unassignPatientFromDoctor: (doctorId: string, patientId: string) =>
+    apiFetch<void>(`/api/v1/clinic/members/${doctorId}/patients/${patientId}`, { method: 'DELETE' }),
+};
+
+export const adminClinicApi = {
+  // Admin: duyệt hồ sơ phòng khám (FR-22)
+  list: (status?: 'PENDING' | 'APPROVED' | 'REJECTED') =>
+    apiFetch<any[]>(`/api/v1/admin/clinics${status ? `?status=${status}` : ''}`, { method: 'GET' }),
+
+  review: (clinicProfileId: string, decision: 'APPROVED' | 'REJECTED', rejectionReason?: string) =>
+    apiFetch<any>(`/api/v1/admin/clinics/${clinicProfileId}/verify`, {
+      method: 'PATCH',
+      body: JSON.stringify({ decision, rejectionReason }),
+    }),
+};

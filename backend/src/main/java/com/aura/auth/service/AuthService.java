@@ -88,9 +88,10 @@ public class AuthService {
                 email,
                 encoder.encode(q.password()),
                 q.fullName() == null ? null : q.fullName().trim()));
-    var role = roles.findByName(RoleName.USER).orElseThrow();
+    RoleName requestedRole = "CLINIC".equals(q.role()) ? RoleName.CLINIC : RoleName.USER;
+    var role = roles.findByName(requestedRole).orElseThrow();
     userRoles.save(new UserRole(u, role));
-    return view(u, List.of("USER"));
+    return view(u, List.of(requestedRole.name()));
   }
 
   public LoginResult login(LoginRequest q) {

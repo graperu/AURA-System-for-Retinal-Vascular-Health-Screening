@@ -11,13 +11,13 @@ class RegisterRequestValidationTest {
 
   @Test
   void rejectsInvalidEmail() {
-    assertThat(validator.validate(new RegisterRequest("bad", "StrongPassword123!", "Test User")))
+    assertThat(validator.validate(new RegisterRequest("bad", "StrongPassword123!", "Test User", null)))
         .anyMatch(v -> v.getPropertyPath().toString().equals("email"));
   }
 
   @Test
   void rejectsWeakPassword() {
-    assertThat(validator.validate(new RegisterRequest("user@example.test", "weak", "Test User")))
+    assertThat(validator.validate(new RegisterRequest("user@example.test", "weak", "Test User", null)))
         .anyMatch(v -> v.getPropertyPath().toString().equals("password"));
   }
 
@@ -25,7 +25,7 @@ class RegisterRequestValidationTest {
   void acceptsValidSyntheticRequest() {
     assertThat(
             validator.validate(
-                new RegisterRequest("user@example.test", "StrongPassword123!", "Test User")))
+                new RegisterRequest("user@example.test", "StrongPassword123!", "Test User", null)))
         .isEmpty();
   }
 }

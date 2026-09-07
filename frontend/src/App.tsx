@@ -38,7 +38,7 @@ export const App: React.FC = () => {
     ) : currentUser.role === 'clinic' ? (
       <ClinicPortalPage activeView={activeSection} />
     ) : (
-      <AdminAuditLogsPage />
+      <AdminAuditLogsPage activeView={activeSection} />
     );
 
   return (
