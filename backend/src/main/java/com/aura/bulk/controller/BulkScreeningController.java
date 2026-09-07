@@ -23,12 +23,12 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * RESTful Web API Controller for Bulk Retinal Fundus Screening (≥100 images batch processing).
- * Built with Spring Boot 3 & Java 21, providing HIPAA NFR-9/NFR-10 anonymization and Swagger OpenAPI docs.
+ * RESTful Web API Controller for Bulk Retinal Fundus Screening (>=100 images batch processing).
+ * Includes aggregated risk statistics (FR-25) and emergency high-risk alerts (FR-29).
  */
 @RestController
 @RequestMapping("/api/v1/bulk-screening")
-@Tag(name = "Bulk Screening API", description = "Endpoints for bulk fundus image batch screening and real-time status polling")
+@Tag(name = "Bulk Screening API", description = "Endpoints for bulk fundus image batch screening, statistics, and alerts")
 @CrossOrigin(origins = "*")
 public class BulkScreeningController {
 
@@ -45,11 +45,11 @@ public class BulkScreeningController {
     }
 
     /**
-     * Uploads and enqueues a bulk batch of fundus images (≥100 images) for AI vascular screening.
+     * Uploads and enqueues a bulk batch of fundus images (>=100 images) for AI vascular screening.
      */
     @PostMapping("/batch")
     @Operation(
-            summary = "Bulk Upload & Queue Fundus Images (≥100 Images)",
+            summary = "Bulk Upload & Queue Fundus Images (>=100 Images)",
             description = "HIPAA NFR-9/NFR-10 Compliance: Patient PHI is automatically anonymized into SHA-256 HMAC pseudonyms and DICOM headers are filtered before tasks enter the queue."
     )
     public ResponseEntity<?> createBulkBatchJob(@Valid @RequestBody BulkUploadRequestDto request) {
@@ -192,6 +192,15 @@ public class BulkScreeningController {
     }
 
     /**
+     * Lists all recent batch jobs for clinic oversight.
+     */
+    @GetMapping("/batches")
+    @Operation(summary = "List all screening batches", description = "Retrieves all current and recent bulk screening batches.")
+    public ResponseEntity<List<BatchJobResponseDto>> listBatches() {
+        return ResponseEntity.ok(jobQueue.getAllBatches());
+    }
+
+    /**
      * Gets real-time execution status and progress metrics for a bulk batch job.
      */
     @GetMapping("/batch/{batchId}")
@@ -204,6 +213,44 @@ public class BulkScreeningController {
         }
 
         return ResponseEntity.ok(ApiResponse.success("Lấy tiến độ đợt sàng lọc thành công", status));
+    }
+
+    /**
+     * [FR-25] Gets aggregated risk statistics and distribution across all patients in a batch.
+     */
+    @GetMapping("/batch/{batchId}/statistics")
+    @Operation(
+            summary = "Get Aggregated Risk Statistics (FR-25)",
+            description = "TC-CLI-04: Returns aggregated risk metrics including distribution across Low, Moderate, High, and Critical risk, average vascular risk score, and stroke risk."
+    )
+    @ApiResponse(responseCode = "200", description = "Risk statistics calculated successfully")
+    @ApiResponse(responseCode = "404", description = "Batch job ID not found")
+    public ResponseEntity<?> getBatchRiskStatistics(@PathVariable String batchId) {
+        BulkBatchRiskStatisticsDto stats = jobQueue.calculateRiskStatistics(batchId);
+        if (stats == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Không tìm thấy đợt sàng lọc với Mã ID: " + batchId));
+        }
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * [FR-29] Gets emergency alerts for high-risk patients and abnormal trend notifications.
+     */
+    @GetMapping("/batch/{batchId}/alerts")
+    @Operation(
+            summary = "Get High-Risk Alerts & Abnormal Trends (FR-29)",
+            description = "TC-CLI-08: Returns emergency alerts for patients with severe vascular abnormalities and epidemic/cluster trend warnings."
+    )
+    @ApiResponse(responseCode = "200", description = "Alerts generated successfully")
+    @ApiResponse(responseCode = "404", description = "Batch job ID not found")
+    public ResponseEntity<?> getBatchAlerts(@PathVariable String batchId) {
+        BulkBatchAlertSummaryDto alerts = jobQueue.detectAlertsAndTrends(batchId);
+        if (alerts == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Không tìm thấy đợt sàng lọc với Mã ID: " + batchId));
+        }
+        return ResponseEntity.ok(alerts);
     }
 
     /**

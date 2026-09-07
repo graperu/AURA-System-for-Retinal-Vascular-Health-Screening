@@ -18,8 +18,13 @@ import {
   CheckCircle2,
   Eye,
 } from 'lucide-react';
-import { feedbackApi, doctorApi, screeningApi } from '../services/api';
+import { doctorApi, screeningApi } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
+
+const toApiRiskLevel = (riskLevel: string | undefined) => {
+  if (!riskLevel) return undefined;
+  return riskLevel === 'Severe' ? 'CRITICAL' : riskLevel.toUpperCase();
+};
 
 export interface DoctorPatientSummary {
   patientId: string;
@@ -240,10 +245,17 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       if (feedback.analysisId) {
         await screeningApi.doctorReview(
           feedback.analysisId,
-          feedback.clinicalNotes || 'Bác sĩ đã xác nhận kết quả chẩn đoán',
-          feedback.decision || 'APPROVED'
+          {
+            decision: feedback.decision,
+            doctorNotes: feedback.clinicalNotes || 'Bác sĩ đã xác nhận kết quả chẩn đoán',
+            adjustedCardioRisk: toApiRiskLevel(feedback.adjustedCardioRisk),
+            adjustedDrRisk: toApiRiskLevel(feedback.adjustedDrRisk),
+            icd10Codes: feedback.icd10Codes,
+          }
         );
       }
+
+      setFeedbackSuccessMsg('Đã lưu đánh giá chuyên môn và cập nhật hồ sơ sàng lọc của bệnh nhân');
       setFeedbackSuccessToast(true);
       setTimeout(() => setFeedbackSuccessToast(false), 3500);
     } catch (err) {

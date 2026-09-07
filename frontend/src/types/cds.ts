@@ -177,6 +177,67 @@ export interface ClinicBatchJobItem {
   aiResult?: BulkImageAiResult;
   thumbnailUrl?: string;
   createdAt?: string | number;
+  anomaliesCount?: number;
+  strokeRisk?: number;
+  drLevel?: string;
+  arteryVeinRatio?: number;
+  vesselDensity?: number;
+  tortuosityIndex?: number;
+  rationales?: string[];
+  heatmapUrl?: string;
+}
+
+export interface RiskDistribution {
+  lowCount: number;
+  lowPercentage: number;
+  moderateCount: number;
+  moderatePercentage: number;
+  highCount: number;
+  highPercentage: number;
+  criticalCount: number;
+  criticalPercentage: number;
+}
+
+export interface BulkBatchRiskStatistics {
+  batchId: string;
+  clinicId: string;
+  totalImages: number;
+  processedCount: number;
+  failedCount: number;
+  pendingCount: number;
+  averageVascularRiskScore: number;
+  averageStrokeRiskPercent: number;
+  highRiskPatientCount: number;
+  severeAnomaliesDetectedCount: number;
+  riskDistribution: RiskDistribution;
+  calculatedAt: string;
+}
+
+export interface BulkBatchAlert {
+  alertId: string;
+  batchId: string;
+  itemId: string;
+  patientPseudonym: string;
+  riskLevel: 'Critical' | 'High' | string;
+  riskScore: number;
+  severity: 'CRITICAL' | 'WARNING';
+  title: string;
+  reason: string;
+  strokeRiskPercent: number;
+  anomaliesCount: number;
+  recommendedAction: string;
+  createdAt: string;
+}
+
+export interface BulkBatchAlertSummary {
+  batchId: string;
+  clinicId: string;
+  totalAlerts: number;
+  criticalAlertsCount: number;
+  warningAlertsCount: number;
+  hasAbnormalTrend: boolean;
+  abnormalTrendMessage: string | null;
+  alerts: BulkBatchAlert[];
 }
 
 export interface ClinicBatchJob {

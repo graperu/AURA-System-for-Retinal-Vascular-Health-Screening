@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
 import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
 import { ClinicBatchJob } from '../types/cds';
 import { bulkScreeningApi } from '../services/api';
-import { ShieldCheck, Activity, RotateCcw, Search, Loader2 } from 'lucide-react';
+import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers } from 'lucide-react';
 
 const STORAGE_KEY = 'AURA_CLINIC_BATCH_JOB';
 
@@ -59,9 +59,17 @@ const mapBatch = (data: any): ClinicBatchJob => ({
         : item.status === 'FAILED'
         ? 'ERROR'
         : 'PROCESSING',
-    riskLevel: item.aiResult?.riskLevel || item.riskLevel,
-    riskScore: item.aiResult?.riskScore || item.riskScore,
+    riskLevel: item.aiResult?.cardiovascularRiskLevel || item.aiResult?.riskLevel || item.riskLevel,
+    riskScore: item.aiResult?.overallVascularRiskScore ?? item.aiResult?.riskScore ?? item.riskScore,
     thumbnailUrl: item.thumbnailUrl || '/assets/images/fundus_original.png',
+    anomaliesCount: item.aiResult?.detectedAnomaliesCount,
+    strokeRisk: item.aiResult?.threeYearStrokeRiskPercent,
+    drLevel: item.aiResult?.diabeticRetinopathyLevel,
+    arteryVeinRatio: item.aiResult?.arteryVeinRatio,
+    vesselDensity: item.aiResult?.vesselDensityPercentage,
+    tortuosityIndex: item.aiResult?.tortuosityIndex,
+    rationales: item.aiResult?.xaiRationales,
+    heatmapUrl: item.aiResult?.heatmapOverlayUrl,
   })),
 });
 
@@ -74,6 +82,22 @@ export const ClinicPortalPage: React.FC<ClinicPortalProps> = ({ activeView }) =>
   const [lookupBatchId, setLookupBatchId] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [availableBatches, setAvailableBatches] = useState<any[]>([]);
+
+  // Load available batches from server on mount
+  useEffect(() => {
+    const fetchBatches = async () => {
+      try {
+        const response = await bulkScreeningApi.listBatches();
+        if (response.success && Array.isArray(response.data)) {
+          setAvailableBatches(response.data);
+        }
+      } catch {
+        // Ignore network errors on init
+      }
+    };
+    fetchBatches();
+  }, []);
 
   if (activeView === 'campaign-analytics') {
     return <ClinicCampaignAnalytics />;
@@ -135,6 +159,25 @@ export const ClinicPortalPage: React.FC<ClinicPortalProps> = ({ activeView }) =>
     }
   };
 
+  const handleSelectBatch = async (selectedId: string) => {
+    if (!selectedId || selectedId === batchJob.batchId) return;
+    setLookupBatchId(selectedId);
+    setLookupLoading(true);
+    setLookupError(null);
+    try {
+      const response = await bulkScreeningApi.getBatch(selectedId);
+      if (response.success && response.data) {
+        handleUpdateBatch(mapBatch(response.data));
+      } else {
+        setLookupError(response.message || 'Không thể tải dữ liệu đợt khám.');
+      }
+    } catch (err: any) {
+      setLookupError(err.message || 'Lỗi khi tải đợt khám.');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Clinic Portal Header Banner */}
@@ -145,31 +188,54 @@ export const ClinicPortalPage: React.FC<ClinicPortalProps> = ({ activeView }) =>
               Cổng Quản Lý Chiến Dịch Sàng Lọc Hàng Loạt (Clinic Portal)
             </h1>
             <span className="bg-cyan-100 text-[#0891B2] text-[11px] font-bold font-mono-data px-2.5 py-0.5 rounded-full border border-cyan-200">
-              FR-24 &bull; NFR-2 &bull; NFR-9
+              FR-24 &bull; FR-25 &bull; FR-29 &bull; NFR-2 &bull; NFR-9
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
-            Tiếp nhận thư mục ảnh chụp đáy mắt khối lượng lớn (≥100 ảnh), tự động khử định danh HIPAA SHA-256 HMAC, đưa vào hàng đợi PyTorch AI bất đồng bộ và hỗ trợ lưu trữ liên tục không bị mất dữ liệu khi tải lại.
+            Tiếp nhận thư mục ảnh chụp đáy mắt khối lượng lớn (≥100 ảnh), tự động khử định danh HIPAA SHA-256 HMAC, đưa vào hàng đợi PyTorch AI bất đồng bộ và hỗ trợ giám sát rủi ro tổng hợp.
           </p>
 
-          {/* Quick lookup form */}
-          <form onSubmit={handleLookupBatch} className="mt-3 flex items-center gap-2 max-w-md">
-            <input
-              type="text"
-              value={lookupBatchId}
-              onChange={(e) => setLookupBatchId(e.target.value)}
-              placeholder="Nhập mã Batch ID cần tra cứu (VD: BATCH-...)"
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-1.5 text-xs focus:border-[#0891B2] outline-none"
-            />
-            <button
-              type="submit"
-              disabled={lookupLoading}
-              className="flex items-center gap-1 rounded-xl bg-[#0891B2] hover:bg-[#0e7490] px-3 py-1.5 text-xs font-bold text-white transition disabled:opacity-50"
-            >
-              {lookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-              <span>Tra cứu</span>
-            </button>
-          </form>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {/* Quick lookup form */}
+            <form onSubmit={handleLookupBatch} className="flex items-center gap-2 max-w-md">
+              <input
+                type="text"
+                value={lookupBatchId}
+                onChange={(e) => setLookupBatchId(e.target.value)}
+                placeholder="Nhập mã Batch ID cần tra cứu..."
+                className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs focus:border-[#0891B2] outline-none"
+              />
+              <button
+                type="submit"
+                disabled={lookupLoading}
+                className="flex items-center gap-1 rounded-xl bg-[#0891B2] hover:bg-[#0e7490] px-3 py-1.5 text-xs font-bold text-white transition disabled:opacity-50"
+              >
+                {lookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                <span>Tra cứu</span>
+              </button>
+            </form>
+
+            {/* Dropdown for available batches */}
+            {availableBatches.length > 0 && (
+              <div className="flex items-center gap-1.5 ml-2">
+                <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-[#0891B2]" /> Đợt có sẵn:
+                </span>
+                <select
+                  value={batchJob.batchId}
+                  onChange={(e) => handleSelectBatch(e.target.value)}
+                  className="text-xs border border-slate-300 rounded-xl px-2.5 py-1.5 bg-slate-50 font-medium text-slate-700 outline-none focus:border-[#0891B2]"
+                >
+                  <option value="">-- Chọn đợt sàng lọc --</option>
+                  {availableBatches.map((b) => (
+                    <option key={b.batchId} value={b.batchId}>
+                      {b.batchId} ({b.processedCount}/{b.totalImages} ảnh &bull; {b.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
           {lookupError && <p className="mt-1 text-xs text-red-500 font-medium">{lookupError}</p>}
         </div>
 

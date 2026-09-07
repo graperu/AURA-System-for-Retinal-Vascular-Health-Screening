@@ -74,7 +74,14 @@ public class ScreeningController {
     if (principal == null) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập tài khoản Bác sĩ");
     }
-    Screening updated = screeningService.addDoctorReview(id, principal.id(), request.doctorNotes(), request.riskLevel());
+    Screening updated = screeningService.addDoctorReview(
+      id,
+      principal.id(),
+      request.decision(),
+      request.doctorNotes(),
+      request.adjustedCardioRisk(),
+      request.adjustedDrRisk(),
+      request.icd10Codes());
     return ApiResponse.success("Lưu đánh giá chẩn đoán của bác sĩ thành công", updated);
   }
 }

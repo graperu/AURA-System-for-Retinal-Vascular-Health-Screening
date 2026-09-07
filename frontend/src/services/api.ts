@@ -113,11 +113,15 @@ export const screeningApi = {
       method: 'GET',
     }),
 
-  doctorReview: (id: string, doctorNotes: string, riskLevel: string) =>
-    apiFetch<any>(`/api/v1/screenings/${id}/review`, {
+  doctorReview: (id: string, notesOrPayload: string | Record<string, any>, riskLevel?: string) => {
+    const body = typeof notesOrPayload === 'string'
+      ? { doctorNotes: notesOrPayload, riskLevel }
+      : notesOrPayload;
+    return apiFetch<any>(`/api/v1/screenings/${id}/review`, {
       method: 'POST',
-      body: JSON.stringify({ doctorNotes, riskLevel }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
 };
 
 export const chatApi = {
@@ -379,7 +383,6 @@ export const bulkScreeningApi = {
 
   getBatch: (batchId: string) =>
     apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, { method: 'GET' }),
-
   getBatchStatus: (batchId: string) =>
     apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, {
       method: 'GET',
@@ -399,6 +402,15 @@ export const bulkScreeningApi = {
     apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/cancel`, {
       method: 'POST',
     }),
+
+  getStatistics: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/statistics`, { method: 'GET' }),
+
+  getAlerts: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/alerts`, { method: 'GET' }),
+
+  listBatches: () =>
+    apiFetch<any[]>(`/api/v1/bulk-screening/batches`, { method: 'GET' }),
 };
 
 export const servicePackageApi = {
