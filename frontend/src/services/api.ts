@@ -110,10 +110,16 @@ export const screeningApi = {
       method: 'GET',
     }),
 
-  doctorReview: (id: string, doctorNotes: string, riskLevel: string) =>
+  doctorReview: (id: string, payload: {
+    decision: 'APPROVED' | 'MODIFIED' | 'REJECTED';
+    doctorNotes: string;
+    adjustedCardioRisk?: string;
+    adjustedDrRisk?: string;
+    icd10Codes: string[];
+  }) =>
     apiFetch<any>(`/api/v1/screenings/${id}/review`, {
       method: 'POST',
-      body: JSON.stringify({ doctorNotes, riskLevel }),
+      body: JSON.stringify(payload),
     }),
 };
 
@@ -294,6 +300,12 @@ export const assignmentApi = {
 export const bulkScreeningApi = {
   getBatch: (batchId: string) =>
     apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, { method: 'GET' }),
+  getStatistics: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/statistics`, { method: 'GET' }),
+  getAlerts: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/alerts`, { method: 'GET' }),
+  listBatches: () =>
+    apiFetch<any[]>(`/api/v1/bulk-screening/batches`, { method: 'GET' }),
 };
 
 export const servicePackageApi = {
