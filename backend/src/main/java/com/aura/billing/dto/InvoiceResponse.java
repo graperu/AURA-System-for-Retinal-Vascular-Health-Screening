@@ -1,5 +1,10 @@
 package com.aura.billing.dto;
 
+import com.aura.billing.entity.PaymentStatus;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 public record InvoiceResponse(
         String invoiceNumber,
         Long paymentId,
