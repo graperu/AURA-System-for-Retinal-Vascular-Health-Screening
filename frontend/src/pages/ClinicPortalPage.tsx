@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
+import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
 import { bulkScreeningApi } from '../services/api';
 import { ClinicBatchJob } from '../types/cds';
 import { Layers, RefreshCw, ArrowRight } from 'lucide-react';
@@ -41,7 +42,11 @@ const mapBatch = (data: any): ClinicBatchJob => ({
   })),
 });
 
-export const ClinicPortalPage: React.FC = () => {
+interface ClinicPortalProps {
+  activeView?: string;
+}
+
+export const ClinicPortalPage: React.FC<ClinicPortalProps> = ({ activeView }) => {
   const [batchId, setBatchId] = useState('');
   const [batchJob, setBatchJob] = useState<ClinicBatchJob | null>(null);
   const [availableBatches, setAvailableBatches] = useState<any[]>([]);
@@ -83,6 +88,10 @@ export const ClinicPortalPage: React.FC = () => {
     }
     setBatchJob(mapBatch(response.data));
   };
+
+  if (activeView === 'campaign-analytics') {
+    return <ClinicCampaignAnalytics />;
+  }
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();

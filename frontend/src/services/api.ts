@@ -313,4 +313,21 @@ export const servicePackageApi = {
     apiFetch<any[]>(`/api/v1/packages?scope=${scope}`, { method: 'GET' }),
 };
 
+export const clinicAnalyticsApi = {
+  getCampaignAnalytics: () =>
+    apiFetch<any>('/api/v1/clinic/analytics/campaigns', { method: 'GET' }),
 
+  exportData: async (fileName = 'aura_clinic_export.csv') => {
+    const response = await fetch(
+      `${(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')}/api/v1/clinic/analytics/export`,
+      { headers: getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}, credentials: 'include' }
+    );
+    if (!response.ok) throw new Error('Không thể tải file báo cáo');
+    const url = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
+};
