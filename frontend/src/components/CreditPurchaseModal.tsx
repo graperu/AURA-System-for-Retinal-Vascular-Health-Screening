@@ -131,15 +131,44 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
 
   const downloadInvoice = async (id: number) => {
     const res = await billingApi.invoice(id);
-    if (!res.success || !res.data?.html) {
+    if (!res.success || !res.data) {
       setError(res.message || "Không xuất được hóa đơn");
       return;
     }
-    const blob = new Blob([res.data.html], { type: "text/html" });
+    const inv = res.data;
+    const amount = Number(inv.amount ?? 0).toLocaleString("vi-VN");
+    const when = inv.paidAt || inv.createdAt || "";
+    const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <title>Hóa đơn ${inv.invoiceNumber || id}</title>
+  <style>
+    body{font-family:system-ui,sans-serif;padding:32px;color:#0f172a;max-width:640px;margin:0 auto}
+    h2{color:#0f766e;margin-bottom:8px}
+    .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e8f0}
+    .label{color:#64748b;font-size:13px}
+    .value{font-weight:600}
+    footer{margin-top:32px;font-size:12px;color:#94a3b8}
+  </style>
+</head>
+<body>
+  <h2>Hóa đơn AURA</h2>
+  <p style="color:#64748b;margin-top:0">Sàng lọc sức khỏe mạch máu võng mạc</p>
+  <div class="row"><span class="label">Số HĐ</span><span class="value">${inv.invoiceNumber || "—"}</span></div>
+  <div class="row"><span class="label">Gói</span><span class="value">${inv.servicePackageName || "—"}</span></div>
+  <div class="row"><span class="label">Số tiền</span><span class="value">${amount} ${inv.currency || "VND"}</span></div>
+  <div class="row"><span class="label">Cổng</span><span class="value">${inv.provider || "—"}</span></div>
+  <div class="row"><span class="label">Trạng thái</span><span class="value">${inv.status || "—"}</span></div>
+  <div class="row"><span class="label">Thời gian</span><span class="value">${when}</span></div>
+  <footer>AURA — Clinical Decision Support · Hóa đơn điện tử demo</footer>
+</body>
+</html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${res.data.invoiceNumber || "hoa-don"}.html`;
+    a.download = `${inv.invoiceNumber || "hoa-don-" + id}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
