@@ -1,5 +1,6 @@
 package com.aura.bulk.controller;
 
+import com.aura.common.response.ApiResponse;
 import com.aura.bulk.dto.*;
 import com.aura.bulk.queue.BatchItemTask;
 import com.aura.bulk.queue.BatchJobQueue;
@@ -7,7 +8,7 @@ import com.aura.bulk.service.PatientAnonymizerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -16,8 +17,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * RESTful Web API Controller for Bulk Retinal Fundus Screening (>=100 images batch processing).
@@ -49,9 +52,6 @@ public class BulkScreeningController {
             summary = "Bulk Upload & Queue Fundus Images (>=100 Images)",
             description = "HIPAA NFR-9/NFR-10 Compliance: Patient PHI is automatically anonymized into SHA-256 HMAC pseudonyms and DICOM headers are filtered before tasks enter the queue."
     )
-    @ApiResponse(responseCode = "202", description = "Batch upload accepted and queued for processing",
-            content = @Content(schema = @Schema(implementation = BatchJobResponseDto.class)))
-    @ApiResponse(responseCode = "400", description = "Invalid payload or empty image list")
     public ResponseEntity<?> createBulkBatchJob(@Valid @RequestBody BulkUploadRequestDto request) {
         if (request.imageItems() == null || request.imageItems().isEmpty()) {
             return ResponseEntity.badRequest()
@@ -87,6 +87,13 @@ public class BulkScreeningController {
                     item.fileName(),
                     item.eyePosition(),
                     anonymizedPatient.pseudonymId(),
+                    item.rawPatientName(),
+                    item.rawMrn(),
+                    item.patientAge(),
+                    item.patientGender(),
+                    item.systolicBp(),
+                    item.diastolicBp(),
+                    item.hbA1c(),
                     "QUEUED",
                     0,
                     null
@@ -113,7 +120,75 @@ public class BulkScreeningController {
         }
 
         BatchJobResponseDto initialStatus = jobQueue.getBatchStatus(batchId);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(initialStatus);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success("Khởi tạo lô phân tích hàng loạt thành công", initialStatus));
+    }
+
+    /**
+     * Creates and immediately enqueues a mock clinical demonstration batch of ≥100 images.
+     */
+    @PostMapping("/demo-batch")
+    @Operation(summary = "Generate and Queue a Demo Batch of ≥100 Clinical Fundus Images")
+    public ResponseEntity<?> createDemoBatchJob(
+            @RequestParam(defaultValue = "100") int count,
+            @RequestParam(defaultValue = "Chiến dịch Tầm soát Đột quỵ & Tim mạch Cộng đồng 2026") String campaignName) {
+        
+        int total = Math.max(10, Math.min(count, 150));
+        List<BulkImageItemUploadDto> items = new ArrayList<>();
+        Random rng = new Random();
+
+        String[] firstNames = {"Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Phan", "Vũ", "Võ", "Đặng", "Bùi", "Đỗ"};
+        String[] middleNames = {"Văn", "Thị", "Hồng", "Minh", "Đức", "Thanh", "Quang", "Anh", "Xuân", "Ngọc"};
+        String[] lastNames = {"Tuấn", "Lan", "Hương", "Hùng", "Mai", "Dũng", "Hoa", "Bình", "Cường", "Trang", "Tâm", "Vy"};
+
+        for (int i = 1; i <= total; i++) {
+            String name = firstNames[rng.nextInt(firstNames.length)] + " " +
+                    middleNames[rng.nextInt(middleNames.length)] + " " +
+                    lastNames[rng.nextInt(lastNames.length)];
+            String mrn = String.format("MRN-2026-%04d", 1000 + i);
+            String eye = (i % 2 == 1) ? "OD" : "OS";
+            String fileName = String.format("RETINA_%s_%s_%03d.dcm", mrn, eye, i);
+            int age = 45 + rng.nextInt(35);
+            String gender = rng.nextBoolean() ? "Nam" : "Nữ";
+            int systolic = 115 + rng.nextInt(50);
+            int diastolic = 70 + rng.nextInt(30);
+            double hba1c = Math.round((5.2 + rng.nextDouble() * 4.5) * 10.0) / 10.0;
+
+            items.add(new BulkImageItemUploadDto(
+                    fileName,
+                    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                    eye,
+                    mrn,
+                    name,
+                    age,
+                    gender,
+                    systolic,
+                    diastolic,
+                    hba1c
+            ));
+        }
+
+        BulkUploadRequestDto req = new BulkUploadRequestDto(
+                "CLN-CHO-RAY-01",
+                campaignName,
+                items
+        );
+
+        return createBulkBatchJob(req);
+    }
+
+    /**
+     * Gets the latest active or completed bulk screening batch.
+     */
+    @GetMapping("/latest")
+    @Operation(summary = "Get Latest Bulk Screening Batch", description = "Returns the most recently created bulk batch.")
+    public ResponseEntity<?> getLatestBatchStatus() {
+        String latestId = jobQueue.getLatestBatchId();
+        if (latestId == null) {
+            return ResponseEntity.ok(ApiResponse.success("Chưa có đợt khám nào.", null));
+        }
+        BatchJobResponseDto status = jobQueue.getBatchStatus(latestId);
+        return ResponseEntity.ok(ApiResponse.success("Lấy đợt khám mới nhất thành công", status));
     }
 
     /**
@@ -130,8 +205,6 @@ public class BulkScreeningController {
      */
     @GetMapping("/batch/{batchId}")
     @Operation(summary = "Get Real-Time Batch Progress & Status", description = "Polls execution progress, total processed, failed count, and estimated time remaining in seconds.")
-    @ApiResponse(responseCode = "200", description = "Batch status fetched successfully")
-    @ApiResponse(responseCode = "404", description = "Batch job ID not found")
     public ResponseEntity<?> getBatchStatus(@PathVariable String batchId) {
         BatchJobResponseDto status = jobQueue.getBatchStatus(batchId);
         if (status == null) {
@@ -139,7 +212,7 @@ public class BulkScreeningController {
                     .body(Map.of("message", "Không tìm thấy đợt sàng lọc hàng loạt với Mã ID: " + batchId));
         }
 
-        return ResponseEntity.ok(status);
+        return ResponseEntity.ok(ApiResponse.success("Lấy tiến độ đợt sàng lọc thành công", status));
     }
 
     /**
@@ -194,7 +267,7 @@ public class BulkScreeningController {
         return status.items().stream()
                 .filter(i -> i.itemId().equals(itemId))
                 .findFirst()
-                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .<ResponseEntity<?>>map(item -> ResponseEntity.ok(ApiResponse.success("Lấy chi tiết kết quả ảnh thành công", item)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("message", "Không tìm thấy bản ghi ảnh với ID: " + itemId)));
     }
@@ -211,6 +284,7 @@ public class BulkScreeningController {
         }
 
         jobQueue.cancelBatch(batchId);
-        return ResponseEntity.ok(Map.of("message", "Đã tạm dừng đợt sàng lọc hàng loạt thành công.", "batchId", batchId));
+        return ResponseEntity.ok(ApiResponse.success("Đã tạm dừng đợt sàng lọc hàng loạt thành công.", Map.of("batchId", batchId)));
     }
 }
+

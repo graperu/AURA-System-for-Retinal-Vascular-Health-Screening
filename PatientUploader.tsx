@@ -122,52 +122,44 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     e.preventDefault();
     setUploadError('');
 
-    const hasOD = Boolean(odFile);
-    const hasOS = Boolean(osFile);
-
     // Kiểm tra tính hợp lệ: bắt buộc phải có file thực sự được chọn
-    if (eyeMode === 'Both_OD_OS' && !hasOD && !hasOS) {
+    const isDual = eyeMode === 'Both_OD_OS';
+    if (isDual && !odFile && !osFile) {
       setUploadError(
         'Vui lòng tải lên ít nhất một ảnh chụp võng mạc (Mắt Phải OD hoặc Mắt Trái OS) trước khi bắt đầu phân tích AI.'
       );
       return;
     }
-    if (eyeMode === 'Right_OD' && !hasOD) {
+    if (eyeMode === 'Right_OD' && !odFile) {
       setUploadError('Vui lòng chọn tệp ảnh chụp võng mạc cho Mắt Phải (OD) trước khi bắt đầu phân tích AI.');
       return;
     }
-    if (eyeMode === 'Left_OS' && !hasOS) {
+    if (eyeMode === 'Left_OS' && !osFile) {
       setUploadError('Vui lòng chọn tệp ảnh chụp võng mạc cho Mắt Trái (OS) trước khi bắt đầu phân tích AI.');
       return;
     }
 
-    // Xác định chế độ thực tế: nếu chọn Cả 2 mắt nhưng chỉ tải 1 bên thì chỉ phân tích bên đó
-    const isDual = eyeMode === 'Both_OD_OS' && hasOD && hasOS;
-    const effectiveEyePosition: 'Both_OD_OS' | 'Right_OD' | 'Left_OS' = isDual
-      ? 'Both_OD_OS'
-      : (hasOD ? 'Right_OD' : 'Left_OS');
-
-    const mainFile = hasOD ? odFile : osFile;
-    const mainPreview = hasOD ? odPreviewUrl : osPreviewUrl;
-    const mainName = mainFile ? mainFile.name : (effectiveEyePosition === 'Left_OS' ? 'fundus_scan_OS.png' : 'fundus_scan_OD.png');
+    const mainFile = isDual ? odFile || osFile : eyeMode === 'Right_OD' ? odFile : osFile;
+    const mainPreview = isDual ? odPreviewUrl || osPreviewUrl : eyeMode === 'Right_OD' ? odPreviewUrl : osPreviewUrl;
+    const mainName = mainFile ? mainFile.name : eyeMode === 'Left_OS' ? 'fundus_scan_OS.png' : 'fundus_scan_OD.png';
 
     const request: FundusAnalysisRequest = {
       requestId: `REQ-${Date.now().toString().slice(-6)}`,
-      patientId: activePatient.id || 'PAT-DEFAULT',
+      patientId: activePatient.id,
       clinicId: 'CLN-MAIN-01',
       imageName: mainName,
       imageUrl: mainPreview,
       file: mainFile || undefined,
       scanType,
-      eyePosition: effectiveEyePosition,
+      eyePosition: eyeMode,
       uploadedAt: new Date().toISOString(),
       isDualEye: isDual,
-      odFile: hasOD ? odFile! : undefined,
-      odImageUrl: hasOD ? odPreviewUrl : undefined,
-      odImageName: hasOD && odFile ? odFile.name : undefined,
-      osFile: hasOS ? osFile! : undefined,
-      osImageUrl: hasOS ? osPreviewUrl : undefined,
-      osImageName: hasOS && osFile ? osFile.name : undefined,
+      odFile: odFile || undefined,
+      odImageUrl: odPreviewUrl,
+      odImageName: odFile ? odFile.name : undefined,
+      osFile: osFile || undefined,
+      osImageUrl: osPreviewUrl,
+      osImageName: osFile ? osFile.name : undefined,
     };
 
     onStartAnalysis(request);
@@ -314,22 +306,6 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               <div className="absolute top-3 left-3 bg-[#0891B2] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                 Mắt Phải (OD)
               </div>
-              {odFile && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOdFile(null);
-                    setOdPreviewUrl('');
-                    if (odInputRef.current) odInputRef.current.value = '';
-                  }}
-                  className="absolute top-2.5 right-2.5 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 z-10 shadow-2xs"
-                  title="Hủy chọn ảnh Mắt Phải"
-                >
-                  <X className="w-3 h-3" />
-                  Bỏ ảnh
-                </button>
-              )}
 
               <div className="flex flex-col items-center justify-center gap-2.5 pt-4">
                 {odPreviewUrl ? (
@@ -398,22 +374,6 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               <div className="absolute top-3 left-3 bg-[#0D9488] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                 Mắt Trái (OS)
               </div>
-              {osFile && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOsFile(null);
-                    setOsPreviewUrl('');
-                    if (osInputRef.current) osInputRef.current.value = '';
-                  }}
-                  className="absolute top-2.5 right-2.5 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 z-10 shadow-2xs"
-                  title="Hủy chọn ảnh Mắt Trái"
-                >
-                  <X className="w-3 h-3" />
-                  Bỏ ảnh
-                </button>
-              )}
 
               <div className="flex flex-col items-center justify-center gap-2.5 pt-4">
                 {osPreviewUrl ? (
@@ -491,11 +451,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               className="w-full py-3 px-4 bg-gradient-to-r from-[#0891B2] to-[#0D9488] hover:from-[#0E7490] hover:to-[#0F766E] text-white font-bold rounded-xl text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-98"
             >
               <Sparkles className="w-4 h-4" />
-              {eyeMode === 'Both_OD_OS' && odFile && osFile
-                ? 'Bắt Đầu Phân Tích Mạch Máu Võng Mạc AI (Cả 2 Mắt OD & OS)'
-                : (eyeMode === 'Left_OS' || (!odFile && osFile))
-                ? 'Bắt Đầu Phân Tích Mạch Máu Võng Mạc AI (Mắt Trái OS)'
-                : 'Bắt Đầu Phân Tích Mạch Máu Võng Mạc AI (Mắt Phải OD)'}
+              Bắt Đầu Phân Tích Mạch Máu Võng Mạc AI (Run AURA Deep Learning)
             </button>
           )}
         </div>

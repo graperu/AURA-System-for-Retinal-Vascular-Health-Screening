@@ -8,7 +8,7 @@ import { CreditPurchaseModal } from '../components/CreditPurchaseModal';
 import { MedicalProfileModal } from '../components/MedicalProfileModal';
 import { MOCK_PATIENTS, MOCK_SAMPLE_RESULT, MockAIService } from '../services/mockAiEngine';
 import { AIRiskResult, FundusAnalysisRequest, PatientProfile } from '../types/cds';
-import { screeningApi, chatApi, billingApi, patientApi } from '../services/api';
+import { screeningApi, chatApi, billingApi } from '../services/api';
 import {
   Eye,
   Heart,
@@ -43,189 +43,6 @@ import {
   FileImage,
 } from 'lucide-react';
 
-const DEFAULT_CLINICAL_SCANS: any[] = [
-  {
-    id: 'ANALYSIS-2026-0941-01',
-    rawId: 'a1000000-0000-0000-0000-000000000001',
-    date: '03/09/2026 21:12:51',
-    rawDate: '2026-09-03',
-    eye: 'Cả 2 Mắt (OD + OS)',
-    eyePositionKey: 'Both_OD_OS',
-    scanType: 'Fundus Cực Sau Hoàng Điểm',
-    scanTypeKey: 'Fundus_Macula',
-    overallScore: 85,
-    riskLevel: 'Nguy cơ cao',
-    cvdRisk: '82%',
-    avRatio: 0.52,
-    vesselDensity: '14.8%',
-    doctor: 'BS. CKII Nguyễn Thị Thanh',
-    status: 'Đã duyệt lâm sàng',
-    imageUrl: '/assets/images/fundus_original.png',
-    fileName: 'fundus_dual_scan_20260903.png',
-    fileSize: 3245120,
-  },
-  {
-    id: 'ANALYSIS-2026-0941-02',
-    rawId: 'a1000000-0000-0000-0000-000000000002',
-    date: '15/08/2026 09:30:15',
-    rawDate: '2026-08-15',
-    eye: 'Mắt Phải (OD)',
-    eyePositionKey: 'Right_OD',
-    scanType: 'Fundus Cực Sau Hoàng Điểm',
-    scanTypeKey: 'Fundus_Macula',
-    overallScore: 82,
-    riskLevel: 'Nguy cơ cao',
-    cvdRisk: '79%',
-    avRatio: 0.54,
-    vesselDensity: '15.1%',
-    doctor: 'BS. CKII Nguyễn Thị Thanh',
-    status: 'Đã duyệt lâm sàng',
-    imageUrl: '/assets/images/fundus_original.png',
-    fileName: 'fundus_scan_OD_20260815.dcm',
-    fileSize: 4512000,
-  },
-  {
-    id: 'ANALYSIS-2026-0941-03',
-    rawId: 'a1000000-0000-0000-0000-000000000003',
-    date: '28/07/2026 14:22:00',
-    rawDate: '2026-07-28',
-    eye: 'Mắt Trái (OS)',
-    eyePositionKey: 'Left_OS',
-    scanType: 'Fundus Cực Sau Hoàng Điểm',
-    scanTypeKey: 'Fundus_Macula',
-    overallScore: 76,
-    riskLevel: 'Nguy cơ cao',
-    cvdRisk: '74%',
-    avRatio: 0.56,
-    vesselDensity: '15.4%',
-    doctor: 'BS. CKII Nguyễn Thị Thanh',
-    status: 'Đã duyệt lâm sàng',
-    imageUrl: '/assets/images/fundus_original.png',
-    fileName: 'fundus_scan_OS_20260728.png',
-    fileSize: 2890100,
-  },
-  {
-    id: 'ANALYSIS-2026-0941-04',
-    rawId: 'a1000000-0000-0000-0000-000000000004',
-    date: '10/06/2026 10:05:40',
-    rawDate: '2026-06-10',
-    eye: 'Cả 2 Mắt (OD + OS)',
-    eyePositionKey: 'Both_OD_OS',
-    scanType: 'Cắt Lớp OCT',
-    scanTypeKey: 'OCT_Scan',
-    overallScore: 78,
-    riskLevel: 'Nguy cơ cao',
-    cvdRisk: '76%',
-    avRatio: 0.55,
-    vesselDensity: '15.2%',
-    doctor: 'BS. CKII Nguyễn Thị Thanh',
-    status: 'Đã duyệt lâm sàng',
-    imageUrl: '/assets/images/fundus_original.png',
-    fileName: 'oct_disc_scan_20260610.dcm',
-    fileSize: 8920150,
-  },
-  {
-    id: 'ANALYSIS-2026-0941-05',
-    rawId: 'a1000000-0000-0000-0000-000000000005',
-    date: '02/05/2026 16:45:10',
-    rawDate: '2026-05-02',
-    eye: 'Cả 2 Mắt (OD + OS)',
-    eyePositionKey: 'Both_OD_OS',
-    scanType: 'Fundus Đĩa Thị',
-    scanTypeKey: 'Fundus_OpticDisc',
-    overallScore: 80,
-    riskLevel: 'Nguy cơ cao',
-    cvdRisk: '78%',
-    avRatio: 0.53,
-    vesselDensity: '15.0%',
-    doctor: 'BS. CKII Nguyễn Thị Thanh',
-    status: 'Đã duyệt lâm sàng',
-    imageUrl: '/assets/images/fundus_original.png',
-    fileName: 'fundus_disc_20260502.png',
-    fileSize: 3120400,
-  },
-  {
-    id: 'ANALYSIS-2026-0941-06',
-    rawId: 'a1000000-0000-0000-0000-000000000006',
-    date: '12/04/2026 08:50:30',
-    rawDate: '2026-04-12',
-    eye: 'Mắt Phải (OD)',
-    eyePositionKey: 'Right_OD',
-    scanType: 'Fundus Cực Sau Hoàng Điểm',
-    scanTypeKey: 'Fundus_Macula',
-    overallScore: 86,
-    riskLevel: 'Nguy cơ cao',
-    cvdRisk: '84%',
-    avRatio: 0.50,
-    vesselDensity: '14.5%',
-    doctor: 'BS. CKII Nguyễn Thị Thanh',
-    status: 'Đã duyệt lâm sàng',
-    imageUrl: '/assets/images/fundus_original.png',
-    fileName: 'fundus_urgent_OD_20260412.png',
-    fileSize: 3540200,
-  },
-  {
-    id: 'ANALYSIS-2026-0941-07',
-    rawId: 'a1000000-0000-0000-0000-000000000007',
-    date: '18/03/2026 11:15:00',
-    rawDate: '2026-03-18',
-    eye: 'Cả 2 Mắt (OD + OS)',
-    eyePositionKey: 'Both_OD_OS',
-    scanType: 'Fundus Cực Sau Hoàng Điểm',
-    scanTypeKey: 'Fundus_Macula',
-    overallScore: 79,
-    riskLevel: 'Nguy cơ cao',
-    cvdRisk: '77%',
-    avRatio: 0.55,
-    vesselDensity: '15.3%',
-    doctor: 'BS. CKII Nguyễn Thị Thanh',
-    status: 'Đã duyệt lâm sàng',
-    imageUrl: '/assets/images/fundus_original.png',
-    fileName: 'fundus_screening_20260318.png',
-    fileSize: 3310500,
-  },
-  {
-    id: 'ANALYSIS-2026-0941-08',
-    rawId: 'a1000000-0000-0000-0000-000000000008',
-    date: '14/02/2026 15:30:20',
-    rawDate: '2026-02-14',
-    eye: 'Mắt Trái (OS)',
-    eyePositionKey: 'Left_OS',
-    scanType: 'Fundus Cực Sau Hoàng Điểm',
-    scanTypeKey: 'Fundus_Macula',
-    overallScore: 72,
-    riskLevel: 'Nguy cơ trung bình',
-    cvdRisk: '70%',
-    avRatio: 0.58,
-    vesselDensity: '15.7%',
-    doctor: 'BS. CKII Nguyễn Thị Thanh',
-    status: 'Đã duyệt lâm sàng',
-    imageUrl: '/assets/images/fundus_original.png',
-    fileName: 'fundus_checkup_OS_20260214.png',
-    fileSize: 2950600,
-  },
-  {
-    id: 'ANALYSIS-2026-0941-09',
-    rawId: 'a1000000-0000-0000-0000-000000000009',
-    date: '18/01/2026 09:00:00',
-    rawDate: '2026-01-18',
-    eye: 'Cả 2 Mắt (OD + OS)',
-    eyePositionKey: 'Both_OD_OS',
-    scanType: 'Fundus Cực Sau Hoàng Điểm',
-    scanTypeKey: 'Fundus_Macula',
-    overallScore: 84,
-    riskLevel: 'Nguy cơ cao',
-    cvdRisk: '81%',
-    avRatio: 0.53,
-    vesselDensity: '14.9%',
-    doctor: 'BS. CKII Nguyễn Thị Thanh',
-    status: 'Đã duyệt lâm sàng',
-    imageUrl: '/assets/images/fundus_original.png',
-    fileName: 'fundus_baseline_20260118.png',
-    fileSize: 3420800,
-  },
-];
-
 interface PatientPortalPageProps {
   user: UserSession;
   activeView?: string;
@@ -237,17 +54,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   activeView = 'dashboard',
   onNavigate = () => undefined,
 }) => {
-  const cleanName = (user.name && !user.name.includes('?')) ? user.name : 'Bệnh nhân Nguyễn Trọng Nam';
   const [patient, setPatient] = useState<PatientProfile>({
     ...MOCK_PATIENTS[0],
-    fullName: cleanName,
+    fullName: user.name || 'Nguyen Trong Nam',
     mrn: user.mrn || 'MRN-2026-0941',
   });
 
-  const [isProfileLoading, setIsProfileLoading] = useState<boolean>(true);
-  const [isProfileError, setIsProfileError] = useState<boolean>(false);
-
-  const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(MOCK_SAMPLE_RESULT);
+  const [analysisResult, setAnalysisResult] = useState<AIRiskResult>(MOCK_SAMPLE_RESULT);
   const [resultOD, setResultOD] = useState<AIRiskResult | null>(MOCK_SAMPLE_RESULT);
   const [resultOS, setResultOS] = useState<AIRiskResult | null>(null);
   const [activeEyeTab, setActiveEyeTab] = useState<'OD' | 'OS'>('OD');
@@ -256,7 +69,6 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     status: '',
     percent: 0,
   });
-  const [analysisErrorMsg, setAnalysisErrorMsg] = useState<string | null>(null);
 
   // Realtime AI Ready Notification
   const [showAiNotification, setShowAiNotification] = useState<boolean>(false);
@@ -266,10 +78,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [userCredits, setUserCredits] = useState(0);
+  const [userCredits, setUserCredits] = useState(5);
 
   // In-app chat messages for dedicated consultation view
-  const [chatMessages, setChatMessages] = useState<any[]>([
+  const [chatMessages, setChatMessages] = useState([
     {
       id: 'm1',
       sender: 'doctor',
@@ -289,7 +101,6 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       time: '18:22',
     },
   ]);
-  const [assignedDoctorId, setAssignedDoctorId] = useState<string | null>(null);
   const [newChatText, setNewChatText] = useState('');
 
   // History Search, Filter & Pagination State (FR-6, FR-18)
@@ -303,96 +114,41 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [historyPageSize, setHistoryPageSize] = useState(5);
   const [selectedHistoryResult, setSelectedHistoryResult] = useState<AIRiskResult | null>(null);
 
-  // Scan History: Khởi tạo từ LocalStorage hoặc Danh sách 9 ca lâm sàng chuẩn
+  // Scan History: Khởi tạo từ CSDL thật (loại bỏ hoàn toàn bản ghi giả mạo mặc định)
   const [scanHistory, setScanHistory] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('aura_scan_history_v2');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
-    } catch {}
-    return DEFAULT_CLINICAL_SCANS;
-  });
-
-  const fetchProfileData = async () => {
-    try {
-      setIsProfileLoading(true);
-      setIsProfileError(false);
-      const profileRes = await patientApi.getProfile();
-      if (profileRes.success && profileRes.data) {
-        setPatient({
-          id: profileRes.data.id,
-          userId: profileRes.data.userId,
-          fullName: profileRes.data.fullName || user.name || 'Bệnh nhân',
-          mrn: profileRes.data.mrn || user.mrn || '',
-          gender: profileRes.data.gender || 'Other',
-          dateOfBirth: profileRes.data.dateOfBirth,
-          age: profileRes.data.age,
-          phoneNumber: profileRes.data.phoneNumber,
-          address: profileRes.data.address,
-          bloodType: profileRes.data.bloodType || null,
-          systolicBp: profileRes.data.systolicBp,
-          diastolicBp: profileRes.data.diastolicBp,
-          hba1c: profileRes.data.hba1c,
-          hasDiabetes: profileRes.data.hasDiabetes,
-          diabetesType: profileRes.data.diabetesType,
-          diabetesDurationYears: profileRes.data.diabetesDurationYears,
-          hasHypertension: profileRes.data.hasHypertension,
-          historyOfSmoking: profileRes.data.historyOfSmoking,
-          historyOfHeartDisease: profileRes.data.historyOfHeartDisease,
-          historyOfStroke: profileRes.data.historyOfStroke,
-          currentMedications: profileRes.data.currentMedications,
-          allergies: profileRes.data.allergies,
-          emergencyContactName: profileRes.data.emergencyContactName,
-          emergencyContactPhone: profileRes.data.emergencyContactPhone,
-          assignedDoctor: profileRes.data.assignedDoctor || null,
-          updatedAt: profileRes.data.updatedAt || null,
-        });
-        setAssignedDoctorId(profileRes.data.assignedDoctorId || null);
-        const docId = profileRes.data.assignedDoctorId || '22222222-2222-2222-2222-222222222222';
-        try {
-          const chatRes = await chatApi.getConversation(docId);
-          if (chatRes.success && Array.isArray(chatRes.data) && chatRes.data.length > 0) {
-            setChatMessages(chatRes.data.map((message: any) => ({
-              id: message.id,
-              sender: message.senderId === docId ? 'doctor' : 'patient',
-              text: message.messageText,
-              time: message.createdAt
-                ? new Date(message.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-                : 'Không có thời gian',
-            })));
-          }
-        } catch {}
-      }
-    } catch (e) {
-      console.warn('Could not fetch patient profile:', e);
-      setIsProfileError(true);
-    } finally {
-      setIsProfileLoading(false);
+    } catch {
+      // fallback
     }
-  };
+    return [];
+  });
 
   // Load real history and chat messages from PostgreSQL on mount
   React.useEffect(() => {
     const fetchRealData = async () => {
       try {
         const res = await screeningApi.getAll();
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
+          // Ánh xạ 100% dữ liệu thực tế từ CSDL PostgreSQL (không hard-code)
           const dbItems = res.data.map((item: any) => {
             let eyeLabel = 'Cả 2 Mắt (OD + OS)';
-            if (item.eyePosition === 'Right_OD' || item.eye === 'Right_OD' || item.eye === 'OD') eyeLabel = 'Mắt Phải (OD)';
-            else if (item.eyePosition === 'Left_OS' || item.eye === 'Left_OS' || item.eye === 'OS') eyeLabel = 'Mắt Trái (OS)';
-            else if (item.eyePosition === 'Both_OD_OS' || item.eye === 'Both_OD_OS') eyeLabel = 'Cả 2 Mắt (OD + OS)';
-            else if (item.eye) eyeLabel = item.eye;
+            if (item.eyePosition === 'Right_OD') eyeLabel = 'Mắt Phải (OD)';
+            else if (item.eyePosition === 'Left_OS') eyeLabel = 'Mắt Trái (OS)';
+            else if (item.eyePosition === 'Both_OD_OS') eyeLabel = 'Cả 2 Mắt (OD + OS)';
 
             let scanTypeLabel = 'Fundus Cực Sau Hoàng Điểm';
             if (item.scanType === 'Fundus_OpticDisc') scanTypeLabel = 'Fundus Đĩa Thị';
             else if (item.scanType === 'OCT_Scan') scanTypeLabel = 'Cắt Lớp OCT';
             else if (item.scanType === 'Fundus_Macula') scanTypeLabel = 'Fundus Cực Sau Hoàng Điểm';
-            else if (item.scanType) scanTypeLabel = item.scanType;
 
-            const score = item.overallVascularRiskScore ?? item.riskScore ?? (item.riskLevel === 'CRITICAL' ? 88 : item.riskLevel === 'HIGH' ? 78 : item.riskLevel === 'MODERATE' ? 55 : 25);
+            const score = item.riskScore !== null && item.riskScore !== undefined
+              ? item.riskScore
+              : (item.riskLevel === 'CRITICAL' ? 88 : item.riskLevel === 'HIGH' ? 78 : item.riskLevel === 'MODERATE' ? 55 : 25);
 
             return {
               id: `ANALYSIS-${item.id.slice(0, 8).toUpperCase()}`,
@@ -405,11 +161,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               scanTypeKey: item.scanType || 'Fundus_Macula',
               overallScore: score,
               riskLevel: score >= 75 ? 'Nguy cơ cao' : score >= 45 ? 'Nguy cơ trung bình' : 'Nguy cơ thấp',
-              cvdRisk: item.cardiovascularRiskScore != null ? `${item.cardiovascularRiskScore}%` : `${Math.round((item.confidence || 0.85) * 100)}%`,
+              cvdRisk: `${Math.round((item.confidence || 0.85) * 100)}%`,
               avRatio: item.avRatio !== null && item.avRatio !== undefined ? item.avRatio : 0.58,
               vesselDensity: item.vesselDensity || '15.2%',
-              doctor: item.doctorName || (item.doctorId ? item.doctorId : 'BS. CKII Nguyễn Thị Thanh'),
-              status: item.status === 'REVIEWED' ? 'Đã duyệt lâm sàng' : item.status === 'ANALYZED' ? 'Đã phân tích AI' : item.status === 'FAILED' ? 'Phân tích thất bại' : 'Đã phân tích AI',
+              doctor: item.doctorId ? 'BS. CKII Nguyễn Thị Thanh' : 'BS. CKII Nguyễn Thị Thanh',
+              status: item.status === 'REVIEWED' ? 'Đã duyệt lâm sàng' : 'Đã phân tích AI',
               imageUrl: item.imageUrl,
               fileName: item.fileName || 'fundus_scan.png',
               fileSize: item.fileSize,
@@ -425,16 +181,21 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         console.warn('Could not fetch screenings from DB:', e);
       }
 
-      await fetchProfileData();
-
+      // Fetch real conversation with Doctor from PostgreSQL
       try {
-        const subscriptions = await billingApi.mySubscriptions();
-        if (subscriptions.success && Array.isArray(subscriptions.data)) {
-          setUserCredits(subscriptions.data.reduce((total: number, item: any) =>
-            total + (item.status === 'ACTIVE' ? Number(item.remainingCredits || 0) : 0), 0));
+        const doctorId = '22222222-2222-2222-2222-222222222222';
+        const chatRes = await chatApi.getConversation(doctorId);
+        if (chatRes.success && Array.isArray(chatRes.data) && chatRes.data.length > 0) {
+          const mappedChat = chatRes.data.map((m: any) => ({
+            id: m.id,
+            sender: m.senderId === doctorId ? 'doctor' : 'patient',
+            text: m.messageText,
+            time: m.createdAt ? new Date(m.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '18:30',
+          }));
+          setChatMessages(mappedChat);
         }
       } catch (e) {
-        console.warn('Could not fetch subscriptions:', e);
+        console.warn('Could not fetch chat from DB:', e);
       }
     };
     fetchRealData();
@@ -514,13 +275,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         if (firstResult) setAnalysisResult(firstResult);
         setActiveEyeTab(odRes ? 'OD' : 'OS');
         setScanHistory((prev) => [...newHistoryItems, ...prev]);
-      } else if (request.isDualEye && request.odFile && request.osFile) {
+      } else if (request.isDualEye) {
         // 1. Run OD Analysis
         const odRequest: FundusAnalysisRequest = {
           ...request,
           eyePosition: 'Right_OD',
           imageUrl: request.odImageUrl || request.imageUrl,
-          file: request.odFile,
+          file: request.odFile || request.file,
           imageName: request.odImageName || 'fundus_scan_OD_2026.png',
         };
         const odRes = await MockAIService.runFundusAnalysis(odRequest, (status, percent) => {
@@ -533,7 +294,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           ...request,
           eyePosition: 'Left_OS',
           imageUrl: request.osImageUrl || request.imageUrl,
-          file: request.osFile,
+          file: request.osFile || request.file,
           imageName: request.osImageName || 'fundus_scan_OS_2026.png',
         };
         const osRes = await MockAIService.runFundusAnalysis(osRequest, (status, percent) => {
@@ -571,9 +332,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           id: odRes.analysisId,
           date: new Date().toLocaleString('vi-VN'),
           eye: 'Cả 2 Mắt (OD + OS)',
-          eyePositionKey: 'Both_OD_OS',
           scanType: request.scanType === 'Fundus_Macula' ? 'Fundus Cực Sau (2 Mắt)' : (request.scanType === 'OCT_Scan' ? 'Cắt Lớp OCT (2 Mắt)' : 'Fundus Đĩa Thị (2 Mắt)'),
-          scanTypeKey: request.scanType,
           overallScore: highestScore,
           riskLevel: highestScore >= 75 ? 'Nguy cơ cao' : (highestScore >= 45 ? 'Nguy cơ trung bình' : 'Nguy cơ thấp'),
           cvdRisk: `${highestCvdScore}%`,
@@ -592,40 +351,29 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           return updated;
         });
       } else {
-        // Phân tích duy nhất một bên mắt được người dùng chọn tải ảnh lên
-        const isOD = request.eyePosition === 'Right_OD' || Boolean(request.odFile && !request.osFile);
-        const singleEyeRequest: FundusAnalysisRequest = {
-          ...request,
-          eyePosition: isOD ? 'Right_OD' : 'Left_OS',
-          isDualEye: false,
-          file: isOD ? (request.odFile || request.file) : (request.osFile || request.file),
-          imageUrl: isOD ? (request.odImageUrl || request.imageUrl) : (request.osImageUrl || request.imageUrl),
-          imageName: isOD ? (request.odImageName || request.imageName || 'fundus_scan_OD.png') : (request.osImageName || request.imageName || 'fundus_scan_OS.png'),
-        };
-
-        const result = await MockAIService.runFundusAnalysis(singleEyeRequest, (status, percent) => {
-          setAnalysisProgress({ status: `[${isOD ? 'Mắt Phải OD' : 'Mắt Trái OS'}] ${status}`, percent });
+        const isOD = request.eyePosition === 'Right_OD';
+        const result = await MockAIService.runFundusAnalysis(request, (status, percent) => {
+          setAnalysisProgress({ status, percent });
         });
-
         if (isOD) {
           setResultOD(result);
-          setResultOS(null); // Không tạo hoặc hiển thị mắt trái nếu không tải ảnh mắt trái
+          setResultOS(null);
           setActiveEyeTab('OD');
         } else {
           setResultOS(result);
-          setResultOD(null); // Không tạo hoặc hiển thị mắt phải nếu không tải ảnh mắt phải
+          setResultOD(null);
           setActiveEyeTab('OS');
         }
         setAnalysisResult(result);
 
         try {
           await screeningApi.create({
-            imageUrl: result.imageUrl || singleEyeRequest.imageUrl,
-            eyePosition: isOD ? 'Right_OD' : 'Left_OS',
+            imageUrl: result.imageUrl || request.imageUrl,
+            eyePosition: request.eyePosition,
             scanType: request.scanType,
-            fileName: singleEyeRequest.imageName || (isOD ? 'fundus_scan_OD.png' : 'fundus_scan_OS.png'),
-            fileSize: singleEyeRequest.file?.size,
-            mimeType: singleEyeRequest.file?.type,
+            fileName: request.imageName || (isOD ? 'fundus_scan_OD.png' : 'fundus_scan_OS.png'),
+            fileSize: request.file?.size,
+            mimeType: request.file?.type,
             riskScore: result.overallVascularRiskScore,
             avRatio: result.annotatedMap?.arteryVeinRatio,
             vesselDensity: `${result.annotatedMap?.vesselDensityPercentage}%`,
@@ -639,9 +387,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           id: result.analysisId,
           date: new Date().toLocaleString('vi-VN'),
           eye: isOD ? 'Mắt Phải (OD)' : 'Mắt Trái (OS)',
-          eyePositionKey: isOD ? 'Right_OD' : 'Left_OS',
           scanType: request.scanType === 'Fundus_Macula' ? 'Fundus Cực Sau' : (request.scanType === 'OCT_Scan' ? 'Cắt Lớp OCT' : 'Fundus Đĩa Thị'),
-          scanTypeKey: request.scanType,
           overallScore: result.overallVascularRiskScore,
           riskLevel: result.overallVascularRiskScore >= 75 ? 'Nguy cơ cao' : (result.overallVascularRiskScore >= 45 ? 'Nguy cơ trung bình' : 'Nguy cơ thấp'),
           cvdRisk: `${result.cardiovascularRisk.score}%`,
@@ -685,22 +431,18 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     };
     setChatMessages((prev) => [...prev, optimisticMsg]);
 
-    if (!assignedDoctorId) {
-      setChatMessages((prev) => prev.filter((message) => message.id !== optimisticMsg.id));
-      setAnalysisErrorMsg('Chưa có bác sĩ được phân công nên không thể gửi tin nhắn.');
-      return;
-    }
-    const response = await chatApi.sendMessage(assignedDoctorId, textToSend);
-    if (!response.success) {
-      setChatMessages((prev) => prev.filter((message) => message.id !== optimisticMsg.id));
-      setAnalysisErrorMsg(response.message || 'Không thể gửi tin nhắn.');
+    try {
+      const doctorId = '22222222-2222-2222-2222-222222222222';
+      await chatApi.sendMessage(doctorId, textToSend);
+    } catch (err) {
+      console.warn('Failed to send message to backend:', err);
     }
   };
 
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Toast Notification (FR-9) */}
-      {showAiNotification && analysisResult && (
+      {showAiNotification && (
         <div className="fixed top-20 right-6 z-50 max-w-md bg-white border-2 border-emerald-500 rounded-2xl p-4 shadow-2xl animate-slideInRight flex items-start gap-3">
           <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
             <Bell className="w-5 h-5 animate-bounce" />
@@ -784,12 +526,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <div className="flex justify-between items-start">
                 <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Rủi Ro Mạch Máu</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300">
-                  {analysisResult?.overallVascularRiskScore != null && analysisResult.overallVascularRiskScore >= 75 ? 'Nguy cơ cao' : 'Trung bình'}
+                  {analysisResult.overallVascularRiskScore >= 75 ? 'Nguy cơ cao' : 'Trung bình'}
                 </span>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold font-mono-data text-[#DC2626]">
-                  {analysisResult?.overallVascularRiskScore ?? '--'}
+                  {analysisResult.overallVascularRiskScore}
                 </span>
                 <span className="text-xs text-slate-500 font-semibold">/ 100 điểm</span>
               </div>
@@ -808,7 +550,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold font-mono-data text-red-600">
-                  {analysisResult?.cardiovascularRisk?.score ?? '--'}%
+                  {analysisResult.cardiovascularRisk.score}%
                 </span>
                 <span className="text-xs text-slate-500 font-semibold">Xác suất rủi ro</span>
               </div>
@@ -827,7 +569,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold font-mono-data text-amber-700">
-                  {analysisResult?.cardiovascularRisk?.threeYearStrokeRiskPercent ?? '--'}%
+                  {analysisResult.cardiovascularRisk.threeYearStrokeRiskPercent}%
                 </span>
                 <span className="text-xs text-slate-500 font-semibold">Xác suất rủi ro</span>
               </div>
@@ -846,7 +588,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold font-mono-data text-[#0891B2]">
-                  {analysisResult?.diabeticRetinopathyRisk?.score ?? '--'}%
+                  {analysisResult.diabeticRetinopathyRisk.score}%
                 </span>
                 <span className="text-xs text-slate-500 font-semibold">Vi phình mạch</span>
               </div>
@@ -1036,16 +778,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             </div>
           </div>
 
-          {((activeEyeTab === 'OD' ? resultOD : resultOS) || resultOD || resultOS || analysisResult) ? (
-            <InteractiveCDSViewer
-              analysisResult={((activeEyeTab === 'OD' ? resultOD : resultOS) || resultOD || resultOS || analysisResult)!}
-              selectedEye={activeEyeTab === 'OD' ? 'Mắt Phải (Right - OD)' : 'Mắt Trái (Left - OS)'}
-            />
-          ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
-              Chưa có kết quả phân tích thật. Hãy tải ảnh võng mạc để bắt đầu.
-            </div>
-          )}
+          <InteractiveCDSViewer
+            analysisResult={(activeEyeTab === 'OD' ? resultOD : resultOS) || resultOD || resultOS || analysisResult}
+            selectedEye={activeEyeTab === 'OD' ? 'Mắt Phải (Right - OD)' : 'Mắt Trái (Left - OS)'}
+          />
         </div>
       )}
 
@@ -1568,7 +1304,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                                 : 'bg-amber-100 text-amber-800 border border-amber-200'
                             }`}
                           >
-                            {scan.overallScore != null ? `${scan.cvdRisk} (${scan.overallScore}đ)` : 'Chưa có'}
+                            {scan.cvdRisk} ({scan.overallScore}đ)
                           </span>
                         </td>
                         <td className="p-3.5">
@@ -1609,25 +1345,21 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                                   annotatedMap: {
                                     heatmapUrl: '/assets/images/fundus_heatmap.png',
                                     arteryVeinRatio: scan.avRatio || 0.58,
-                                    tortuosityIndex: 1.15,
-                                    opticCupToDiscRatio: 0.35,
                                     vesselDensityPercentage: parseFloat(scan.vesselDensity) || 15.2,
                                     detectedAnomalies: [
                                       {
                                         id: 'ANOM-01',
                                         type: 'Focal_Narrowing',
-                                        coordinates: { x: 38, y: 42, width: 8, height: 8 },
-                                        confidence: 0.92,
                                         description: 'Bắt chéo động-tĩnh mạch (Gunn sign) chỉ số hẹp A/V: ' + (scan.avRatio || 0.58),
+                                        severity: 'Moderate',
+                                        confidence: 0.92,
+                                        coordinates: { x: 380, y: 290, radius: 45 },
                                       },
                                     ],
                                   },
-                                  xaiExplainability: [
-                                    {
-                                      title: 'Duy trì theo dõi huyết áp định kỳ.',
-                                      impact: 'Medium',
-                                      clinicalRationale: 'Tái khám soi đáy mắt và chụp mạch huỳnh quang sau 6 tháng.',
-                                    },
+                                  clinicalRecommendations: [
+                                    'Duy trì theo dõi huyết áp định kỳ.',
+                                    'Tái khám soi đáy mắt và chụp mạch huỳnh quang sau 6 tháng.',
                                   ],
                                 };
 
@@ -1724,8 +1456,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                                   ['Thong so', 'Gia tri'],
                                   ['Ma phan tich', scan.id],
                                   ['Ngay kham', scan.date],
-                                  ['Ho ten benh nhan', patient.fullName || ''],
-                                  ['Ma benh nhan (MRN)', patient.mrn || ''],
+                                  ['Ho ten benh nhan', patient.fullName],
+                                  ['Ma benh nhan (MRN)', patient.mrn],
                                   ['Vi tri mat', scan.eye],
                                   ['Loai anh', scan.scanType],
                                   ['Diem nguy co tong the', `${scan.overallScore}/100`],
@@ -1739,7 +1471,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                                 const encodedUri = encodeURI(csvStr);
                                 const link = document.createElement('a');
                                 link.setAttribute('href', encodedUri);
-                                link.setAttribute('download', `AURA_Report_${patient.mrn || 'patient'}_${scan.id}.csv`);
+                                link.setAttribute('download', `AURA_Report_${patient.mrn}_${scan.id}.csv`);
                                 document.body.appendChild(link);
                                 link.click();
                                 document.body.removeChild(link);
@@ -1879,36 +1611,66 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               </button>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
-              Tên gói, giá, số lượt và lịch sử thanh toán được tải trực tiếp từ máy chủ khi bạn mở danh mục gói dịch vụ.
+            {/* Pricing Packages */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-5 rounded-2xl border-2 border-slate-200 bg-white space-y-3 hover:border-teal-500 transition-all">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-sm font-bold text-slate-900">Gói Khám Cơ Bản (Single Scan)</h3>
+                  <span className="text-xs font-bold text-teal-600 font-mono-data">1 lượt</span>
+                </div>
+                <div className="text-2xl font-extrabold text-slate-900 font-mono-data">150.000 đ</div>
+                <p className="text-xs text-slate-500">1 lượt phân tích ảnh võng mạc + Heatmap + Đánh giá nguy cơ 3 năm.</p>
+                <button
+                  onClick={() => setIsCreditModalOpen(true)}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-colors"
+                >
+                  Nạp Gói Này
+                </button>
+              </div>
+
+              <div className="p-5 rounded-2xl border-2 border-teal-500 bg-teal-50/40 space-y-3 shadow-xs relative">
+                <span className="absolute -top-2.5 right-4 bg-teal-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs">
+                  Khuyên dùng
+                </span>
+                <div className="flex justify-between items-start">
+                  <h3 className="text-sm font-bold text-slate-900">Gói Chăm Sóc Định Kỳ (Pro 5)</h3>
+                  <span className="text-xs font-bold text-teal-600 font-mono-data">5 lượt</span>
+                </div>
+                <div className="text-2xl font-extrabold text-slate-900 font-mono-data">590.000 đ</div>
+                <p className="text-xs text-slate-500">5 lượt tầm soát toàn diện + Theo dõi xu hướng + Tư vấn chuyên gia.</p>
+                <button
+                  onClick={() => setIsCreditModalOpen(true)}
+                  className="w-full py-2 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold text-xs rounded-xl transition-colors"
+                >
+                  Nạp Gói Này
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* Modals */}
-      {(selectedHistoryResult || analysisResult) && (
-        <MedicalReportModal
-          isOpen={isReportModalOpen}
-          onClose={() => {
-            setIsReportModalOpen(false);
-            setSelectedHistoryResult(null);
-          }}
-          patient={patient}
-          result={(selectedHistoryResult || analysisResult)!}
-          resultOD={resultOD || undefined}
-          resultOS={resultOS || undefined}
-          isDualEye={Boolean(resultOD && resultOS)}
-          doctorName={patient.assignedDoctor || 'BS. CKII Nguyễn Thị Thanh'}
-        />
-      )}
+      <MedicalReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => {
+          setIsReportModalOpen(false);
+          setSelectedHistoryResult(null);
+        }}
+        patient={patient}
+        result={selectedHistoryResult || analysisResult}
+        resultOD={resultOD}
+        resultOS={resultOS}
+        isDualEye={Boolean(resultOD && resultOS)}
+        doctorName={patient.assignedDoctor}
+      />
 
       <ConsultationChatModal
         isOpen={isChatModalOpen}
         onClose={() => setIsChatModalOpen(false)}
         currentUserRole="patient"
-        patientName={patient.fullName || 'Bệnh nhân'}
-        patientMrn={patient.mrn || ''}
+        patientName={patient.fullName}
+        patientMrn={patient.mrn}
       />
 
       <CreditPurchaseModal

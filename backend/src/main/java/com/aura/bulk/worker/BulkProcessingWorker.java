@@ -23,7 +23,7 @@ public class BulkProcessingWorker implements CommandLineRunner {
 
     private final BatchJobQueue jobQueue;
     private final AiServiceClient aiServiceClient;
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService = Executors.newFixedThreadPool(4);
 
     public BulkProcessingWorker(BatchJobQueue jobQueue, AiServiceClient aiServiceClient) {
         this.jobQueue = jobQueue;
@@ -32,8 +32,10 @@ public class BulkProcessingWorker implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        log.info("[Bulk Processing Worker Java] Starting background queue consumer thread...");
-        executorService.submit(this::processQueueLoop);
+        log.info("[Bulk Processing Worker Java] Starting 4 parallel background queue consumer threads...");
+        for (int i = 0; i < 4; i++) {
+            executorService.submit(this::processQueueLoop);
+        }
     }
 
     private void processQueueLoop() {

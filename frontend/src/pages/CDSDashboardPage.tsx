@@ -6,6 +6,7 @@ import { RiskAssessmentPanel } from '../components/RiskAssessmentPanel';
 import { ClinicalValidationBar } from '../components/ClinicalValidationBar';
 import { MedicalReportModal } from '../components/MedicalReportModal';
 import { ConsultationChatModal } from '../components/ConsultationChatModal';
+import { DoctorPatientListPage } from './DoctorPatientListPage';
 import {
   UserCheck,
   MessageSquare,
@@ -16,7 +17,6 @@ import {
   Loader2,
   CheckCircle2,
   Eye,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { doctorApi, screeningApi } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
@@ -48,7 +48,15 @@ export interface DoctorPatientSummary {
   assignmentStatus: string;
 }
 
-export const CDSDashboardPage: React.FC = () => {
+interface CDSDashboardPageProps {
+  activeSection?: string;
+  onNavigate?: (section: string) => void;
+}
+
+export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
+  activeSection = 'cds-viewer',
+  onNavigate,
+}) => {
   const [assignedPatients, setAssignedPatients] = useState<DoctorPatientSummary[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [activePatient, setActivePatient] = useState<PatientProfile | null>(null);
@@ -71,7 +79,6 @@ export const CDSDashboardPage: React.FC = () => {
   const [feedbackSuccessMsg, setFeedbackSuccessMsg] = useState<string>('Đã lưu xác nhận chẩn đoán thành công');
 
   const loadPatientDetails = useCallback(async (patientId: string, summaryFallback?: DoctorPatientSummary) => {
-    // RESET analysisResult immediately when starting to switch patient
     setAnalysisResult(null);
     setIsScreeningLoading(true);
     setAnalysisErrorMsg(null);
@@ -133,7 +140,6 @@ export const CDSDashboardPage: React.FC = () => {
         const latestScreening = screeningsRes.data[0];
         setAnalysisResult(mapScreeningToAIRiskResult(latestScreening, latestScreening.imageUrl));
       } else {
-        // Explicitly set null if no screenings exist for this patient
         setAnalysisResult(null);
       }
     } catch (err) {
@@ -183,7 +189,6 @@ export const CDSDashboardPage: React.FC = () => {
     }
   };
 
-  // BUG 2 FIX: Upload screening specifically for active assigned patient via POST /doctor/patients/{patientId}/screenings
   const handleStartAnalysis = async (request: FundusAnalysisRequest) => {
     if (!selectedPatientId || !activePatient) {
       setAnalysisErrorMsg('Vui lòng chọn một bệnh nhân được phân công trước khi tải ảnh.');
@@ -201,7 +206,6 @@ export const CDSDashboardPage: React.FC = () => {
       const res = await doctorApi.createScreeningForPatient(selectedPatientId, request.imageUrl);
 
       if (res.success && res.data && res.data.status !== 'FAILED') {
-        // Assert data integrity: patientId in response must match selectedPatientId
         if (res.data.patientId && res.data.patientId !== selectedPatientId) {
           setAnalysisErrorMsg('Lỗi toàn vẹn dữ liệu: Ca sàng lọc không thuộc về bệnh nhân đang chọn.');
           setAnalysisResult(null);
@@ -221,7 +225,6 @@ export const CDSDashboardPage: React.FC = () => {
         return;
       }
 
-      // Never fabricate a medical result when the AI service is unavailable.
       setAnalysisResult(null);
       setAnalysisErrorMsg(
         res.message || 'Máy chủ AI không thể phân tích ảnh hoặc đang ngoại tuyến. Vui lòng thử lại sau.'
@@ -254,85 +257,80 @@ export const CDSDashboardPage: React.FC = () => {
 
       setFeedbackSuccessMsg('Đã lưu đánh giá chuyên môn và cập nhật hồ sơ sàng lọc của bệnh nhân');
       setFeedbackSuccessToast(true);
-      setTimeout(() => setFeedbackSuccessToast(false), 5000);
+      setTimeout(() => setFeedbackSuccessToast(false), 3500);
     } catch (err) {
       console.warn('Feedback submission error:', err);
     }
   };
 
-  // 1. LOADING STATE
+  if (activeSection === 'patient-list') {
+    return (
+      <DoctorPatientListPage
+        onSelectPatientForCDS={(patient) => {
+          setActivePatient(patient);
+          const pid = patient.userId || patient.id;
+          if (pid) {
+            setSelectedPatientId(pid);
+            loadPatientDetails(pid);
+          }
+          onNavigate?.('cds-viewer');
+        }}
+        onNavigate={onNavigate}
+      />
+    );
+  }
+
   if (isLoadingPatients) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] bg-white border border-[#CCFBF1] rounded-3xl p-10 shadow-medical-sm text-center space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600 animate-spin">
-          <Loader2 className="w-8 h-8" />
-        </div>
+      <div className="bg-white border border-[#CCFBF1] rounded-2xl p-12 text-center flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <Loader2 className="w-10 h-10 text-[#0891B2] animate-spin" />
         <div className="space-y-1">
-          <h3 className="text-base font-bold text-slate-800">Đang tải danh sách bệnh nhân phân công</h3>
-          <p className="text-xs text-slate-500">Hệ thống đang truy xuất hồ sơ y tế bệnh nhân thuộc quyền quản lý của Bác sĩ...</p>
+          <h3 className="text-base font-bold text-[#134E4A]">Đang Nạp Dữ Liệu Bác Sĩ...</h3>
+          <p className="text-xs text-slate-500">Đang đồng bộ danh sách bệnh nhân được phân công từ cơ sở dữ liệu.</p>
         </div>
       </div>
     );
   }
 
-  // 2. ERROR STATE
-  if (patientsError) {
+  if (!activePatient) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[350px] bg-white border-2 border-red-200 rounded-3xl p-8 shadow-medical-sm text-center space-y-4">
-        <div className="w-14 h-14 rounded-2xl bg-red-50 text-red-600 border border-red-200 flex items-center justify-center">
-          <AlertTriangle className="w-7 h-7" />
-        </div>
-        <div className="space-y-1 max-w-md">
-          <h3 className="text-sm font-bold text-red-900">Không Thể Tải Danh Sách Bệnh Nhân</h3>
-          <p className="text-xs text-slate-600">{patientsError}</p>
-        </div>
-        <button
-          onClick={fetchAssignedPatients}
-          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Thử Lại
-        </button>
-      </div>
-    );
-  }
-
-  // 3. EMPTY STATE (No patients assigned)
-  if (assignedPatients.length === 0 || !activePatient) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[450px] bg-white border border-[#CCFBF1] rounded-3xl p-10 shadow-medical-sm text-center space-y-5">
-        <div className="w-20 h-20 rounded-3xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600 shadow-inner">
-          <Users className="w-10 h-10" />
-        </div>
-        <div className="space-y-2 max-w-lg">
-          <h3 className="text-lg font-bold text-slate-900">Chưa Có Bệnh Nhân Được Phân Công</h3>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Tài khoản Bác sĩ của bạn hiện chưa được phân công quản lý bệnh nhân nào trong hệ thống AURA.
-            Theo quy định bảo mật RBAC, Bác sĩ chỉ có quyền truy cập hồ sơ và ca khám của các bệnh nhân đã được phân công tiếp nhận.
-          </p>
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] text-slate-500 text-left space-y-1 mt-3">
-            <p className="font-semibold text-slate-700">📌 Hướng dẫn kích hoạt phân công:</p>
-            <p>1. Liên hệ Quản trị viên (Admin) hoặc Lễ tân phòng khám để tiếp nhận danh sách chỉ định.</p>
-            <p>2. Khi bệnh nhân đặt lịch hoặc được phân luồng, danh sách sẽ tự động hiển thị tại đây.</p>
+      <div className="space-y-6">
+        <div className="bg-white border border-[#CCFBF1] rounded-2xl p-8 text-center space-y-4 shadow-medical-sm">
+          <div className="w-16 h-16 rounded-2xl bg-[#F0FDFA] text-[#0891B2] border border-[#CCFBF1] flex items-center justify-center mx-auto">
+            <Users className="w-8 h-8" />
+          </div>
+          <div className="space-y-1 max-w-md mx-auto">
+            <h3 className="text-base font-bold text-[#134E4A]">Chưa Có Bệnh Nhân Được Phân Công</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Tài khoản bác sĩ hiện tại chưa được Quản trị viên (Admin) phân công tiếp nhận bệnh nhân nào.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={() => onNavigate?.('patient-list')}
+              className="px-4 py-2 bg-[#0891B2] hover:bg-[#0e7490] text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-xs"
+            >
+              <Users className="w-4 h-4" />
+              <span>Xem Danh Sách Ca Khám (Worklist)</span>
+            </button>
+            <button
+              onClick={fetchAssignedPatients}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Thử Lại</span>
+            </button>
           </div>
         </div>
-        <button
-          onClick={fetchAssignedPatients}
-          className="px-5 py-2.5 bg-[#0891B2] hover:bg-[#0e7490] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Làm Mới Danh Sách Phân Công
-        </button>
       </div>
     );
   }
 
-  // 4. MAIN ASSIGNED PATIENT CDS WORKSPACE
   return (
     <div className="space-y-6">
-      {/* Toast feedback success */}
+      {/* Toast notification */}
       {feedbackSuccessToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 animate-fade-in text-xs font-semibold">
+        <div className="bg-emerald-600 text-white px-4 py-3 rounded-2xl shadow-lg flex items-center gap-2 text-sm font-semibold animate-in fade-in slide-in-from-top-4 duration-300">
           <CheckCircle2 className="w-5 h-5 text-emerald-200 flex-shrink-0" />
           <span>{feedbackSuccessMsg}</span>
         </div>
@@ -377,6 +375,15 @@ export const CDSDashboardPage: React.FC = () => {
 
         {/* Action Controls & Patient Switcher */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <button
+            onClick={() => onNavigate?.('patient-list')}
+            className="px-3 py-2 bg-teal-50 hover:bg-teal-100 text-[#0891B2] font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-teal-200 shadow-2xs"
+            title="Mở danh sách hàng đợi khám & tìm kiếm bệnh nhân"
+          >
+            <Users className="w-4 h-4 text-[#0891B2]" />
+            <span>Hàng Đợi Ca Khám (Worklist)</span>
+          </button>
+
           <button
             onClick={() => setIsChatModalOpen(true)}
             className="px-3 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-cyan-200"

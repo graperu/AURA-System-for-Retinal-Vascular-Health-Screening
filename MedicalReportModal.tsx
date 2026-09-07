@@ -55,8 +55,8 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
       ? [
           ['Tieu de', 'Mat Phai (OD)', 'Mat Trai (OS)', 'Nguong chuan'],
           ['Ma bao cao', odData.analysisId, osData.analysisId, 'HL7/FHIR'],
-          ['Ho va ten', patient.fullName || '', patient.fullName || '', ''],
-          ['Ma benh nhan (MRN)', patient.mrn || '', patient.mrn || '', ''],
+          ['Ho va ten', patient.fullName, patient.fullName, ''],
+          ['Ma benh nhan (MRN)', patient.mrn, patient.mrn, ''],
           ['Tuoi / Gioi tinh', `${patient.age} tuoi - ${patient.gender}`, '', ''],
           ['Huyet ap / HbA1c', `${patient.systolicBp}/${patient.diastolicBp} mmHg`, `${patient.hba1c}%`, ''],
           ['Ngay kham', new Date().toLocaleDateString('vi-VN'), '', ''],
@@ -76,10 +76,10 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
       : [
           ['Tieu de', 'Gia tri'],
           ['Ma bao cao', result.analysisId],
-          ['Ho va ten', patient.fullName || ''],
-          ['Ma benh nhan (MRN)', patient.mrn || ''],
-          ['Tuoi', (patient.age || '').toString()],
-          ['Gioi tinh', patient.gender || ''],
+          ['Ho va ten', patient.fullName],
+          ['Ma benh nhan (MRN)', patient.mrn],
+          ['Tuoi', patient.age.toString()],
+          ['Gioi tinh', patient.gender],
           ['Ngay kham', new Date().toLocaleDateString('vi-VN')],
           ['Diem nguy co mach mau tong hop', `${result.overallVascularRiskScore}/100`],
           ['Nguy co tim mach 3 nam', `${result.cardiovascularRisk.score}%`],
@@ -99,7 +99,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `AURA_Report_${patient.mrn || 'patient'}_${result.analysisId}.csv`);
+    link.setAttribute('download', `AURA_Report_${patient.mrn}_${result.analysisId}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

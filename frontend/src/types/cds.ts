@@ -20,6 +20,7 @@ export interface PatientProfile {
   age?: number | null;
   gender?: 'Male' | 'Female' | 'Other' | string | null;
   phoneNumber?: string | null;
+  phone?: string;
   address?: string | null;
   bloodType?: string | null;
   systolicBp?: number | null;
@@ -39,6 +40,21 @@ export interface PatientProfile {
   lastExamDate?: string | null;
   assignedDoctor?: string | null;
   updatedAt?: string | null;
+  riskLevel?: RiskLevel | 'Alarm' | 'Normal';
+  riskScore?: number;
+  reviewStatus?: 'PENDING_REVIEW' | 'REVIEWED' | 'CRITICAL';
+  findingsSummary?: string;
+  avatarColor?: string;
+}
+
+export interface BatchImageItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  name: string;
+  sizeMb: string;
+  eye: 'Right_OD' | 'Left_OS';
+  scanType: 'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan';
 }
 
 export interface FundusAnalysisRequest {
@@ -49,8 +65,17 @@ export interface FundusAnalysisRequest {
   imageUrl: string;
   file?: File;
   scanType: 'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan';
-  eyePosition: 'Left_OS' | 'Right_OD';
+  eyePosition: 'Left_OS' | 'Right_OD' | 'Both_OD_OS' | 'Batch_Multiple';
   uploadedAt: string;
+  isDualEye?: boolean;
+  odFile?: File;
+  odImageUrl?: string;
+  odImageName?: string;
+  osFile?: File;
+  osImageUrl?: string;
+  osImageName?: string;
+  isBatch?: boolean;
+  batchItems?: BatchImageItem[];
 }
 
 export interface VesselAnomalyRegion {
@@ -115,15 +140,43 @@ export interface DoctorFeedback {
   signedDigitalSignature?: string;
 }
 
+export interface BulkImageAiResult {
+  analysisId?: string;
+  executionTimeMs?: number;
+  overallVascularRiskScore?: number;
+  cardiovascularRiskScore?: number;
+  cardiovascularRiskLevel?: string;
+  diabeticRetinopathyScore?: number;
+  diabeticRetinopathyLevel?: string;
+  threeYearStrokeRiskPercent?: number;
+  arteryVeinRatio?: number;
+  vesselDensityPercentage?: number;
+  tortuosityIndex?: number;
+  opticCupToDiscRatio?: number;
+  heatmapOverlayUrl?: string;
+  detectedAnomaliesCount?: number;
+  xaiRationales?: string[];
+}
+
 export interface ClinicBatchJobItem {
   id: string;
   patientName: string;
   mrn: string;
+  pseudonymId?: string;
   eye: 'OD' | 'OS';
   fileName: string;
-  status: 'PENDING' | 'PROCESSING' | 'DONE' | 'ERROR';
+  status: 'PENDING' | 'PROCESSING' | 'DONE' | 'COMPLETED' | 'ERROR' | 'FAILED' | 'QUEUED';
   riskLevel?: RiskLevel;
   riskScore?: number;
+  patientAge?: number;
+  patientGender?: string;
+  systolicBp?: number;
+  diastolicBp?: number;
+  hbA1c?: number;
+  durationMs?: number;
+  aiResult?: BulkImageAiResult;
+  thumbnailUrl?: string;
+  createdAt?: string | number;
   anomaliesCount?: number;
   strokeRisk?: number;
   drLevel?: string;
@@ -194,8 +247,9 @@ export interface ClinicBatchJob {
   totalImages: number;
   processedCount: number;
   failedCount: number;
-  status: 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED';
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED' | 'CANCELLED' | 'QUEUED';
   createdAt: string;
   estimatedTimeRemainingSec: number;
   items: ClinicBatchJobItem[];
 }
+

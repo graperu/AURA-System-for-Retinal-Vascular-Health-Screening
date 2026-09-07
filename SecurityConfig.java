@@ -34,14 +34,9 @@ public class SecurityConfig {
   @Bean
   CorsConfigurationSource cors(CorsProperties properties) {
     CorsConfiguration config = new CorsConfiguration();
-    List<String> origins = properties != null ? properties.allowedOrigins() : null;
-    if (origins == null || origins.isEmpty()) {
-      origins = List.of("http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173");
-    }
-    config.setAllowedOrigins(origins);
-    config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
-    config.setAllowedHeaders(List.of("*"));
-    config.setExposedHeaders(List.of("Authorization", "Set-Cookie"));
+    config.setAllowedOrigins(properties.allowedOrigins());
+    config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+    config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
     config.setAllowCredentials(true);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", config);
@@ -67,21 +62,13 @@ public class SecurityConfig {
             auth ->
                 auth.requestMatchers(
                         HttpMethod.POST,
-                        "/api/v1/auth/send-otp",
-                        "/api/v1/auth/verify-otp",
                         "/api/v1/auth/register",
                         "/api/v1/auth/login",
-                        "/api/v1/auth/google",
-                        "/api/v1/auth/social",
                         "/api/v1/auth/refresh",
                         "/api/v1/auth/logout")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/system/health")
                     .permitAll()
-                    .requestMatchers("/api/v1/doctor/**").hasRole("DOCTOR")
-                    .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                    .requestMatchers("/api/v1/clinic/**").hasAnyRole("CLINIC", "ADMIN")
-                    .requestMatchers("/api/v1/bulk-screening/**").permitAll()
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(origin, UsernamePasswordAuthenticationFilter.class)

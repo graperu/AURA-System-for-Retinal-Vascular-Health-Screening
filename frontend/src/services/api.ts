@@ -93,12 +93,15 @@ export const authApi = {
       body: JSON.stringify(payload),
     }),
 };
+
 export const screeningApi = {
-  create: (imageUrl: string) =>
-    apiFetch<any>('/api/v1/screenings', {
+  create: (payload: string | { imageUrl: string; [key: string]: any }) => {
+    const body = typeof payload === 'string' ? { imageUrl: payload } : payload;
+    return apiFetch<any>('/api/v1/screenings', {
       method: 'POST',
-      body: JSON.stringify({ imageUrl }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
 
   getAll: () =>
     apiFetch<any[]>('/api/v1/screenings', {
@@ -110,17 +113,15 @@ export const screeningApi = {
       method: 'GET',
     }),
 
-  doctorReview: (id: string, payload: {
-    decision: 'APPROVED' | 'MODIFIED' | 'REJECTED';
-    doctorNotes: string;
-    adjustedCardioRisk?: string;
-    adjustedDrRisk?: string;
-    icd10Codes: string[];
-  }) =>
-    apiFetch<any>(`/api/v1/screenings/${id}/review`, {
+  doctorReview: (id: string, notesOrPayload: string | Record<string, any>, riskLevel?: string) => {
+    const body = typeof notesOrPayload === 'string'
+      ? { doctorNotes: notesOrPayload, riskLevel }
+      : notesOrPayload;
+    return apiFetch<any>(`/api/v1/screenings/${id}/review`, {
       method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
 };
 
 export const chatApi = {
@@ -280,6 +281,74 @@ export const doctorApi = {
     }),
 };
 
+export const doctorPatientApi = {
+  getPatients: (params: {
+    search?: string;
+    risk?: string;
+    hasDiabetes?: boolean;
+    hasHypertension?: boolean;
+    historyOfSmoking?: boolean;
+    doctorName?: string;
+    reviewStatus?: string;
+    page?: number;
+    size?: number;
+    sort?: string;
+  } = {}) => {
+    const query = new URLSearchParams();
+    if (params.search) query.set('search', params.search);
+    if (params.risk && params.risk !== 'ALL') query.set('risk', params.risk);
+    if (params.hasDiabetes) query.set('hasDiabetes', 'true');
+    if (params.hasHypertension) query.set('hasHypertension', 'true');
+    if (params.historyOfSmoking) query.set('historyOfSmoking', 'true');
+    if (params.doctorName && params.doctorName !== 'ALL') query.set('doctorName', params.doctorName);
+    if (params.reviewStatus && params.reviewStatus !== 'ALL') query.set('reviewStatus', params.reviewStatus);
+    query.set('page', (params.page ?? 0).toString());
+    query.set('size', (params.size ?? 10).toString());
+    if (params.sort) query.set('sort', params.sort);
+
+    return apiFetch<any>(`/api/v1/doctor/patients?${query.toString()}`, {
+      method: 'GET',
+    });
+  },
+
+  getById: (id: string) =>
+    apiFetch<any>(`/api/v1/doctor/patients/${id}`, {
+      method: 'GET',
+    }),
+
+  create: (patientData: any) =>
+    apiFetch<any>('/api/v1/doctor/patients', {
+      method: 'POST',
+      body: JSON.stringify(patientData),
+    }),
+
+  update: (id: string, patientData: any) =>
+    apiFetch<any>(`/api/v1/doctor/patients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(patientData),
+    }),
+};
+
+export interface BulkUploadItemPayload {
+  fileName: string;
+  base64ImageContent: string;
+  previewUrl?: string;
+  eyePosition: string;
+  rawMrn: string;
+  rawPatientName: string;
+  patientAge: number;
+  patientGender: string;
+  systolicBp: number;
+  diastolicBp: number;
+  hbA1c: number;
+}
+
+export interface BulkUploadPayload {
+  clinicId: string;
+  campaignName: string;
+  imageItems: BulkUploadItemPayload[];
+}
+
 export const assignmentApi = {
   getBoard: () =>
     apiFetch<any>('/api/v1/admin/patient-assignments', { method: 'GET' }),
@@ -294,16 +363,52 @@ export const assignmentApi = {
     apiFetch<any>(`/api/v1/admin/patient-assignments/${doctorId}/${patientId}`, {
       method: 'DELETE',
     }),
-
 };
 
 export const bulkScreeningApi = {
+  createBatch: (payload: BulkUploadPayload) =>
+    apiFetch<any>('/api/v1/bulk-screening/batch', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  createDemoBatch: (count: number = 100, campaignName?: string) => {
+    const params = new URLSearchParams();
+    params.set('count', count.toString());
+    if (campaignName) params.set('campaignName', campaignName);
+    return apiFetch<any>(`/api/v1/bulk-screening/demo-batch?${params.toString()}`, {
+      method: 'POST',
+    });
+  },
+
   getBatch: (batchId: string) =>
     apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, { method: 'GET' }),
+  getBatchStatus: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, {
+      method: 'GET',
+    }),
+
+  getLatestBatch: () =>
+    apiFetch<any>('/api/v1/bulk-screening/latest', {
+      method: 'GET',
+    }),
+
+  getBatchItemResult: (batchId: string, itemId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/items/${encodeURIComponent(itemId)}`, {
+      method: 'GET',
+    }),
+
+  cancelBatch: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/cancel`, {
+      method: 'POST',
+    }),
+
   getStatistics: (batchId: string) =>
     apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/statistics`, { method: 'GET' }),
+
   getAlerts: (batchId: string) =>
     apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/alerts`, { method: 'GET' }),
+
   listBatches: () =>
     apiFetch<any[]>(`/api/v1/bulk-screening/batches`, { method: 'GET' }),
 };
