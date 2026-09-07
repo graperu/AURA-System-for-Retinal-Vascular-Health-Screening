@@ -24,8 +24,13 @@ const mapBatch = (data: any): ClinicBatchJob => ({
     riskScore: item.aiResult?.riskScore,
   })),
 });
+import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
 
-export const ClinicPortalPage: React.FC = () => {
+interface ClinicPortalProps {
+  activeView?: string;
+}
+
+export const ClinicPortalPage: React.FC<ClinicPortalProps> = ({ activeView }) => {
   const [batchId, setBatchId] = useState('');
   const [batchJob, setBatchJob] = useState<ClinicBatchJob | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +50,10 @@ export const ClinicPortalPage: React.FC = () => {
     }
     setBatchJob(mapBatch(response.data));
   };
+
+  if (activeView === 'campaign-analytics') {
+    return <ClinicCampaignAnalytics />;
+  }
 
   return (
     <div className="space-y-6">
@@ -69,3 +78,4 @@ export const ClinicPortalPage: React.FC = () => {
     </div>
   );
 };
+
