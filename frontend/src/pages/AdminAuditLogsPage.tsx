@@ -1,10 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Download, ShieldAlert, Filter, CheckCircle2, AlertTriangle, Info, User, Users, Sliders, CreditCard, ShieldCheck, Building2, Stethoscope, Lock, Unlock, Eye, Sparkles } from 'lucide-react';
-import { auditApi, adminUserApi } from '../services/api';
+import { auditApi, adminUserApi, adminClinicApi } from '../services/api';
 import { PatientAssignmentBoard } from '../components/PatientAssignmentBoard';
 
-export const AdminAuditLogsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'audit' | 'users' | 'assignments' | 'ai-config'>('audit');
+interface AdminAuditLogsPageProps {
+  activeView?: string;
+}
+
+export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({ activeView }) => {
+  const sectionToTab: Record<string, 'audit' | 'users' | 'clinics' | 'assignments' | 'ai-config'> = {
+    'user-management': 'users',
+    'clinic-approvals': 'clinics',
+    'ai-thresholds': 'ai-config',
+    'audit-logs': 'audit',
+  };
+  const [activeTab, setActiveTab] = useState<'audit' | 'users' | 'clinics' | 'assignments' | 'ai-config'>(
+    (activeView && sectionToTab[activeView]) || 'audit'
+  );
+
+  useEffect(() => {
+    if (activeView && sectionToTab[activeView]) {
+      setActiveTab(sectionToTab[activeView]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
+
+
+  // Clinic Approval State (FR-22)
+  const [clinicProfiles, setClinicProfiles] = useState<any[]>([]);
+  const [clinicsLoading, setClinicsLoading] = useState(false);
+  const [clinicActionMessage, setClinicActionMessage] = useState<Record<string, string>>({});
+  const [rejectReasonDraft, setRejectReasonDraft] = useState<Record<string, string>>({});
 
   // Audit Logs State
   const [severityFilter, setSeverityFilter] = useState('All');
@@ -69,7 +95,43 @@ export const AdminAuditLogsPage: React.FC = () => {
       }
     };
     fetchAdminData();
+    loadClinicProfiles();
   }, []);
+
+  // FR-22: Tải danh sách hồ sơ đăng ký tổ chức phòng khám để Admin xét duyệt
+  const loadClinicProfiles = async () => {
+    setClinicsLoading(true);
+    try {
+      const res = await adminClinicApi.list();
+      setClinicProfiles(res.success && res.data ? res.data : []);
+    } catch (e) {
+      console.warn('Could not fetch clinic profiles:', e);
+    }
+    setClinicsLoading(false);
+  };
+
+  const handleApproveClinic = async (clinicProfileId: string) => {
+    const res = await adminClinicApi.review(clinicProfileId, 'APPROVED');
+    setClinicActionMessage((prev) => ({
+      ...prev,
+      [clinicProfileId]: res.success ? 'Đã phê duyệt hồ sơ.' : res.message || 'Phê duyệt thất bại.',
+    }));
+    if (res.success) loadClinicProfiles();
+  };
+
+  const handleRejectClinic = async (clinicProfileId: string) => {
+    const reason = rejectReasonDraft[clinicProfileId]?.trim();
+    if (!reason) {
+      setClinicActionMessage((prev) => ({ ...prev, [clinicProfileId]: 'Vui lòng nhập lý do từ chối.' }));
+      return;
+    }
+    const res = await adminClinicApi.review(clinicProfileId, 'REJECTED', reason);
+    setClinicActionMessage((prev) => ({
+      ...prev,
+      [clinicProfileId]: res.success ? 'Đã từ chối hồ sơ.' : res.message || 'Từ chối thất bại.',
+    }));
+    if (res.success) loadClinicProfiles();
+  };
 
   const handleExportLogs = async () => {
     try {
@@ -174,6 +236,17 @@ export const AdminAuditLogsPage: React.FC = () => {
             >
               <Users className="w-4 h-4" />
               Quản Lý Tài Khoản ({usersList.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('clinics')}
+              className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
+                activeTab === 'clinics'
+                  ? 'bg-white text-cyan-800 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              Phê Duyệt Phòng Khám (FR-22) ({clinicProfiles.filter((c) => c.verificationStatus === 'PENDING').length})
             </button>
             <button
               onClick={() => setActiveTab('assignments')}
@@ -394,6 +467,81 @@ export const AdminAuditLogsPage: React.FC = () => {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB: CLINIC APPROVALS (FR-22) */}
+      {activeTab === 'clinics' && (
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+          <div className="p-4 border-b border-slate-100">
+            <h3 className="text-sm font-bold text-slate-900">Hồ Sơ Đăng Ký Tổ Chức Phòng Khám</h3>
+            <p className="text-xs text-slate-500">Xét duyệt pháp nhân dựa trên giấy phép hoạt động do phòng khám nộp lên (FR-22).</p>
+          </div>
+
+          {clinicsLoading ? (
+            <p className="p-6 text-sm text-slate-500">Đang tải danh sách hồ sơ…</p>
+          ) : clinicProfiles.length === 0 ? (
+            <div className="p-8 text-center text-sm text-slate-500">Chưa có phòng khám nào nộp hồ sơ đăng ký.</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {clinicProfiles.map((c) => (
+                <div key={c.id} className="p-4 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{c.organizationName}</p>
+                      <p className="text-[11px] text-slate-500 font-mono-data">
+                        GPHĐ: {c.licenseNumber || '—'} · Nộp lúc: {c.submittedAt ? new Date(c.submittedAt).toLocaleString('vi-VN') : '—'}
+                      </p>
+                      {c.licenseDocumentUrl && (
+                        <a href={c.licenseDocumentUrl} target="_blank" rel="noreferrer" className="text-[11px] text-cyan-700 font-bold hover:underline">
+                          Xem giấy phép hoạt động
+                        </a>
+                      )}
+                    </div>
+                    <span
+                      className={`inline-flex w-fit items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                        c.verificationStatus === 'APPROVED'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : c.verificationStatus === 'REJECTED'
+                          ? 'bg-red-100 text-red-800 border-red-300'
+                          : 'bg-amber-100 text-amber-900 border-amber-300'
+                      }`}
+                    >
+                      {c.verificationStatus === 'APPROVED' ? 'Đã xác minh' : c.verificationStatus === 'REJECTED' ? 'Bị từ chối' : 'Đang chờ duyệt'}
+                    </span>
+                  </div>
+
+                  {c.verificationStatus === 'REJECTED' && c.rejectionReason && (
+                    <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">Lý do từ chối: {c.rejectionReason}</p>
+                  )}
+
+                  {c.verificationStatus === 'PENDING' && (
+                    <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center pt-1">
+                      <button
+                        onClick={() => handleApproveClinic(c.id)}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] shadow-xs"
+                      >
+                        Phê Duyệt
+                      </button>
+                      <input
+                        value={rejectReasonDraft[c.id] || ''}
+                        onChange={(e) => setRejectReasonDraft((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                        placeholder="Lý do từ chối…"
+                        className="flex-1 min-w-[180px] rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+                      />
+                      <button
+                        onClick={() => handleRejectClinic(c.id)}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-[11px] shadow-xs"
+                      >
+                        Từ Chối
+                      </button>
+                    </div>
+                  )}
+                  {clinicActionMessage[c.id] && <p className="text-[11px] text-slate-500">{clinicActionMessage[c.id]}</p>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
