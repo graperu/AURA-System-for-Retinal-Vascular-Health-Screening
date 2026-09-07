@@ -3,13 +3,16 @@ package com.aura.billing.service;
 import java.math.BigDecimal;
 
 /**
- * Abstraction over "whoever actually moves money" — mirrors how AiCoreClient abstracts the
- * AI Core service. A real provider (VNPay, Momo, Stripe) can be added without changing
- * BillingService or the controllers. The default implementation fails closed.
+ * Cổng thanh toán trừu tượng hóa cho hệ thống AURA (FR-11).
+ * Hỗ trợ các nhà cung cấp: VNPay, MoMo, Sandbox / Thẻ ngân hàng.
  */
 public interface PaymentGateway {
 
     GatewayResult charge(String buyerEmail, BigDecimal amount);
+
+    default GatewayResult charge(String buyerEmail, BigDecimal amount, String paymentMethod) {
+        return charge(buyerEmail, amount);
+    }
 
     record GatewayResult(boolean success, String providerName, String providerReference, String failureReason) {
     }

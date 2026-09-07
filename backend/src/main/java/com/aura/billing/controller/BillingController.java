@@ -27,10 +27,11 @@ public class BillingController {
     @PostMapping("/packages/{packageId}/purchase")
     public ResponseEntity<ApiResponse<PaymentTransactionResponse>> purchase(
             @PathVariable Long packageId,
+            @RequestParam(required=false,defaultValue = "VNPAY") String paymentMethod,
             @AuthenticationPrincipal AuraUserPrincipal principal) {
-        var result = billingService.purchaseOrRenew(principal.id(), packageId);
+        var result = billingService.purchaseOrRenew(principal.id(), packageId,paymentMethod);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Mua/gia hạn gói thành công", result));
+                .body(ApiResponse.success("Mua/gia hạn gói thành công qua cổng " + (paymentMethod != null ? paymentMethod : "VNPAY"), result));
     }
 
     @GetMapping("/subscriptions")

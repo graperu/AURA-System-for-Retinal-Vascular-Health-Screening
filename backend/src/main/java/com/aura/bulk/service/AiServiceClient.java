@@ -23,17 +23,14 @@ public class AiServiceClient {
 
     private final RestClient restClient;
     private final boolean simulateLocalAiIfOffline;
-    private final int simulateDelayMs;
 
     public AiServiceClient(
             @Value("${aura.ai-service.url:http://ai-service:8000}") String aiServiceUrl,
-            @Value("${aura.ai-service.simulate-if-offline:true}") boolean simulateLocalAiIfOffline,
-            @Value("${aura.ai-service.simulate-delay-ms:80}") int simulateDelayMs) {
+            @Value("${aura.ai-service.simulate-if-offline:true}") boolean simulateLocalAiIfOffline) {
         this.restClient = RestClient.builder()
                 .baseUrl(aiServiceUrl)
                 .build();
         this.simulateLocalAiIfOffline = simulateLocalAiIfOffline;
-        this.simulateDelayMs = simulateDelayMs;
     }
 
     /**
@@ -82,9 +79,8 @@ public class AiServiceClient {
             long startTime) {
         
         try {
-            // Realistic responsive simulation delay per worker thread
-            long sleepTime = simulateDelayMs + new Random().nextInt(500);
-            Thread.sleep(sleepTime);
+            // Simulate PyTorch execution delay (12 - 15 seconds)
+            Thread.sleep(12000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -113,7 +109,7 @@ public class AiServiceClient {
                 Math.round((12.5 + random.nextDouble() * 5.0) * 10.0) / 10.0,
                 Math.round((1.2 + random.nextDouble() * 0.5) * 100.0) / 100.0,
                 0.38,
-                "/assets/images/fundus_heatmap.png",
+                "https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=800&q=80",
                 1 + random.nextInt(3),
                 List.of(
                         "Suy giảm tỷ lệ A/V ratio (co hẹp động mạch nhỏ võng mạc)",

@@ -29,6 +29,7 @@ public class ScreeningService {
 
   private final ScreeningRepository screeningRepository;
   private final com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository;
+  private final com.aura.notification.service.UserNotificationService userNotificationService;
   private final RestClient restClient;
 
   @Value("${aura.ai-service.url:http://localhost:8000}")
@@ -40,9 +41,11 @@ public class ScreeningService {
   public ScreeningService(
       ScreeningRepository screeningRepository,
       com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      com.aura.notification.service.UserNotificationService userNotificationService,
       RestClient.Builder restClientBuilder) {
     this.screeningRepository = screeningRepository;
     this.assignmentRepository = assignmentRepository;
+    this.userNotificationService = userNotificationService;
     this.restClient = restClientBuilder.build();
   }
 
@@ -184,7 +187,28 @@ public class ScreeningService {
       screening.setFindings("Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
     }
 
-    return screeningRepository.save(screening);
+    Screening saved = screeningRepository.save(screening);
+    
+    // FR-9: Gửi thông báo SSE và In-App ngay khi AI phân tích xong
+    try {
+      if (saved.getStatus() == ScreeningStatus.ANALYZED) {
+        String severity = saved.getRiskLevel() == RiskLevel.CRITICAL ? "CRITICAL"
+            : (saved.getRiskLevel() == RiskLevel.HIGH ? "WARNING" : "SUCCESS");
+        userNotificationService.sendNotificationToUser(
+            patientId,
+            "Kết quả phân tích AI đã sẵn sàng",
+            "Ảnh võng mạc của bạn đã được phân tích. Mức độ nguy cơ vi mạch: " + saved.getRiskLevel()
+                + (saved.getConfidence() != null ? " (Độ tin cậy: " + saved.getConfidence() + ")" : "") + ".",
+            "AI_READY",
+            severity,
+            "/cds-viewer"
+        );
+      }
+    } catch (Exception e) {
+      log.warn("Không thể gửi thông báo AI_READY: {}", e.getMessage());
+    }
+
+    return saved;
   }
 
   @Transactional(readOnly = true)
@@ -244,7 +268,23 @@ public class ScreeningService {
     screening.setSignedAt(signedAt);
     screening.setDigitalSignature(createReviewSignature(
         screening, doctorId, decision, doctorNotes, adjustedCardioRisk, adjustedDrRisk, icd10Codes, signedAt));
-    return screeningRepository.save(screening);
+    Screening saved = screeningRepository.save(screening);
+
+    // Gửi thông báo cho bệnh nhân khi bác sĩ ký duyệt
+    try {
+      userNotificationService.sendNotificationToUser(
+          saved.getPatientId(),
+          "Bác sĩ đã thẩm định kết quả",
+          "Bác sĩ chuyên khoa đã ký duyệt báo cáo lâm sàng cho ca khám của bạn. Quyết định: " + decision.name(),
+          "DOCTOR_REVIEW",
+          "INFO",
+          "/scan-history"
+      );
+    } catch (Exception e) {
+      log.warn("Không thể gửi thông báo DOCTOR_REVIEW: {}", e.getMessage());
+    }
+
+    return saved;
   }
 
   private String createReviewSignature(
