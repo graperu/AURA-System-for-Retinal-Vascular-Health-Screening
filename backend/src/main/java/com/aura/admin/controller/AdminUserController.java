@@ -3,6 +3,8 @@ package com.aura.admin.controller;
 import com.aura.admin.dto.AiConfigDto;
 import com.aura.admin.dto.AssignmentBoardResponse;
 import com.aura.admin.dto.BulkPatientAssignmentRequest;
+import com.aura.admin.dto.UpdateUserRequest;
+import com.aura.admin.dto.UpdateUserRoleRequest;
 import com.aura.admin.dto.UpdateUserStatusRequest;
 import com.aura.admin.dto.UserSummaryDto;
 import com.aura.admin.service.AdminPatientAssignmentService;
@@ -10,6 +12,7 @@ import com.aura.admin.service.AdminUserService;
 import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.common.response.ApiResponse;
 import com.aura.common.response.PageResponse;
+import com.aura.role.enums.RoleName;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -45,22 +49,40 @@ public class AdminUserController {
 
   @GetMapping("/users")
   @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "List all registered accounts with roles")
+  @Operation(summary = "List all registered accounts with roles (FR-31)")
   public ApiResponse<PageResponse<UserSummaryDto>> getAllUsers(
       @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size) {
+      @RequestParam(defaultValue = "20") int size,
+      @RequestParam(required = false) String q,
+      @RequestParam(required = false) RoleName role) {
     Pageable pageable = PageRequest.of(page, size);
-    Page<UserSummaryDto> users = adminUserService.getAllUsers(pageable);
+    Page<UserSummaryDto> users = adminUserService.getAllUsers(q, role, pageable);
     return ApiResponse.success(PageResponse.from(users));
   }
 
-  @PutMapping("/users/{userId}/status")
+  @PutMapping("/users/{userId}")
   @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Enable or disable a user/doctor/clinic account")
+  @Operation(summary = "Edit user, doctor or clinic account profile (FR-31)")
+  public ApiResponse<UserSummaryDto> updateUser(
+      @PathVariable UUID userId, @Valid @RequestBody UpdateUserRequest request) {
+    return ApiResponse.success("Đã cập nhật thông tin tài khoản", adminUserService.updateUser(userId, request));
+  }
+
+  @RequestMapping(value = "/users/{userId}/status", method = {RequestMethod.PUT, RequestMethod.PATCH})
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Enable or disable a user/doctor/clinic account (FR-31)")
   public ApiResponse<UserSummaryDto> updateUserStatus(
       @PathVariable UUID userId,
       @Valid @RequestBody UpdateUserStatusRequest request) {
     return ApiResponse.success(adminUserService.updateUserStatus(userId, request));
+  }
+
+  @RequestMapping(value = "/users/{userId}/role", method = {RequestMethod.PUT, RequestMethod.PATCH})
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Assign a system role to an account (FR-32)")
+  public ApiResponse<UserSummaryDto> updateUserRole(
+      @PathVariable UUID userId, @Valid @RequestBody UpdateUserRoleRequest request) {
+    return ApiResponse.success("Đã cập nhật vai trò người dùng", adminUserService.updateUserRole(userId, request));
   }
 
   @PutMapping("/clinics/{clinicId}/approve")

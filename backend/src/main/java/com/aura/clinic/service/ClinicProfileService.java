@@ -75,4 +75,22 @@ public class ClinicProfileService {
     profile.setReviewedBy(reviewer);
     return clinicProfileRepository.save(profile);
   }
+  @Transactional
+  public ClinicProfile updateByAdmin(
+      UUID clinicProfileId, String organizationName, String licenseNumber, String licenseDocumentUrl) {
+    ClinicProfile profile =
+        clinicProfileRepository
+            .findById(clinicProfileId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ phòng khám"));
+    if (organizationName != null && !organizationName.isBlank()) {
+      profile.setOrganizationName(organizationName.trim());
+    }
+    if (licenseNumber != null) {
+      profile.setLicenseNumber(licenseNumber.isBlank() ? null : licenseNumber.trim());
+    }
+    if (licenseDocumentUrl != null) {
+      profile.setLicenseDocumentUrl(licenseDocumentUrl.isBlank() ? null : licenseDocumentUrl.trim());
+    }
+    return clinicProfileRepository.save(profile);
+  }
 }
