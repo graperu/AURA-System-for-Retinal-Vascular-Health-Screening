@@ -1,0 +1,286 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Send, User, Stethoscope, CheckCheck, MessageSquare, AlertCircle, RefreshCw } from 'lucide-react';
+import { chatApi } from '../services/api';
+
+interface ChatMessage {
+  id: string;
+  sender: 'doctor' | 'patient';
+  senderName: string;
+  text: string;
+  timestamp: string;
+  attachment?: string;
+  screeningId?: string;
+}
+
+interface ConsultationChatModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentUserRole: 'patient' | 'doctor' | 'clinic' | 'admin';
+  patientName: string;
+  patientMrn: string;
+  doctorName?: string;
+  targetUserId?: string;
+  screeningId?: string;
+}
+
+const DEFAULT_DOCTOR_ID = '22222222-2222-2222-2222-222222222222';
+const DEFAULT_PATIENT_ID = '11111111-1111-1111-1111-111111111111';
+
+export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
+  isOpen,
+  onClose,
+  currentUserRole,
+  patientName,
+  patientMrn,
+  doctorName = 'BS. CKII Nguyễn Thị Thanh',
+  targetUserId,
+  screeningId,
+}) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const partnerId = targetUserId || (currentUserRole === 'doctor' ? DEFAULT_PATIENT_ID : DEFAULT_DOCTOR_ID);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const res = await chatApi.getConversation(partnerId);
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped = res.data.map((m: any) => ({
+          id: m.id || String(Math.random()),
+          sender: m.senderId === partnerId ? (currentUserRole === 'doctor' ? 'patient' : 'doctor') : (currentUserRole === 'doctor' ? 'doctor' : 'patient'),
+          senderName: m.senderId === partnerId ? (currentUserRole === 'doctor' ? patientName : doctorName) : (currentUserRole === 'doctor' ? doctorName : patientName),
+          text: m.messageText || m.content || '',
+          timestamp: m.createdAt ? new Date(m.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
+          attachment: m.attachmentUrl,
+          screeningId: m.screeningId,
+        }));
+        setMessages(mapped);
+      } else if (messages.length === 0) {
+        // Initial sample greeting if no DB history yet
+        setMessages([
+          {
+            id: 'init_1',
+            sender: currentUserRole === 'doctor' ? 'doctor' : 'patient',
+            senderName: currentUserRole === 'doctor' ? doctorName : patientName,
+            text: currentUserRole === 'doctor'
+              ? `Chào bác ${patientName}, tôi là ${doctorName} phụ trách ca khám võng mạc của bác. Bác có thắc mắc gì về kết quả chẩn đoán không?`
+              : `Kính chào Bác sĩ! Tôi vừa nhận kết quả phân tích ảnh võng mạc mã ${patientMrn}, nhờ Bác sĩ tư vấn giúp tôi ạ.`,
+            timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+      }
+      // Mark as read
+      void chatApi.markAsRead(partnerId);
+    } catch (err) {
+      console.warn('Could not fetch consultation messages:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void fetchMessages();
+
+    // Auto-polling every 3 seconds for realtime sync
+    const interval = setInterval(() => {
+      void fetchMessages();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, partnerId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      scrollToBottom();
+    }
+  }, [messages, isOpen]);
+
+  if (!isOpen) return null;
+
+  const partnerTitle =
+    currentUserRole === 'doctor'
+      ? `Bệnh nhân: ${patientName} (${patientMrn})`
+      : `${doctorName} (Bác sĩ chuyên khoa)`;
+
+  const partnerRoleDesc =
+    currentUserRole === 'doctor'
+      ? 'Hồ sơ khám đáy mắt định kỳ • Trực tuyến'
+      : 'Khoa Mắt & Tim Mạch Lâm Sàng • Trực tuyến';
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!inputMessage.trim() || isSending) return;
+
+    const textToSend = inputMessage.trim();
+    setInputMessage('');
+    setIsSending(true);
+
+    const optimisticMsg: ChatMessage = {
+      id: `local_${Date.now()}`,
+      sender: currentUserRole === 'doctor' ? 'doctor' : 'patient',
+      senderName: currentUserRole === 'doctor' ? doctorName : patientName,
+      text: textToSend,
+      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      screeningId,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    try {
+      await chatApi.sendMessage(partnerId, textToSend, screeningId);
+      void fetchMessages();
+    } catch (err) {
+      console.warn('Failed to send message:', err);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const quickRepliesDoctor = [
+    'Kết quả chẩn đoán đã được ký duyệt lâm sàng.',
+    'Bác nhớ đo huyết áp mỗi sáng và duy trì uống thuốc đều đặn.',
+    'Hình ảnh đáy mắt cho thấy vi tuần hoàn tương đối ổn định sau điều trị.',
+    'Đề nghị tái khám chuyên khoa sau 6 tháng.',
+  ];
+
+  const quickRepliesPatient = [
+    'Dạ Bác sĩ cho tôi hỏi lịch tái khám cụ thể ạ.',
+    'Tôi đã tải được báo cáo kết quả PDF rồi ạ.',
+    'Huyết áp sáng nay của tôi là 125/82 mmHg, chỉ số này có ổn không ạ?',
+    'Cảm ơn Bác sĩ đã tư vấn chi tiết.',
+  ];
+
+  const quickReplies = currentUserRole === 'doctor' ? quickRepliesDoctor : quickRepliesPatient;
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative flex h-[640px] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+      >
+        {/* Chat Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-[#F0FDFA] px-6 py-3.5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0891B2] text-white shadow-sm font-bold">
+              {currentUserRole === 'doctor' ? <User className="h-6 w-6" /> : <Stethoscope className="h-6 w-6" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-[#134E4A]">{partnerTitle}</h2>
+                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-100" title="Đang trực tuyến" />
+              </div>
+              <p className="text-[11px] text-slate-500">{partnerRoleDesc}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                setIsRefreshing(true);
+                await fetchMessages();
+                setIsRefreshing(false);
+              }}
+              className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+              title="Làm mới tin nhắn"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-[#0891B2]' : ''}`} />
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-xl p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+              title="Đóng cửa sổ"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Message Thread */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 bg-slate-50/70">
+          <div className="text-center">
+            <span className="rounded-full bg-teal-50 px-3 py-1 text-[10px] font-bold text-teal-800 border border-teal-200 font-mono-data">
+              Hội thoại tư vấn mã hóa bảo mật HIPAA • Realtime Sync (FR-10)
+            </span>
+          </div>
+
+          {messages.map((msg) => {
+            const isMe =
+              (currentUserRole === 'doctor' && msg.sender === 'doctor') ||
+              (currentUserRole !== 'doctor' && msg.sender === 'patient');
+
+            return (
+              <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                <div className="flex items-end gap-2 max-w-[85%] sm:max-w-[78%]">
+                  {!isMe && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-700 text-white text-xs font-bold shadow-xs">
+                      {msg.sender === 'doctor' ? <Stethoscope className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
+                    </div>
+                  )}
+                  <div
+                    className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed shadow-xs ${
+                      isMe
+                        ? 'bg-[#0891B2] text-white rounded-br-none'
+                        : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
+                    }`}
+                  >
+                    <p className="font-medium whitespace-pre-wrap">{msg.text}</p>
+                    <div
+                      className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
+                        isMe ? 'text-cyan-100' : 'text-slate-400'
+                      }`}
+                    >
+                      <span className="font-mono-data">{msg.timestamp}</span>
+                      {isMe && <CheckCheck className="h-3 w-3 text-emerald-300" />}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Quick Suggestions */}
+        <div className="border-t border-slate-100 bg-white px-4 py-2 flex items-center gap-2 overflow-x-auto">
+          <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0">Mẫu nhanh:</span>
+          {quickReplies.map((reply, i) => (
+            <button
+              key={i}
+              onClick={() => setInputMessage(reply)}
+              className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-800 transition-colors"
+            >
+              {reply}
+            </button>
+          ))}
+        </div>
+
+        {/* Input Area */}
+        <form onSubmit={handleSendMessage} className="border-t border-slate-200 bg-white p-3.5 flex items-center gap-2">
+          <input
+            type="text"
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            placeholder={`Nhập tin nhắn trao đổi với ${currentUserRole === 'doctor' ? 'bệnh nhân' : 'bác sĩ'}...`}
+            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-medium text-slate-800 outline-none focus:border-cyan-600 focus:bg-white transition-all"
+          />
+          <button
+            type="submit"
+            disabled={!inputMessage.trim() || isSending}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0891B2] hover:bg-[#0E7490] text-white shadow-sm disabled:opacity-40 transition-all active:scale-95"
+            title="Gửi tin nhắn"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};

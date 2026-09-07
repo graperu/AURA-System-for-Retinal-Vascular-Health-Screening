@@ -95,11 +95,13 @@ export const authApi = {
 };
 
 export const screeningApi = {
-  create: (imageUrl: string) =>
-    apiFetch<any>('/api/v1/screenings', {
+  create: (payload: string | { imageUrl: string; [key: string]: any }) => {
+    const body = typeof payload === 'string' ? { imageUrl: payload } : payload;
+    return apiFetch<any>('/api/v1/screenings', {
       method: 'POST',
-      body: JSON.stringify({ imageUrl }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
 
   getAll: () =>
     apiFetch<any[]>('/api/v1/screenings', {
@@ -191,9 +193,16 @@ export const adminUserApi = {
 
   updateStatus: (userId: string, active: boolean) =>
     apiFetch<any>(`/api/v1/admin/users/${userId}/status`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify({ active }),
     }),
+
+  getAiConfig: () => apiFetch<any>('/api/v1/admin/ai-config', { method: 'GET' }),
+
+  updateAiConfig: (config: any) => apiFetch<any>('/api/v1/admin/ai-config', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  }),
 };
 
 export const patientApi = {
@@ -212,6 +221,37 @@ export const patientApi = {
     apiFetch<any>(`/api/v1/patient/profile/${patientId}`, {
       method: 'GET',
     }),
+
+  getLabDocuments: () =>
+    apiFetch<any[]>('/api/v1/patient/profile/lab-documents', { method: 'GET' }),
+
+  uploadLabDocument: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiFetch<any>('/api/v1/patient/profile/lab-documents', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  deleteLabDocument: (documentId: string) =>
+    apiFetch<void>(`/api/v1/patient/profile/lab-documents/${documentId}`, {
+      method: 'DELETE',
+    }),
+
+  downloadLabDocument: async (patientId: string, documentId: string, fileName: string) => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/patient/profile/${patientId}/lab-documents/${documentId}/content`,
+      { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}, credentials: 'include' }
+    );
+    if (!response.ok) throw new Error('Không thể tải tệp xét nghiệm');
+    const url = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
 };
 
 export const doctorApi = {
@@ -305,6 +345,22 @@ export interface BulkUploadPayload {
   imageItems: BulkUploadItemPayload[];
 }
 
+export const assignmentApi = {
+  getBoard: () =>
+    apiFetch<any>('/api/v1/admin/patient-assignments', { method: 'GET' }),
+
+  assign: (doctorId: string, patientIds: string[], replaceExisting = true) =>
+    apiFetch<any>('/api/v1/admin/patient-assignments', {
+      method: 'PUT',
+      body: JSON.stringify({ doctorId, patientIds, replaceExisting }),
+    }),
+
+  unassign: (doctorId: string, patientId: string) =>
+    apiFetch<any>(`/api/v1/admin/patient-assignments/${doctorId}/${patientId}`, {
+      method: 'DELETE',
+    }),
+};
+
 export const bulkScreeningApi = {
   createBatch: (payload: BulkUploadPayload) =>
     apiFetch<any>('/api/v1/bulk-screening/batch', {
@@ -321,8 +377,11 @@ export const bulkScreeningApi = {
     });
   },
 
+  getBatch: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, { method: 'GET' }),
+
   getBatchStatus: (batchId: string) =>
-    apiFetch<any>(`/api/v1/bulk-screening/batch/${batchId}`, {
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, {
       method: 'GET',
     }),
 
@@ -332,12 +391,36 @@ export const bulkScreeningApi = {
     }),
 
   getBatchItemResult: (batchId: string, itemId: string) =>
-    apiFetch<any>(`/api/v1/bulk-screening/batch/${batchId}/items/${itemId}`, {
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/items/${encodeURIComponent(itemId)}`, {
       method: 'GET',
     }),
 
   cancelBatch: (batchId: string) =>
-    apiFetch<any>(`/api/v1/bulk-screening/batch/${batchId}/cancel`, {
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/cancel`, {
       method: 'POST',
     }),
+};
+
+export const servicePackageApi = {
+  browse: (scope: 'INDIVIDUAL' | 'CLINIC') =>
+    apiFetch<any[]>(`/api/v1/packages?scope=${scope}`, { method: 'GET' }),
+};
+
+export const clinicAnalyticsApi = {
+  getCampaignAnalytics: () =>
+    apiFetch<any>('/api/v1/clinic/analytics/campaigns', { method: 'GET' }),
+
+  exportData: async (fileName = 'aura_clinic_export.csv') => {
+    const response = await fetch(
+      `${(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')}/api/v1/clinic/analytics/export`,
+      { headers: getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}, credentials: 'include' }
+    );
+    if (!response.ok) throw new Error('Không thể tải file báo cáo');
+    const url = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
 };

@@ -3,7 +3,7 @@ import { ClinicBatchJob, ClinicBatchJobItem } from '../types/cds';
 import { CreditPurchaseModal } from './CreditPurchaseModal';
 import { BatchUploadModal } from './BatchUploadModal';
 import { BatchItemDetailModal } from './BatchItemDetailModal';
-import { bulkScreeningApi, BulkUploadPayload } from '../services/api';
+import { bulkScreeningApi, BulkUploadPayload, billingApi } from '../services/api';
 import {
   UploadCloud,
   Building2,
@@ -60,7 +60,17 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
   const [selectedItemForCds, setSelectedItemForCds] = useState<ClinicBatchJobItem | null>(null);
 
-  const [clinicCredits, setClinicCredits] = useState(1880);
+  const [clinicCredits, setClinicCredits] = useState(0);
+
+  useEffect(() => {
+    billingApi.mySubscriptions().then((response) => {
+      if (response.success && Array.isArray(response.data)) {
+        setClinicCredits(response.data.reduce((total: number, item: any) =>
+          total + (item.status === 'ACTIVE' ? Number(item.remainingCredits || 0) : 0), 0));
+      }
+    }).catch(() => {});
+  }, []);
+
   const [isPolling, setIsPolling] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
@@ -574,7 +584,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 {currentJob.totalImages === 0
                   ? 'Hệ thống sàng lọc AI sẵn sàng'
-                  : 'Chiến Dịch Sàng Lọc Sức Khỏe Mạch Máu 2026'}
+                  : `Chiến Dịch Sàng Lọc Sức Khỏe Mạch Máu 2026 (${currentJob.status})`}
               </span>
               {isPolling && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#0891B2] bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded-full font-mono-data animate-pulse">
@@ -632,10 +642,10 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-extrabold font-mono-data">{clinicCredits.toLocaleString()}</span>
-            <span className="text-xs text-cyan-200">/ 2,500 Lượt AI Khả Dụng</span>
+            <span className="text-xs text-cyan-200">lượt AI khả dụng</span>
           </div>
           <div className="text-[11px] text-cyan-100 flex justify-between items-center pt-1 border-t border-white/15">
-            <span>Hạn dùng: 31/12/2026</span>
+            <span>Đồng bộ từ gói cước hoạt động</span>
             <button
               onClick={() => setIsCreditModalOpen(true)}
               className="bg-white text-[#0891B2] hover:bg-cyan-50 px-2.5 py-1 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all"

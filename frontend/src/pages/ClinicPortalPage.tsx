@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
+import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
 import { ClinicBatchJob } from '../types/cds';
-import { ShieldCheck, Building2, Layers, Sparkles, Activity, RotateCcw } from 'lucide-react';
+import { bulkScreeningApi } from '../services/api';
+import { ShieldCheck, Activity, RotateCcw, Search, Loader2 } from 'lucide-react';
 
 const STORAGE_KEY = 'AURA_CLINIC_BATCH_JOB';
 
@@ -18,7 +20,7 @@ const getInitialBatchJob = (): ClinicBatchJob => {
     console.error('Lỗi nạp dữ liệu đợt khám đã lưu:', e);
   }
 
-  // Trạng thái ban đầu khi chưa tải đợt nào: Tiến độ 0%, 0 ảnh
+  // Trạng thái ban đầu khi chưa tải đợt nào
   return {
     batchId: 'CHƯA_TẢI_ĐỢT_NÀO',
     clinicId: 'CLN-CHO-RAY-01',
@@ -33,8 +35,49 @@ const getInitialBatchJob = (): ClinicBatchJob => {
   };
 };
 
-export const ClinicPortalPage: React.FC = () => {
+const mapBatch = (data: any): ClinicBatchJob => ({
+  batchId: data.batchId,
+  clinicId: data.clinicId || 'CLN-AURA-01',
+  clinicName: data.clinicName || data.clinicId || 'Bệnh viện Chợ Rẫy — Trung tâm Sàng lọc Đáy mắt',
+  totalImages: data.totalImages || 0,
+  processedCount: data.processedCount || 0,
+  failedCount: data.failedCount || 0,
+  status: data.status || 'COMPLETED',
+  createdAt: data.createdAt || new Date().toISOString(),
+  estimatedTimeRemainingSec: data.estimatedTimeRemainingSeconds || 0,
+  items: (data.items || []).map((item: any) => ({
+    id: item.itemId,
+    patientName: item.pseudonymPatientId || item.rawMrn || 'Ẩn danh',
+    mrn: item.rawMrn || item.pseudonymPatientId,
+    eye: item.eyePosition === 'OS' ? 'OS (Mắt Trái)' : 'OD (Mắt Phải)',
+    fileName: item.fileName,
+    status:
+      item.status === 'COMPLETED'
+        ? 'DONE'
+        : item.status === 'QUEUED'
+        ? 'PENDING'
+        : item.status === 'FAILED'
+        ? 'ERROR'
+        : 'PROCESSING',
+    riskLevel: item.aiResult?.riskLevel || item.riskLevel,
+    riskScore: item.aiResult?.riskScore || item.riskScore,
+    thumbnailUrl: item.thumbnailUrl || '/assets/images/fundus_original.png',
+  })),
+});
+
+interface ClinicPortalProps {
+  activeView?: string;
+}
+
+export const ClinicPortalPage: React.FC<ClinicPortalProps> = ({ activeView }) => {
   const [batchJob, setBatchJob] = useState<ClinicBatchJob>(getInitialBatchJob);
+  const [lookupBatchId, setLookupBatchId] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
+  if (activeView === 'campaign-analytics') {
+    return <ClinicCampaignAnalytics />;
+  }
 
   const handleUpdateBatch = (updated: ClinicBatchJob) => {
     setBatchJob(updated);
@@ -72,6 +115,26 @@ export const ClinicPortalPage: React.FC = () => {
     }
   };
 
+  const handleLookupBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupBatchId.trim()) return;
+    setLookupLoading(true);
+    setLookupError(null);
+    try {
+      const response = await bulkScreeningApi.getBatch(lookupBatchId.trim());
+      if (!response.success || !response.data) {
+        setLookupError(response.message || 'Không tìm thấy batch hoặc bạn không có quyền truy cập.');
+      } else {
+        const mapped = mapBatch(response.data);
+        handleUpdateBatch(mapped);
+      }
+    } catch (err: any) {
+      setLookupError(err.message || 'Lỗi khi tra cứu batch.');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Clinic Portal Header Banner */}
@@ -88,6 +151,26 @@ export const ClinicPortalPage: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
             Tiếp nhận thư mục ảnh chụp đáy mắt khối lượng lớn (≥100 ảnh), tự động khử định danh HIPAA SHA-256 HMAC, đưa vào hàng đợi PyTorch AI bất đồng bộ và hỗ trợ lưu trữ liên tục không bị mất dữ liệu khi tải lại.
           </p>
+
+          {/* Quick lookup form */}
+          <form onSubmit={handleLookupBatch} className="mt-3 flex items-center gap-2 max-w-md">
+            <input
+              type="text"
+              value={lookupBatchId}
+              onChange={(e) => setLookupBatchId(e.target.value)}
+              placeholder="Nhập mã Batch ID cần tra cứu (VD: BATCH-...)"
+              className="flex-1 rounded-xl border border-slate-300 px-3 py-1.5 text-xs focus:border-[#0891B2] outline-none"
+            />
+            <button
+              type="submit"
+              disabled={lookupLoading}
+              className="flex items-center gap-1 rounded-xl bg-[#0891B2] hover:bg-[#0e7490] px-3 py-1.5 text-xs font-bold text-white transition disabled:opacity-50"
+            >
+              {lookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+              <span>Tra cứu</span>
+            </button>
+          </form>
+          {lookupError && <p className="mt-1 text-xs text-red-500 font-medium">{lookupError}</p>}
         </div>
 
         <div className="flex items-center gap-3">

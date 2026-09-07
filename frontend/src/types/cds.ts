@@ -2,6 +2,14 @@ export type UserRole = 'patient' | 'doctor' | 'clinic' | 'admin';
 
 export type RiskLevel = 'Low' | 'Moderate' | 'High' | 'Severe';
 
+export interface LabDocument {
+  id: string;
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  uploadedAt: string;
+}
+
 export interface PatientProfile {
   id?: string;
   userId?: string;

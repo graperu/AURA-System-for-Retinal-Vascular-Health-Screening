@@ -114,7 +114,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
         if (screenRes.success && Array.isArray(screenRes.data) && screenRes.data.length > 0) {
           realScans = screenRes.data;
         }
-      } catch {}
+      } catch { }
 
       try {
         const localHistoryStr = localStorage.getItem('aura_scan_history_v2');
@@ -124,12 +124,12 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
             realScans = [...parsed, ...realScans];
           }
         }
-      } catch {}
+      } catch { }
 
       // Đồng bộ thông tin ca khám thực tế của Bệnh nhân Nguyễn Trọng Nam
       const namIndex = patientList.findIndex(
         (p) =>
-          normalizeVietnamese(p.fullName).includes('nguyen trong nam') ||
+          normalizeVietnamese(p.fullName || '').includes('nguyen trong nam') ||
           p.mrn === 'MRN-2026-0941'
       );
 
@@ -140,7 +140,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
         nam.lastExamDate = '2026-09-03';
         if (realScans.length > 0 && realScans[0].overallScore) {
           nam.riskScore = realScans[0].overallScore;
-          nam.riskLevel = nam.riskScore >= 75 ? 'High' : (nam.riskScore >= 45 ? 'Moderate' : 'Low');
+          nam.riskLevel = (nam.riskScore ?? 0) >= 75 ? 'High' : ((nam.riskScore ?? 0) >= 45 ? 'Moderate' : 'Low');
         }
         nam.findingsSummary = `Đã hoàn tất ${totalScanCount} ca khám sàng lọc vi mạch võng mạc. Lần khám gần nhất: 21:12:51 ngày 03/09/2026.`;
         patientList[namIndex] = nam;
@@ -187,7 +187,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
 
   // Danh sách bác sĩ phụ trách duy nhất
   const doctorList = useMemo(() => {
-    const set = new Set(activePatients.map((p) => p.assignedDoctor));
+    const set = new Set(activePatients.map((p) => p.assignedDoctor).filter((d): d is string => Boolean(d)));
     return Array.from(set);
   }, [activePatients]);
 
@@ -209,10 +209,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
       const term = searchTerm.trim();
       if (term) {
         const normTerm = normalizeVietnamese(term);
-        const matchName = normalizeVietnamese(p.fullName).includes(normTerm);
-        const matchMrn = normalizeVietnamese(p.mrn).includes(normTerm);
+        const matchName = normalizeVietnamese(p.fullName || '').includes(normTerm);
+        const matchMrn = normalizeVietnamese(p.mrn || '').includes(normTerm);
         const matchPhone = p.phone ? p.phone.replace(/\s+/g, '').includes(term.replace(/\s+/g, '')) : false;
-        const matchDoc = normalizeVietnamese(p.assignedDoctor).includes(normTerm);
+        const matchDoc = normalizeVietnamese(p.assignedDoctor || '').includes(normTerm);
         if (!matchName && !matchMrn && !matchPhone && !matchDoc) return false;
       }
 
@@ -257,7 +257,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
       if (sortBy === 'DATE_DESC') return (b.lastExamDate || '').localeCompare(a.lastExamDate || '');
       if (sortBy === 'DATE_ASC') return (a.lastExamDate || '').localeCompare(b.lastExamDate || '');
       if (sortBy === 'RISK_DESC') return (b.riskScore || 0) - (a.riskScore || 0);
-      if (sortBy === 'NAME_ASC') return a.fullName.localeCompare(b.fullName, 'vi');
+      if (sortBy === 'NAME_ASC') return (a.fullName || '').localeCompare(b.fullName || '', 'vi');
       return 0;
     });
   }, [
@@ -501,11 +501,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-4">
           <div
             onClick={() => { setRiskFilter('ALL'); setCurrentPage(1); }}
-            className={`p-3 rounded-xl border transition-all cursor-pointer ${
-              riskFilter === 'ALL'
+            className={`p-3 rounded-xl border transition-all cursor-pointer ${riskFilter === 'ALL'
                 ? 'bg-[#F0FDFA] border-[#0891B2] ring-2 ring-[#0891B2]/20'
                 : 'bg-slate-50/70 border-slate-200/80 hover:bg-slate-100/70'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-600">Tổng hồ sơ</span>
@@ -517,11 +516,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
 
           <div
             onClick={() => { setRiskFilter('HIGH'); setCurrentPage(1); }}
-            className={`p-3 rounded-xl border transition-all cursor-pointer ${
-              riskFilter === 'HIGH'
+            className={`p-3 rounded-xl border transition-all cursor-pointer ${riskFilter === 'HIGH'
                 ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-400/20'
                 : 'bg-rose-50/40 border-rose-200/80 hover:bg-rose-50'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-rose-700 flex items-center gap-1">
@@ -536,11 +534,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
 
           <div
             onClick={() => { setRiskFilter('MODERATE'); setCurrentPage(1); }}
-            className={`p-3 rounded-xl border transition-all cursor-pointer ${
-              riskFilter === 'MODERATE'
+            className={`p-3 rounded-xl border transition-all cursor-pointer ${riskFilter === 'MODERATE'
                 ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/20'
                 : 'bg-amber-50/40 border-amber-200/80 hover:bg-amber-50'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-amber-700">Nguy cơ trung bình</span>
@@ -552,11 +549,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
 
           <div
             onClick={() => { setRiskFilter('LOW'); setCurrentPage(1); }}
-            className={`p-3 rounded-xl border transition-all cursor-pointer ${
-              riskFilter === 'LOW'
+            className={`p-3 rounded-xl border transition-all cursor-pointer ${riskFilter === 'LOW'
                 ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400/20'
                 : 'bg-emerald-50/40 border-emerald-200/80 hover:bg-emerald-50'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-700">Nguy cơ thấp</span>
@@ -568,11 +564,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
 
           <div
             onClick={() => { setRiskFilter('PENDING'); setCurrentPage(1); }}
-            className={`p-3 rounded-xl border transition-all cursor-pointer col-span-2 sm:col-span-1 ${
-              riskFilter === 'PENDING'
+            className={`p-3 rounded-xl border transition-all cursor-pointer col-span-2 sm:col-span-1 ${riskFilter === 'PENDING'
                 ? 'bg-orange-50 border-orange-400 ring-2 ring-orange-400/20'
                 : 'bg-orange-50/40 border-orange-200/80 hover:bg-orange-50'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-orange-700">Chờ thẩm định</span>
@@ -630,11 +625,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
             <button
               type="button"
               onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all ${
-                showAdvancedFilter || isFiltered
+              className={`px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all ${showAdvancedFilter || isFiltered
                   ? 'bg-[#0891B2] text-white border-[#0891B2] shadow-2xs'
                   : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-              }`}
+                }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Bộ lọc nâng cao</span>
@@ -671,36 +665,32 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 <button
                   type="button"
                   onClick={() => { setDatePreset('ALL'); setStartDate(''); setEndDate(''); }}
-                  className={`py-1 px-2 rounded-lg text-[11px] font-bold text-center border transition-all ${
-                    datePreset === 'ALL' ? 'bg-[#0891B2] text-white border-[#0891B2]' : 'bg-white text-slate-600 border-slate-200'
-                  }`}
+                  className={`py-1 px-2 rounded-lg text-[11px] font-bold text-center border transition-all ${datePreset === 'ALL' ? 'bg-[#0891B2] text-white border-[#0891B2]' : 'bg-white text-slate-600 border-slate-200'
+                    }`}
                 >
                   Tất cả
                 </button>
                 <button
                   type="button"
                   onClick={() => { setDatePreset('7DAYS'); setStartDate(''); setEndDate(''); }}
-                  className={`py-1 px-2 rounded-lg text-[11px] font-bold text-center border transition-all ${
-                    datePreset === '7DAYS' ? 'bg-[#0891B2] text-white border-[#0891B2]' : 'bg-white text-slate-600 border-slate-200'
-                  }`}
+                  className={`py-1 px-2 rounded-lg text-[11px] font-bold text-center border transition-all ${datePreset === '7DAYS' ? 'bg-[#0891B2] text-white border-[#0891B2]' : 'bg-white text-slate-600 border-slate-200'
+                    }`}
                 >
                   7 ngày qua
                 </button>
                 <button
                   type="button"
                   onClick={() => { setDatePreset('30DAYS'); setStartDate(''); setEndDate(''); }}
-                  className={`py-1 px-2 rounded-lg text-[11px] font-bold text-center border transition-all ${
-                    datePreset === '30DAYS' ? 'bg-[#0891B2] text-white border-[#0891B2]' : 'bg-white text-slate-600 border-slate-200'
-                  }`}
+                  className={`py-1 px-2 rounded-lg text-[11px] font-bold text-center border transition-all ${datePreset === '30DAYS' ? 'bg-[#0891B2] text-white border-[#0891B2]' : 'bg-white text-slate-600 border-slate-200'
+                    }`}
                 >
                   30 ngày qua
                 </button>
                 <button
                   type="button"
                   onClick={() => setDatePreset('CUSTOM')}
-                  className={`py-1 px-2 rounded-lg text-[11px] font-bold text-center border transition-all ${
-                    datePreset === 'CUSTOM' ? 'bg-[#0891B2] text-white border-[#0891B2]' : 'bg-white text-slate-600 border-slate-200'
-                  }`}
+                  className={`py-1 px-2 rounded-lg text-[11px] font-bold text-center border transition-all ${datePreset === 'CUSTOM' ? 'bg-[#0891B2] text-white border-[#0891B2]' : 'bg-white text-slate-600 border-slate-200'
+                    }`}
                 >
                   Tùy chỉnh
                 </button>
@@ -757,11 +747,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 <button
                   type="button"
                   onClick={() => { setFilterDiabetes(!filterDiabetes); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
-                    filterDiabetes
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${filterDiabetes
                       ? 'bg-cyan-100 text-[#0891B2] border-cyan-300 ring-1 ring-[#0891B2]'
                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${filterDiabetes ? 'bg-[#0891B2]' : 'bg-slate-300'}`}></span>
                   Đái tháo đường T2
@@ -770,11 +759,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 <button
                   type="button"
                   onClick={() => { setFilterHypertension(!filterHypertension); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
-                    filterHypertension
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${filterHypertension
                       ? 'bg-rose-100 text-rose-700 border-rose-300 ring-1 ring-rose-500'
                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${filterHypertension ? 'bg-rose-600' : 'bg-slate-300'}`}></span>
                   Tăng huyết áp
@@ -783,11 +771,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 <button
                   type="button"
                   onClick={() => { setFilterSmoking(!filterSmoking); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
-                    filterSmoking
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${filterSmoking
                       ? 'bg-amber-100 text-amber-800 border-amber-300 ring-1 ring-amber-600'
                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${filterSmoking ? 'bg-amber-600' : 'bg-slate-300'}`}></span>
                   Tiền sử hút thuốc
@@ -884,11 +871,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                       <td className="p-3.5">
                         <div className="flex items-center gap-2.5">
                           <div
-                            className={`w-8 h-8 rounded-full bg-gradient-to-tr ${
-                              patient.avatarColor || 'from-cyan-500 to-teal-600'
-                            } text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0`}
+                            className={`w-8 h-8 rounded-full bg-gradient-to-tr ${patient.avatarColor || 'from-cyan-500 to-teal-600'
+                              } text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0`}
                           >
-                            {patient.fullName.charAt(0)}
+                            {(patient.fullName || 'Bệnh nhân').charAt(0)}
                           </div>
                           <div>
                             <div className="font-bold text-slate-800 text-xs hover:text-[#0891B2] cursor-pointer" onClick={() => setSelectedPatientDetail(patient)}>
@@ -951,7 +937,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           <span>{patient.lastExamDate}</span>
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[130px]" title={patient.assignedDoctor}>
+                        <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[130px]" title={patient.assignedDoctor || ''}>
                           {patient.assignedDoctor}
                         </div>
                       </td>
@@ -961,13 +947,12 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                         <div className="space-y-1.5 min-w-[140px]">
                           <div className="flex items-center justify-between">
                             <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold font-mono-data ${
-                                isHigh
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold font-mono-data ${isHigh
                                   ? 'bg-rose-100 text-rose-700 border border-rose-200'
                                   : isModerate
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              }`}
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                }`}
                             >
                               {isHigh ? '🔴 BÁO ĐỘNG' : isModerate ? '🟡 TRUNG BÌNH' : '🟢 NGUY CƠ THẤP'}
                             </span>
@@ -976,9 +961,8 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                           {/* Risk Progress Bar */}
                           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                             <div
-                              className={`h-full rounded-full ${
-                                isHigh ? 'bg-rose-500' : isModerate ? 'bg-amber-500' : 'bg-emerald-500'
-                              }`}
+                              className={`h-full rounded-full ${isHigh ? 'bg-rose-500' : isModerate ? 'bg-amber-500' : 'bg-emerald-500'
+                                }`}
                               style={{ width: `${score}%` }}
                             ></div>
                           </div>
@@ -1083,11 +1067,10 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                       key={pageNum}
                       type="button"
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                        pageNum === safeCurrentPage
+                      className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${pageNum === safeCurrentPage
                           ? 'bg-[#0891B2] text-white shadow-2xs'
                           : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                      }`}
+                        }`}
                     >
                       {pageNum}
                     </button>
@@ -1139,7 +1122,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
             <div className="p-5 bg-gradient-to-r from-[#0891B2] to-[#0D9488] text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold text-lg">
-                  {selectedPatientDetail.fullName.charAt(0)}
+                  {(selectedPatientDetail.fullName || 'Bệnh nhân').charAt(0)}
                 </div>
                 <div>
                   <h3 className="font-extrabold text-base">{selectedPatientDetail.fullName}</h3>

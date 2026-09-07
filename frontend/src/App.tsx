@@ -36,7 +36,7 @@ export const App: React.FC = () => {
     ) : currentUser.role === 'doctor' ? (
       <CDSDashboardPage activeSection={activeSection} onNavigate={handleSelectSection} />
     ) : currentUser.role === 'clinic' ? (
-      <ClinicPortalPage />
+      <ClinicPortalPage activeView={activeSection} />
     ) : (
       <AdminAuditLogsPage />
     );

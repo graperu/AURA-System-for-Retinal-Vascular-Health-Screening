@@ -41,12 +41,8 @@ public class AdminUserService {
     this.userRoleRepository = userRoleRepository;
     this.roleRepository = roleRepository;
 
-    aiConfigStore.put("activeModelVersion", "aura-vessel-net-v2.1");
-    aiConfigStore.put("sensitivityThreshold", 0.85);
-    aiConfigStore.put("confidenceThreshold", 0.75);
-    aiConfigStore.put("avrWarningThreshold", 0.65);
-    aiConfigStore.put("autoRetrainEnabled", true);
-    aiConfigStore.put("lastUpdated", Instant.now().toString());
+    // No synthetic model metadata: values appear only after an administrator
+    // configures a deployed and validated model.
   }
 
   @Transactional(readOnly = true)

@@ -3,6 +3,7 @@ package com.aura.doctor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -489,5 +490,63 @@ class DoctorPatientAssignmentSecurityTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data[?(@.id == '%s')]", newScreeningId.toString()).exists());
+  }
+
+  @Test
+  @DisplayName("CASE 22: Admin xem được bảng phân công từ dữ liệu thật")
+  void case22_adminGetsAssignmentBoard_success() throws Exception {
+    mvc.perform(get("/api/v1/admin/patient-assignments")
+            .header(HttpHeaders.ORIGIN, ORIGIN)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.doctors.length()").value(2))
+        .andExpect(jsonPath("$.data.patients.length()").value(3));
+  }
+
+  @Test
+  @DisplayName("CASE 23: Admin chuyển bệnh nhân sang bác sĩ khác và vô hiệu phân công cũ")
+  void case23_adminReassignsPatient_replacesExistingAssignment() throws Exception {
+    String payload = """
+        {"doctorId":"%s","patientIds":["%s"],"replaceExisting":true}
+        """.formatted(doctorB.getId(), patientA.getId());
+
+    mvc.perform(put("/api/v1/admin/patient-assignments")
+            .header(HttpHeaders.ORIGIN, ORIGIN)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(payload))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true));
+
+    assertThat(assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+        doctorA.getId(), patientA.getId(), AssignmentStatus.ACTIVE)).isFalse();
+    assertThat(assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+        doctorB.getId(), patientA.getId(), AssignmentStatus.ACTIVE)).isTrue();
+    assertThat(profileRepository.findByUserId(patientA.getId()).orElseThrow().getAssignedDoctor())
+        .isEqualTo(doctorB.getFullName());
+  }
+
+  @Test
+  @DisplayName("CASE 24: Bác sĩ không được gọi API điều phối của Admin")
+  void case24_doctorCallsAssignmentApi_returns403() throws Exception {
+    mvc.perform(get("/api/v1/admin/patient-assignments")
+            .header(HttpHeaders.ORIGIN, ORIGIN)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDoctorA))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("CASE 25: Không thể dùng tài khoản bệnh nhân làm bác sĩ phụ trách")
+  void case25_adminAssignsWithPatientAsDoctor_returns400() throws Exception {
+    String payload = """
+        {"doctorId":"%s","patientIds":["%s"],"replaceExisting":true}
+        """.formatted(patientB.getId(), patientA.getId());
+
+    mvc.perform(put("/api/v1/admin/patient-assignments")
+            .header(HttpHeaders.ORIGIN, ORIGIN)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(payload))
+        .andExpect(status().isBadRequest());
   }
 }

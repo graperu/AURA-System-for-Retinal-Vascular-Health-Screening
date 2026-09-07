@@ -13,7 +13,7 @@ interface ClinicalValidationBarProps {
 export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   analysisId,
   patientName = 'Trần Văn Hoàng',
-  mrn = 'MRN-2026-0941',
+  mrn = 'Chưa có MRN',
   onSaveFeedback,
 }) => {
   const [decision, setDecision] = useState<'APPROVED' | 'MODIFIED' | 'REJECTED'>('APPROVED');
