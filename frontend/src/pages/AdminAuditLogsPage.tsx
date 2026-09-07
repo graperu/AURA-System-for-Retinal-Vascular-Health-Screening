@@ -3,8 +3,28 @@ import { Search, Download, ShieldAlert, Filter, CheckCircle2, AlertTriangle, Inf
 import { auditApi, adminUserApi, adminClinicApi } from '../services/api';
 import { PatientAssignmentBoard } from '../components/PatientAssignmentBoard';
 
-export const AdminAuditLogsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'audit' | 'users' | 'clinics' | 'assignments' | 'ai-config'>('audit');
+interface AdminAuditLogsPageProps {
+  activeView?: string;
+}
+
+export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({ activeView }) => {
+  const sectionToTab: Record<string, 'audit' | 'users' | 'clinics' | 'assignments' | 'ai-config'> = {
+    'user-management': 'users',
+    'clinic-approvals': 'clinics',
+    'ai-thresholds': 'ai-config',
+    'audit-logs': 'audit',
+  };
+  const [activeTab, setActiveTab] = useState<'audit' | 'users' | 'clinics' | 'assignments' | 'ai-config'>(
+    (activeView && sectionToTab[activeView]) || 'audit'
+  );
+
+  useEffect(() => {
+    if (activeView && sectionToTab[activeView]) {
+      setActiveTab(sectionToTab[activeView]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
+
 
   // Clinic Approval State (FR-22)
   const [clinicProfiles, setClinicProfiles] = useState<any[]>([]);

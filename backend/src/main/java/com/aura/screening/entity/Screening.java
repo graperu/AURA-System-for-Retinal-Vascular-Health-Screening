@@ -90,6 +90,31 @@ public class Screening {
   @Column(name = "doctor_notes", columnDefinition = "TEXT")
   private String doctorNotes;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "review_decision", length = 16)
+  private ReviewDecision reviewDecision;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "original_ai_risk_level", length = 32)
+  private RiskLevel originalAiRiskLevel;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "doctor_cardiovascular_risk_level", length = 32)
+  private RiskLevel doctorCardiovascularRiskLevel;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "doctor_diabetic_retinopathy_risk_level", length = 32)
+  private RiskLevel doctorDiabeticRetinopathyRiskLevel;
+
+  @Column(name = "icd10_codes", columnDefinition = "TEXT")
+  private String icd10Codes;
+
+  @Column(name = "digital_signature", columnDefinition = "TEXT")
+  private String digitalSignature;
+
+  @Column(name = "signed_at")
+  private Instant signedAt;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -289,6 +314,62 @@ public class Screening {
 
   public void setDoctorNotes(String doctorNotes) {
     this.doctorNotes = doctorNotes;
+  }
+
+  public ReviewDecision getReviewDecision() {
+    return reviewDecision;
+  }
+
+  public void setReviewDecision(ReviewDecision reviewDecision) {
+    this.reviewDecision = reviewDecision;
+  }
+
+  public RiskLevel getOriginalAiRiskLevel() {
+    return originalAiRiskLevel;
+  }
+
+  public void setOriginalAiRiskLevel(RiskLevel originalAiRiskLevel) {
+    this.originalAiRiskLevel = originalAiRiskLevel;
+  }
+
+  public RiskLevel getDoctorCardiovascularRiskLevel() {
+    return doctorCardiovascularRiskLevel;
+  }
+
+  public void setDoctorCardiovascularRiskLevel(RiskLevel doctorCardiovascularRiskLevel) {
+    this.doctorCardiovascularRiskLevel = doctorCardiovascularRiskLevel;
+  }
+
+  public RiskLevel getDoctorDiabeticRetinopathyRiskLevel() {
+    return doctorDiabeticRetinopathyRiskLevel;
+  }
+
+  public void setDoctorDiabeticRetinopathyRiskLevel(RiskLevel doctorDiabeticRetinopathyRiskLevel) {
+    this.doctorDiabeticRetinopathyRiskLevel = doctorDiabeticRetinopathyRiskLevel;
+  }
+
+  public String getIcd10Codes() {
+    return icd10Codes;
+  }
+
+  public void setIcd10Codes(String icd10Codes) {
+    this.icd10Codes = icd10Codes;
+  }
+
+  public String getDigitalSignature() {
+    return digitalSignature;
+  }
+
+  public void setDigitalSignature(String digitalSignature) {
+    this.digitalSignature = digitalSignature;
+  }
+
+  public Instant getSignedAt() {
+    return signedAt;
+  }
+
+  public void setSignedAt(Instant signedAt) {
+    this.signedAt = signedAt;
   }
 
   public Instant getCreatedAt() {

@@ -35,14 +35,14 @@
 | FR-19 | Email verification | Planned | Column `email_verified`, no flow |
 | FR-20 | Consulation chat | Planned | UI mock |
 | FR-21 | Clinic patient management dashboard | Partial | `ClinicManagementPage` mock |
-| FR-22 | Clinic registration | Implemented | `ClinicProfileController`, `ClinicProfileService`, `clinic_profiles` table, `ClinicProfileServiceTest` |
-| FR-23 | Internal doctor and patient management | Implemented | `ClinicMemberController`, `ClinicMemberService`, `clinic_members` table, `ClinicMemberServiceTest` |
+| FR-22 | Clinic registration | Planned | - |
+| FR-23 | Internal doctor and patient management | Planned | - |
 | FR-24 | Doctor–patient assignment | Done | `doctor_patient_assignments` table (`V016`), `DoctorPatientAssignmentService` |
-| FR-25 | Aggregated risk statistics | Partial | UI KPI mock |
+| FR-25 | Aggregated risk statistics | Done | `BulkBatchRiskStatisticsDto`, `BatchJobQueue.calculateRiskStatistics`, `ClinicBatchProcessing` donut distribution chart (TC-CLI-04) |
 | FR-26 | Clinic activity reports | Partial | UI mock |
 | FR-27 | Clinic profile management | Planned | - |
 | FR-28 | Transaction history | Out of MVP | - |
-| FR-29 | Notification configuration | Planned | - |
+| FR-29 | High-risk patient & abnormal trend alerts | Done | `BulkBatchAlertSummaryDto`, `BatchJobQueue.detectAlertsAndTrends`, `ClinicBatchProcessing` emergency red alert banner (TC-CLI-08) |
 | FR-30 | Clinic-level consolidated report export | Planned | - |
 | FR-31 | User account administration | Planned | Register forces `USER` only |
 | FR-32 | RBAC Security & IDOR Protection | Done | `RoleName`, JWT authorities, method-level security `@PreAuthorize`, `PatientAccessService`, CORS domain whitelist |
@@ -98,6 +98,6 @@
 | `/upload` | FR-2, FR-3 | Partial |
 | `/patient`, `/patient/history` | FR-5, FR-6, FR-7 | Partial / mock |
 | `/doctor` | FR-14, FR-15, FR-16 | Partial |
-| `/clinic` | FR-21, FR-25, FR-26, FR-30 | Mock |
+| `/clinic` | FR-21, FR-24, FR-25, FR-29 | Partial / Implemented (`ClinicBatchProcessing`, `BulkScreeningController`) |
 | `/admin` | FR-35, FR-36, FR-38 | Mock |
 | `/audit` | FR-37 | Mock |

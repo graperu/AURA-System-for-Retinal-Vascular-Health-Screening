@@ -12,7 +12,6 @@ const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,1
 export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
   const { sendOtp, verifyOtpAndRegister, loginWithSocial } = useAuth();
   const [step, setStep] = useState<'form' | 'otp'>('form');
-  const [accountType, setAccountType] = useState<'USER' | 'CLINIC'>('USER');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -95,7 +94,6 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
       otp: cleanOtp,
       fullName: fullName.trim() || undefined,
       password: password,
-      role: accountType,
     });
     setSubmitting(false);
 
@@ -264,40 +262,6 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
         <div className="relative flex justify-center text-xs font-medium">
           <span className="bg-white px-3 text-slate-400">Hoặc</span>
         </div>
-      </div>
-
-      {/* FR-22: Loại tài khoản đăng ký */}
-      <div>
-        <label className="mb-2 block text-sm font-medium text-slate-700">Loại tài khoản</label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setAccountType('USER')}
-            className={`h-11 rounded-xl border text-sm font-semibold transition ${
-              accountType === 'USER'
-                ? 'border-blue-600 bg-blue-50 text-blue-700'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            Bệnh nhân
-          </button>
-          <button
-            type="button"
-            onClick={() => setAccountType('CLINIC')}
-            className={`h-11 rounded-xl border text-sm font-semibold transition ${
-              accountType === 'CLINIC'
-                ? 'border-blue-600 bg-blue-50 text-blue-700'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            Phòng khám
-          </button>
-        </div>
-        {accountType === 'CLINIC' && (
-          <p className="mt-1.5 text-xs text-slate-500">
-            Sau khi tạo tài khoản, bạn sẽ cần nộp hồ sơ xác thực pháp nhân (tên tổ chức, giấy phép hoạt động) để được Quản trị viên phê duyệt.
-          </p>
-        )}
       </div>
 
       {/* Name Input */}

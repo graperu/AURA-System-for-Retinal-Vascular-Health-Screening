@@ -110,10 +110,16 @@ export const screeningApi = {
       method: 'GET',
     }),
 
-  doctorReview: (id: string, doctorNotes: string, riskLevel: string) =>
+  doctorReview: (id: string, payload: {
+    decision: 'APPROVED' | 'MODIFIED' | 'REJECTED';
+    doctorNotes: string;
+    adjustedCardioRisk?: string;
+    adjustedDrRisk?: string;
+    icd10Codes: string[];
+  }) =>
     apiFetch<any>(`/api/v1/screenings/${id}/review`, {
       method: 'POST',
-      body: JSON.stringify({ doctorNotes, riskLevel }),
+      body: JSON.stringify(payload),
     }),
 };
 
@@ -294,6 +300,12 @@ export const assignmentApi = {
 export const bulkScreeningApi = {
   getBatch: (batchId: string) =>
     apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`, { method: 'GET' }),
+  getStatistics: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/statistics`, { method: 'GET' }),
+  getAlerts: (batchId: string) =>
+    apiFetch<any>(`/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}/alerts`, { method: 'GET' }),
+  listBatches: () =>
+    apiFetch<any[]>(`/api/v1/bulk-screening/batches`, { method: 'GET' }),
 };
 
 export const servicePackageApi = {
@@ -301,8 +313,27 @@ export const servicePackageApi = {
     apiFetch<any[]>(`/api/v1/packages?scope=${scope}`, { method: 'GET' }),
 };
 
+export const clinicAnalyticsApi = {
+  getCampaignAnalytics: () =>
+    apiFetch<any>('/api/v1/clinic/analytics/campaigns', { method: 'GET' }),
+
+  exportData: async (fileName = 'aura_clinic_export.csv') => {
+    const response = await fetch(
+      `${(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')}/api/v1/clinic/analytics/export`,
+      { headers: getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}, credentials: 'include' }
+    );
+    if (!response.ok) throw new Error('Không thể tải file báo cáo');
+    const url = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
+};
+
+// FR-22: Đăng ký & xác minh hồ sơ tổ chức phòng khám
 export const clinicApi = {
-  // FR-22: đăng ký & xem hồ sơ tổ chức phòng khám
   getProfile: () => apiFetch<any>('/api/v1/clinic/profile', { method: 'GET' }),
 
   submitProfile: (payload: { organizationName: string; licenseNumber?: string; licenseDocumentUrl?: string }) =>
@@ -311,8 +342,8 @@ export const clinicApi = {
       body: JSON.stringify(payload),
     }),
 
-  // FR-23: quản lý bác sĩ trực thuộc + phân công bệnh nhân
-  getMembers: () => apiFetch<any[]>('/api/v1/clinic/members', { method: 'GET' }),
+  // FR-23: Quản lý bác sĩ & bệnh nhân trực thuộc phòng khám
+  listMembers: () => apiFetch<any[]>('/api/v1/clinic/members', { method: 'GET' }),
 
   addMember: (doctorEmail: string) =>
     apiFetch<any>('/api/v1/clinic/members', {
@@ -325,6 +356,9 @@ export const clinicApi = {
 
   assignPatientToDoctor: (doctorId: string, patientId: string) =>
     apiFetch<void>(`/api/v1/clinic/members/${doctorId}/patients/${patientId}`, { method: 'POST' }),
+
+  unassignPatientFromDoctor: (doctorId: string, patientId: string) =>
+    apiFetch<void>(`/api/v1/clinic/members/${doctorId}/patients/${patientId}`, { method: 'DELETE' }),
 };
 
 export const adminClinicApi = {
@@ -338,5 +372,3 @@ export const adminClinicApi = {
       body: JSON.stringify({ decision, rejectionReason }),
     }),
 };
-
-

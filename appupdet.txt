@@ -34,11 +34,11 @@ export const App: React.FC = () => {
     currentUser.role === 'patient' ? (
       <PatientPortalPage user={currentUser} activeView={activeSection} onNavigate={setActiveSection} />
     ) : currentUser.role === 'doctor' ? (
-      <CDSDashboardPage />
+      <CDSDashboardPage activeView={activeSection} onNavigate={setActiveSection} currentUser={currentUser} />
     ) : currentUser.role === 'clinic' ? (
-      <ClinicPortalPage activeView={activeSection} />
+      <ClinicPortalPage />
     ) : (
-      <AdminAuditLogsPage activeView={activeSection} />
+      <AdminAuditLogsPage />
     );
 
   return (

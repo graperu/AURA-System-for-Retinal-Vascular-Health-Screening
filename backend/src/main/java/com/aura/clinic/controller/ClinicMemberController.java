@@ -65,6 +65,17 @@ public class ClinicMemberController {
     return ApiResponse.success("Đã phân công bệnh nhân cho bác sĩ thành công", null);
   }
 
+  @DeleteMapping("/{doctorId}/patients/{patientId}")
+  @PreAuthorize("hasRole('CLINIC')")
+  public ApiResponse<Void> unassignPatientFromDoctor(
+      @AuthenticationPrincipal AuraUserPrincipal principal,
+      @PathVariable UUID doctorId,
+      @PathVariable UUID patientId) {
+    requireClinic(principal);
+    clinicMemberService.unassignPatientFromOwnDoctor(principal.id(), doctorId, patientId);
+    return ApiResponse.success("Đã gỡ phân công bệnh nhân khỏi bác sĩ", null);
+  }
+
   private void requireClinic(AuraUserPrincipal principal) {
     if (principal == null) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập tài khoản Phòng khám");
