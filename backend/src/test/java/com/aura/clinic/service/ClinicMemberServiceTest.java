@@ -34,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ClinicMemberServiceTest {
 
   @Mock private ClinicMemberRepository clinicMemberRepository;
+  @Mock private com.aura.clinic.repository.ClinicProfileRepository clinicProfileRepository;
   @Mock private UserRepository userRepository;
   @Mock private UserRoleRepository userRoleRepository;
   @Mock private DoctorPatientAssignmentService assignmentService;
@@ -47,11 +48,15 @@ class ClinicMemberServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new ClinicMemberService(clinicMemberRepository, userRepository, userRoleRepository, assignmentService);
+    service = new ClinicMemberService(clinicMemberRepository, clinicProfileRepository, userRepository, userRoleRepository, assignmentService);
     clinicId = UUID.randomUUID();
     doctorId = UUID.randomUUID();
     clinic = new User("clinic@aura.test", "hash", "Phong Kham AURA");
     doctor = new User("doctor@aura.test", "hash", "BS. Nguyen Van A");
+
+    var profile = new com.aura.clinic.entity.ClinicProfile(clinic, "Phong Kham AURA", "GP-01", "http://document.url/gp.pdf");
+    profile.setVerificationStatus(com.aura.clinic.entity.VerificationStatus.APPROVED);
+    lenient().when(clinicProfileRepository.findByUserId(clinicId)).thenReturn(Optional.of(profile));
   }
 
   @Test

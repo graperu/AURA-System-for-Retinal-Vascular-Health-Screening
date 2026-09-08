@@ -416,6 +416,12 @@ export const patientApi = {
 };
 
 export const doctorApi = {
+  getPatients: (params?: { page?: number; size?: number; q?: string }) =>
+    apiFetch<any>(
+      `/api/v1/doctor/patients?page=${params?.page ?? 0}&size=${params?.size ?? 20}${params?.q ? `&q=${encodeURIComponent(params.q)}` : ""}`,
+      { method: "GET" },
+    ),
+
   getAssignedPatients: () =>
     apiFetch<any[]>("/api/v1/doctor/patients", {
       method: "GET",
@@ -436,7 +442,15 @@ export const doctorApi = {
       method: "POST",
       body: JSON.stringify({ imageUrl }),
     }),
+
+  create: (patientData: any) =>
+    apiFetch<any>("/api/v1/patient/profile", {
+      method: "POST",
+      body: JSON.stringify(patientData),
+    }),
 };
+
+export const doctorPatientApi = doctorApi;
 
 export const assignmentApi = {
   getBoard: () =>
@@ -457,8 +471,37 @@ export const assignmentApi = {
     ),
 };
 
+export interface BulkUploadItemPayload {
+  fileName: string;
+  eyePosition: string;
+  rawMrn: string;
+  rawPatientName: string;
+  patientAge: number;
+  patientGender: string;
+  systolicBp: number;
+  diastolicBp: number;
+  hbA1c: number;
+  base64ImageContent: string;
+  previewUrl?: string;
+}
+
+export interface BulkUploadPayload {
+  clinicId: string;
+  imageItems: BulkUploadItemPayload[];
+}
+
 export const bulkScreeningApi = {
+  uploadBatch: (payload: BulkUploadPayload) =>
+    apiFetch<any>('/api/v1/bulk-screening/batch', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getBatch: (batchId: string) =>
+    apiFetch<any>(
+      `/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`,
+      { method: "GET" },
+    ),
+  getBatchStatus: (batchId: string) =>
     apiFetch<any>(
       `/api/v1/bulk-screening/batch/${encodeURIComponent(batchId)}`,
       { method: "GET" },

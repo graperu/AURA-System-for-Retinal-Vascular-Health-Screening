@@ -16,6 +16,7 @@ import {
   History,
   FileText,
   Sparkles,
+  Bell,
 } from "lucide-react";
 import { UserRole } from "../types/cds";
 

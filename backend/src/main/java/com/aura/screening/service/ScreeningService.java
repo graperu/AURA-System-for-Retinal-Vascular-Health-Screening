@@ -270,7 +270,6 @@ public class ScreeningService {
       screening.setDoctorRiskLevel(adjustedDrRisk);
       screening.setRiskLevel(adjustedDrRisk);
     }
-    }
     screening.setReviewedAt(java.time.Instant.now());
     screening.setStatus(ScreeningStatus.REVIEWED);
     Instant signedAt = Instant.now();

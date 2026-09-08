@@ -31,12 +31,15 @@ class ScreeningServiceTest {
   @Mock
   private com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository;
 
+  @Mock
+  private com.aura.notification.service.UserNotificationService userNotificationService;
+
   private ScreeningService screeningService;
 
   @BeforeEach
   void setUp() {
     RestClient.Builder builder = RestClient.builder();
-    screeningService = new ScreeningService(screeningRepository, assignmentRepository, builder);
+    screeningService = new ScreeningService(screeningRepository, assignmentRepository, userNotificationService, builder);
   }
 
   @Test
