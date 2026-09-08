@@ -1,255 +1,221 @@
 import React, { useState } from 'react';
+import {
+  CheckCircle2,
+  FileSignature,
+  Save,
+  Clock,
+  Printer,
+  Sparkles,
+  AlertTriangle,
+} from 'lucide-react';
 import { DoctorFeedback, RiskLevel } from '../types/cds';
-import { CheckCircle2, Edit3, XCircle, FileText, Download, ShieldCheck, Tag, ExternalLink } from 'lucide-react';
-import { DoctorDiagnosisModal } from './DoctorDiagnosisModal';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
 
-interface ClinicalValidationBarProps {
+export interface ClinicalValidationBarProps {
   analysisId: string;
-  patientName?: string;
-  mrn?: string;
-  onSaveFeedback: (feedback: DoctorFeedback) => void;
+  onSaveFeedback: (feedback: DoctorFeedback) => Promise<void>;
+  onOpenReportModal?: () => void;
+  isSubmitting?: boolean;
 }
 
 export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   analysisId,
-  patientName = 'Trần Văn Hoàng',
-  mrn = 'Chưa có MRN',
   onSaveFeedback,
+  onOpenReportModal,
+  isSubmitting = false,
 }) => {
   const [decision, setDecision] = useState<'APPROVED' | 'MODIFIED' | 'REJECTED'>('APPROVED');
-  const [adjustedCardioRisk, setAdjustedCardioRisk] = useState<RiskLevel>('High');
-  const [adjustedDrRisk, setAdjustedDrRisk] = useState<RiskLevel>('Moderate');
-  const [selectedIcd10, setSelectedIcd10] = useState<string[]>([
-    'H35.0 — Biến đổi mạch máu võng mạc (Retinal vascular changes)',
-    'E11.3 — Bệnh võng mạc đái tháo đường (Diabetic retinopathy)',
-  ]);
-  const [clinicalNotes, setClinicalNotes] = useState<string>(
-    'Bệnh nhân có biểu hiện co hẹp động mạch võng mạc diện rộng (Gunn sign dương tính) phù hợp với tăng huyết áp tâm thu 154 mmHg. Đồng ý với kết quả gợi ý nguy cơ tim mạch cao của AI. Khuyến cáo khám chuyên khoa Tim mạch và theo dõi chỉ số HbA1c sau 3 tháng.'
-  );
-  const [isSaved, setIsSaved] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [adjustedCardioRisk, setAdjustedCardioRisk] = useState<RiskLevel>('Moderate');
+  const [adjustedDrRisk, setAdjustedDrRisk] = useState<RiskLevel>('Low');
+  const [doctorNotes, setDoctorNotes] = useState<string>('');
+  const [icd10Input, setIcd10Input] = useState<string>('H35.0');
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
 
-  const icd10Options = [
-    'H35.0 — Biến đổi mạch máu võng mạc (Retinal vascular changes)',
-    'E11.3 — Bệnh võng mạc đái tháo đường (Diabetic retinopathy)',
-    'I10 — Tăng huyết áp vô căn (Essential hypertension)',
-    'H40.1 — Glaucoma góc mở nguyên phát (Primary open-angle glaucoma)',
-    'H35.3 — Thoái hóa hoàng điểm tuổi già (Age-related macular degeneration)',
-  ];
-
-  const handleToggleIcd = (code: string) => {
-    if (selectedIcd10.includes(code)) {
-      setSelectedIcd10(selectedIcd10.filter((c) => c !== code));
-    } else {
-      setSelectedIcd10([...selectedIcd10, code]);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
+    setSaving(true);
     const feedback: DoctorFeedback = {
-      feedbackId: `FB-${Date.now().toString().slice(-6)}`,
+      feedbackId: `FB-${Date.now()}`,
       analysisId,
-      doctorId: 'DOC-9912',
+      doctorId: 'DOC-CURRENT',
       doctorName: 'BS. CKII Nguyễn Thị Thanh',
       decision,
       adjustedCardioRisk: decision === 'MODIFIED' ? adjustedCardioRisk : undefined,
       adjustedDrRisk: decision === 'MODIFIED' ? adjustedDrRisk : undefined,
-      icd10Codes: selectedIcd10,
-      clinicalNotes,
+      icd10Codes: icd10Input.split(',').map((c) => c.trim()).filter(Boolean),
+      clinicalNotes: doctorNotes,
       reviewedAt: new Date().toISOString(),
+      signedDigitalSignature: 'SHA256-AURA-SIGNED',
     };
-    onSaveFeedback(feedback);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 4000);
-  };
 
-  const handleExportPdf = () => {
-    alert('Xuất báo cáo chẩn đoán Y tế chuẩn PDF / DICOM SR thành công!');
+    try {
+      await onSaveFeedback(feedback);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 4000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <>
-      <div className="bg-white border border-[#CCFBF1] rounded-2xl p-6 shadow-medical-md space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-4">
+    <Card padding="md" className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-clinical-border pb-3">
+        <div className="flex items-center gap-2">
+          <FileSignature className="w-5 h-5 text-brand-600" />
           <div>
-            <h2 className="text-lg font-bold text-[#134E4A] flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />
-              Thẩm Định Lâm Sàng & Phê Duyệt Kết Quả AI (Doctor Sign-Off)
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Xác nhận hoặc điều chỉnh đánh giá của AI trước khi lưu vào Hồ sơ Bệnh án Điện tử (EMR/HIS).
+            <h3 className="text-sm sm:text-base font-bold text-clinical-text">
+              Thẩm Định Lâm Sàng & Phê Duyệt Kết Quả Sàng Lọc (Doctor Sign-Off)
+            </h3>
+            <p className="text-xs text-clinical-text-muted">
+              Bác sĩ xác nhận độ chính xác của AI hoặc điều chỉnh mức độ rủi ro theo chuyên môn.
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="px-3.5 py-1.5 bg-[#F0FDFA] border border-[#0891B2] text-[#0891B2] rounded-lg text-xs font-bold hover:bg-cyan-50 transition-colors flex items-center gap-1.5"
-            >
-              <ExternalLink className="w-4 h-4" /> Mở Hộp Thoại Chẩn Đoán Chi Tiết
-            </button>
-            <button
-              onClick={handleExportPdf}
-              className="px-3.5 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-100 transition-colors flex items-center gap-1.5"
-            >
-              <Download className="w-4 h-4 text-[#0891B2]" /> Xuất Báo Cáo PDF
-            </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Decision Radio Bar */}
+        {onOpenReportModal && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onOpenReportModal}
+            icon={<Printer className="w-4 h-4" />}
+          >
+            In Phiếu Kết Quả
+          </Button>
+        )}
+      </div>
+
+      {saveSuccess && (
+        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>Đã lưu kết luận lâm sàng và đồng bộ báo cáo sàng lọc thành công!</span>
+        </div>
+      )}
+
+      {/* Action Controls */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left: Decision & Risk Override */}
+        <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 font-mono-data">
-              Quyết Định Lâm Sàng Của Bác Sĩ (Physician Validation Decision):
+            <label className="block text-xs font-semibold text-clinical-text mb-1.5">
+              Quyết định thẩm định chuyên môn:
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => setDecision('APPROVED')}
-                className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                  decision === 'APPROVED'
-                    ? 'bg-emerald-50 text-[#16A34A] border-[#16A34A] ring-2 ring-emerald-300'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <CheckCircle2 className="w-4 h-4" /> Đồng Ý Kết Quả AI (Approve)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDecision('MODIFIED')}
-                className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                  decision === 'MODIFIED'
-                    ? 'bg-amber-50 text-amber-800 border-amber-500 ring-2 ring-amber-300'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <Edit3 className="w-4 h-4" /> Chỉnh Sửa Nguy Cơ (Edit)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDecision('REJECTED')}
-                className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                  decision === 'REJECTED'
-                    ? 'bg-red-50 text-red-800 border-red-500 ring-2 ring-red-300'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <XCircle className="w-4 h-4" /> Bác Bỏ Kết Quả (Reject)
-              </button>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'APPROVED', label: 'Chấp thuận AI' },
+                { id: 'MODIFIED', label: 'Hiệu chỉnh nguy cơ' },
+                { id: 'REJECTED', label: 'Bác bỏ kết quả' },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setDecision(opt.id as any)}
+                  className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-colors ${
+                    decision === opt.id
+                      ? opt.id === 'APPROVED'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : opt.id === 'MODIFIED'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-red-600 text-white border-red-600 shadow-xs'
+                      : 'bg-white text-clinical-text-secondary border-clinical-border hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Conditional Adjustments */}
           {decision === 'MODIFIED' && (
-            <div className="p-4 bg-amber-50/50 border border-amber-200 rounded-xl grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3 text-xs">
               <div>
-                <label className="block text-xs font-semibold text-amber-900 mb-1">
-                  Điều chỉnh Mức Nguy Cơ Tim Mạch:
-                </label>
-                <select
-                  value={adjustedCardioRisk}
-                  onChange={(e) => setAdjustedCardioRisk(e.target.value as RiskLevel)}
-                  className="w-full bg-white border border-amber-300 rounded-lg py-2 px-3 text-xs font-semibold text-slate-800 outline-none"
-                >
-                  <option value="Low">Low — Thấp</option>
-                  <option value="Moderate">Moderate — Trung Bình</option>
-                  <option value="High">High — Cao</option>
-                  <option value="Severe">Severe — Nghiêm Trọng</option>
-                </select>
+                <span className="font-semibold text-amber-950 block mb-1">Hiệu chỉnh nguy cơ Tim mạch:</span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['Low', 'Moderate', 'High', 'Severe'] as RiskLevel[]).map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => setAdjustedCardioRisk(lvl)}
+                      className={`py-1 rounded font-bold text-[11px] border transition-colors ${
+                        adjustedCardioRisk === lvl
+                          ? 'bg-amber-600 text-white border-amber-600'
+                          : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
               </div>
+
               <div>
-                <label className="block text-xs font-semibold text-amber-900 mb-1">
-                  Điều chỉnh Mức Bệnh Võng Mạc Đái Tháo Đường (DR):
-                </label>
-                <select
-                  value={adjustedDrRisk}
-                  onChange={(e) => setAdjustedDrRisk(e.target.value as RiskLevel)}
-                  className="w-full bg-white border border-amber-300 rounded-lg py-2 px-3 text-xs font-semibold text-slate-800 outline-none"
-                >
-                  <option value="Low">Low — Thấp</option>
-                  <option value="Moderate">Moderate — Trung Bình</option>
-                  <option value="High">High — Cao</option>
-                  <option value="Severe">Severe — Nghiêm Trọng</option>
-                </select>
+                <span className="font-semibold text-amber-950 block mb-1">Hiệu chỉnh nguy cơ Võng mạc ĐTĐ:</span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['Low', 'Moderate', 'High', 'Severe'] as RiskLevel[]).map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => setAdjustedDrRisk(lvl)}
+                      className={`py-1 rounded font-bold text-[11px] border transition-colors ${
+                        adjustedDrRisk === lvl
+                          ? 'bg-amber-600 text-white border-amber-600'
+                          : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
-          {/* ICD-10 Selection */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 font-mono-data flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-[#0891B2]" /> Mã Bệnh Lý Quốc Tế ICD-10 Gắn Vào Báo Cáo:
+            <label className="block text-xs font-semibold text-clinical-text mb-1">
+              Mã phân loại bệnh quốc tế ICD-10 (ngăn cách bằng dấu phẩy):
             </label>
-            <div className="flex flex-wrap gap-2">
-              {icd10Options.map((code) => {
-                const isChecked = selectedIcd10.includes(code);
-                return (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => handleToggleIcd(code)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      isChecked
-                        ? 'bg-[#F0FDFA] text-[#0891B2] border border-[#0891B2] font-bold'
-                        : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {isChecked ? '✓ ' : '+ '} {code}
-                  </button>
-                );
-              })}
-            </div>
+            <input
+              type="text"
+              value={icd10Input}
+              onChange={(e) => setIcd10Input(e.target.value)}
+              placeholder="H35.0, I10, E11.9..."
+              className="w-full h-9 px-3 text-xs rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono-data"
+            />
           </div>
+        </div>
 
-          {/* Diagnostic Notes */}
+        {/* Right: Notes */}
+        <div className="space-y-3 flex flex-col justify-between">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-[#0891B2]" /> Ghi Chú Chẩn Đoán Của Bác Sĩ Chuyên Khoa:
+            <label className="block text-xs font-semibold text-clinical-text mb-1">
+              Ghi chú lâm sàng & Kết luận của Bác sĩ:
             </label>
             <textarea
-              rows={3}
-              value={clinicalNotes}
-              onChange={(e) => setClinicalNotes(e.target.value)}
-              placeholder="Nhập nhận định lâm sàng, hướng xử trí hoặc hẹn tái khám..."
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#0891B2] focus:ring-2 focus:ring-[#0891B2]"
+              rows={4}
+              value={doctorNotes}
+              onChange={(e) => setDoctorNotes(e.target.value)}
+              placeholder="Nhập chẩn đoán chuyên môn, hướng dẫn điều trị bổ sung..."
+              className="w-full text-xs p-3 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
-          {/* Submit */}
-          <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-            <div className="text-xs text-slate-500 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
-              Ký số PKI: <strong>BS. CKII Nguyễn Thị Thanh</strong> (CCHN: 009822)
-            </div>
-
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold rounded-xl text-xs shadow-medical-sm flex items-center gap-2 transition-all"
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              loading={saving || isSubmitting}
+              onClick={handleSave}
+              icon={<Save className="w-4 h-4" />}
             >
-              <CheckCircle2 className="w-4 h-4" /> Lưu Thẩm Định & Ký Báo Cáo EMR
-            </button>
+              Lưu & Ký Duyệt Kết Quả
+            </Button>
           </div>
-
-          {isSaved && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-[#16A34A] flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" /> Đã lưu phê duyệt chẩn đoán lâm sàng và mã hóa PKI RSA2048 thành công!
-            </div>
-          )}
-        </form>
+        </div>
       </div>
-
-      {/* Interactive Modal Popup for Doctor Confirmation & Modification */}
-      <DoctorDiagnosisModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        analysisId={analysisId}
-        patientName={patientName}
-        mrn={mrn}
-        onSaveFeedback={onSaveFeedback}
-      />
-    </>
+    </Card>
   );
 };

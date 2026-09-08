@@ -258,8 +258,9 @@ class DoctorPatientAssignmentSecurityTest {
   void case9_patientA_callsReviewScreening_returns403() throws Exception {
     String reviewPayload = """
         {
+          "decision": "APPROVED",
           "doctorNotes": "Patient tự review",
-          "riskLevel": "LOW"
+          "adjustedCardioRisk": "LOW"
         }
         """;
 
@@ -277,8 +278,9 @@ class DoctorPatientAssignmentSecurityTest {
   void case10_doctorA_reviewsScreeningPatientC_returns403() throws Exception {
     String reviewPayload = """
         {
+          "decision": "APPROVED",
           "doctorNotes": "Doctor A ghi chu trai phep",
-          "riskLevel": "HIGH"
+          "adjustedCardioRisk": "HIGH"
         }
         """;
 
@@ -296,8 +298,9 @@ class DoctorPatientAssignmentSecurityTest {
   void case11_doctorA_reviewsScreeningPatientA_success() throws Exception {
     String reviewPayload = """
         {
+          "decision": "APPROVED",
           "doctorNotes": "Benh nhan A co dau hieu tang huyet ap nhe",
-          "riskLevel": "HIGH"
+          "adjustedCardioRisk": "HIGH"
         }
         """;
 

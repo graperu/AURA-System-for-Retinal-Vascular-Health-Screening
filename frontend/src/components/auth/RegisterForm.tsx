@@ -53,7 +53,12 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     if (result.success) {
       setStep('otp');
       setCooldown(60);
-      setOtp('');
+      const devOtp = (result.data as any)?.devOtp;
+      if (devOtp) {
+        setOtp(devOtp);
+      } else {
+        setOtp('');
+      }
     } else {
       setErrors({ form: result.message || 'Không thể gửi mã OTP. Vui lòng thử lại.' });
     }
@@ -68,6 +73,10 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     setSubmitting(false);
     if (result.success) {
       setCooldown(60);
+      const devOtp = (result.data as any)?.devOtp;
+      if (devOtp) {
+        setOtp(devOtp);
+      }
     } else {
       setErrors({ form: result.message || 'Gửi lại mã OTP thất bại.' });
     }
@@ -247,7 +256,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
             <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
           ) : (
             <>
-              <img src={googleLogo} alt="Google" className="h-5 w-5 object-contain shrink-0" />
+              <img src={googleLogo || '/assets/sso/google.png'} alt="Google" className="h-5 w-5 object-contain shrink-0" />
               <span>Đăng ký bằng Google</span>
             </>
           )}

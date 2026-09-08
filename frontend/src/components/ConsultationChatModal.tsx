@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { X, Send, User, Stethoscope, Image, CheckCheck, Paperclip, MessageSquare } from 'lucide-react';
+import { Send, User, Stethoscope, MessageSquare, AlertCircle } from 'lucide-react';
+import { Modal } from './ui/Modal';
+import { Button } from './ui/Button';
 
 interface ChatMessage {
   id: string;
@@ -60,8 +62,6 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
 
   const [inputMessage, setInputMessage] = useState('');
 
-  if (!isOpen) return null;
-
   const partnerTitle =
     currentUserRole === 'doctor'
       ? `Bệnh nhân: ${patientName} (${patientMrn})`
@@ -70,7 +70,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
   const partnerRoleDesc =
     currentUserRole === 'doctor'
       ? 'Hồ sơ khám đáy mắt định kỳ • HA: 138/88 mmHg'
-      : 'Bác sĩ phụ trách lâm sàng • Đang trực tuyến';
+      : 'Bác sĩ phụ trách lâm sàng';
 
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -100,109 +100,103 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
     'Cảm ơn bác sĩ đã tư vấn chi tiết.',
   ];
 
-  const quickReplies = currentUserRole === 'doctor' ? quickRepliesDoctor : quickRepliesPatient;
+  const activeQuickReplies = currentUserRole === 'doctor' ? quickRepliesDoctor : quickRepliesPatient;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-      <div className="relative flex h-[620px] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
-        {/* Chat Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-[#F0FDFA] px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-700 text-white shadow-sm">
-              {currentUserRole === 'doctor' ? <User className="h-6 w-6" /> : <Stethoscope className="h-6 w-6" />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-[#134E4A]">{partnerTitle}</h2>
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />
-              </div>
-              <p className="text-[11px] text-slate-500">{partnerRoleDesc}</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="2xl"
+      title={
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-5 h-5 text-brand-600" />
+          <span>{partnerTitle}</span>
+        </div>
+      }
+      description={partnerRoleDesc}
+    >
+      <div className="space-y-4">
+        {/* Medical Safety Disclaimer */}
+        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+          <span>Kênh trao đổi chuyên môn y khoa. Không sử dụng cho các trường hợp cấp cứu khẩn cấp.</span>
         </div>
 
         {/* Message Thread */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
-          <div className="text-center">
-            <span className="rounded-full bg-slate-200/80 px-3 py-1 text-[10px] font-semibold text-slate-600 font-mono-data">
-              Hội thoại tư vấn mã hóa bảo mật HIPAA • Hôm nay
-            </span>
-          </div>
-
+        <div className="space-y-3 max-h-[360px] overflow-y-auto p-2 bg-slate-50/50 rounded-xl border border-clinical-border">
           {messages.map((msg) => {
             const isMe =
               (currentUserRole === 'doctor' && msg.sender === 'doctor') ||
-              (currentUserRole !== 'doctor' && msg.sender === 'patient');
+              (currentUserRole === 'patient' && msg.sender === 'patient');
 
             return (
-              <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                <div className="flex items-end gap-2 max-w-[82%]">
-                  {!isMe && (
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-600 text-xs font-bold">
-                      {msg.sender === 'doctor' ? <Stethoscope className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
-                    </div>
-                  )}
-                  <div
-                    className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed shadow-xs ${
-                      isMe
-                        ? 'bg-cyan-700 text-white rounded-br-none'
-                        : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
-                    }`}
-                  >
-                    <p className="font-medium">{msg.text}</p>
-                    <div
-                      className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
-                        isMe ? 'text-cyan-200' : 'text-slate-400'
-                      }`}
-                    >
-                      <span>{msg.timestamp}</span>
-                      {isMe && <CheckCheck className="h-3 w-3" />}
-                    </div>
+              <div
+                key={msg.id}
+                className={`flex gap-2.5 max-w-[85%] ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                    msg.sender === 'doctor'
+                      ? 'bg-brand-600 text-white'
+                      : 'bg-teal-700 text-white'
+                  }`}
+                >
+                  {msg.sender === 'doctor' ? <Stethoscope className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                </div>
+
+                <div
+                  className={`p-3 rounded-2xl text-xs space-y-1 ${
+                    isMe
+                      ? 'bg-brand-600 text-white rounded-tr-none'
+                      : 'bg-white text-clinical-text border border-clinical-border rounded-tl-none shadow-xs'
+                  }`}
+                >
+                  <div className={`flex items-center justify-between gap-3 text-[10px] ${isMe ? 'text-brand-100' : 'text-slate-400'}`}>
+                    <span className="font-semibold">{msg.senderName}</span>
+                    <span>{msg.timestamp}</span>
                   </div>
+                  <p className="leading-relaxed">{msg.text}</p>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Quick Suggestions */}
-        <div className="border-t border-slate-100 bg-white px-4 py-2 flex items-center gap-2 overflow-x-auto">
-          <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0">Mẫu nhanh:</span>
-          {quickReplies.map((reply, i) => (
+        {/* Quick Responses */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-semibold text-clinical-text-muted">Gợi ý nhanh:</span>
+          {activeQuickReplies.map((reply, idx) => (
             <button
-              key={i}
+              key={idx}
+              type="button"
               onClick={() => setInputMessage(reply)}
-              className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-800 transition-colors"
+              className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border border-clinical-border"
             >
               {reply}
             </button>
           ))}
         </div>
 
-        {/* Input Area */}
-        <form onSubmit={handleSendMessage} className="border-t border-slate-200 bg-white p-4 flex items-center gap-2">
+        {/* Input Form */}
+        <form onSubmit={handleSendMessage} className="flex gap-2 pt-2">
           <input
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder={`Nhập tin nhắn trao đổi với ${currentUserRole === 'doctor' ? 'bệnh nhân' : 'bác sĩ'}...`}
-            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-medium text-slate-800 outline-none focus:border-cyan-600 focus:bg-white transition-all"
+            placeholder="Nhập nội dung tư vấn chuyên môn..."
+            className="flex-1 h-10 px-3.5 text-xs rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            size="md"
             disabled={!inputMessage.trim()}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-700 text-white shadow-sm hover:bg-cyan-800 disabled:opacity-40 transition-all active:scale-95"
+            icon={<Send className="w-4 h-4" />}
           >
-            <Send className="h-4 w-4" />
-          </button>
+            Gửi
+          </Button>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 };

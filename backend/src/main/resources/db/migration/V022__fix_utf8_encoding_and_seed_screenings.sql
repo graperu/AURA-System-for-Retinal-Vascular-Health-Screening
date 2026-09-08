@@ -1,6 +1,15 @@
--- V019: Khắc phục encoding tiếng Việt và Seed 9 ca khám sàng lọc lịch sử cho Bệnh nhân Nguyễn Trọng Nam
+-- V022: Seed default users if not existing, standardize UTF-8 and seed 9 historical screenings
 
--- 1. Chuẩn hóa UTF-8 cho họ tên người dùng
+-- 1. Ensure default seed users exist
+INSERT INTO users (id, email, password_hash, full_name, is_active, email_verified, created_at, updated_at)
+VALUES 
+    ('11111111-1111-1111-1111-111111111111', 'patient@aura.com', '$2a$10$cRNLMSqUeuvy1UajXx/H.eOMvQZk5AqPdvIiB037EnNh.tm2hoaDu', 'Bệnh nhân Nguyễn Trọng Nam', TRUE, TRUE, NOW(), NOW()),
+    ('22222222-2222-2222-2222-222222222222', 'doctor@aura.com', '$2a$10$cRNLMSqUeuvy1UajXx/H.eOMvQZk5AqPdvIiB037EnNh.tm2hoaDu', 'BS. CKII Nguyễn Thị Thanh', TRUE, TRUE, NOW(), NOW()),
+    ('33333333-3333-3333-3333-333333333333', 'clinic@aura.com', '$2a$10$cRNLMSqUeuvy1UajXx/H.eOMvQZk5AqPdvIiB037EnNh.tm2hoaDu', 'Phòng khám Đa khoa AURA', TRUE, TRUE, NOW(), NOW()),
+    ('44444444-4444-4444-4444-444444444444', 'admin@aura.com', '$2a$10$cRNLMSqUeuvy1UajXx/H.eOMvQZk5AqPdvIiB037EnNh.tm2hoaDu', 'Quản trị viên Hệ thống', TRUE, TRUE, NOW(), NOW())
+ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, is_active = TRUE, full_name = EXCLUDED.full_name;
+
+-- 2. Chuẩn hóa UTF-8 cho họ tên người dùng
 UPDATE users SET full_name = 'Bệnh nhân Nguyễn Trọng Nam' WHERE id = '11111111-1111-1111-1111-111111111111' OR email = 'patient@aura.com';
 UPDATE users SET full_name = 'BS. CKII Nguyễn Thị Thanh' WHERE id = '22222222-2222-2222-2222-222222222222' OR email = 'doctor@aura.com';
 UPDATE users SET full_name = 'Phòng khám Đa khoa AURA' WHERE id = '33333333-3333-3333-3333-333333333333' OR email = 'clinic@aura.com';
