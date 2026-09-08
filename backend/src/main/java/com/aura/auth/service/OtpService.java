@@ -9,6 +9,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -17,6 +21,16 @@ public class OtpService {
   private static final long OTP_VALID_SECONDS = 300; // 5 minutes
   private static final long RESEND_COOLDOWN_SECONDS = 60; // 60s cooldown
   private static final int MAX_ATTEMPTS = 5;
+
+  private final JavaMailSender mailSender;
+
+  @Value("${spring.mail.username:}")
+  private String senderEmail;
+
+  @Autowired
+  public OtpService(@Autowired(required = false) JavaMailSender mailSender) {
+    this.mailSender = mailSender;
+  }
 
   private record OtpData(
       String code,
@@ -46,7 +60,7 @@ public class OtpService {
 
     otpStorage.put(email, new OtpData(otp, now, expiresAt, 0));
 
-    // Log to console/logger for development & monitoring
+    // 1. Log to console / docker logs for immediate inspection
     log.info("\n=======================================================\n"
         + "🔑 [AURA OTP SERVICE] MÃ XÁC THỰC EMAIL:\n"
         + "📧 Email: {}\n"
@@ -55,7 +69,32 @@ public class OtpService {
         + "=======================================================",
         email, (fullName != null ? fullName : "Người dùng AURA"), otp);
 
+    // 2. Dispatch real email via SMTP if configured
+    if (mailSender != null && senderEmail != null && !senderEmail.isBlank()) {
+      try {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(senderEmail);
+        message.setTo(email);
+        message.setSubject("[AURA] Mã xác thực đăng ký tài khoản của bạn");
+        message.setText("Xin chào " + (fullName != null ? fullName : "Quý khách") + ",\n\n"
+            + "Mã xác thực OTP của bạn là: " + otp + "\n"
+            + "Mã có hiệu lực trong vòng 5 phút.\n\n"
+            + "Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.\n\n"
+            + "Trân trọng,\nĐội ngũ Hệ thống AURA");
+        mailSender.send(message);
+        log.info("Đã gửi email OTP thực tế thành công tới: {}", email);
+      } catch (Exception e) {
+        log.warn("Không thể gửi email OTP qua SMTP server: {}. Mã OTP vẫn hiển thị trong logs hệ thống.", e.getMessage());
+      }
+    }
+
     return OTP_VALID_SECONDS;
+  }
+
+  public String getLatestOtpForDebug(String rawEmail) {
+    String email = rawEmail.trim().toLowerCase(Locale.ROOT);
+    OtpData data = otpStorage.get(email);
+    return data != null ? data.code() : null;
   }
 
   public boolean verifyOtp(String rawEmail, String inputOtp) {

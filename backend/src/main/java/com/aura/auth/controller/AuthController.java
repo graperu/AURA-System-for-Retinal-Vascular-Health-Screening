@@ -28,9 +28,10 @@ public class AuthController {
   @PostMapping("/send-otp")
   public ApiResponse<Map<String, Object>> sendOtp(@Valid @RequestBody SendOtpRequest q) {
     long expiresIn = service.sendRegistrationOtp(q);
+    String devOtp = null;
     return ApiResponse.success(
         "Mã OTP đã được gửi đến " + q.email(),
-        Map.of("email", q.email(), "expiresInSeconds", expiresIn)
+        service.getOtpDataResponse(q.email(), expiresIn)
     );
   }
 

@@ -53,6 +53,18 @@ public class AuthService {
     return otpService.sendOtp(email, q.fullName(), "REGISTER");
   }
 
+  public Map<String, Object> getOtpDataResponse(String rawEmail, long expiresIn) {
+    String email = rawEmail.trim().toLowerCase(Locale.ROOT);
+    String debugOtp = otpService.getLatestOtpForDebug(email);
+    Map<String, Object> map = new java.util.HashMap<>();
+    map.put("email", email);
+    map.put("expiresInSeconds", expiresIn);
+    if (debugOtp != null) {
+      map.put("devOtp", debugOtp);
+    }
+    return map;
+  }
+
   @Transactional
   public LoginResult verifyOtpAndRegister(VerifyOtpRequest q) {
     String email = q.email().trim().toLowerCase(Locale.ROOT);
