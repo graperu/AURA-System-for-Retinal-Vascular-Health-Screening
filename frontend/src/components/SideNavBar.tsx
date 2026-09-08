@@ -1,22 +1,20 @@
 import React from "react";
 import {
-  Activity,
-  CreditCard,
-  Eye,
-  FileSpreadsheet,
-  HelpCircle,
   LayoutDashboard,
-  Settings,
-  ShieldCheck,
   UploadCloud,
-  Users,
-  X,
-  MessageSquare,
-  UserCog,
+  Eye,
   History,
+  MessageSquare,
+  CreditCard,
+  UserCog,
+  Users,
+  Activity,
+  FileSpreadsheet,
+  Settings,
   FileText,
+  ShieldCheck,
+  LucideIcon,
   Sparkles,
-  Bell,
 } from "lucide-react";
 import { UserRole } from "../types/cds";
 
@@ -28,86 +26,118 @@ interface SideNavBarProps {
   onClose?: () => void;
 }
 
-export const patientNavigation = [
+interface NavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+interface NavGroup {
+  groupTitle?: string;
+  items: NavItem[];
+}
+
+const patientNavGroups: NavGroup[] = [
   {
-    id: "dashboard",
-    label: "Tổng quan sức khỏe",
-    icon: LayoutDashboard,
-    badge: "KPI",
+    groupTitle: "TỔNG QUAN",
+    items: [
+      { id: "dashboard", label: "Tổng quan sức khỏe", icon: LayoutDashboard },
+    ],
   },
   {
-    id: "upload-scan",
-    label: "Phân tích ảnh mới",
-    icon: UploadCloud,
-    badge: "AI",
+    groupTitle: "SÀNG LỌC VÕNG MẠC",
+    items: [
+      { id: "upload-scan", label: "Phân tích ảnh mới", icon: UploadCloud },
+      { id: "cds-viewer", label: "Bản đồ nhiệt & XAI", icon: Eye },
+      { id: "scan-history", label: "Lịch sử & Báo cáo", icon: History },
+    ],
   },
   {
-    id: "cds-viewer",
-    label: "Trực quan & Heatmap",
-    icon: Eye,
-    badge: "Grad-CAM",
+    groupTitle: "CHĂM SÓC & TƯ VẤN",
+    items: [
+      { id: "consultation", label: "Tư vấn Bác sĩ", icon: MessageSquare },
+      { id: "medical-profile", label: "Hồ sơ y tế & Tiền sử", icon: UserCog },
+    ],
   },
-  { id: "medical-profile", label: "Hồ sơ y tế & Tiền sử", icon: UserCog },
-  { id: "scan-history", label: "Lịch sử & Báo cáo", icon: History },
   {
-    id: "consultation",
-    label: "Tư vấn với Bác sĩ",
-    icon: MessageSquare,
-    badge: "Online",
+    groupTitle: "TÀI KHOẢN & DỊCH VỤ",
+    items: [
+      { id: "billing", label: "Nạp lượt & Giao dịch", icon: CreditCard },
+    ],
   },
-  { id: "billing", label: "Nạp khám & Giao dịch", icon: CreditCard },
 ];
 
-const navigation = {
-  doctor: [
-    { id: "cds-viewer", label: "Chẩn đoán ảnh AI (CDS)", icon: Eye },
-    { id: "patient-list", label: "Danh sách bệnh nhân", icon: Users },
-    { id: "risk-analytics", label: "Thống kê & Xu hướng", icon: Activity },
-    {
-      id: "reports",
-      label: "Báo cáo y khoa & Ký duyệt",
-      icon: FileSpreadsheet,
-    },
-    {
-      id: "consultation",
-      label: "Trao đổi với bệnh nhân",
-      icon: MessageSquare,
-    },
-  ],
-  clinic: [
-    { id: "bulk-batch", label: "Sàng lọc hàng loạt (≥100)", icon: UploadCloud },
-    { id: "doctors-manage", label: "Bác sĩ & Phân công", icon: Users },
-    { id: "credit-package", label: "Gói cước phòng khám", icon: CreditCard },
-    {
-      id: "campaign-analytics",
-      label: "Báo cáo chiến dịch lâm sàng",
-      icon: LayoutDashboard,
-    },
-  ],
-  patient: patientNavigation,
-  admin: [
-    { id: "user-management", label: "Quản lý tài khoản (FR-31)", icon: Users },
-    {
-      id: "rbac-matrix",
-      label: "Phân quyền vai trò (FR-32)",
-      icon: ShieldCheck,
-    },
-    {
-      id: "notification-config",
-      label: "Mẫu thông báo & CS (FR-39)",
-      icon: Bell,
-    },
-    { id: "clinic-approvals", label: "Phê duyệt phòng khám", icon: UserCog },
-    { id: "ai-thresholds", label: "Cấu hình tham số AI", icon: Settings },
-    { id: "audit-logs", label: "Nhật ký kiểm toán HIPAA", icon: FileText },
-  ],
+const doctorNavGroups: NavGroup[] = [
+  {
+    groupTitle: "CHẨN ĐOÁN LÂM SÀNG",
+    items: [
+      { id: "cds-viewer", label: "Bàn chẩn đoán ảnh CDS", icon: Eye },
+      { id: "patient-list", label: "Danh sách bệnh nhân", icon: Users },
+    ],
+  },
+  {
+    groupTitle: "PHÂN TÍCH & BÁO CÁO",
+    items: [
+      { id: "risk-analytics", label: "Thống kê nguy cơ", icon: Activity },
+      { id: "reports", label: "Báo cáo y khoa & Ký duyệt", icon: FileSpreadsheet },
+    ],
+  },
+  {
+    groupTitle: "GIAO TIẾP",
+    items: [
+      { id: "consultation", label: "Trao đổi với bệnh nhân", icon: MessageSquare },
+    ],
+  },
+];
+
+const clinicNavGroups: NavGroup[] = [
+  {
+    groupTitle: "CHIẾN DỊCH TẦM SOÁT",
+    items: [
+      { id: "bulk-batch", label: "Sàng lọc hàng loạt (≥100)", icon: UploadCloud },
+      { id: "campaign-analytics", label: "Báo cáo chiến dịch", icon: LayoutDashboard },
+    ],
+  },
+  {
+    groupTitle: "NHÂN SỰ & CƠ SỞ",
+    items: [
+      { id: "doctors-manage", label: "Bác sĩ & Phân công", icon: Users },
+      { id: "credit-package", label: "Gói cước cơ sở", icon: CreditCard },
+    ],
+  },
+];
+
+const adminNavGroups: NavGroup[] = [
+  {
+    groupTitle: "QUẢN TRỊ TÀI KHOẢN",
+    items: [
+      { id: "user-management", label: "Quản lý tài khoản", icon: Users },
+      { id: "rbac-matrix", label: "Phân quyền vai trò", icon: ShieldCheck },
+      { id: "clinic-approvals", label: "Phê duyệt phòng khám", icon: UserCog },
+    ],
+  },
+  {
+    groupTitle: "CẤU HÌNH & KIỂM TOÁN",
+    items: [
+      { id: "ai-thresholds", label: "Cấu hình tham số AI", icon: Settings },
+      { id: "notification-config", label: "Mẫu thông báo & CS", icon: MessageSquare },
+      { id: "audit-logs", label: "Nhật ký kiểm toán HIPAA", icon: FileText },
+    ],
+  },
+];
+
+const roleNavMap: Record<UserRole, NavGroup[]> = {
+  patient: patientNavGroups,
+  doctor: doctorNavGroups,
+  clinic: clinicNavGroups,
+  admin: adminNavGroups,
 };
 
-const roleTitles = {
-  patient: "Không gian bệnh nhân",
-  doctor: "Không gian bác sĩ",
-  clinic: "Quản lý phòng khám",
-  admin: "Quản trị hệ thống",
+const roleTitles: Record<UserRole, string> = {
+  patient: "Không gian Bệnh nhân",
+  doctor: "Bàn làm việc Bác sĩ",
+  clinic: "Không gian Phòng khám",
+  admin: "Quản trị Hệ thống",
 };
 
 export const SideNavBar: React.FC<SideNavBarProps> = ({
@@ -124,19 +154,20 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
       currentRole === "clinic" ||
       currentRole === "admin"
     )
-      return currentRole;
-    const label = currentRole.toLocaleLowerCase("vi");
+      return currentRole as UserRole;
+    const label = String(currentRole || "").toLocaleLowerCase("vi");
     if (label.includes("bệnh")) return "patient";
     if (label.includes("phòng")) return "clinic";
     if (label.includes("quản trị")) return "admin";
     return "doctor";
   })();
 
-  const currentNav = navigation[normalizedRole] || navigation.patient;
+  const currentGroups = roleNavMap[normalizedRole] || patientNavGroups;
+  const allItems = currentGroups.flatMap((g) => g.items);
   const selectedSection =
-    activeSection && currentNav.some((n) => n.id === activeSection)
+    activeSection && allItems.some((n) => n.id === activeSection)
       ? activeSection
-      : currentNav[0].id;
+      : allItems[0]?.id || "dashboard";
 
   const selectSection = (section: string) => {
     onSelectSection(section);
@@ -147,79 +178,74 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
     <>
       {isOpen && (
         <button
-          className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden backdrop-blur-xs"
+          className="fixed inset-0 z-40 bg-slate-900/50 lg:hidden backdrop-blur-xs"
           onClick={onClose}
           aria-label="Đóng menu"
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-slate-200/80 bg-white/95 backdrop-blur-md p-4 shadow-2xl transition-transform duration-200 lg:sticky lg:top-[72px] lg:z-30 lg:h-[calc(100vh-72px)] lg:translate-x-0 lg:shadow-none ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 flex w-[250px] flex-col border-r border-[#CCFBF1] bg-white p-4 transition-transform duration-200 lg:sticky lg:top-[64px] lg:z-30 lg:h-[calc(100vh-64px)] lg:translate-x-0 ${
+          isOpen ? "translate-x-0 shadow-medical-modal" : "-translate-x-full"
         }`}
         aria-label="Điều hướng chính"
       >
-        <div className="mb-5 flex items-center justify-between px-2 pt-1 lg:pt-0">
+        <div className="mb-4 px-2 pt-1 pb-3 border-b border-[#CCFBF1]/60 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#0891B2]">
-              AURA Healthcare
-            </p>
-            <p className="mt-0.5 text-sm font-bold text-slate-900">
-              {roleTitles[normalizedRole]}
-            </p>
+            <div className="text-[10px] font-bold text-[#0891B2] uppercase tracking-wider">
+              Phân hệ làm việc
+            </div>
+            <div className="text-xs font-bold text-[#134E4A] mt-0.5">
+              {roleTitles[normalizedRole] || "Cổng làm việc"}
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 lg:hidden"
-            aria-label="Đóng menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
-        <nav className="space-y-1.5 flex-1">
-          {currentNav.map(({ id, label, icon: Icon, badge }: any) => {
-            const active = selectedSection === id;
-            return (
-              <button
-                key={id}
-                onClick={() => selectSection(id)}
-                className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-xs font-bold transition-all ${
-                  active
-                    ? "bg-[#0891B2] text-white shadow-md shadow-[#0891B2]/20 font-bold scale-[1.02]"
-                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-                }`}
-              >
-                <span className="flex items-center gap-3">
-                  <Icon
-                    className={`h-4.5 w-4.5 transition-transform group-hover:scale-110 ${active ? "text-white" : "text-slate-500 group-hover:text-[#0891B2]"}`}
-                  />
-                  <span>{label}</span>
-                </span>
-                {badge && (
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-md font-extrabold font-mono-data ${
-                      active
-                        ? "bg-white/20 text-white"
-                        : "bg-teal-50 text-[#0891B2] border border-teal-200"
+        <nav className="flex-1 space-y-4 overflow-y-auto pr-1">
+          {currentGroups.map((group, gIdx) => (
+            <div key={gIdx} className="space-y-1">
+              {group.groupTitle && (
+                <div className="px-3 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {group.groupTitle}
+                </div>
+              )}
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isSelected = item.id === selectedSection;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => selectSection(item.id)}
+                    className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all duration-150 ${
+                      isSelected
+                        ? "bg-gradient-to-r from-[#F0FDFA] to-[#CCFBF1]/40 text-[#0891B2] border border-[#CCFBF1] shadow-xs"
+                        : "text-slate-600 hover:bg-[#F0FDFA] hover:text-[#0891B2]"
                     }`}
                   >
-                    {badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon
+                        className={`h-4 w-4 shrink-0 transition-colors ${
+                          isSelected
+                            ? "text-[#0891B2]"
+                            : "text-slate-400 group-hover:text-[#0891B2]"
+                        }`}
+                      />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
-        {/* Sidebar Footer Info Card */}
-        <div className="mt-auto pt-4 border-t border-slate-100">
-          <div className="p-3 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl border border-teal-200/60 space-y-1">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#134E4A]">
-              <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
-              Bảo Mật Y Tế Chuẩn HIPAA
+        <div className="mt-auto border-t border-[#CCFBF1]/60 pt-3">
+          <div className="rounded-xl bg-gradient-to-br from-[#F0FDFA] to-white p-3 border border-[#CCFBF1] text-center shadow-xs">
+            <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-[#0891B2]">
+              <Sparkles className="w-3.5 h-3.5" /> AURA Clinical AI v1.0
             </div>
-            <p className="text-[11px] text-slate-600 leading-tight">
-              Mã hóa dữ liệu 256-bit • AI CDS v2.1
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              Hỗ trợ sàng lọc • Không thay thế BS
             </p>
           </div>
         </div>
