@@ -3,7 +3,11 @@ import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
 import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
 import { ClinicBatchJob } from '../types/cds';
 import { bulkScreeningApi, clinicApi } from '../services/api';
-import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers } from 'lucide-react';
+import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { PageHeader } from '../components/ui/PageHeader';
+import { LoadingState } from '../components/ui/StateFeedback';
 
 const STORAGE_KEY = 'AURA_CLINIC_BATCH_JOB';
 
@@ -20,7 +24,6 @@ const getInitialBatchJob = (): ClinicBatchJob => {
     console.error('Lỗi nạp dữ liệu đợt khám đã lưu:', e);
   }
 
-  // Trạng thái ban đầu khi chưa tải đợt nào
   return {
     batchId: 'CHƯA_TẢI_ĐỢT_NÀO',
     clinicId: 'CLN-CHO-RAY-01',
@@ -35,7 +38,6 @@ const getInitialBatchJob = (): ClinicBatchJob => {
   };
 };
 
-// FR-22: Hồ sơ đăng ký & xác thực tổ chức phòng khám
 const ClinicProfileSection: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
   const [orgName, setOrgName] = useState('');
@@ -92,70 +94,93 @@ const ClinicProfileSection: React.FC = () => {
   };
 
   const statusBadge = (status?: string) => {
-    if (status === 'APPROVED') return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">Đã xác minh</span>;
-    if (status === 'REJECTED') return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300">Bị từ chối</span>;
-    return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">Đang chờ duyệt</span>;
+    if (status === 'APPROVED') return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">Đã xác minh</span>;
+    if (status === 'REJECTED') return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-800 border border-red-200">Bị từ chối</span>;
+    return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">Đang chờ duyệt</span>;
   };
 
-  if (loading) return <div className="bg-white border border-[#CCFBF1] rounded-2xl p-6 text-sm text-slate-500">Đang tải hồ sơ phòng khám…</div>;
+  if (loading) return <LoadingState message="Đang tải hồ sơ cơ sở..." />;
 
   return (
-    <div className="bg-white border border-[#CCFBF1] rounded-2xl p-6 shadow-medical-sm space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-extrabold text-[#134E4A]">Hồ Sơ Tổ Chức Phòng Khám (FR-22)</h2>
-          <p className="text-xs text-slate-500 mt-1">Đăng ký & xác thực pháp nhân để được cấp quyền quản lý bác sĩ trực thuộc.</p>
+    <Card padding="md" className="space-y-4">
+      <div className="flex items-center justify-between border-b border-clinical-border pb-3">
+        <div className="flex items-center gap-2">
+          <Building2 className="w-5 h-5 text-brand-600" />
+          <h2 className="text-base font-bold text-clinical-text">
+            Hồ Sơ Đăng Ký & Xác Thực Cơ Sở Y Tế (FR-22)
+          </h2>
         </div>
         {profile && statusBadge(profile.verificationStatus)}
       </div>
 
-      {profile?.verificationStatus === 'REJECTED' && profile.rejectionReason && (
-        <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">Lý do từ chối: {profile.rejectionReason}</p>
+      {message && (
+        <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-800">
+          {message}
+        </div>
       )}
-      {profile?.verificationStatus === 'PENDING' && (
-        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">
-          Hồ sơ đang chờ Admin xác minh. Bạn chỉ có thể thêm bác sĩ / phân công bệnh nhân sau khi hồ sơ được duyệt.
-        </p>
-      )}
-      {message && <p className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2">{message}</p>}
 
-      <form onSubmit={handleSubmit} className="grid sm:grid-cols-2 gap-3 max-w-2xl">
-        <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-slate-600 block mb-1">Tên tổ chức</label>
-          <input value={orgName} onChange={(e) => setOrgName(e.target.value)} required placeholder="Phòng khám Đa khoa AURA" className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+        <div>
+          <label className="block font-semibold text-clinical-text mb-1">Tên tổ chức y tế / Phòng khám</label>
+          <input
+            type="text"
+            required
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            placeholder="Ví dụ: Phòng khám Đa khoa AURA"
+            className="w-full h-9 px-3 border border-clinical-border rounded-lg bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
         </div>
         <div>
-          <label className="text-xs font-semibold text-slate-600 block mb-1">Số giấy phép hoạt động</label>
-          <input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="GPHĐ-000123/BYT" className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-slate-600 block mb-1">Giấy phép hoạt động (ảnh/PDF)</label>
-          <input type="file" accept="image/*,.pdf" onChange={handleFileChange} className="w-full text-xs" />
-          {licenseFileName && <p className="text-[11px] text-slate-400 mt-1">Đã chọn: {licenseFileName}</p>}
+          <label className="block font-semibold text-clinical-text mb-1">Số giấy phép hoạt động khám chữa bệnh</label>
+          <input
+            type="text"
+            value={licenseNumber}
+            onChange={(e) => setLicenseNumber(e.target.value)}
+            placeholder="Ví dụ: 01234/SYT-GPHĐ"
+            className="w-full h-9 px-3 border border-clinical-border rounded-lg bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
         </div>
         <div className="sm:col-span-2">
-          <button disabled={submitting} className="rounded-xl bg-[#0891B2] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
-            {submitting ? 'Đang nộp…' : profile ? 'Cập nhật & nộp lại hồ sơ' : 'Nộp hồ sơ đăng ký'}
-          </button>
+          <label className="block font-semibold text-clinical-text mb-1">Tài liệu đính kèm (Giấy phép, chứng chỉ hành nghề)</label>
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={handleFileChange}
+            className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
+          />
+          {licenseFileName && <span className="text-[11px] text-emerald-700 mt-1 block">Đã chọn: {licenseFileName}</span>}
+        </div>
+
+        <div className="sm:col-span-2 flex justify-end">
+          <Button type="submit" variant="primary" size="md" loading={submitting}>
+            Lưu & Gửi Hồ Sơ Xác Minh
+          </Button>
         </div>
       </form>
-    </div>
+    </Card>
   );
 };
 
-// FR-23: Quản lý Bác sĩ trực thuộc & phân công bệnh nhân
-const ClinicMembersSection: React.FC = () => {
+const ClinicDoctorsSection: React.FC = () => {
   const [members, setMembers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [doctorEmail, setDoctorEmail] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [assignPatientId, setAssignPatientId] = useState<Record<string, string>>({});
-  const [assignMessage, setAssignMessage] = useState<Record<string, string>>({});
+  const [assignDoctorId, setAssignDoctorId] = useState('');
+  const [patientIdToAssign, setPatientIdToAssign] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [inviting, setInviting] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   const loadMembers = async () => {
     setLoading(true);
     const res = await clinicApi.listMembers();
-    setMembers(res.success && res.data ? res.data : []);
+    if (res.success && Array.isArray(res.data)) {
+      setMembers(res.data);
+      if (res.data.length > 0 && !assignDoctorId) {
+        setAssignDoctorId(res.data[0].id || res.data[0].userId);
+      }
+    }
     setLoading(false);
   };
 
@@ -166,186 +191,161 @@ const ClinicMembersSection: React.FC = () => {
   const handleAddDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!doctorEmail.trim()) return;
-    setError(null);
+    setInviting(true);
+    setMessage(null);
     const res = await clinicApi.addMember(doctorEmail.trim());
+    setInviting(false);
     if (res.success) {
+      setMessage(`Đã thêm bác sĩ ${doctorEmail} vào danh sách phòng khám.`);
       setDoctorEmail('');
       loadMembers();
     } else {
-      setError(res.message || 'Không thể thêm bác sĩ. Kiểm tra lại email, vai trò tài khoản, và hồ sơ phòng khám đã được duyệt (APPROVED) chưa.');
+      setMessage(res.message || 'Thêm bác sĩ thất bại. Vui lòng kiểm tra email.');
     }
   };
 
-  const handleRemove = async (memberId: string) => {
-    const res = await clinicApi.removeMember(memberId);
-    if (res.success) loadMembers();
+  const handleAssignPatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignDoctorId || !patientIdToAssign.trim()) return;
+    setAssigning(true);
+    setMessage(null);
+    const res = await clinicApi.assignPatientToDoctor(assignDoctorId, patientIdToAssign.trim());
+    setAssigning(false);
+    if (res.success) {
+      setMessage(`Đã phân công bệnh nhân ${patientIdToAssign} cho bác sĩ thành công.`);
+      setPatientIdToAssign('');
+    } else {
+      setMessage(res.message || 'Phân công bệnh nhân thất bại.');
+    }
   };
 
-  const handleAssign = async (doctorId: string) => {
-    const patientId = assignPatientId[doctorId]?.trim();
-    if (!patientId) return;
-    const res = await clinicApi.assignPatientToDoctor(doctorId, patientId);
-    setAssignMessage((prev) => ({
-      ...prev,
-      [doctorId]: res.success ? 'Đã phân công bệnh nhân thành công.' : res.message || 'Phân công thất bại.',
-    }));
-  };
-
-  const handleUnassign = async (doctorId: string) => {
-    const patientId = assignPatientId[doctorId]?.trim();
-    if (!patientId) return;
-    const res = await clinicApi.unassignPatientFromDoctor(doctorId, patientId);
-    setAssignMessage((prev) => ({
-      ...prev,
-      [doctorId]: res.success ? 'Đã gỡ phân công bệnh nhân.' : res.message || 'Gỡ phân công thất bại.',
-    }));
+  const handleRemove = async (doctorId: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa bác sĩ này khỏi phòng khám?')) return;
+    const res = await clinicApi.removeMember(doctorId);
+    if (res.success) {
+      loadMembers();
+    }
   };
 
   return (
-    <div className="bg-white border border-[#CCFBF1] rounded-2xl p-6 shadow-medical-sm space-y-4">
-      <div>
-        <h2 className="text-lg font-extrabold text-[#134E4A]">Quản Lý Bác Sĩ Trực Thuộc (FR-23)</h2>
-        <p className="text-xs text-slate-500 mt-1">Mời bác sĩ (đã có tài khoản vai trò Bác sĩ) vào phòng khám, và phân công bệnh nhân cho từng bác sĩ.</p>
-      </div>
-
-      <form onSubmit={handleAddDoctor} className="flex gap-2 max-w-xl">
-        <input
-          value={doctorEmail}
-          onChange={(e) => setDoctorEmail(e.target.value)}
-          placeholder="email.bacsi@aura.com"
-          type="email"
-          className="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm"
-        />
-        <button className="rounded-xl bg-[#0891B2] px-4 py-2 text-sm font-bold text-white">Thêm bác sĩ</button>
-      </form>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-
-      {loading ? (
-        <p className="text-sm text-slate-500">Đang tải danh sách…</p>
-      ) : members.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-          Chưa có bác sĩ nào trực thuộc phòng khám.
+    <div className="space-y-6">
+      <Card padding="md" className="space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 className="text-base font-bold text-slate-900">
+            Quản Lý Đội Ngũ Bác Sĩ Của Phòng Khám (FR-23)
+          </h2>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {members.map((m) => (
-            <div key={m.id} className="border border-slate-200 rounded-xl p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-slate-800">{m.doctorName || m.doctorEmail}</p>
-                  <p className="text-xs text-slate-500">{m.doctorEmail} · {m.status}</p>
-                </div>
-                <button onClick={() => handleRemove(m.id)} className="text-xs font-bold text-red-600 hover:underline">
-                  Gỡ khỏi phòng khám
-                </button>
-              </div>
-              <div className="flex gap-2 items-center">
-                <input
-                  value={assignPatientId[m.doctorId] || ''}
-                  onChange={(e) => setAssignPatientId((prev) => ({ ...prev, [m.doctorId]: e.target.value }))}
-                  placeholder="ID bệnh nhân cần phân công"
-                  className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                />
-                <button
-                  onClick={() => handleAssign(m.doctorId)}
-                  className="text-xs font-bold text-[#0891B2] hover:underline shrink-0"
-                >
-                  Phân công
-                </button>
-                <button
-                  onClick={() => handleUnassign(m.doctorId)}
-                  className="text-xs font-bold text-slate-500 hover:underline shrink-0"
-                >
-                  Gỡ phân công
-                </button>
-              </div>
-              {assignMessage[m.doctorId] && <p className="text-[11px] text-slate-500">{assignMessage[m.doctorId]}</p>}
-            </div>
-          ))}
+
+        <form onSubmit={handleAddDoctor} className="flex gap-2 text-xs">
+          <input
+            type="email"
+            required
+            value={doctorEmail}
+            onChange={(e) => setDoctorEmail(e.target.value)}
+            placeholder="Nhập email bác sĩ cần thêm..."
+            className="flex-1 h-9 px-3 border border-slate-200 rounded-xl bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0891B2]"
+          />
+          <Button type="submit" variant="primary" size="sm" loading={inviting} icon={<UserPlus className="w-4 h-4" />}>
+            Thêm Bác Sĩ
+          </Button>
+        </form>
+
+        {message && (
+          <div className="p-3 rounded-xl bg-[#F0FDFA] border border-[#CCFBF1] text-xs text-[#0891B2] font-semibold">
+            {message}
+          </div>
+        )}
+
+        <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-[#F8FAFC] border-b border-slate-200 text-slate-700 font-bold">
+              <tr>
+                <th className="p-3">Họ và Tên</th>
+                <th className="p-3">Email</th>
+                <th className="p-3">Trạng thái</th>
+                <th className="p-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {members.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-6 text-center text-slate-400">Chưa có bác sĩ nào trong cơ sở.</td>
+                </tr>
+              ) : (
+                members.map((m) => (
+                  <tr key={m.id} className="hover:bg-slate-50/50">
+                    <td className="p-3 font-bold text-slate-900">{m.fullName || m.name || 'Bác sĩ'}</td>
+                    <td className="p-3 text-slate-600">{m.email}</td>
+                    <td className="p-3">
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        Hoạt động
+                      </span>
+                    </td>
+                    <td className="p-3 text-right">
+                      <button
+                        onClick={() => handleRemove(m.id || m.userId)}
+                        className="text-red-600 hover:text-red-700 p-1"
+                        title="Xóa khỏi phòng khám"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </Card>
+
+      {/* Doctor-Patient Assignment Box */}
+      <Card padding="md" className="space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-bold text-slate-900">
+            Phân Công Bệnh Nhân Cho Bác Sĩ (FR-23)
+          </h3>
+        </div>
+        <form onSubmit={handleAssignPatient} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div>
+            <label className="block text-slate-600 font-semibold mb-1">Chọn Bác Sĩ</label>
+            <select
+              value={assignDoctorId}
+              onChange={(e) => setAssignDoctorId(e.target.value)}
+              className="w-full h-9 px-3 border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:border-[#0891B2]"
+            >
+              {members.map((m) => (
+                <option key={m.id} value={m.id || m.userId}>
+                  {m.fullName || m.name || m.email}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-slate-600 font-semibold mb-1">Mã / ID Bệnh Nhân</label>
+            <input
+              type="text"
+              required
+              value={patientIdToAssign}
+              onChange={(e) => setPatientIdToAssign(e.target.value)}
+              placeholder="Nhập ID bệnh nhân..."
+              className="w-full h-9 px-3 border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:border-[#0891B2]"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button type="submit" variant="primary" size="sm" loading={assigning} className="w-full">
+              Phân Công Tiếp Nhận
+            </Button>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 };
 
-const mapBatch = (data: any): ClinicBatchJob => ({
-  batchId: data.batchId,
-  clinicId: data.clinicId || 'CLN-AURA-01',
-  clinicName: data.clinicName || data.clinicId || 'Bệnh viện Chợ Rẫy — Trung tâm Sàng lọc Đáy mắt',
-  totalImages: data.totalImages || 0,
-  processedCount: data.processedCount || 0,
-  failedCount: data.failedCount || 0,
-  status: data.status || 'COMPLETED',
-  createdAt: data.createdAt || new Date().toISOString(),
-  estimatedTimeRemainingSec: data.estimatedTimeRemainingSeconds || 0,
-  items: (data.items || []).map((item: any) => ({
-    id: item.itemId,
-    patientName: item.pseudonymPatientId || item.rawMrn || 'Ẩn danh',
-    mrn: item.rawMrn || item.pseudonymPatientId,
-    eye: item.eyePosition === 'OS' ? 'OS (Mắt Trái)' : 'OD (Mắt Phải)',
-    fileName: item.fileName,
-    status:
-      item.status === 'COMPLETED'
-        ? 'DONE'
-        : item.status === 'QUEUED'
-        ? 'PENDING'
-        : item.status === 'FAILED'
-        ? 'ERROR'
-        : 'PROCESSING',
-    riskLevel: item.aiResult?.cardiovascularRiskLevel || item.aiResult?.riskLevel || item.riskLevel,
-    riskScore: item.aiResult?.overallVascularRiskScore ?? item.aiResult?.riskScore ?? item.riskScore,
-    thumbnailUrl: item.thumbnailUrl || '/assets/images/fundus_original.png',
-    anomaliesCount: item.aiResult?.detectedAnomaliesCount,
-    strokeRisk: item.aiResult?.threeYearStrokeRiskPercent,
-    drLevel: item.aiResult?.diabeticRetinopathyLevel,
-    arteryVeinRatio: item.aiResult?.arteryVeinRatio,
-    vesselDensity: item.aiResult?.vesselDensityPercentage,
-    tortuosityIndex: item.aiResult?.tortuosityIndex,
-    rationales: item.aiResult?.xaiRationales,
-    heatmapUrl: item.aiResult?.heatmapOverlayUrl,
-  })),
-});
-
-interface ClinicPortalProps {
-  activeView?: string;
-}
-
-export const ClinicPortalPage: React.FC<ClinicPortalProps> = ({ activeView }) => {
+export const ClinicPortalPage: React.FC<{ activeView?: string }> = ({ activeView = 'bulk-batch' }) => {
   const [batchJob, setBatchJob] = useState<ClinicBatchJob>(getInitialBatchJob);
-  const [lookupBatchId, setLookupBatchId] = useState('');
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [availableBatches, setAvailableBatches] = useState<any[]>([]);
 
-  // Load available batches from server on mount
-  useEffect(() => {
-    const fetchBatches = async () => {
-      try {
-        const response = await bulkScreeningApi.listBatches();
-        if (response.success && Array.isArray(response.data)) {
-          setAvailableBatches(response.data);
-        }
-      } catch {
-        // Ignore network errors on init
-      }
-    };
-    fetchBatches();
-  }, []);
-
-  if (activeView === 'campaign-analytics') {
-    return <ClinicCampaignAnalytics />;
-  }
-
-  if (activeView === 'doctors-manage') {
-    return (
-      <div className="space-y-6">
-        <ClinicProfileSection />
-        <ClinicMembersSection />
-      </div>
-    );
-  }
-
-  const handleUpdateBatch = (updated: ClinicBatchJob) => {
+  const handleUpdateBatchJob = (updated: ClinicBatchJob) => {
     setBatchJob(updated);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -354,160 +354,40 @@ export const ClinicPortalPage: React.FC<ClinicPortalProps> = ({ activeView }) =>
     }
   };
 
-  const handleResetBatch = () => {
-    if (batchJob.items.length > 0) {
-      const ok = window.confirm(
-        'Bạn có chắc chắn muốn kết thúc đợt khám này và TẠO ĐỢT KHÁM MỚI (đưa tiến độ về 0%) không? Toàn bộ danh sách các ảnh đã khám hiện tại sẽ được làm mới.'
-      );
-      if (!ok) return;
-    }
-    const emptyJob: ClinicBatchJob = {
-      batchId: 'CHƯA_TẢI_ĐỢT_NÀO',
-      clinicId: 'CLN-CHO-RAY-01',
-      clinicName: 'Bệnh viện Chợ Rẫy — Trung tâm Sàng lọc Đáy mắt',
-      totalImages: 0,
-      processedCount: 0,
-      failedCount: 0,
-      status: 'COMPLETED',
-      createdAt: new Date().toISOString(),
-      estimatedTimeRemainingSec: 0,
-      items: [],
-    };
-    setBatchJob(emptyJob);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-      console.error('Lỗi xóa cache:', e);
-    }
-  };
-
-  const handleLookupBatch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lookupBatchId.trim()) return;
-    setLookupLoading(true);
-    setLookupError(null);
-    try {
-      const response = await bulkScreeningApi.getBatch(lookupBatchId.trim());
-      if (!response.success || !response.data) {
-        setLookupError(response.message || 'Không tìm thấy batch hoặc bạn không có quyền truy cập.');
-      } else {
-        const mapped = mapBatch(response.data);
-        handleUpdateBatch(mapped);
-      }
-    } catch (err: any) {
-      setLookupError(err.message || 'Lỗi khi tra cứu batch.');
-    } finally {
-      setLookupLoading(false);
-    }
-  };
-
-  const handleSelectBatch = async (selectedId: string) => {
-    if (!selectedId || selectedId === batchJob.batchId) return;
-    setLookupBatchId(selectedId);
-    setLookupLoading(true);
-    setLookupError(null);
-    try {
-      const response = await bulkScreeningApi.getBatch(selectedId);
-      if (response.success && response.data) {
-        handleUpdateBatch(mapBatch(response.data));
-      } else {
-        setLookupError(response.message || 'Không thể tải dữ liệu đợt khám.');
-      }
-    } catch (err: any) {
-      setLookupError(err.message || 'Lỗi khi tải đợt khám.');
-    } finally {
-      setLookupLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
-      {/* Clinic Portal Header Banner */}
-      <div className="bg-white border border-[#CCFBF1] rounded-2xl p-6 shadow-medical-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-[#134E4A]">
-              Cổng Quản Lý Chiến Dịch Sàng Lọc Hàng Loạt (Clinic Portal)
-            </h1>
-            <span className="bg-cyan-100 text-[#0891B2] text-[11px] font-bold font-mono-data px-2.5 py-0.5 rounded-full border border-cyan-200">
-              FR-24 &bull; FR-25 &bull; FR-29 &bull; NFR-2 &bull; NFR-9
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
-            Tiếp nhận thư mục ảnh chụp đáy mắt khối lượng lớn (≥100 ảnh), tự động khử định danh HIPAA SHA-256 HMAC, đưa vào hàng đợi PyTorch AI bất đồng bộ và hỗ trợ giám sát rủi ro tổng hợp.
-          </p>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* Quick lookup form */}
-            <form onSubmit={handleLookupBatch} className="flex items-center gap-2 max-w-md">
-              <input
-                type="text"
-                value={lookupBatchId}
-                onChange={(e) => setLookupBatchId(e.target.value)}
-                placeholder="Nhập mã Batch ID cần tra cứu..."
-                className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs focus:border-[#0891B2] outline-none"
-              />
-              <button
-                type="submit"
-                disabled={lookupLoading}
-                className="flex items-center gap-1 rounded-xl bg-[#0891B2] hover:bg-[#0e7490] px-3 py-1.5 text-xs font-bold text-white transition disabled:opacity-50"
-              >
-                {lookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                <span>Tra cứu</span>
-              </button>
-            </form>
-
-            {/* Dropdown for available batches */}
-            {availableBatches.length > 0 && (
-              <div className="flex items-center gap-1.5 ml-2">
-                <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
-                  <Layers className="w-3.5 h-3.5 text-[#0891B2]" /> Đợt có sẵn:
-                </span>
-                <select
-                  value={batchJob.batchId}
-                  onChange={(e) => handleSelectBatch(e.target.value)}
-                  className="text-xs border border-slate-300 rounded-xl px-2.5 py-1.5 bg-slate-50 font-medium text-slate-700 outline-none focus:border-[#0891B2]"
-                >
-                  <option value="">-- Chọn đợt sàng lọc --</option>
-                  {availableBatches.map((b) => (
-                    <option key={b.batchId} value={b.batchId}>
-                      {b.batchId} ({b.processedCount}/{b.totalImages} ảnh &bull; {b.status})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-          {lookupError && <p className="mt-1 text-xs text-red-500 font-medium">{lookupError}</p>}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-[#F0FDFA] border border-[#CCFBF1] px-3.5 py-2 rounded-xl text-xs">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span className="font-semibold text-[#134E4A]">HIPAA De-ID v3</span>
-          </div>
-          <div className="flex items-center gap-2 bg-[#F0FDFA] border border-[#CCFBF1] px-3.5 py-2 rounded-xl text-xs">
-            <Activity className="w-4 h-4 text-[#0891B2]" />
-            <span className="font-semibold text-[#134E4A]">PyTorch ResNet50</span>
-          </div>
-          {batchJob.items.length > 0 && (
-            <button
-              onClick={handleResetBatch}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
-              title="Làm mới để bắt đầu chiến dịch tầm soát mới (xóa dữ liệu đợt cũ đã lưu)"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Tạo Đợt Khám Mới
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Main Batch Processing Dashboard */}
-      <ClinicBatchProcessing
-        batchJob={batchJob}
-        onUpdateBatch={handleUpdateBatch}
-        onResetBatch={handleResetBatch}
+      <PageHeader
+        title="Không Gian Quản Lý Sàng Lọc Phòng Khám (Clinic Portal)"
+        subtitle="Quản trị chiến dịch tầm soát vi mạch số lượng lớn, phân công bác sĩ và thống kê lâm sàng."
+        badge={
+          <span className="rounded-full bg-slate-50 border border-clinical-border px-2.5 py-1 text-xs font-semibold text-clinical-text">
+            Bệnh viện Chợ Rẫy
+          </span>
+        }
       />
+
+      {activeView === 'bulk-batch' && (
+        <div className="space-y-6">
+          <ClinicProfileSection />
+          <ClinicBatchProcessing batchJob={batchJob} onUpdateBatch={handleUpdateBatchJob} />
+        </div>
+      )}
+
+      {activeView === 'doctors-manage' && <ClinicDoctorsSection />}
+
+      {activeView === 'credit-package' && (
+        <Card padding="lg" className="space-y-4 text-center py-12">
+          <CreditCard className="w-12 h-12 text-brand-600 mx-auto" />
+          <h3 className="text-base font-bold text-clinical-text">Gói Dịch Vụ Cơ Sở & Hạn Mức Khám</h3>
+          <p className="text-xs text-clinical-text-muted max-w-md mx-auto">
+            Quản lý dung lượng lượt khám tầm soát hàng loạt và gia hạn hợp đồng chiến dịch phòng khám.
+          </p>
+        </Card>
+      )}
+
+      {activeView === 'campaign-analytics' && (
+        <ClinicCampaignAnalytics />
+      )}
     </div>
   );
 };

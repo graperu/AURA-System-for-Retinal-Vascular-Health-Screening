@@ -9,9 +9,8 @@ import {
   RotateCcw,
   Target,
   Info,
-  Maximize2,
-  CheckCircle2,
 } from 'lucide-react';
+import { Card } from './ui/Card';
 
 interface InteractiveCDSViewerProps {
   analysisResult: AIRiskResult;
@@ -28,34 +27,36 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
   const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
 
-  const anomalies = analysisResult.annotatedMap.detectedAnomalies;
+  const anomalies = analysisResult.annotatedMap.detectedAnomalies || [];
+  const rawImage = analysisResult.imageUrl || '/assets/images/fundus_original.png';
+  const heatmapImg = analysisResult.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.png';
 
   return (
-    <div className="bg-white border border-[#CCFBF1] rounded-2xl p-6 shadow-medical-md space-y-4">
+    <Card padding="md" className="space-y-4">
       {/* Header Toolbar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-clinical-border pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-[#134E4A] flex items-center gap-2">
-              <Eye className="w-5 h-5 text-[#0891B2]" />
-              Bàn Chẩn Đoán Tương Tác CDS (Side-by-Side Fundus & Heatmap Viewer)
+            <h2 className="text-base sm:text-lg font-bold text-clinical-text flex items-center gap-2">
+              <Eye className="w-5 h-5 text-brand-600" />
+              Bàn Chẩn Đoán Tương Tác CDS (Fundus & Grad-CAM Heatmap Viewer)
             </h2>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#F0FDFA] text-[#0891B2] font-semibold border border-[#99F6E4]">
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold border border-clinical-border">
               {selectedEye}
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            So sánh trực quan ảnh võng mạc gốc và lớp phủ AI Heatmap phân đoạn phân nhánh động-tĩnh mạch.
+          <p className="text-xs text-clinical-text-muted mt-0.5">
+            Bản đồ chú ý AI (Grad-CAM) làm nổi bật các vùng ảnh ảnh hưởng nhiều đến dự đoán vi mạch võng mạc.
           </p>
         </div>
 
         {/* View Controls */}
         <div className="flex items-center gap-3 flex-wrap">
           {/* Zoom Controls */}
-          <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
+          <div className="flex items-center bg-slate-50 rounded-lg p-1 border border-clinical-border">
             <button
               onClick={() => setZoomLevel((z) => Math.max(0.8, z - 0.2))}
-              className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors"
+              className="p-1 text-slate-600 hover:text-brand-600 transition-colors"
               title="Thu nhỏ"
             >
               <ZoomOut className="w-4 h-4" />
@@ -65,15 +66,15 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             </span>
             <button
               onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
-              className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors"
+              className="p-1 text-slate-600 hover:text-brand-600 transition-colors"
               title="Phóng to"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
             <button
               onClick={() => setZoomLevel(1.0)}
-              className="p-1 text-slate-400 hover:text-slate-700 transition-colors ml-1 border-l border-slate-200 pl-1.5"
-              title="Đặt lại"
+              className="p-1 text-slate-400 hover:text-slate-700 transition-colors ml-1 border-l border-clinical-border pl-1.5"
+              title="Đặt lại zoom"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -84,8 +85,8 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             onClick={() => setShowVesselsOverlay(!showVesselsOverlay)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
               showVesselsOverlay
-                ? 'bg-[#0891B2] text-white border-[#0891B2]'
-                : 'bg-slate-50 text-slate-600 border-slate-200'
+                ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                : 'bg-slate-50 text-slate-600 border-clinical-border'
             }`}
           >
             <Layers className="w-4 h-4" />
@@ -95,10 +96,10 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
       </div>
 
       {/* Heatmap Opacity & Controls Bar */}
-      <div className="bg-[#F0FDFA] p-3 rounded-xl border border-[#CCFBF1] flex flex-wrap items-center justify-between gap-4 text-xs">
+      <div className="bg-slate-50 p-3 rounded-xl border border-clinical-border flex flex-wrap items-center justify-between gap-4 text-xs">
         <div className="flex items-center gap-3 flex-1 min-w-[240px]">
-          <Sliders className="w-4 h-4 text-[#0891B2]" />
-          <span className="font-semibold text-[#134E4A]">Độ mờ AI Heatmap Opacity:</span>
+          <Sliders className="w-4 h-4 text-brand-600" />
+          <span className="font-semibold text-clinical-text whitespace-nowrap">Độ Mờ Heatmap:</span>
           <input
             type="range"
             min="0"
@@ -106,163 +107,135 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             step="0.05"
             value={heatmapOpacity}
             onChange={(e) => setHeatmapOpacity(parseFloat(e.target.value))}
-            className="w-36 accent-[#0891B2] cursor-pointer"
+            className="w-full accent-brand-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
           />
-          <span className="font-mono-data font-bold text-[#0891B2]">
-            {Math.round(heatmapOpacity * 100)}%
+          <span className="font-mono-data font-bold text-slate-700 w-10 text-right">
+            {(heatmapOpacity * 100).toFixed(0)}%
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-xs font-medium">
-          <span className="flex items-center gap-1.5 text-[#DC2626]">
-            <span className="w-3 h-1 bg-[#DC2626] rounded-full inline-block"></span> Động mạch (Artery)
-          </span>
-          <span className="flex items-center gap-1.5 text-[#2563EB]">
-            <span className="w-3 h-1 bg-[#2563EB] rounded-full inline-block"></span> Tĩnh mạch (Vein)
-          </span>
-          <span className="flex items-center gap-1.5 text-[#EAB308]">
-            <span className="w-2.5 h-2.5 rounded-full border-2 border-[#EAB308] inline-block"></span> Tổn thương ROI
-          </span>
+        <div className="flex items-center gap-4 text-[11px] text-clinical-text-secondary border-l border-clinical-border pl-4">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showAnomalies}
+              onChange={(e) => setShowAnomalies(e.target.checked)}
+              className="rounded text-brand-600 focus:ring-brand-500"
+            />
+            <span className="font-medium">Hiển thị tọa độ tổn thương ({anomalies.length})</span>
+          </label>
         </div>
       </div>
 
-      {/* Side-by-Side Viewer Grid */}
+      {/* Dual Side-by-Side Canvas Viewport */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Left Pane: Original Fundus Image */}
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-950 relative group min-h-[380px] flex items-center justify-center">
-          <div className="absolute top-3 left-3 bg-slate-900/90 backdrop-blur-md text-white text-[11px] px-3 py-1 rounded-md border border-slate-700 font-semibold z-10 flex items-center gap-1.5 shadow-lg">
-            <Eye className="w-3.5 h-3.5 text-cyan-400" />
-            Ảnh Gốc Fundus (Original High-Res Retinal Photo)
+        {/* Left: Original Fundus Retinal Image */}
+        <div className="relative rounded-xl overflow-hidden border border-clinical-border bg-slate-950 flex flex-col items-center justify-center min-h-[380px]">
+          <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700">
+            Ảnh Gốc Võng Mạc (True Color Fundus)
           </div>
 
           <div
-            className="w-full h-full flex items-center justify-center transition-transform duration-200 relative p-2"
+            className="transition-transform duration-150 overflow-hidden flex items-center justify-center p-2"
             style={{ transform: `scale(${zoomLevel})` }}
           >
-            {/* Real High-Resolution Medical Retinal Fundus Scan Image (User's Uploaded Image) */}
-            <div className="relative max-w-[380px] w-full aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-slate-800 bg-black">
-              <img
-                src={analysisResult.imageUrl || "/assets/images/fundus_original.png"}
-                alt="Retinal Fundus Original Scan"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/assets/images/fundus_original.png';
-                }}
-              />
-
-              {/* Anatomy Indicators */}
-              <div className="absolute top-[48%] right-[22%] w-10 h-10 border-2 border-yellow-300/60 rounded-full animate-ping pointer-events-none" />
-              <div className="absolute top-[48%] right-[22%] bg-yellow-300/30 backdrop-blur-xs text-yellow-200 text-[9px] font-mono-data px-1.5 py-0.5 rounded border border-yellow-400 z-10 pointer-events-none">
-                Disc
-              </div>
-              <div className="absolute top-[52%] left-[38%] bg-amber-900/60 text-amber-200 text-[9px] font-mono-data px-1.5 py-0.5 rounded border border-amber-500 z-10 pointer-events-none">
-                Macula
-              </div>
-            </div>
+            <img
+              src={rawImage}
+              alt="Ảnh võng mạc gốc"
+              className="max-h-[350px] w-auto object-contain rounded-lg shadow-md"
+            />
           </div>
         </div>
 
-        {/* Right Pane: AI Heatmap & Vessel Segmentation Overlay */}
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-950 relative group min-h-[380px] flex items-center justify-center">
-          <div className="absolute top-3 left-3 bg-[#0891B2]/95 backdrop-blur-md text-white text-[11px] px-3 py-1 rounded-md border border-cyan-400 font-semibold z-10 flex items-center gap-1.5 shadow-lg">
-            <Layers className="w-3.5 h-3.5 text-yellow-300" />
-            Lớp Phủ AI Vessel Segmentation & Heatmap
+        {/* Right: AI Heatmap & Vessel Anomaly Overlay */}
+        <div className="relative rounded-xl overflow-hidden border border-clinical-border bg-slate-950 flex flex-col items-center justify-center min-h-[380px]">
+          <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+            Lớp Phủ AI Attention (Grad-CAM XAI)
           </div>
 
           <div
-            className="w-full h-full flex items-center justify-center transition-transform duration-200 relative p-2"
+            className="relative transition-transform duration-150 overflow-hidden flex items-center justify-center p-2"
             style={{ transform: `scale(${zoomLevel})` }}
           >
-            {/* Real AI Heatmap Vessel Overlay Image (Matching Uploaded Image) */}
-            <div className="relative max-w-[380px] w-full aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-cyan-700 bg-black">
-              {/* Underlying Base Image */}
-              <img
-                src={analysisResult.imageUrl || "/assets/images/fundus_original.png"}
-                alt="Base Image"
-                className="w-full h-full object-cover absolute inset-0"
-              />
-              {/* Dynamic Grad-CAM Heatmap Layer with Opacity */}
-              <img
-                src={analysisResult.annotatedMap.heatmapUrl || "/assets/images/fundus_heatmap.png"}
-                alt="AI Retinal Heatmap Overlay"
-                className="w-full h-full object-cover absolute inset-0 transition-opacity duration-300"
-                style={{ opacity: Math.max(0.05, heatmapOpacity) }}
-              />
+            {/* Base Image */}
+            <img
+              src={rawImage}
+              alt="Lớp nền võng mạc"
+              className="max-h-[350px] w-auto object-contain rounded-lg"
+            />
 
-              {/* Interactive SVG ROI Overlay for Anomalies */}
-              <svg viewBox="0 0 400 400" className="absolute inset-0 w-full h-full pointer-events-auto">
-                {showAnomalies &&
-                  anomalies.map((ano) => (
-                    <g
-                      key={ano.id}
-                      onClick={() => setActiveAnomaly(ano)}
-                      className="cursor-pointer group/ano"
-                    >
-                      <rect
-                        x={ano.coordinates.x * 3.5}
-                        y={ano.coordinates.y * 3.5}
-                        width={ano.coordinates.width * 4}
-                        height={ano.coordinates.height * 4}
-                        fill="rgba(234, 179, 8, 0.25)"
-                        stroke="#facc15"
-                        strokeWidth="2.5"
-                        strokeDasharray="4 2"
-                        className="animate-pulse group-hover/ano:stroke-red-500 group-hover/ano:fill-red-500/40 transition-all"
-                      />
-                      <circle
-                        cx={ano.coordinates.x * 3.5 + 4}
-                        cy={ano.coordinates.y * 3.5 + 4}
-                        r="4"
-                        fill="#ef4444"
-                      />
-                      <text
-                        x={ano.coordinates.x * 3.5}
-                        y={ano.coordinates.y * 3.5 - 4}
-                        fill="#fef08a"
-                        fontSize="10"
-                        fontWeight="bold"
-                        fontFamily="monospace"
-                      >
-                        {ano.type} ({(ano.confidence * 100).toFixed(0)}%)
-                      </text>
-                    </g>
-                  ))}
-              </svg>
-            </div>
+            {/* Heatmap Overlay */}
+            <img
+              src={heatmapImg}
+              alt="AI Grad-CAM Heatmap"
+              className="absolute inset-0 m-auto max-h-[350px] w-auto object-contain rounded-lg pointer-events-none cds-canvas-overlay transition-opacity duration-150"
+              style={{ opacity: heatmapOpacity }}
+            />
+
+            {/* Detected Anomaly Markers */}
+            {showAnomalies &&
+              anomalies.map((anomaly) => (
+                <button
+                  key={anomaly.id}
+                  onClick={() => setActiveAnomaly(anomaly)}
+                  className="absolute z-20 flex items-center justify-center rounded-full border-2 border-amber-500 bg-amber-500/40 text-white transition-transform hover:scale-125 focus:outline-none"
+                  style={{
+                    left: `${anomaly.coordinates.x}%`,
+                    top: `${anomaly.coordinates.y}%`,
+                    width: `${Math.max(24, anomaly.coordinates.width)}px`,
+                    height: `${Math.max(24, anomaly.coordinates.height)}px`,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                  title={`${anomaly.type} (${anomaly.description})`}
+                >
+                  <Target className="w-3.5 h-3.5" />
+                </button>
+              ))}
           </div>
         </div>
       </div>
 
-      {/* ROI Anomalies Selection Cards */}
-      <div className="pt-2">
-        <h4 className="text-xs font-bold text-[#134E4A] mb-2 uppercase tracking-wider font-mono-data">
-          Các Vùng Bất Thường Phát Hiện Bởi AI (Detected ROI Anomalies):
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {anomalies.map((ano) => (
-            <div
-              key={ano.id}
-              onClick={() => setActiveAnomaly(ano)}
-              className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                activeAnomaly?.id === ano.id
-                  ? 'bg-[#F0FDFA] border-[#0891B2] ring-2 ring-[#0891B2]/20 shadow-sm'
-                  : 'bg-slate-50 border-slate-200 hover:border-[#0891B2]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-[#134E4A] flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5 text-[#DC2626]" />
-                  {ano.type}
-                </span>
-                <span className="text-[11px] font-mono-data font-semibold text-[#0891B2]">
-                  Conf: {(ano.confidence * 100).toFixed(0)}%
+      {/* Anomaly Detail Drawer / Info Box */}
+      {activeAnomaly && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start justify-between gap-3 text-xs animate-in fade-in">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-bold text-amber-950 flex items-center gap-2">
+                <span>{anomalyNameMap(activeAnomaly.type)}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold uppercase">
+                  Độ tin cậy: {(activeAnomaly.confidence * 100).toFixed(0)}%
                 </span>
               </div>
-              <p className="text-xs text-slate-600 line-clamp-2">{ano.description}</p>
+              <p className="text-amber-800 mt-0.5">{activeAnomaly.description}</p>
             </div>
-          ))}
+          </div>
+          <button
+            onClick={() => setActiveAnomaly(null)}
+            className="text-amber-700 hover:text-amber-950 font-bold p-1"
+          >
+            ✕
+          </button>
         </div>
-      </div>
-    </div>
+      )}
+    </Card>
   );
 };
+
+function anomalyNameMap(type: string): string {
+  switch (type) {
+    case 'Microaneurysm':
+      return 'Vi phình mạch (Microaneurysm)';
+    case 'Hemorrhage':
+      return 'Xuất huyết võng mạc (Hemorrhage)';
+    case 'Hard_Exudate':
+      return 'Xuất tiết cứng (Hard Exudate)';
+    case 'AV_Nipping':
+      return 'Dấu hiệu bắt chéo Động-Tĩnh mạch (A/V Nipping)';
+    case 'Focal_Narrowing':
+      return 'Hẹp động mạch cục bộ (Focal Narrowing)';
+    default:
+      return type;
+  }
+}

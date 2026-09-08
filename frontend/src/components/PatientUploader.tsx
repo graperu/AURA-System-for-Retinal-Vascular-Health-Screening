@@ -5,13 +5,13 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  RefreshCw,
   Sparkles,
-  AlertTriangle,
   X,
   FileCheck,
 } from 'lucide-react';
 import { FundusAnalysisRequest, PatientProfile } from '../types/cds';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
 
 interface PatientUploaderProps {
   activePatient: PatientProfile;
@@ -29,7 +29,6 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   isAnalyzing,
   analysisProgress,
 }) => {
-  // Eye selection mode: 'Both_OD_OS' | 'Right_OD' | 'Left_OS'
   const [eyeMode, setEyeMode] = useState<'Both_OD_OS' | 'Right_OD' | 'Left_OS'>('Both_OD_OS');
   const [scanType, setScanType] = useState<'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan'>('Fundus_Macula');
   const [isAnonymized, setIsAnonymized] = useState(true);
@@ -48,9 +47,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   const odInputRef = useRef<HTMLInputElement>(null);
   const osInputRef = useRef<HTMLInputElement>(null);
 
-  // Validation hàm kiểm tra định dạng và kích thước file
   const validateFile = (file: File): boolean => {
-    // 1. Kiểm tra kích thước file
     if (file.size > MAX_FILE_SIZE_BYTES) {
       setUploadError(
         `Tệp "${file.name}" vượt quá dung lượng tối đa cho phép (15MB). Dung lượng hiện tại: ${(
@@ -66,7 +63,6 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       return false;
     }
 
-    // 2. Kiểm tra phần mở rộng file (Extension)
     const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       setUploadError(
@@ -99,13 +95,11 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Nạp ảnh mẫu chuẩn khi người dùng muốn thử nghiệm demo
   const handleLoadDemoSample = () => {
     setUploadError('');
     const demoUrl = '/assets/images/fundus_original.png';
     setOdPreviewUrl(demoUrl);
     setOsPreviewUrl(demoUrl);
-    // Tạo dummy File object với metadata
     const dummyFileOD = new File(['[AURA_DEMO_OD_DATA]'], 'fundus_demo_OD_sample.png', {
       type: 'image/png',
       lastModified: Date.now(),
@@ -125,7 +119,6 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     const hasOD = Boolean(odFile);
     const hasOS = Boolean(osFile);
 
-    // Kiểm tra tính hợp lệ: bắt buộc phải có file thực sự được chọn
     if (eyeMode === 'Both_OD_OS' && !hasOD && !hasOS) {
       setUploadError(
         'Vui lòng tải lên ít nhất một ảnh chụp võng mạc (Mắt Phải OD hoặc Mắt Trái OS) trước khi bắt đầu phân tích AI.'
@@ -141,7 +134,6 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       return;
     }
 
-    // Xác định chế độ thực tế: nếu chọn Cả 2 mắt nhưng chỉ tải 1 bên thì chỉ phân tích bên đó
     const isDual = eyeMode === 'Both_OD_OS' && hasOD && hasOS;
     const effectiveEyePosition: 'Both_OD_OS' | 'Right_OD' | 'Left_OS' = isDual
       ? 'Both_OD_OS'
@@ -174,332 +166,291 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   };
 
   return (
-    <div className="bg-white border border-[#CCFBF1] rounded-2xl p-6 shadow-medical-md space-y-6">
+    <Card padding="lg" className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-clinical-border pb-4">
         <div>
-          <h2 className="text-lg font-bold text-[#134E4A] flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-clinical-text flex items-center gap-2">
             <UploadCloud className="w-5 h-5 text-[#0891B2]" />
-            Tải ảnh võng mạc khám sàng lọc (FR-2: 2 Mắt OD & OS)
+            Tải Ảnh Võng Mạc Khám Sàng Lọc
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Hỗ trợ DICOM (.dcm), PNG, JPEG, TIFF (tối đa 15MB/ảnh). Sàng lọc mạch máu võng mạc và đánh giá rủi ro tim mạch.
+            Hỗ trợ ảnh PNG, JPG, DICOM (tối đa 15MB). Dữ liệu được bảo mật mã hóa an toàn.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={handleLoadDemoSample}
-            className="text-[11px] font-bold text-[#0891B2] hover:text-[#0E7490] px-2.5 py-1.5 rounded-lg bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 transition-colors flex items-center gap-1"
-            title="Nạp nhanh ảnh mẫu đáy mắt để thử nghiệm"
+            icon={<Sparkles className="w-3.5 h-3.5 text-[#0891B2]" />}
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#0891B2]" />
-            Dùng ảnh mẫu AURA
-          </button>
-          <div className="flex items-center gap-1.5 text-xs bg-[#F0FDFA] px-3 py-1.5 rounded-lg border border-[#99F6E4]">
-            <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
-            <span className="font-semibold text-[#134E4A]">HIPAA An Toàn</span>
+            Dùng ảnh mẫu
+          </Button>
+          <div className="flex items-center gap-1 text-xs bg-[#F0FDFA] text-[#0891B2] px-2.5 py-1.5 rounded-xl border border-[#CCFBF1] font-semibold">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Chuẩn bảo mật</span>
           </div>
         </div>
       </div>
 
-      {/* Thông báo lỗi validation nếu có */}
       {uploadError && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-800 flex items-start justify-between gap-2.5 animate-fadeIn">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <span>{uploadError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setUploadError('')}
-            className="text-rose-500 hover:text-rose-800"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+          <span>{uploadError}</span>
         </div>
       )}
 
-      {/* Form cấu hình tải ảnh */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Selection Configuration */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-clinical-border">
+          {/* Eye Selection Mode */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Chế độ chụp mắt (Vị trí nhãn cầu)
+            <label className="block text-xs font-semibold text-clinical-text mb-1.5">
+              Chọn mắt sàng lọc
             </label>
             <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setEyeMode('Both_OD_OS')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-bold border transition-all text-center ${
-                  eyeMode === 'Both_OD_OS'
-                    ? 'bg-[#0891B2] text-white border-[#0891B2] shadow-2xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                Cả 2 mắt (OD + OS)
-              </button>
-              <button
-                type="button"
-                onClick={() => setEyeMode('Right_OD')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-bold border transition-all text-center ${
-                  eyeMode === 'Right_OD'
-                    ? 'bg-[#0891B2] text-white border-[#0891B2] shadow-2xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                Mắt Phải (OD)
-              </button>
-              <button
-                type="button"
-                onClick={() => setEyeMode('Left_OS')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-bold border transition-all text-center ${
-                  eyeMode === 'Left_OS'
-                    ? 'bg-[#0891B2] text-white border-[#0891B2] shadow-2xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                Mắt Trái (OS)
-              </button>
+              {[
+                { id: 'Both_OD_OS', label: 'Cả 2 Mắt (OD & OS)' },
+                { id: 'Right_OD', label: 'Mắt Phải (OD)' },
+                { id: 'Left_OS', label: 'Mắt Trái (OS)' },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setEyeMode(opt.id as any)}
+                  className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-colors ${
+                    eyeMode === opt.id
+                      ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                      : 'bg-white text-clinical-text-secondary border-clinical-border hover:bg-slate-100'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
+          {/* Scan Type */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Loại ảnh chụp y tế
+            <label className="block text-xs font-semibold text-clinical-text mb-1.5">
+              Loại ảnh chụp đáy mắt
             </label>
             <select
               value={scanType}
               onChange={(e) => setScanType(e.target.value as any)}
-              className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:ring-2 focus:ring-[#0891B2] outline-none"
+              className="w-full h-9 px-3 text-xs rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
-              <option value="Fundus_Macula">Fundus — Cực Sau Hoàng Điểm (Macula-centered)</option>
-              <option value="Fundus_OpticDisc">Fundus — Đĩa Thị (Optic Disc-centered)</option>
-              <option value="OCT_Scan">OCT — Cắt Lớp Quang Học (Optical Coherence Tomography)</option>
+              <option value="Fundus_Macula">Ảnh màu đáy mắt hoàng điểm (Fundus Color - Macula Centered)</option>
+              <option value="Fundus_OpticDisc">Ảnh màu đáy mắt gai thị (Fundus Color - Optic Disc)</option>
+              <option value="OCT_Scan">Chụp cắt lớp võng mạc (Optical Coherence Tomography - OCT)</option>
             </select>
           </div>
         </div>
 
-        {/* Dropzones Grid */}
-        <div className={`grid gap-4 ${eyeMode === 'Both_OD_OS' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-          {/* Right Eye (OD) Dropzone */}
+        {/* Dual Upload Area */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Right Eye (OD) */}
           {(eyeMode === 'Both_OD_OS' || eyeMode === 'Right_OD') && (
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setOdDragOver(true);
-              }}
-              onDragLeave={() => setOdDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setOdDragOver(false);
-                if (e.dataTransfer.files && e.dataTransfer.files[0]) handleOdFile(e.dataTransfer.files[0]);
-              }}
-              onClick={() => odInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all relative ${
-                odDragOver
-                  ? 'border-[#0891B2] bg-[#F0FDFA]'
-                  : odFile
-                  ? 'border-emerald-500 bg-emerald-50/30'
-                  : 'border-slate-300 bg-slate-50/50 hover:bg-slate-100/80'
-              }`}
-            >
-              <input
-                type="file"
-                ref={odInputRef}
-                onChange={(e) => e.target.files?.[0] && handleOdFile(e.target.files[0])}
-                accept=".dcm,.png,.jpg,.jpeg,.tif,.tiff"
-                className="hidden"
-              />
-              <div className="absolute top-3 left-3 bg-[#0891B2] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                Mắt Phải (OD)
-              </div>
-              {odFile && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOdFile(null);
-                    setOdPreviewUrl('');
-                    if (odInputRef.current) odInputRef.current.value = '';
-                  }}
-                  className="absolute top-2.5 right-2.5 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 z-10 shadow-2xs"
-                  title="Hủy chọn ảnh Mắt Phải"
-                >
-                  <X className="w-3 h-3" />
-                  Bỏ ảnh
-                </button>
-              )}
-
-              <div className="flex flex-col items-center justify-center gap-2.5 pt-4">
-                {odPreviewUrl ? (
-                  <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-[#0891B2] shadow-sm bg-slate-950 flex items-center justify-center">
-                    <img src={odPreviewUrl} alt="OD Preview" className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 rounded-2xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-[#0891B2]">
-                    <UploadCloud className="w-8 h-8" />
-                  </div>
-                )}
-
-                {odFile ? (
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-1">
-                      <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Đã chọn: {odFile.name}
-                    </span>
-                    <span className="text-[11px] text-slate-500 block font-mono-data">
-                      {(odFile.size / 1024 / 1024).toFixed(2)} MB • Nhấp để đổi tệp
-                    </span>
-                  </div>
-                ) : (
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-slate-800 flex items-center justify-center gap-1">
-                      <UploadCloud className="w-4 h-4 text-[#0891B2]" /> Tải ảnh Mắt Phải (OD)
-                    </span>
-                    <span className="text-[11px] text-slate-500 block">
-                      Kéo thả ảnh hoặc nhấp để duyệt file từ máy tính
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Left Eye (OS) Dropzone */}
-          {(eyeMode === 'Both_OD_OS' || eyeMode === 'Left_OS') && (
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setOsDragOver(true);
-              }}
-              onDragLeave={() => setOsDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setOsDragOver(false);
-                if (e.dataTransfer.files && e.dataTransfer.files[0]) handleOsFile(e.dataTransfer.files[0]);
-              }}
-              onClick={() => osInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all relative ${
-                osDragOver
-                  ? 'border-[#0D9488] bg-[#F0FDFA]'
-                  : osFile
-                  ? 'border-emerald-500 bg-emerald-50/30'
-                  : 'border-slate-300 bg-slate-50/50 hover:bg-slate-100/80'
-              }`}
-            >
-              <input
-                type="file"
-                ref={osInputRef}
-                onChange={(e) => e.target.files?.[0] && handleOsFile(e.target.files[0])}
-                accept=".dcm,.png,.jpg,.jpeg,.tif,.tiff"
-                className="hidden"
-              />
-              <div className="absolute top-3 left-3 bg-[#0D9488] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                Mắt Trái (OS)
-              </div>
-              {osFile && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOsFile(null);
-                    setOsPreviewUrl('');
-                    if (osInputRef.current) osInputRef.current.value = '';
-                  }}
-                  className="absolute top-2.5 right-2.5 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 z-10 shadow-2xs"
-                  title="Hủy chọn ảnh Mắt Trái"
-                >
-                  <X className="w-3 h-3" />
-                  Bỏ ảnh
-                </button>
-              )}
-
-              <div className="flex flex-col items-center justify-center gap-2.5 pt-4">
-                {osPreviewUrl ? (
-                  <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-[#0D9488] shadow-sm bg-slate-950 flex items-center justify-center">
-                    <img src={osPreviewUrl} alt="OS Preview" className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-[#0D9488]">
-                    <UploadCloud className="w-8 h-8" />
-                  </div>
-                )}
-
-                {osFile ? (
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-1">
-                      <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Đã chọn: {osFile.name}
-                    </span>
-                    <span className="text-[11px] text-slate-500 block font-mono-data">
-                      {(osFile.size / 1024 / 1024).toFixed(2)} MB • Nhấp để đổi tệp
-                    </span>
-                  </div>
-                ) : (
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-slate-800 flex items-center justify-center gap-1">
-                      <UploadCloud className="w-4 h-4 text-[#0D9488]" /> Tải ảnh Mắt Trái (OS)
-                    </span>
-                    <span className="text-[11px] text-slate-500 block">
-                      Kéo thả ảnh hoặc nhấp để duyệt file từ máy tính
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* HIPAA Anonymization Checkbox */}
-        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isAnonymized}
-              onChange={(e) => setIsAnonymized(e.target.checked)}
-              className="rounded border-slate-300 text-[#0891B2] focus:ring-[#0891B2]"
-            />
-            <span className="font-semibold text-slate-800">
-              Tự động ẩn danh hóa thông tin định danh y tế (HIPAA Safe Harbor De-identification)
-            </span>
-          </label>
-          <span className="text-[11px] text-slate-500">Mã hóa SHA-256</span>
-        </div>
-
-        {/* Action Button & Progress */}
-        <div className="pt-2">
-          {isAnalyzing ? (
-            <div className="space-y-2 p-4 bg-[#F0FDFA] border border-[#CCFBF1] rounded-xl">
-              <div className="flex justify-between items-center text-xs font-bold text-[#134E4A]">
-                <span className="flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-[#0891B2]" />
-                  {analysisProgress.status}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-clinical-text flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-brand-600" />
+                  Mắt Phải - OD (Oculus Dexter)
                 </span>
-                <span className="font-mono-data">{analysisProgress.percent}%</span>
+                {odFile && (
+                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Đã chọn
+                  </span>
+                )}
               </div>
-              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-[#0891B2] to-[#0D9488] h-full transition-all duration-300 rounded-full"
-                  style={{ width: `${analysisProgress.percent}%` }}
+
+              <div
+                onDragOver={(e) => { e.preventDefault(); setOdDragOver(true); }}
+                onDragLeave={() => setOdDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setOdDragOver(false);
+                  if (e.dataTransfer.files[0]) handleOdFile(e.dataTransfer.files[0]);
+                }}
+                onClick={() => odInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                  odDragOver
+                    ? 'border-brand-600 bg-brand-50'
+                    : odPreviewUrl
+                    ? 'border-emerald-300 bg-emerald-50/20'
+                    : 'border-clinical-border hover:border-brand-400 bg-white'
+                }`}
+              >
+                <input
+                  type="file"
+                  ref={odInputRef}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleOdFile(e.target.files[0]);
+                  }}
+                  accept=".png,.jpg,.jpeg,.tif,.tiff,.dcm"
+                  className="hidden"
                 />
+
+                {odPreviewUrl ? (
+                  <div className="space-y-3">
+                    <img
+                      src={odPreviewUrl}
+                      alt="Xem trước mắt phải"
+                      className="max-h-48 mx-auto rounded-lg object-contain border border-clinical-border shadow-xs"
+                    />
+                    <div className="text-xs text-slate-600 flex items-center justify-center gap-2">
+                      <FileCheck className="w-4 h-4 text-emerald-600" />
+                      <span className="font-medium truncate max-w-[200px]">{odFile?.name || 'Ảnh OD'}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOdFile(null);
+                          setOdPreviewUrl('');
+                        }}
+                        className="text-red-600 hover:text-red-700 p-1"
+                        title="Xóa ảnh này"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 py-4">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-500">
+                      <FileImage className="w-5 h-5" />
+                    </div>
+                    <div className="text-xs font-semibold text-clinical-text">
+                      Kéo thả ảnh Mắt Phải (OD) hoặc bấm tải lên
+                    </div>
+                    <p className="text-[11px] text-clinical-text-muted">
+                      PNG, JPG, DICOM (tối đa 15MB)
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-          ) : (
-            <button
-              type="submit"
-              className="w-full py-3 px-4 bg-gradient-to-r from-[#0891B2] to-[#0D9488] hover:from-[#0E7490] hover:to-[#0F766E] text-white font-bold rounded-xl text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-98"
-            >
-              <Sparkles className="w-4 h-4" />
-              {eyeMode === 'Both_OD_OS' && odFile && osFile
-                ? 'Bắt Đầu Phân Tích Mạch Máu Võng Mạc AI (Cả 2 Mắt OD & OS)'
-                : (eyeMode === 'Left_OS' || (!odFile && osFile))
-                ? 'Bắt Đầu Phân Tích Mạch Máu Võng Mạc AI (Mắt Trái OS)'
-                : 'Bắt Đầu Phân Tích Mạch Máu Võng Mạc AI (Mắt Phải OD)'}
-            </button>
           )}
+
+          {/* Left Eye (OS) */}
+          {(eyeMode === 'Both_OD_OS' || eyeMode === 'Left_OS') && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-clinical-text flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-teal-600" />
+                  Mắt Trái - OS (Oculus Sinister)
+                </span>
+                {osFile && (
+                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Đã chọn
+                  </span>
+                )}
+              </div>
+
+              <div
+                onDragOver={(e) => { e.preventDefault(); setOsDragOver(true); }}
+                onDragLeave={() => setOsDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setOsDragOver(false);
+                  if (e.dataTransfer.files[0]) handleOsFile(e.dataTransfer.files[0]);
+                }}
+                onClick={() => osInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                  osDragOver
+                    ? 'border-brand-600 bg-brand-50'
+                    : osPreviewUrl
+                    ? 'border-emerald-300 bg-emerald-50/20'
+                    : 'border-clinical-border hover:border-brand-400 bg-white'
+                }`}
+              >
+                <input
+                  type="file"
+                  ref={osInputRef}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleOsFile(e.target.files[0]);
+                  }}
+                  accept=".png,.jpg,.jpeg,.tif,.tiff,.dcm"
+                  className="hidden"
+                />
+
+                {osPreviewUrl ? (
+                  <div className="space-y-3">
+                    <img
+                      src={osPreviewUrl}
+                      alt="Xem trước mắt trái"
+                      className="max-h-48 mx-auto rounded-lg object-contain border border-clinical-border shadow-xs"
+                    />
+                    <div className="text-xs text-slate-600 flex items-center justify-center gap-2">
+                      <FileCheck className="w-4 h-4 text-emerald-600" />
+                      <span className="font-medium truncate max-w-[200px]">{osFile?.name || 'Ảnh OS'}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOsFile(null);
+                          setOsPreviewUrl('');
+                        }}
+                        className="text-red-600 hover:text-red-700 p-1"
+                        title="Xóa ảnh này"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 py-4">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-500">
+                      <FileImage className="w-5 h-5" />
+                    </div>
+                    <div className="text-xs font-semibold text-clinical-text">
+                      Kéo thả ảnh Mắt Trái (OS) hoặc bấm tải lên
+                    </div>
+                    <p className="text-[11px] text-clinical-text-muted">
+                      PNG, JPG, DICOM (tối đa 15MB)
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Progress Display */}
+        {isAnalyzing && (
+          <div className="bg-brand-50/60 p-4 rounded-xl border border-brand-200 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-brand-900">
+                {analysisProgress.status || 'Đang thực hiện phân tích vi mạch AI...'}
+              </span>
+              <span className="font-mono-data font-bold text-brand-700">
+                {analysisProgress.percent}%
+              </span>
+            </div>
+            <div className="w-full bg-brand-100 h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-brand-600 h-full transition-all duration-300 rounded-full"
+                style={{ width: `${analysisProgress.percent}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Action Button */}
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <Button
+            type="submit"
+            size="lg"
+            loading={isAnalyzing}
+            disabled={isAnalyzing || (!odFile && !osFile && !odPreviewUrl && !osPreviewUrl)}
+            icon={<Sparkles className="w-4 h-4" />}
+          >
+            {isAnalyzing ? 'Đang phân tích vi mạch AI...' : 'Bắt đầu phân tích AI'}
+          </Button>
         </div>
       </form>
-    </div>
+    </Card>
   );
 };
