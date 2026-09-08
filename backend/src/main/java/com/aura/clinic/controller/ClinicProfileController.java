@@ -1,5 +1,6 @@
 package com.aura.clinic.controller;
 
+import com.aura.admin.dto.UpdateClinicAdminRequest;
 import com.aura.auth.exception.AuthException;
 import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.clinic.dto.ClinicProfileResponse;
@@ -56,6 +57,16 @@ public class ClinicProfileController {
     List<ClinicProfileResponse> list =
         clinicProfileService.getProfilesByStatus(status).stream().map(ClinicProfileResponse::from).toList();
     return ApiResponse.success("Lấy danh sách hồ sơ phòng khám thành công", list);
+  }
+
+  @PutMapping("/api/v1/admin/clinics/{clinicProfileId}")
+  @PreAuthorize("hasRole('ADMIN')")
+  public ApiResponse<ClinicProfileResponse> updateClinicByAdmin(
+      @PathVariable UUID clinicProfileId, @Valid @RequestBody UpdateClinicAdminRequest request) {
+    ClinicProfile profile =
+        clinicProfileService.updateByAdmin(
+            clinicProfileId, request.organizationName(), request.licenseNumber(), request.licenseDocumentUrl());
+    return ApiResponse.success("Đã cập nhật hồ sơ phòng khám", ClinicProfileResponse.from(profile));
   }
 
   @PatchMapping("/api/v1/admin/clinics/{clinicProfileId}/verify")

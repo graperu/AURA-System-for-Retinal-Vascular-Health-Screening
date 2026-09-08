@@ -31,23 +31,31 @@ public class BillingService {
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final PaymentGateway paymentGateway;
+    private final com.aura.notification.service.UserNotificationService userNotificationService;
 
     public BillingService(ServicePackageService servicePackageService,
                            SubscriptionRepository subscriptionRepository,
                            PaymentTransactionRepository paymentTransactionRepository,
                            UserRepository userRepository,
                            UserRoleRepository userRoleRepository,
-                           PaymentGateway paymentGateway) {
+                           PaymentGateway paymentGateway,
+                           com.aura.notification.service.UserNotificationService userNotificationService) {
         this.servicePackageService = servicePackageService;
         this.subscriptionRepository = subscriptionRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
         this.paymentGateway = paymentGateway;
+        this.userNotificationService = userNotificationService;
     }
 
     @Transactional
     public PaymentTransactionResponse purchaseOrRenew(UUID ownerId, Long servicePackageId) {
+        return purchaseOrRenew(ownerId, servicePackageId, "VNPAY");
+    }
+
+    @Transactional
+    public PaymentTransactionResponse purchaseOrRenew(UUID ownerId, Long servicePackageId,String paymentMethod) {
         User owner = userRepository.findById(ownerId).orElseThrow(() -> new UserNotFoundException(ownerId.toString()));
         ServicePackage servicePackage = servicePackageService.findOrThrow(servicePackageId);
 
@@ -61,10 +69,10 @@ public class BillingService {
                 .servicePackage(servicePackage)
                 .amount(servicePackage.getPrice())
                 .status(PaymentStatus.PENDING)
-                .provider("unconfigured")
+                .provider(paymentMethod != null ? paymentMethod : "VNPAY")
                 .build());
 
-        PaymentGateway.GatewayResult result = paymentGateway.charge(owner.getEmail(), servicePackage.getPrice());
+        PaymentGateway.GatewayResult result = paymentGateway.charge(owner.getEmail(), servicePackage.getPrice(),paymentMethod);
         transaction.setProvider(result.providerName());
 
         if (!result.success()) {
@@ -77,11 +85,26 @@ public class BillingService {
         transaction.setStatus(PaymentStatus.SUCCEEDED);
         transaction.setProviderReference(result.providerReference());
         transaction.setPaidAt(LocalDateTime.now());
-        paymentTransactionRepository.save(transaction);
+        PaymentTransaction savedTxn = paymentTransactionRepository.save(transaction);
 
         grantOrExtendCredits(owner, servicePackage);
 
-        return PaymentTransactionResponse.from(transaction);
+        // FR-9: Phát thông báo nạp gói thành công
+        try {
+            userNotificationService.sendNotificationToUser(
+                owner.getId(),
+                "Nạp gói dịch vụ thành công",
+                "Bạn đã thanh toán thành công gói '" + servicePackage.getName() + "'. Cộng thêm "
+                    + servicePackage.getCredits() + " lượt khám vào tài khoản qua cổng " + result.providerName() + ".",
+                "BILLING",
+                "SUCCESS",
+                "/billing"
+            );
+        } catch (Exception e) {
+            // Không làm gián đoạn transaction nếu thông báo lỗi
+        }
+
+        return PaymentTransactionResponse.from(savedTxn);
     }
 
     /** Main dùng bảng UserRole (nhiều role/user), nên kiểm tra scope bằng cách tìm xem
