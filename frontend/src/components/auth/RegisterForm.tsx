@@ -256,7 +256,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
             <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
           ) : (
             <>
-              <img src={googleLogo} alt="Google" className="h-5 w-5 object-contain shrink-0" />
+              <img src={googleLogo || '/assets/sso/google.png'} alt="Google" className="h-5 w-5 object-contain shrink-0" />
               <span>Đăng ký bằng Google</span>
             </>
           )}
