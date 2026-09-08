@@ -25,8 +25,8 @@ public class AiServiceClient {
     private final boolean simulateLocalAiIfOffline;
 
     public AiServiceClient(
-            @Value("${aura.ai-service.url:http://ai-service:8000}") String aiServiceUrl,
-            @Value("${aura.ai-service.simulate-if-offline:true}") boolean simulateLocalAiIfOffline) {
+            @Value("${aura.ai-service.url:http://localhost:8000}") String aiServiceUrl,
+            @Value("${aura.ai-service.simulate-if-offline:false}") boolean simulateLocalAiIfOffline) {
         this.restClient = RestClient.builder()
                 .baseUrl(aiServiceUrl)
                 .build();
