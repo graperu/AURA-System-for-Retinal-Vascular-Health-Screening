@@ -36,6 +36,17 @@ public class Screening {
   @Column(name = "risk_level", length = 32)
   private RiskLevel riskLevel;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "ai_risk_level", length = 32)
+  private RiskLevel aiRiskLevel;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "doctor_risk_level", length = 32)
+  private RiskLevel doctorRiskLevel;
+
+  @Column(name = "reviewed_at")
+  private Instant reviewedAt;
+
   @Column(name = "confidence")
   private Double confidence;
 
@@ -200,6 +211,30 @@ public class Screening {
 
   public void setRiskLevel(RiskLevel riskLevel) {
     this.riskLevel = riskLevel;
+  }
+
+  public RiskLevel getAiRiskLevel() {
+    return aiRiskLevel;
+  }
+
+  public void setAiRiskLevel(RiskLevel aiRiskLevel) {
+    this.aiRiskLevel = aiRiskLevel;
+  }
+
+  public RiskLevel getDoctorRiskLevel() {
+    return doctorRiskLevel;
+  }
+
+  public void setDoctorRiskLevel(RiskLevel doctorRiskLevel) {
+    this.doctorRiskLevel = doctorRiskLevel;
+  }
+
+  public Instant getReviewedAt() {
+    return reviewedAt;
+  }
+
+  public void setReviewedAt(Instant reviewedAt) {
+    this.reviewedAt = reviewedAt;
   }
 
   public Double getConfidence() {

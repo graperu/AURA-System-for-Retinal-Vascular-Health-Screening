@@ -167,6 +167,7 @@ public class ScreeningService {
         }
 
         screening.setRiskLevel(calculatedRisk);
+        screening.setAiRiskLevel(calculatedRisk);
         screening.setConfidence(confidence != null ? Math.round(confidence * 100.0) / 100.0 : null);
         screening.setFindings(findings);
         // --- FR-5: auto-generate health recommendations/warnings from the computed risk level ---
@@ -176,6 +177,7 @@ public class ScreeningService {
         log.warn("AI service returned non-successful response or empty body");
         screening.setStatus(ScreeningStatus.FAILED);
         screening.setRiskLevel(null);
+        screening.setAiRiskLevel(null);
         screening.setConfidence(null);
         screening.setFindings("Dịch vụ AI trả về kết quả không hợp lệ. Ảnh chụp đã được lưu trữ an toàn.");
       }
@@ -183,6 +185,7 @@ public class ScreeningService {
       log.error("AI service call failed (server offline or inference error): {}", e.getMessage());
       screening.setStatus(ScreeningStatus.FAILED);
       screening.setRiskLevel(null);
+      screening.setAiRiskLevel(null);
       screening.setConfidence(null);
       screening.setFindings("Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
     }
@@ -261,8 +264,14 @@ public class ScreeningService {
     screening.setDoctorDiabeticRetinopathyRiskLevel(adjustedDrRisk);
     screening.setIcd10Codes(icd10Codes == null ? null : String.join("\n", icd10Codes));
     if (adjustedCardioRisk != null) {
+      screening.setDoctorRiskLevel(adjustedCardioRisk);
       screening.setRiskLevel(adjustedCardioRisk);
+    } else if (adjustedDrRisk != null) {
+      screening.setDoctorRiskLevel(adjustedDrRisk);
+      screening.setRiskLevel(adjustedDrRisk);
     }
+    }
+    screening.setReviewedAt(java.time.Instant.now());
     screening.setStatus(ScreeningStatus.REVIEWED);
     Instant signedAt = Instant.now();
     screening.setSignedAt(signedAt);
