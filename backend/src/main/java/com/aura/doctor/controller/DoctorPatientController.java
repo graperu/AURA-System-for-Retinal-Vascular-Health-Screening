@@ -117,7 +117,7 @@ public class DoctorPatientController {
   }
 
   @GetMapping("/{patientId}")
-  @PreAuthorize("hasRole('DOCTOR')")
+  @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<PatientProfileResponse> getAssignedPatientProfile(
       @PathVariable UUID patientId) {
     PatientProfileResponse response = profileService.getProfileByPatientId(patientId);
@@ -125,7 +125,7 @@ public class DoctorPatientController {
   }
 
   @GetMapping("/{patientId}/screenings")
-  @PreAuthorize("hasRole('DOCTOR')")
+  @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<List<Screening>> getAssignedPatientScreenings(
       @PathVariable UUID patientId) {
     List<Screening> screenings = screeningService.getScreeningsForPatient(patientId);
@@ -134,7 +134,7 @@ public class DoctorPatientController {
 
   @PostMapping("/{patientId}/screenings")
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('DOCTOR')")
+  @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<Screening> createScreeningForAssignedPatient(
       @AuthenticationPrincipal AuraUserPrincipal principal,
       @PathVariable UUID patientId,
