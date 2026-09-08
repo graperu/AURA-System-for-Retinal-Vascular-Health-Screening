@@ -32,7 +32,7 @@ public class ChatController {
   }
 
   @PostMapping("/messages")
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("isAuthenticated() && @patientAccessService.canChatBetween(principal, #request.receiverId())")
   @Operation(summary = "Send a consultation message")
   public ApiResponse<ChatMessageResponse> sendMessage(
       @AuthenticationPrincipal AuraUserPrincipal principal,
@@ -42,7 +42,7 @@ public class ChatController {
   }
 
   @GetMapping("/conversation/{otherUserId}")
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("isAuthenticated() && @patientAccessService.canChatBetween(principal, #otherUserId)")
   @Operation(summary = "Get conversation history with another user")
   public ApiResponse<List<ChatMessageResponse>> getConversation(
       @AuthenticationPrincipal AuraUserPrincipal principal,
@@ -53,7 +53,7 @@ public class ChatController {
   }
 
   @GetMapping("/screening/{screeningId}")
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("isAuthenticated() && @patientAccessService.canAccessScreening(principal, #screeningId)")
   @Operation(summary = "Get messages associated with a screening case")
   public ApiResponse<List<ChatMessageResponse>> getScreeningMessages(
       @PathVariable UUID screeningId) {
@@ -61,7 +61,7 @@ public class ChatController {
   }
 
   @PutMapping("/read/{senderId}")
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("isAuthenticated() && @patientAccessService.canChatBetween(principal, #senderId)")
   @Operation(summary = "Mark messages from sender as read")
   public ApiResponse<Void> markAsRead(
       @AuthenticationPrincipal AuraUserPrincipal principal,

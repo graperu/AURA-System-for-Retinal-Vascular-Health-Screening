@@ -42,6 +42,26 @@ public class PatientAccessService {
     return false;
   }
 
+  public boolean canChatBetween(AuraUserPrincipal principal, UUID targetUserId) {
+    if (principal == null || targetUserId == null) {
+      return false;
+    }
+    if (hasRole(principal, "ADMIN")) {
+      return true;
+    }
+    // If current user is Patient, they can chat with their assigned Doctor
+    if (hasRole(principal, "USER")) {
+      return assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+          targetUserId, principal.id(), AssignmentStatus.ACTIVE);
+    }
+    // If current user is Doctor, they can chat with their assigned Patient
+    if (hasRole(principal, "DOCTOR")) {
+      return assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+          principal.id(), targetUserId, AssignmentStatus.ACTIVE);
+    }
+    return false;
+  }
+
   public boolean canCurrentDoctorAccess(UUID patientId) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     if (auth != null && auth.getPrincipal() instanceof AuraUserPrincipal principal) {
