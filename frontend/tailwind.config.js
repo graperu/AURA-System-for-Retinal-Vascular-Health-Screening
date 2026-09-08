@@ -8,42 +8,76 @@ export default {
   theme: {
     extend: {
       colors: {
+        // AURA Brand & Primary Palette (Medical Teal & Ocean Blue)
+        brand: {
+          50: '#F0FDFA',
+          100: '#CCFBF1',
+          200: '#99F6E4',
+          300: '#5EEAD4',
+          400: '#2DD4BF',
+          500: '#14B8A6',
+          600: '#0891B2', // Primary Brand Medical Blue
+          700: '#0E7490', // Hover
+          800: '#155E75',
+          900: '#164E63',
+          DEFAULT: '#0891B2',
+        },
         primary: {
           DEFAULT: '#0891B2',
           light: '#22D3EE',
           dark: '#0E7490',
           50: '#F0FDFA',
           100: '#CCFBF1',
-          700: '#0F766E',
+          700: '#0E7490',
           900: '#134E4A',
         },
-        health: {
-          DEFAULT: '#16A34A',
-          light: '#4ADE80',
-          dark: '#15803D',
+        // Clinical Surface & Border Tokens
+        clinical: {
+          bg: '#F4F7FC',
+          surface: '#FFFFFF',
+          'surface-subtle': '#F8FAFC',
+          'surface-strong': '#E8F1F6',
+          border: '#E2E8F0',
+          'border-subtle': '#F1F5F9',
+          'border-strong': '#CBD5E1',
+          text: '#0F172A',
+          'text-secondary': '#334155',
+          'text-muted': '#64748B',
         },
-        medical: {
-          bg: '#F0FDFA',
-          card: '#FFFFFF',
-          text: '#134E4A',
-          muted: '#64748B',
-          border: '#CCFBF1',
-        },
+        // Standardized Clinical Risk Stratification
         risk: {
-          low: '#16A34A',
-          moderate: '#EAB308',
-          high: '#F97316',
+          low: '#16A34A',       // Green
+          'low-bg': '#F0FDF4',
+          'low-border': '#BBF7D0',
+          moderate: '#D97706',  // Amber
+          'moderate-bg': '#FFFBEB',
+          'moderate-border': '#FDE68A',
+          high: '#EA580C',      // Orange
+          'high-bg': '#FFF7ED',
+          'high-border': '#FFEDD5',
+          critical: '#DC2626',  // Red
           severe: '#DC2626',
+          'critical-bg': '#FEF2F2',
+          'critical-border': '#FECACA',
         }
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Arial', 'Helvetica', 'system-ui', 'sans-serif'],
         mono: ['"Fira Code"', 'monospace'],
       },
+      letterSpacing: {
+        normal: '0.01em',
+        wide: '0.025em',
+      },
       boxShadow: {
-        'medical-sm': '0 1px 3px rgba(8, 145, 178, 0.08), 0 1px 2px rgba(8, 145, 178, 0.04)',
-        'medical-md': '0 4px 12px rgba(8, 145, 178, 0.1), 0 2px 4px rgba(8, 145, 178, 0.06)',
-        'medical-lg': '0 10px 25px rgba(8, 145, 178, 0.12), 0 4px 10px rgba(8, 145, 178, 0.08)',
+        'medical-sm': '0 2px 8px -2px rgba(8, 145, 178, 0.08)',
+        'medical-card': '0 4px 20px -4px rgba(7, 13, 45, 0.06)',
+        'medical-modal': '0 20px 60px rgba(7, 13, 45, 0.25)',
+      },
+      borderRadius: {
+        'medical-sm': '10px',
+        'medical': '16px',
+        'medical-lg': '24px',
       }
     },
   },
