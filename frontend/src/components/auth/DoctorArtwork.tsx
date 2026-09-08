@@ -9,10 +9,15 @@ export function DoctorArtwork() {
         <path d="M115 310 L235 430" fill="none" stroke="#FFD078" strokeWidth="28" strokeLinecap="round" />
         <path d="M360 390 L485 265" fill="none" stroke="#A8B6FF" strokeWidth="28" strokeLinecap="round" opacity="0.76" />
       </svg>
-      <img src="/images/auth-doctor.png" alt="Nhân viên y tế AURA" className="doctor-artwork__image" />
+      <img
+        src="/images/auth-doctor.png"
+        alt="Nhân viên y tế AURA"
+        className="doctor-artwork__image"
+      />
       <svg className="doctor-artwork__front" viewBox="0 0 600 500" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <path d="M190 305 L300 410 L410 305" fill="none" stroke="#FF668A" strokeWidth="28" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
   );
 }
+
