@@ -104,7 +104,7 @@ public class BillingService {
             // Không làm gián đoạn transaction nếu thông báo lỗi
         }
 
-        return PaymentTransactionResponse.from(savedTxn);
+        return PaymentTransactionResponse.from(savedTxn,result.paymentUrl(),result.merchantId());
     }
 
     /** Main dùng bảng UserRole (nhiều role/user), nên kiểm tra scope bằng cách tìm xem

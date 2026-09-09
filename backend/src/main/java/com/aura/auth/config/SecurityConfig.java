@@ -1,6 +1,7 @@
 package com.aura.auth.config;
 
 import com.aura.auth.security.*;
+import com.aura.billing.config.PaymentGatewayProperties;
 import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.*;
@@ -18,7 +19,7 @@ import org.springframework.web.cors.*;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties({AuthProperties.class, CorsProperties.class})
+@EnableConfigurationProperties({AuthProperties.class, CorsProperties.class, PaymentGatewayProperties.class})
 public class SecurityConfig {
   @Bean
   PasswordEncoder passwordEncoder() {

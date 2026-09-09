@@ -3,7 +3,7 @@ package com.aura.billing.service;
 import java.math.BigDecimal;
 
 /**
- * Cổng thanh toán trừu tượng hóa cho hệ thống AURA (FR-11).
+ * Cổng thanh toán trừu tượng hóa cho hệ thống AURA (FR-11, FR-28).
  * Hỗ trợ các nhà cung cấp: VNPay, MoMo, Sandbox / Thẻ ngân hàng.
  */
 public interface PaymentGateway {
@@ -14,6 +14,16 @@ public interface PaymentGateway {
         return charge(buyerEmail, amount);
     }
 
-    record GatewayResult(boolean success, String providerName, String providerReference, String failureReason) {
+    record GatewayResult(
+            boolean success,
+            String providerName,
+            String providerReference,
+            String failureReason,
+            String paymentUrl,
+            String merchantId) {
+
+        public GatewayResult(boolean success, String providerName, String providerReference, String failureReason) {
+            this(success, providerName, providerReference, failureReason, null, null);
+        }
     }
 }

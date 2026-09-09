@@ -59,3 +59,20 @@ aura:
     hmac-secret: AURA_HIPAA_NFR_JAVA_HMAC_SECRET_2026
   signature:
     secret: ${REVIEW_SIGNATURE_SECRET:AURA_REVIEW_SIGNATURE_SECRET_2026}
+payment:
+  vnpay:
+    tmn-code: ${VNPAY_TMN_CODE:AURA_VNPAY_TMN_DEMO}
+    hash-secret: ${VNPAY_HASH_SECRET:AURA_VNPAY_HASH_SECRET_KEY_DEMO_2026}
+    pay-url: ${VNPAY_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+    return-url: ${VNPAY_RETURN_URL:http://localhost:5173/billing/vnpay-return}
+    version: 2.1.0
+    command: pay
+    curr-code: VND
+  momo:
+    partner-code: ${MOMO_PARTNER_CODE:MOMO_AURA_MERCHANT_2026}
+    access-key: ${MOMO_ACCESS_KEY:MOMO_ACCESS_KEY_AURA_DEMO}
+    secret-key: ${MOMO_SECRET_KEY:MOMO_SECRET_KEY_AURA_DEMO_2026}
+    endpoint: ${MOMO_ENDPOINT:https://test-payment.momo.vn/v2/gateway/api/create}
+    return-url: ${MOMO_RETURN_URL:http://localhost:5173/billing/momo-return}
+    notify-url: ${MOMO_NOTIFY_URL:http://localhost:8081/api/v1/billing/momo-ipn}
+    request-type: captureWallet
