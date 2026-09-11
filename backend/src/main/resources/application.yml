@@ -53,8 +53,11 @@ aura:
       - http://127.0.0.1:3000
       - http://127.0.0.1:5173
   ai-service:
-    url: ${AI_SERVICE_URL:http://localhost:8000}
-    simulate-if-offline: true
+    gemini:
+      enabled: ${GEMINI_AI_ENABLED:true}
+      api-url: ${GEMINI_API_URL:https://dallas-adequate-isolation-unity.trycloudflare.com/v1/chat/completions}
+      api-key: ${GEMINI_API_KEY:sk-7b0cdba71ad7d98c-r1c29o-13878c62}
+      model: ${GEMINI_MODEL:ag/gemini-3.7-flash-high}
   anonymization:
     hmac-secret: AURA_HIPAA_NFR_JAVA_HMAC_SECRET_2026
   signature:

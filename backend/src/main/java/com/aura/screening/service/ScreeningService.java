@@ -30,10 +30,8 @@ public class ScreeningService {
   private final ScreeningRepository screeningRepository;
   private final com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository;
   private final com.aura.notification.service.UserNotificationService userNotificationService;
+  private final GeminiRetinalAiService geminiAiService;
   private final RestClient restClient;
-
-  @Value("${aura.ai-service.url:http://localhost:8000}")
-  private String aiServiceUrl;
 
   @Value("${aura.signature.secret:AURA_REVIEW_SIGNATURE_SECRET_2026}")
   private String signatureSecret = "AURA_REVIEW_SIGNATURE_SECRET_2026";
@@ -42,10 +40,12 @@ public class ScreeningService {
       ScreeningRepository screeningRepository,
       com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
       com.aura.notification.service.UserNotificationService userNotificationService,
+      GeminiRetinalAiService geminiAiService,
       RestClient.Builder restClientBuilder) {
     this.screeningRepository = screeningRepository;
     this.assignmentRepository = assignmentRepository;
     this.userNotificationService = userNotificationService;
+    this.geminiAiService = geminiAiService;
     this.restClient = restClientBuilder.build();
   }
 
@@ -68,35 +68,14 @@ public class ScreeningService {
     Screening screening = new Screening(patientId, imageUrl);
 
     try {
-      log.info("Calling AI Microservice at: {}/api/v1/predict", aiServiceUrl);
-      AiPredictRequest requestPayload = new AiPredictRequest(
-          patientId.toString(),
-          "OD",
-          imageUrl != null && imageUrl.startsWith("data:") ? imageUrl : ""
-      );
+      Map body = null;
+      // 1. Cloud AI Engine (Gemini 3.7 Flash High API)
+      if (geminiAiService != null) {
+        body = geminiAiService.analyzeRetinalVascular("OD", imageUrl);
+      }
 
-      com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-      String jsonBody = mapper.writeValueAsString(requestPayload);
-
-      java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-          .uri(java.net.URI.create(aiServiceUrl + "/api/v1/predict"))
-          .header("Content-Type", "application/json")
-          .header("Accept", "application/json")
-          .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody, java.nio.charset.StandardCharsets.UTF_8))
-          .timeout(java.time.Duration.ofSeconds(10))
-          .build();
-
-      java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
-          .version(java.net.http.HttpClient.Version.HTTP_1_1)
-          .connectTimeout(java.time.Duration.ofSeconds(5))
-          .build();
-
-      java.net.http.HttpResponse<String> response = client
-          .send(request, java.net.http.HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
-
-      if (response.statusCode() >= 200 && response.statusCode() < 300 && response.body() != null) {
-        Map body = mapper.readValue(response.body(), Map.class);
-        log.info("Received AI response: {}", body);
+      if (body != null) {
+        log.info("Processing clinical AI inference findings from Cloud AI Engine: {}", body);
 
         RiskLevel calculatedRisk;
         Number overallRisk = (Number) body.get("overallVascularRiskScore");

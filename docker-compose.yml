@@ -45,38 +45,16 @@ services:
       DB_USERNAME: postgres
       DB_PASSWORD: aura_password123
       SERVER_PORT: 8081
-      AI_SERVICE_URL: http://ai-service:8000
+      GEMINI_AI_ENABLED: "true"
+      GEMINI_API_URL: "https://dallas-adequate-isolation-unity.trycloudflare.com/v1/chat/completions"
+      GEMINI_API_KEY: "sk-7b0cdba71ad7d98c-r1c29o-13878c62"
+      GEMINI_MODEL: "ag/gemini-3.7-flash-high"
       JAVA_OPTS: "-XX:+UseG1GC -Xms256m -Xmx768m -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: "2.00"
-          memory: 1024M
-        reservations:
-          memory: 384M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
-
-  ai-service:
-    build:
-      context: ./ai-service
-      dockerfile: Dockerfile
-    container_name: aura-ai-service
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    environment:
-      OMP_NUM_THREADS: "2"
-      MKL_NUM_THREADS: "2"
-      OPENBLAS_NUM_THREADS: "2"
-      NUMEXPR_NUM_THREADS: "2"
-      VECLIB_MAXIMUM_THREADS: "2"
     deploy:
       resources:
         limits:
