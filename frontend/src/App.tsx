@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LoginPage } from './components/auth/LoginPage';
+import { VerifyEmailLink } from './components/auth/VerifyEmailLink';
 import { AppLayout } from './layouts/AppLayout';
 import { PatientPortalPage } from './pages/PatientPortalPage';
 import { CDSDashboardPage } from './pages/CDSDashboardPage';
@@ -22,6 +23,10 @@ export const App: React.FC = () => {
         <LoadingState message="Đang khởi tạo không gian làm việc AURA..." />
       </div>
     );
+  }
+
+  if (window.location.pathname === '/verify-email') {
+    return <VerifyEmailLink />;
   }
 
   if (!currentUser) return <LoginPage />;
