@@ -116,7 +116,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
   useEffect(() => {
     if (initialBatchJob.items && initialBatchJob.items.length > 0) {
       initialBatchJob.items.forEach((item) => {
-        if (item.thumbnailUrl && item.thumbnailUrl !== '/assets/images/fundus_original.png') {
+        if (item.thumbnailUrl && item.thumbnailUrl !== '/assets/images/fundus_original.webp') {
           if (item.id) thumbnailCacheRef.current[item.id] = item.thumbnailUrl;
           if (item.fileName) thumbnailCacheRef.current[item.fileName] = item.thumbnailUrl;
           if (item.mrn) thumbnailCacheRef.current[item.mrn] = item.thumbnailUrl;
@@ -155,7 +155,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 thumbnailCacheRef.current[it.fileName] ||
                 thumbnailCacheRef.current[it.rawMrn] ||
                 existingItem?.thumbnailUrl ||
-                '/assets/images/fundus_original.png';
+                '/assets/images/fundus_original.webp';
 
               if (it.itemId && thumb) thumbnailCacheRef.current[it.itemId] = thumb;
               if (it.fileName && thumb) thumbnailCacheRef.current[it.fileName] = thumb;
@@ -401,7 +401,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         diastolicBp: img.diastolicBp || 80,
         hbA1c: img.hbA1c || 5.6,
         status: 'PENDING',
-        thumbnailUrl: img.previewUrl || img.base64ImageContent || '/assets/images/fundus_original.png',
+        thumbnailUrl: img.previewUrl || img.base64ImageContent || '/assets/images/fundus_original.webp',
         createdAt: Date.now() + idx,
       })),
     };
@@ -1281,11 +1281,11 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                       <td className="py-2.5 px-3">
                         <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shrink-0 relative group">
                           <img
-                            src={item.thumbnailUrl || '/assets/images/fundus_original.png'}
+                            src={item.thumbnailUrl || '/assets/images/fundus_original.webp'}
                             alt={item.fileName}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                             onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/assets/images/fundus_original.png';
+                              (e.target as HTMLImageElement).src = '/assets/images/fundus_original.webp';
                             }}
                           />
                         </div>

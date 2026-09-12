@@ -50,8 +50,13 @@ async def predict_bulk():
 @router.get("/model-info")
 async def get_model_info():
     return {
-        "available": False,
-        "modelName": None,
-        "modelVersion": None,
-        "message": "No validated model weights are configured. Inference is disabled.",
+        "available": True,
+        "modelName": "AURA Classical-CV Heuristic Prototype",
+        "modelVersion": RetinalAIModelEngine.VERSION,
+        "message": (
+            "No trained/validated deep-learning model weights are bundled with this service. "
+            "This endpoint runs a deterministic OpenCV heuristic pipeline so processing-time "
+            "requirements (NFR-1) can be measured honestly instead of mocked. The disease "
+            "predictions it returns are heuristic proxies, not a validated clinical diagnosis."
+        ),
     }

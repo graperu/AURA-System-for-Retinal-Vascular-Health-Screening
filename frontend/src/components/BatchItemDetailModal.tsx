@@ -176,7 +176,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
   const vesselDensity = ai?.vesselDensityPercentage ?? 14.8;
   const opticCdr = ai?.opticCupToDiscRatio ?? 0.38;
 
-  const baseImage = item.thumbnailUrl || '/assets/images/fundus_original.png';
+  const baseImage = item.thumbnailUrl || '/assets/images/fundus_original.webp';
   const isOD = item.eye === 'OD';
 
   // Tọa độ giải phẫu (512x512)

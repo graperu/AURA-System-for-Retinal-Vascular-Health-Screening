@@ -146,7 +146,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
         id: `DEMO-ITEM-${i}`,
         fileName: `RETINA_${mrn}_${eye}_${String(i).padStart(3, '0')}.dcm`,
         fileSize: 2450000 + (i % 500000),
-        previewUrl: '/assets/images/fundus_original.png',
+        previewUrl: '/assets/images/fundus_original.webp',
         eye,
         mrn,
         patientName: name,
@@ -176,7 +176,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
     return new Promise((resolve) => {
       const isDicom = /\.dcm|\.dicom|\.tif|\.tiff/i.test(file.name);
       if (isDicom) {
-        resolve('/assets/images/fundus_original.png');
+        resolve('/assets/images/fundus_original.webp');
         return;
       }
 
@@ -184,7 +184,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string;
         if (!dataUrl) {
-          resolve('/assets/images/fundus_original.png');
+          resolve('/assets/images/fundus_original.webp');
           return;
         }
         const img = new Image();
@@ -216,12 +216,12 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
           resolve(dataUrl);
         };
         img.onerror = () => {
-          resolve(dataUrl || '/assets/images/fundus_original.png');
+          resolve(dataUrl || '/assets/images/fundus_original.webp');
         };
         img.src = dataUrl;
       };
       reader.onerror = () => {
-        resolve('/assets/images/fundus_original.png');
+        resolve('/assets/images/fundus_original.webp');
       };
       reader.readAsDataURL(file);
     });
@@ -301,7 +301,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
       const itemsPayload: BulkUploadItemPayload[] = await Promise.all(
         stagedItems.map(async (item) => {
           let base64Ai = fallbackBase64;
-          let thumb = item.previewUrl || '/assets/images/fundus_original.png';
+          let thumb = item.previewUrl || '/assets/images/fundus_original.webp';
 
           if (item.file) {
             const [aiCompressed, generatedThumb] = await Promise.all([

@@ -247,7 +247,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 p-1.5 flex flex-col items-center">
                       <div className="relative aspect-square w-full rounded-full overflow-hidden border border-slate-800">
                         <img
-                          src={odData.imageUrl || '/assets/images/fundus_original.png'}
+                          src={odData.imageUrl || '/assets/images/fundus_original.webp'}
                           alt="Ảnh đáy mắt OD gốc"
                           className="h-full w-full object-cover"
                         />
@@ -258,12 +258,12 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <div className="rounded-xl overflow-hidden border border-cyan-300 bg-slate-950 p-1.5 flex flex-col items-center">
                       <div className="relative aspect-square w-full rounded-full overflow-hidden border border-cyan-600 bg-black">
                         <img
-                          src={odData.imageUrl || '/assets/images/fundus_original.png'}
+                          src={odData.imageUrl || '/assets/images/fundus_original.webp'}
                           alt="Ảnh nền OD"
                           className="h-full w-full object-cover absolute inset-0"
                         />
                         <img
-                          src={odData.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.png'}
+                          src={odData.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.webp'}
                           alt="Heatmap OD"
                           className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
                         />
@@ -288,7 +288,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 p-1.5 flex flex-col items-center">
                       <div className="relative aspect-square w-full rounded-full overflow-hidden border border-slate-800">
                         <img
-                          src={osData.imageUrl || '/assets/images/fundus_original.png'}
+                          src={osData.imageUrl || '/assets/images/fundus_original.webp'}
                           alt="Ảnh đáy mắt OS gốc"
                           className="h-full w-full object-cover"
                         />
@@ -299,12 +299,12 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <div className="rounded-xl overflow-hidden border border-teal-300 bg-slate-950 p-1.5 flex flex-col items-center">
                       <div className="relative aspect-square w-full rounded-full overflow-hidden border border-teal-600 bg-black">
                         <img
-                          src={osData.imageUrl || '/assets/images/fundus_original.png'}
+                          src={osData.imageUrl || '/assets/images/fundus_original.webp'}
                           alt="Ảnh nền OS"
                           className="h-full w-full object-cover absolute inset-0"
                         />
                         <img
-                          src={osData.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.png'}
+                          src={osData.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.webp'}
                           alt="Heatmap OS"
                           className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
                         />
@@ -320,7 +320,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                 <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 p-2 flex flex-col items-center">
                   <div className="relative aspect-square max-w-[280px] w-full rounded-full overflow-hidden border-2 border-slate-800">
                     <img
-                      src={result.imageUrl || '/assets/images/fundus_original.png'}
+                      src={result.imageUrl || '/assets/images/fundus_original.webp'}
                       alt="Ảnh đáy mắt gốc"
                       className="h-full w-full object-cover"
                     />
@@ -331,12 +331,12 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                 <div className="rounded-xl overflow-hidden border border-cyan-300 bg-slate-950 p-2 flex flex-col items-center">
                   <div className="relative aspect-square max-w-[280px] w-full rounded-full overflow-hidden border-2 border-cyan-600 bg-black">
                     <img
-                      src={result.imageUrl || '/assets/images/fundus_original.png'}
+                      src={result.imageUrl || '/assets/images/fundus_original.webp'}
                       alt="Ảnh nền"
                       className="h-full w-full object-cover absolute inset-0"
                     />
                     <img
-                      src={result.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.png'}
+                      src={result.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.webp'}
                       alt="Bản đồ nhiệt Grad-CAM"
                       className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
                     />

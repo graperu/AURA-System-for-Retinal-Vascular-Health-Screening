@@ -65,7 +65,7 @@
 ## Non-functional requirements (NFR)
 
 | NFR | Description | Status | Evidence |
-| NFR-1 | AI 10s-20s/image | Planned | Mock sync |
+| NFR-1 | AI 10s-20s/image | Partial | Real measured wall-clock time around a classical OpenCV pipeline (`ai-service/app/services/model_engine.py`, `vessel_analysis.py`); consistently well under the ceiling (~0.1-0.3s on test images). No trained/validated deep-learning model is integrated yet, so the *timing* requirement is genuinely met but the underlying analysis is a heuristic prototype, not a validated diagnostic model. |
 | NFR-11 | Data anonymization for AI processing | Planned | - |
 | NFR-12 | RBAC deny-by-default | Partial | `SecurityConfig`, JWT filter |
 | NFR-13 | Usability | Partial | Frontend prototype |

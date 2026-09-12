@@ -97,7 +97,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
 
   const handleLoadDemoSample = () => {
     setUploadError('');
-    const demoUrl = '/assets/images/fundus_original.png';
+    const demoUrl = '/assets/images/fundus_original.webp';
     setOdPreviewUrl(demoUrl);
     setOsPreviewUrl(demoUrl);
     const dummyFileOD = new File(['[AURA_DEMO_OD_DATA]'], 'fundus_demo_OD_sample.png', {

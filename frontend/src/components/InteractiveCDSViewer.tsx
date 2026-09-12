@@ -28,8 +28,8 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
 
   const anomalies = analysisResult.annotatedMap.detectedAnomalies || [];
-  const rawImage = analysisResult.imageUrl || '/assets/images/fundus_original.png';
-  const heatmapImg = analysisResult.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.png';
+  const rawImage = analysisResult.imageUrl || '/assets/images/fundus_original.webp';
+  const heatmapImg = analysisResult.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.webp';
 
   return (
     <Card padding="md" className="space-y-4">

@@ -108,9 +108,9 @@ Xác minh và kiểm chứng toàn diện mọi chức năng của hệ thống 
 ### 2.5. Nhóm Kiểm thử Yêu cầu Phi Chức Năng (NFR-1 đến NFR-23)
 | Mã TC | Tiêu chí NFR | Phương pháp kiểm thử | Kết quả thực tế | Trạng thái |
 |---|---|---|---|:---:|
-| `TC-NFR-01` | Thời gian suy luận AI (`NFR-1`)| Đo đạc thời gian từ lúc gửi ảnh đến lúc nhận Heatmap | Trung bình **1.8 - 3.2 giây** (Đạt yêu cầu $\le 10-20s$) | ✅ PASS |
+| `TC-NFR-01` | Thời gian xử lý ảnh (`NFR-1`)| Đo `time.perf_counter()` thực tế quanh pipeline OpenCV (`ai-service/test_predict.py::test_model_engine_runs_and_meets_nfr1_timing`) trên ảnh test | Đo được **~0.15 - 0.3 giây** (Đạt yêu cầu $\le 10-20s$) — số liệu là thời gian đo thật, không phải giả lập. **Lưu ý:** pipeline hiện là xử lý ảnh cổ điển (OpenCV heuristic), CHƯA phải mô hình học sâu đã huấn luyện/kiểm định lâm sàng — xem `modelVersion`/`disclaimer` trong response. | ✅ PASS (thời gian) / ⚠️ Chưa có mô hình đã kiểm định |
 | `TC-NFR-02` | Xử lý lô $\ge 100$ ảnh (`NFR-2`)| Nộp batch 100 ảnh mẫu vào hàng đợi | Xử lý song song hoàn tất trong 45 giây, không lỗi | ✅ PASS |
 | `TC-NFR-03` | Tải trang Dashboard (`NFR-3`)| Đo thời gian load trang trên trình duyệt (Lighthouse) | Thời gian tải trang đạt **0.8 giây** ($< 3$ giây) | ✅ PASS |
 | `TC-NFR-04` | Ẩn danh hóa dữ liệu HIPAA (`NFR-11`)| Kiểm tra gói tin gửi sang module Retraining | Toàn bộ ID/Tên bệnh nhân được băm HMAC SHA-256 | ✅ PASS |
 | `TC-NFR-05` | Khả năng giải thích Grad-CAM (`NFR-22`)| Kiểm tra kết quả ảnh trả về từ AI | Luôn đính kèm bản đồ nhiệt Grad-CAM độ phân giải cao | ✅ PASS |
-| `TC-NFR-06` | Truy xuất nguồn gốc phiên bản (`NFR-23`)| Kiểm tra metadata trong phiếu kết quả khám | Luôn lưu `model_version: aura-vessel-net-v2.1` và ngưỡng | ✅ PASS |
+| `TC-NFR-06` | Truy xuất nguồn gốc phiên bản (`NFR-23`)| Kiểm tra metadata trong phiếu kết quả khám | Luôn lưu `modelVersion: aura-cv-heuristic-v0.1 (classical OpenCV prototype, no trained model weights)` — tên phản ánh đúng thực trạng (chưa phải mô hình học sâu đã huấn luyện) | ✅ PASS |

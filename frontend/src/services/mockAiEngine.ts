@@ -368,7 +368,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
 
 export const MOCK_SAMPLE_RESULT: AIRiskResult = {
   analysisId: 'ANALYSIS-2026-7741',
-  imageUrl: '/assets/images/fundus_original.png',
+  imageUrl: '/assets/images/fundus_original.webp',
   status: 'COMPLETED',
   executionTimeMs: 2450,
   overallVascularRiskScore: 78,
@@ -389,7 +389,7 @@ export const MOCK_SAMPLE_RESULT: AIRiskResult = {
     score: 22,
   },
   annotatedMap: {
-    heatmapUrl: '/assets/images/fundus_heatmap.png',
+    heatmapUrl: '/assets/images/fundus_heatmap.webp',
     arteryVeinRatio: 0.52,
     vesselDensityPercentage: 14.8,
     tortuosityIndex: 1.42,
@@ -451,7 +451,7 @@ async function generateDynamicHeatmapFromImage(imageSrc: string): Promise<string
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        resolve('/assets/images/fundus_heatmap.png');
+        resolve('/assets/images/fundus_heatmap.webp');
         return;
       }
       canvas.width = 512;
@@ -483,7 +483,7 @@ async function generateDynamicHeatmapFromImage(imageSrc: string): Promise<string
       resolve(canvas.toDataURL('image/png'));
     };
     img.onerror = () => {
-      resolve('/assets/images/fundus_heatmap.png');
+      resolve('/assets/images/fundus_heatmap.webp');
     };
     img.src = imageSrc;
   });
@@ -509,8 +509,8 @@ export class MockAIService {
       onProgress(step.status, step.percent);
     }
 
-    const uploadedImageUrl = request.imageUrl || '/assets/images/fundus_original.png';
-    let dynamicHeatmapUrl = '/assets/images/fundus_heatmap.png';
+    const uploadedImageUrl = request.imageUrl || '/assets/images/fundus_original.webp';
+    let dynamicHeatmapUrl = '/assets/images/fundus_heatmap.webp';
 
     // Try calling real FastAPI microservice if file is available
     if (request.file) {
@@ -534,7 +534,7 @@ export class MockAIService {
     }
 
     // If no backend heatmap was returned, generate dynamic Grad-CAM on top of the user's actual image
-    if (dynamicHeatmapUrl === '/assets/images/fundus_heatmap.png' && uploadedImageUrl !== '/assets/images/fundus_original.png') {
+    if (dynamicHeatmapUrl === '/assets/images/fundus_heatmap.webp' && uploadedImageUrl !== '/assets/images/fundus_original.webp') {
       dynamicHeatmapUrl = await generateDynamicHeatmapFromImage(uploadedImageUrl);
     }
 
@@ -613,7 +613,7 @@ export class MockAIService {
     }
 
     // If no backend heatmap was returned, generate dynamic Grad-CAM on top of the user's actual image
-    if (dynamicHeatmapUrl === '/assets/images/fundus_heatmap.png' && uploadedImageUrl !== '/assets/images/fundus_original.png') {
+    if (dynamicHeatmapUrl === '/assets/images/fundus_heatmap.webp' && uploadedImageUrl !== '/assets/images/fundus_original.webp') {
       dynamicHeatmapUrl = await generateDynamicHeatmapFromImage(uploadedImageUrl);
     }
 

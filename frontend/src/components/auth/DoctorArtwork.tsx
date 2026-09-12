@@ -10,7 +10,7 @@ export function DoctorArtwork() {
         <path d="M360 390 L485 265" fill="none" stroke="#A8B6FF" strokeWidth="28" strokeLinecap="round" opacity="0.76" />
       </svg>
       <img
-        src="/images/auth-doctor.png"
+        src="/images/auth-doctor.webp"
         alt="Nhân viên y tế AURA"
         className="doctor-artwork__image"
       />

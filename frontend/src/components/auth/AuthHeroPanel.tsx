@@ -9,7 +9,7 @@ export const AuthHeroPanel: React.FC = () => {
     <div className="absolute -left-16 top-1/3 h-48 w-48 rounded-full bg-cyan-200/20 blur-3xl" />
     <div className="auth-brand">
       {!logoFailed
-        ? <img src="/brand/aura-logo.png" alt="AURA" onError={() => setLogoFailed(true)} className="auth-brand__logo" />
+        ? <img src="/brand/aura-logo-light.svg" alt="AURA" onError={() => setLogoFailed(true)} className="auth-brand__logo" />
         : <Eye className="auth-brand__fallback" aria-hidden="true" />}
     </div>
 

@@ -23,8 +23,8 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
   const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
 
-  const rawImage = result.imageUrl || '/assets/images/fundus_original.png';
-  const heatmapImg = result.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.png';
+  const rawImage = result.imageUrl || '/assets/images/fundus_original.webp';
+  const heatmapImg = result.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.webp';
   const anomalies = result.annotatedMap?.detectedAnomalies || [];
 
   return (
