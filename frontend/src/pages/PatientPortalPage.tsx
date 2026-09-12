@@ -272,9 +272,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       const res = await screeningApi.create(request.imageUrl);
       if (!res.success || !res.data || res.data.status === "FAILED") {
         throw new Error(
-          res.message ||
-            res.data?.findings ||
-            "Dịch vụ AI chưa sẵn sàng. Không tạo kết quả giả.",
+          (res.data?.status === "FAILED" && res.data?.findings)
+            ? res.data.findings
+            : (res.message || "Dịch vụ AI chưa sẵn sàng. Không tạo kết quả giả.")
         );
       }
       setAnalysisProgress({
@@ -925,73 +925,116 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       ========================================================================== */}
       {activeView === "consultation" && (
         <div className="max-w-4xl mx-auto space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[650px]">
-            {/* Chat Header */}
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center font-bold text-sm">
-                    BS
-                  </div>
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-slate-900 rounded-full"></span>
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold">
-                    {patient.assignedDoctor || "Bác sĩ chuyên khoa"}
-                  </h3>
-                  <p className="text-[11px] text-cyan-200">
-                    Khoa Mắt & Tim Mạch Lâm Sàng • Trực Tuyến
-                  </p>
-                </div>
+          {!assignedDoctorId && !patient.assignedDoctor ? (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 sm:p-12 text-center space-y-5">
+              <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
+                <Clock className="w-8 h-8" />
               </div>
-              <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-300 font-mono-data">
-                Hồ sơ: {patient.mrn || "Chưa có MRN"}
-              </span>
-            </div>
-
-            {/* Chat Body Messages */}
-            <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50">
-              {chatMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${msg.sender === "patient" ? "items-end" : "items-start"}`}
+              <div className="max-w-md mx-auto space-y-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold tracking-wide">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  Đang chờ tiếp nhận
+                </span>
+                <h3 className="text-lg font-bold text-slate-900">
+                  Chưa Được Chỉ Định Bác Sĩ Phụ Trách
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Hồ sơ sức khỏe của bạn hiện đang chờ Ban Quản trị hoặc Phòng khám phân công Bác sĩ chuyên khoa Mắt & Tim mạch phụ trách. 
+                  Sau khi có Bác sĩ được chỉ định, cổng tư vấn trực tiếp sẽ tự động được kích hoạt tại đây.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
+                <button
+                  onClick={() => setIsProfileModalOpen(true)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
                 >
-                  <div
-                    className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
-                      msg.sender === "patient"
-                        ? "bg-[#0891B2] text-white rounded-br-none"
-                        : "bg-white text-slate-800 border border-slate-200 rounded-bl-none"
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono-data mt-1 px-1">
-                    {msg.time}
-                  </span>
-                </div>
-              ))}
+                  <UserCog className="w-4 h-4" /> Kiểm Tra Hồ Sơ Y Tế
+                </button>
+                <button
+                  onClick={fetchProfileData}
+                  disabled={isProfileLoading}
+                  className="px-4 py-2.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isProfileLoading ? "animate-spin" : ""}`} /> Cập Nhật Trạng Thái
+                </button>
+              </div>
             </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[650px]">
+              {/* Chat Header */}
+              <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center font-bold text-sm">
+                      BS
+                    </div>
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-slate-900 rounded-full"></span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold">
+                      {patient.assignedDoctor || "Bác sĩ phụ trách"}
+                    </h3>
+                    <p className="text-[11px] text-cyan-200">
+                      Khoa Mắt & Tim Mạch Lâm Sàng • Trực Tuyến
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-300 font-mono-data">
+                  Hồ sơ: {patient.mrn || "Chưa có MRN"}
+                </span>
+              </div>
 
-            {/* Chat Input Bar */}
-            <form
-              onSubmit={handleSendChatMessage}
-              className="p-3 bg-white border-t border-slate-200 flex items-center gap-2"
-            >
-              <input
-                type="text"
-                value={newChatText}
-                onChange={(e) => setNewChatText(e.target.value)}
-                placeholder="Nhập tin nhắn trao đổi với Bác sĩ..."
-                className="flex-1 px-4 py-2.5 text-xs bg-slate-100 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0891B2] outline-none"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-xs shadow-xs flex items-center gap-1.5"
+              {/* Chat Body Messages */}
+              <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50">
+                {chatMessages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
+                    <MessageSquare className="w-8 h-8 text-slate-300" />
+                    <p className="text-xs">Chưa có tin nhắn nào. Hãy gửi tin nhắn để bắt đầu trao đổi với Bác sĩ.</p>
+                  </div>
+                ) : (
+                  chatMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex flex-col ${msg.sender === "patient" ? "items-end" : "items-start"}`}
+                    >
+                      <div
+                        className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
+                          msg.sender === "patient"
+                            ? "bg-[#0891B2] text-white rounded-br-none"
+                            : "bg-white text-slate-800 border border-slate-200 rounded-bl-none"
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono-data mt-1 px-1">
+                        {msg.time}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Chat Input Bar */}
+              <form
+                onSubmit={handleSendChatMessage}
+                className="p-3 bg-white border-t border-slate-200 flex items-center gap-2"
               >
-                <Send className="w-3.5 h-3.5" /> Gửi
-              </button>
-            </form>
-          </div>
+                <input
+                  type="text"
+                  value={newChatText}
+                  onChange={(e) => setNewChatText(e.target.value)}
+                  placeholder="Nhập tin nhắn trao đổi với Bác sĩ..."
+                  className="flex-1 px-4 py-2.5 text-xs bg-slate-100 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0891B2] outline-none"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" /> Gửi
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       )}
 
