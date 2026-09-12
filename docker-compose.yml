@@ -46,7 +46,7 @@ services:
       DB_PASSWORD: aura_password123
       SERVER_PORT: 8081
       GEMINI_AI_ENABLED: "true"
-      GEMINI_API_URL: "https://dallas-adequate-isolation-unity.trycloudflare.com/v1/chat/completions"
+      GEMINI_API_URL: "http://host.docker.internal:20128/v1/chat/completions"
       GEMINI_API_KEY: "sk-7b0cdba71ad7d98c-r1c29o-13878c62"
       GEMINI_MODEL: "ag/gemini-3.7-flash-high"
       JAVA_OPTS: "-XX:+UseG1GC -Xms256m -Xmx768m -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8"

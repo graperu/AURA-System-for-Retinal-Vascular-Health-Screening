@@ -51,7 +51,8 @@ public class ScreeningService {
 
   @Transactional
   public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request) {
-    Screening screening = createScreening(patientId, request.imageUrl());
+    String eye = request.eyePosition() != null && !request.eyePosition().isBlank() ? request.eyePosition() : "OD";
+    Screening screening = new Screening(patientId, request.imageUrl());
     if (request.eyePosition() != null) screening.setEyePosition(request.eyePosition());
     if (request.scanType() != null) screening.setScanType(request.scanType());
     if (request.fileName() != null) screening.setFileName(request.fileName());
@@ -60,18 +61,29 @@ public class ScreeningService {
     if (request.riskScore() != null) screening.setRiskScore(request.riskScore());
     if (request.avRatio() != null) screening.setAvRatio(request.avRatio());
     if (request.vesselDensity() != null) screening.setVesselDensity(request.vesselDensity());
-    return screeningRepository.save(screening);
+
+    executeAiAnalysisAndPopulate(screening, eye, request.imageUrl());
+
+    Screening saved = screeningRepository.save(screening);
+    sendAiReadyNotification(saved, patientId);
+    return saved;
   }
 
   @Transactional
   public Screening createScreening(UUID patientId, String imageUrl) {
     Screening screening = new Screening(patientId, imageUrl);
+    executeAiAnalysisAndPopulate(screening, "OD", imageUrl);
+    Screening saved = screeningRepository.save(screening);
+    sendAiReadyNotification(saved, patientId);
+    return saved;
+  }
 
+  private void executeAiAnalysisAndPopulate(Screening screening, String eye, String imageUrl) {
     try {
       Map body = null;
       // 1. Cloud AI Engine (Gemini 3.7 Flash High API)
       if (geminiAiService != null) {
-        body = geminiAiService.analyzeRetinalVascular("OD", imageUrl);
+        body = geminiAiService.analyzeRetinalVascular(eye, imageUrl);
       }
 
       if (body != null) {
@@ -168,10 +180,9 @@ public class ScreeningService {
       screening.setConfidence(null);
       screening.setFindings("Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
     }
+  }
 
-    Screening saved = screeningRepository.save(screening);
-    
-    // FR-9: Gửi thông báo SSE và In-App ngay khi AI phân tích xong
+  private void sendAiReadyNotification(Screening saved, UUID patientId) {
     try {
       if (saved.getStatus() == ScreeningStatus.ANALYZED) {
         String severity = saved.getRiskLevel() == RiskLevel.CRITICAL ? "CRITICAL"
@@ -189,8 +200,6 @@ public class ScreeningService {
     } catch (Exception e) {
       log.warn("Không thể gửi thông báo AI_READY: {}", e.getMessage());
     }
-
-    return saved;
   }
 
   @Transactional(readOnly = true)
