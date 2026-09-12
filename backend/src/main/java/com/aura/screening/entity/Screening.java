@@ -25,7 +25,7 @@ public class Screening {
   @Column(name = "doctor_id")
   private UUID doctorId;
 
-  @Column(name = "image_url", nullable = false, length = 512)
+  @Column(name = "image_url", nullable = false, columnDefinition = "TEXT")
   private String imageUrl;
 
   @Enumerated(EnumType.STRING)
