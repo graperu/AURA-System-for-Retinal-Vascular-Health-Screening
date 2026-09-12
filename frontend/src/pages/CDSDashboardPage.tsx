@@ -463,6 +463,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         currentUserRole="doctor"
         patientName={activePatient.fullName || 'Bệnh nhân'}
         patientMrn={activePatient.mrn || 'Chưa có MRN'}
+        partnerUserId={activePatient.userId || activePatient.id}
       />
     </div>
   );

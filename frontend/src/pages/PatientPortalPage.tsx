@@ -203,9 +203,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     const fetchRealData = async () => {
       try {
         const res = await screeningApi.getAll();
-        if (res.success && Array.isArray(res.data)) {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
           const mapped = res.data.map((item: any) => ({
             id: `ANALYSIS-${item.id.slice(0, 8).toUpperCase()}`,
+            rawId: item.id,
             date: item.createdAt
               ? new Date(item.createdAt).toLocaleString("vi-VN")
               : "Không có thời gian",
@@ -230,6 +231,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     : "Đang chờ xử lý",
           }));
           setScanHistory(mapped);
+
+          // Tự động load kết quả sàng lọc mới nhất lên Viewer
+          const latest = res.data[0];
+          if (latest && latest.status !== 'FAILED') {
+            setAnalysisResult(mapScreeningToAIRiskResult(latest, latest.imageUrl));
+          }
         }
       } catch (e) {
         console.warn("Could not fetch screenings from DB:", e);
@@ -900,14 +907,40 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                         <td className="p-3.5 text-slate-700 font-medium">
                           {scan.doctor}
                         </td>
-                        <td className="p-3.5">
+                        <td className="p-3.5 flex items-center gap-2">
                           <button
-                            onClick={() => {
+                            onClick={async () => {
+                              try {
+                                const realId = scan.rawId || scan.id.replace("ANALYSIS-", "");
+                                const res = await screeningApi.getById(realId);
+                                if (res.success && res.data) {
+                                  setAnalysisResult(mapScreeningToAIRiskResult(res.data, res.data.imageUrl));
+                                }
+                              } catch {
+                                // Keep existing if error
+                              }
                               onNavigate("cds-viewer");
                             }}
                             className="px-3 py-1.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-lg text-xs shadow-xs"
                           >
                             Xem Bản Đồ Nhiệt
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                const realId = scan.rawId || scan.id.replace("ANALYSIS-", "");
+                                const res = await screeningApi.getById(realId);
+                                if (res.success && res.data) {
+                                  setAnalysisResult(mapScreeningToAIRiskResult(res.data, res.data.imageUrl));
+                                }
+                              } catch {
+                                // Keep existing if error
+                              }
+                              setIsReportModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold rounded-lg text-xs shadow-xs"
+                          >
+                            Xuất Báo Cáo
                           </button>
                         </td>
                       </tr>
@@ -1239,6 +1272,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         currentUserRole="patient"
         patientName={patient.fullName || "Bệnh nhân"}
         patientMrn={patient.mrn || "Chưa có MRN"}
+        partnerUserId={assignedDoctorId || undefined}
+        currentUserId={user?.id}
       />
 
       <CreditPurchaseModal

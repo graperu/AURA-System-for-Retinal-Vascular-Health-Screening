@@ -19,6 +19,16 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/ws-aura-raw': {
+        target: 'http://localhost:8081',
+        ws: true,
+        changeOrigin: true,
+      },
+      '/ws-aura': {
+        target: 'http://localhost:8081',
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 });

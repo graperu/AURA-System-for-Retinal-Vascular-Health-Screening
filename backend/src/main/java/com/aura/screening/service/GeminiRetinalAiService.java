@@ -94,15 +94,25 @@ public class GeminiRetinalAiService {
 
       // Build Multimodal vision message payload (Text + Image URL/Base64)
       if (imageBase64OrUrl != null && !imageBase64OrUrl.isBlank()) {
-        String dataUri = imageBase64OrUrl.startsWith("data:") 
-            ? imageBase64OrUrl 
-            : "data:image/png;base64," + imageBase64OrUrl;
+        boolean isValidImagePayload = imageBase64OrUrl.startsWith("data:") 
+            || imageBase64OrUrl.startsWith("http://") 
+            || imageBase64OrUrl.startsWith("https://") 
+            || (imageBase64OrUrl.length() > 200 && !imageBase64OrUrl.startsWith("/"));
 
-        List<Map<String, Object>> contentParts = new ArrayList<>();
-        contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + eye + ") của bệnh nhân sau:"));
-        contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", dataUri)));
+        if (isValidImagePayload) {
+          String dataUri = (imageBase64OrUrl.startsWith("data:") || imageBase64OrUrl.startsWith("http"))
+              ? imageBase64OrUrl 
+              : "data:image/png;base64," + imageBase64OrUrl;
 
-        messages.add(Map.of("role", "user", "content", contentParts));
+          List<Map<String, Object>> contentParts = new ArrayList<>();
+          contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + eye + ") của bệnh nhân sau:"));
+          contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", dataUri)));
+
+          messages.add(Map.of("role", "user", "content", contentParts));
+        } else {
+          // Relative path like '/assets/images/fundus_original.png' -> Send text instruction so AI still analyzes
+          messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch đáy mắt tiêu chuẩn cho mắt: " + eye));
+        }
       } else {
         messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch mắt: " + eye));
       }
