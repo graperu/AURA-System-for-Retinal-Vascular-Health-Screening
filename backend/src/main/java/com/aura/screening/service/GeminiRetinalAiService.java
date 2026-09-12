@@ -91,7 +91,21 @@ public class GeminiRetinalAiService {
 
       List<Map<String, Object>> messages = new ArrayList<>();
       messages.add(Map.of("role", "system", "content", systemPrompt));
-      messages.add(Map.of("role", "user", "content", "Phân tích ảnh đáy mắt mắt: " + eye + (imageBase64OrUrl != null && !imageBase64OrUrl.isBlank() ? " (Đã nhận dữ liệu hình ảnh)" : "")));
+
+      // Build Multimodal vision message payload (Text + Image URL/Base64)
+      if (imageBase64OrUrl != null && !imageBase64OrUrl.isBlank()) {
+        String dataUri = imageBase64OrUrl.startsWith("data:") 
+            ? imageBase64OrUrl 
+            : "data:image/png;base64," + imageBase64OrUrl;
+
+        List<Map<String, Object>> contentParts = new ArrayList<>();
+        contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + eye + ") của bệnh nhân sau:"));
+        contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", dataUri)));
+
+        messages.add(Map.of("role", "user", "content", contentParts));
+      } else {
+        messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch mắt: " + eye));
+      }
 
       requestPayload.put("messages", messages);
 
