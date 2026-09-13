@@ -138,13 +138,15 @@
             </goals>
           </execution>
         </executions>
-        <configuration>
-          <excludes>
-            <exclude>com/aura/AuraApplication.class</exclude>
-            <exclude>com/aura/**/dto/**</exclude>
-            <exclude>com/aura/**/config/**</exclude>
-          </excludes>
-        </configuration>
+          <configuration>
+            <excludes>
+              <exclude>com/aura/AuraApplication.class</exclude>
+              <exclude>com/aura/**/dto/**</exclude>
+              <exclude>com/aura/**/entity/**</exclude>
+              <exclude>com/aura/**/config/**</exclude>
+              <exclude>com/aura/**/exception/**</exclude>
+            </excludes>
+          </configuration>
       </plugin>
     </plugins>
   </build>

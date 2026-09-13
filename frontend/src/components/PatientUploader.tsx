@@ -8,16 +8,27 @@ import {
   Sparkles,
   X,
   FileCheck,
+  Loader2,
+  RotateCcw,
 } from 'lucide-react';
 import { FundusAnalysisRequest, PatientProfile } from '../types/cds';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 
-interface PatientUploaderProps {
+export interface PatientUploaderProps {
   activePatient: PatientProfile;
-  onStartAnalysis: (request: FundusAnalysisRequest) => void;
+  onStartAnalysis: (
+    request: FundusAnalysisRequest & {
+      eye?: string;
+      fileName?: string;
+      fileSize?: number;
+      mimeType?: string;
+    }
+  ) => void;
   isAnalyzing: boolean;
   analysisProgress: { status: string; percent: number };
+  analysisError?: string | null;
+  onRetry?: () => void;
 }
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
@@ -28,11 +39,13 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   onStartAnalysis,
   isAnalyzing,
   analysisProgress,
+  analysisError,
+  onRetry,
 }) => {
-  const [eyeMode, setEyeMode] = useState<'Both_OD_OS' | 'Right_OD' | 'Left_OS'>('Both_OD_OS');
+  const [eyeMode, setEyeMode] = useState<'Right_OD' | 'Left_OS'>('Right_OD');
   const [scanType, setScanType] = useState<'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan'>('Fundus_Macula');
-  const [isAnonymized, setIsAnonymized] = useState(true);
   const [uploadError, setUploadError] = useState<string>('');
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
 
   // Right Eye (OD) State
   const [odFile, setOdFile] = useState<File | null>(null);
@@ -95,36 +108,143 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleLoadDemoSample = () => {
+  // Fallback vẽ ảnh võng mạc bằng Canvas nếu fetch file tĩnh bị lỗi
+  const fallbackToCanvasDemo = (mode: 'Right_OD' | 'Left_OS') => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // Nền tối xung quanh
+        ctx.fillStyle = '#0a0f1d';
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Vùng cầu đáy mắt võng mạc
+        const radGrad = ctx.createRadialGradient(256, 256, 40, 256, 256, 230);
+        radGrad.addColorStop(0, '#ea580c');
+        radGrad.addColorStop(0.65, '#c2410c');
+        radGrad.addColorStop(0.92, '#7c2d12');
+        radGrad.addColorStop(1, '#1e293b');
+        ctx.fillStyle = radGrad;
+        ctx.beginPath();
+        ctx.arc(256, 256, 226, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Gai thị (Optic Disc)
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        const discX = mode === 'Right_OD' ? 360 : 152;
+        ctx.arc(discX, 256, 32, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Lõm gai (Optic Cup)
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(discX, 256, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hoàng điểm (Macula/Fovea)
+        ctx.fillStyle = '#451a03';
+        ctx.beginPath();
+        const maculaX = mode === 'Right_OD' ? 200 : 312;
+        ctx.arc(maculaX, 256, 24, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Mạng lưới mạch máu võng mạc xuất phát từ gai thị
+        ctx.strokeStyle = '#991b1b';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(discX, 256);
+        ctx.bezierCurveTo(discX + (mode === 'Right_OD' ? -60 : 60), 180, maculaX, 160, 256, 90);
+        ctx.moveTo(discX, 256);
+        ctx.bezierCurveTo(discX + (mode === 'Right_OD' ? -50 : 50), 320, maculaX, 350, 256, 420);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#b91c1c';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(discX, 256);
+        ctx.bezierCurveTo(discX + (mode === 'Right_OD' ? -90 : 90), 220, maculaX, 230, maculaX - 40, 240);
+        ctx.stroke();
+      }
+
+      const base64DataUrl = canvas.toDataURL('image/png');
+      const byteCharacters = atob(base64DataUrl.split(',')[1]);
+      const byteArrays = [];
+      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+        const slice = byteCharacters.slice(offset, offset + 512);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+        byteArrays.push(new Uint8Array(byteNumbers));
+      }
+      const blob = new Blob(byteArrays, { type: 'image/png' });
+      const fileName = mode === 'Right_OD' ? 'fundus_demo_OD_sample.png' : 'fundus_demo_OS_sample.png';
+      const file = new File([blob], fileName, { type: 'image/png', lastModified: Date.now() });
+
+      if (mode === 'Right_OD') {
+        setOdPreviewUrl(base64DataUrl);
+        setOdFile(file);
+      } else {
+        setOsPreviewUrl(base64DataUrl);
+        setOsFile(file);
+      }
+    } catch (e) {
+      console.error('Canvas fallback error:', e);
+    } finally {
+      setIsLoadingDemo(false);
+    }
+  };
+
+  // Nạp ảnh mẫu thực tế từ /assets/images/fundus_original.png và chuyển thành Base64 Data URI
+  const handleLoadDemoSample = async () => {
     setUploadError('');
-    const demoUrl = '/assets/images/fundus_original.png';
-    setOdPreviewUrl(demoUrl);
-    setOsPreviewUrl(demoUrl);
-    const dummyFileOD = new File(['[AURA_DEMO_OD_DATA]'], 'fundus_demo_OD_sample.png', {
-      type: 'image/png',
-      lastModified: Date.now(),
-    });
-    const dummyFileOS = new File(['[AURA_DEMO_OS_DATA]'], 'fundus_demo_OS_sample.png', {
-      type: 'image/png',
-      lastModified: Date.now(),
-    });
-    setOdFile(dummyFileOD);
-    setOsFile(dummyFileOS);
+    setIsLoadingDemo(true);
+    const demoPath = '/assets/images/fundus_original.png';
+
+    try {
+      const response = await fetch(demoPath);
+      if (!response.ok) {
+        throw new Error(`Fetch demo image failed: ${response.status}`);
+      }
+      const blob = await response.blob();
+      const fileName = eyeMode === 'Right_OD' ? 'fundus_demo_OD_sample.png' : 'fundus_demo_OS_sample.png';
+      const file = new File([blob], fileName, {
+        type: blob.type || 'image/png',
+        lastModified: Date.now(),
+      });
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Url = reader.result as string;
+        if (eyeMode === 'Right_OD') {
+          setOdPreviewUrl(base64Url);
+          setOdFile(file);
+        } else {
+          setOsPreviewUrl(base64Url);
+          setOsFile(file);
+        }
+        setIsLoadingDemo(false);
+      };
+      reader.onerror = () => {
+        fallbackToCanvasDemo(eyeMode);
+      };
+      reader.readAsDataURL(blob);
+    } catch (err) {
+      console.warn('Fetch demo image failed, falling back to canvas generation:', err);
+      fallbackToCanvasDemo(eyeMode);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setUploadError('');
 
-    const hasOD = Boolean(odFile);
-    const hasOS = Boolean(osFile);
+    const hasOD = Boolean(odFile || odPreviewUrl);
+    const hasOS = Boolean(osFile || osPreviewUrl);
 
-    if (eyeMode === 'Both_OD_OS' && !hasOD && !hasOS) {
-      setUploadError(
-        'Vui lòng tải lên ít nhất một ảnh chụp võng mạc (Mắt Phải OD hoặc Mắt Trái OS) trước khi bắt đầu phân tích AI.'
-      );
-      return;
-    }
     if (eyeMode === 'Right_OD' && !hasOD) {
       setUploadError('Vui lòng chọn tệp ảnh chụp võng mạc cho Mắt Phải (OD) trước khi bắt đầu phân tích AI.');
       return;
@@ -134,16 +254,20 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       return;
     }
 
-    const isDual = eyeMode === 'Both_OD_OS' && hasOD && hasOS;
-    const effectiveEyePosition: 'Both_OD_OS' | 'Right_OD' | 'Left_OS' = isDual
-      ? 'Both_OD_OS'
-      : (hasOD ? 'Right_OD' : 'Left_OS');
+    const effectiveEyePosition: 'Right_OD' | 'Left_OS' = eyeMode;
 
-    const mainFile = hasOD ? odFile : osFile;
-    const mainPreview = hasOD ? odPreviewUrl : osPreviewUrl;
-    const mainName = mainFile ? mainFile.name : (effectiveEyePosition === 'Left_OS' ? 'fundus_scan_OS.png' : 'fundus_scan_OD.png');
+    const mainFile = eyeMode === 'Right_OD' ? odFile : osFile;
+    const mainPreview = eyeMode === 'Right_OD' ? odPreviewUrl : osPreviewUrl;
+    const mainName = mainFile
+      ? mainFile.name
+      : (effectiveEyePosition === 'Left_OS' ? 'fundus_scan_OS.png' : 'fundus_scan_OD.png');
 
-    const request: FundusAnalysisRequest = {
+    const request: FundusAnalysisRequest & {
+      eye?: string;
+      fileName?: string;
+      fileSize?: number;
+      mimeType?: string;
+    } = {
       requestId: `REQ-${Date.now().toString().slice(-6)}`,
       patientId: activePatient.id || 'PAT-DEFAULT',
       clinicId: 'CLN-MAIN-01',
@@ -152,14 +276,18 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       file: mainFile || undefined,
       scanType,
       eyePosition: effectiveEyePosition,
+      eye: effectiveEyePosition,
+      fileName: mainName,
+      fileSize: mainFile?.size,
+      mimeType: mainFile?.type || 'image/png',
       uploadedAt: new Date().toISOString(),
-      isDualEye: isDual,
-      odFile: hasOD ? odFile! : undefined,
-      odImageUrl: hasOD ? odPreviewUrl : undefined,
-      odImageName: hasOD && odFile ? odFile.name : undefined,
-      osFile: hasOS ? osFile! : undefined,
-      osImageUrl: hasOS ? osPreviewUrl : undefined,
-      osImageName: hasOS && osFile ? osFile.name : undefined,
+      isDualEye: false,
+      odFile: eyeMode === 'Right_OD' ? (odFile || undefined) : undefined,
+      odImageUrl: eyeMode === 'Right_OD' ? (odPreviewUrl || undefined) : undefined,
+      odImageName: eyeMode === 'Right_OD' ? (odFile?.name || (odPreviewUrl ? 'fundus_demo_OD_sample.png' : undefined)) : undefined,
+      osFile: eyeMode === 'Left_OS' ? (osFile || undefined) : undefined,
+      osImageUrl: eyeMode === 'Left_OS' ? (osPreviewUrl || undefined) : undefined,
+      osImageName: eyeMode === 'Left_OS' ? (osFile?.name || (osPreviewUrl ? 'fundus_demo_OS_sample.png' : undefined)) : undefined,
     };
 
     onStartAnalysis(request);
@@ -184,9 +312,11 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             variant="outline"
             size="sm"
             onClick={handleLoadDemoSample}
+            disabled={isLoadingDemo || isAnalyzing}
+            loading={isLoadingDemo}
             icon={<Sparkles className="w-3.5 h-3.5 text-[#0891B2]" />}
           >
-            Dùng ảnh mẫu
+            {isLoadingDemo ? 'Đang nạp ảnh...' : 'Dùng ảnh mẫu'}
           </Button>
           <div className="flex items-center gap-1 text-xs bg-[#F0FDFA] text-[#0891B2] px-2.5 py-1.5 rounded-xl border border-[#CCFBF1] font-semibold">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -195,10 +325,45 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         </div>
       </div>
 
-      {uploadError && (
-        <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2 animate-in fade-in">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
-          <span>{uploadError}</span>
+      {/* Banner Lỗi Nổi Bật Kèm Nút Thử Lại */}
+      {(uploadError || analysisError) && (
+        <div className="p-4 rounded-xl bg-red-50/90 border-2 border-red-300 text-xs text-red-800 flex items-start justify-between gap-3 animate-in fade-in shadow-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-5 h-5 shrink-0 text-red-600 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="font-bold text-red-900 text-sm">
+                {analysisError ? 'Không thể hoàn tất phân tích AI' : 'Lỗi kiểm tra tệp ảnh'}
+              </h4>
+              <p className="text-red-700 leading-relaxed">
+                {analysisError || uploadError}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setUploadError('');
+                if (onRetry) onRetry();
+              }}
+              className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold rounded-lg text-xs shadow-xs transition-all flex items-center gap-1.5 focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:ring-offset-1 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Thử lại</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setUploadError('');
+                if (onRetry) onRetry();
+              }}
+              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100/80 active:bg-red-200 rounded-lg transition-colors focus:outline-hidden focus:ring-2 focus:ring-red-400 cursor-pointer"
+              title="Đóng thông báo"
+              aria-label="Đóng thông báo lỗi"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -210,19 +375,18 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             <label className="block text-xs font-semibold text-clinical-text mb-1.5">
               Chọn mắt sàng lọc
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
-                { id: 'Both_OD_OS', label: 'Cả 2 Mắt (OD & OS)' },
-                { id: 'Right_OD', label: 'Mắt Phải (OD)' },
-                { id: 'Left_OS', label: 'Mắt Trái (OS)' },
+                { id: 'Right_OD' as const, label: 'Mắt Phải (OD)' },
+                { id: 'Left_OS' as const, label: 'Mắt Trái (OS)' },
               ].map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setEyeMode(opt.id as any)}
+                  onClick={() => setEyeMode(opt.id)}
                   className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-colors ${
                     eyeMode === opt.id
-                      ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                      ? 'bg-[#0891B2] text-white border-[#0891B2] shadow-xs'
                       : 'bg-white text-clinical-text-secondary border-clinical-border hover:bg-slate-100'
                   }`}
                 >
@@ -249,14 +413,14 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
           </div>
         </div>
 
-        {/* Dual Upload Area */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Upload Area */}
+        <div className="w-full">
           {/* Right Eye (OD) */}
-          {(eyeMode === 'Both_OD_OS' || eyeMode === 'Right_OD') && (
+          {eyeMode === 'Right_OD' && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-clinical-text flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-brand-600" />
+                  <span className="w-2 h-2 rounded-full bg-[#0891B2]" />
                   Mắt Phải - OD (Oculus Dexter)
                 </span>
                 {odFile && (
@@ -267,7 +431,10 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               </div>
 
               <div
-                onDragOver={(e) => { e.preventDefault(); setOdDragOver(true); }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOdDragOver(true);
+                }}
                 onDragLeave={() => setOdDragOver(false)}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -298,11 +465,13 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                     <img
                       src={odPreviewUrl}
                       alt="Xem trước mắt phải"
-                      className="max-h-48 mx-auto rounded-lg object-contain border border-clinical-border shadow-xs"
+                      className="max-h-56 mx-auto rounded-lg object-contain border border-clinical-border shadow-xs"
                     />
                     <div className="text-xs text-slate-600 flex items-center justify-center gap-2">
                       <FileCheck className="w-4 h-4 text-emerald-600" />
-                      <span className="font-medium truncate max-w-[200px]">{odFile?.name || 'Ảnh OD'}</span>
+                      <span className="font-medium truncate max-w-[240px]">
+                        {odFile?.name || 'Ảnh Mắt Phải (OD)'}
+                      </span>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -310,7 +479,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                           setOdFile(null);
                           setOdPreviewUrl('');
                         }}
-                        className="text-red-600 hover:text-red-700 p-1"
+                        className="text-red-600 hover:text-red-700 p-1 rounded-md hover:bg-red-50"
                         title="Xóa ảnh này"
                       >
                         <X className="w-4 h-4" />
@@ -318,9 +487,9 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2 py-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-500">
-                      <FileImage className="w-5 h-5" />
+                  <div className="space-y-2 py-6">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-500">
+                      <FileImage className="w-6 h-6" />
                     </div>
                     <div className="text-xs font-semibold text-clinical-text">
                       Kéo thả ảnh Mắt Phải (OD) hoặc bấm tải lên
@@ -335,7 +504,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
           )}
 
           {/* Left Eye (OS) */}
-          {(eyeMode === 'Both_OD_OS' || eyeMode === 'Left_OS') && (
+          {eyeMode === 'Left_OS' && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-clinical-text flex items-center gap-1.5">
@@ -350,7 +519,10 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               </div>
 
               <div
-                onDragOver={(e) => { e.preventDefault(); setOsDragOver(true); }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOsDragOver(true);
+                }}
                 onDragLeave={() => setOsDragOver(false)}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -381,11 +553,13 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                     <img
                       src={osPreviewUrl}
                       alt="Xem trước mắt trái"
-                      className="max-h-48 mx-auto rounded-lg object-contain border border-clinical-border shadow-xs"
+                      className="max-h-56 mx-auto rounded-lg object-contain border border-clinical-border shadow-xs"
                     />
                     <div className="text-xs text-slate-600 flex items-center justify-center gap-2">
                       <FileCheck className="w-4 h-4 text-emerald-600" />
-                      <span className="font-medium truncate max-w-[200px]">{osFile?.name || 'Ảnh OS'}</span>
+                      <span className="font-medium truncate max-w-[240px]">
+                        {osFile?.name || 'Ảnh Mắt Trái (OS)'}
+                      </span>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -393,7 +567,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                           setOsFile(null);
                           setOsPreviewUrl('');
                         }}
-                        className="text-red-600 hover:text-red-700 p-1"
+                        className="text-red-600 hover:text-red-700 p-1 rounded-md hover:bg-red-50"
                         title="Xóa ảnh này"
                       >
                         <X className="w-4 h-4" />
@@ -401,9 +575,9 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2 py-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-500">
-                      <FileImage className="w-5 h-5" />
+                  <div className="space-y-2 py-6">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-500">
+                      <FileImage className="w-6 h-6" />
                     </div>
                     <div className="text-xs font-semibold text-clinical-text">
                       Kéo thả ảnh Mắt Trái (OS) hoặc bấm tải lên
@@ -418,22 +592,30 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
           )}
         </div>
 
-        {/* Progress Display */}
+        {/* Thanh Tiến Trình Hiển Thị Mượt Mà Từ 0% Đến 100% */}
         {isAnalyzing && (
-          <div className="bg-brand-50/60 p-4 rounded-xl border border-brand-200 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-brand-900">
+          <div className="bg-gradient-to-r from-teal-50/90 via-cyan-50/90 to-blue-50/90 p-5 rounded-2xl border-2 border-[#0891B2]/30 shadow-sm space-y-3 animate-in fade-in">
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="font-bold text-slate-800 flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-[#0891B2]" />
                 {analysisProgress.status || 'Đang thực hiện phân tích vi mạch AI...'}
               </span>
-              <span className="font-mono-data font-bold text-brand-700">
-                {analysisProgress.percent}%
+              <span className="font-mono-data font-black text-[#0891B2] bg-white px-3 py-1 rounded-xl border border-cyan-200 shadow-xs text-sm">
+                {Math.min(100, Math.max(0, analysisProgress.percent))}%
               </span>
             </div>
-            <div className="w-full bg-brand-100 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-slate-200/90 h-3.5 rounded-full overflow-hidden p-0.5 shadow-inner">
               <div
-                className="bg-brand-600 h-full transition-all duration-300 rounded-full"
-                style={{ width: `${analysisProgress.percent}%` }}
+                className="bg-gradient-to-r from-[#0891B2] via-[#0D9488] to-[#16A34A] h-full rounded-full transition-all duration-300 ease-out shadow-xs"
+                style={{ width: `${Math.min(100, Math.max(0, analysisProgress.percent))}%` }}
               />
+            </div>
+            <div className="flex justify-between items-center text-[11px] text-slate-500 font-medium">
+              <span>0% Khởi tạo</span>
+              <span>25% Multimodal Vision</span>
+              <span>60% Biomarkers</span>
+              <span>85% Grad-CAM</span>
+              <span>100% Hoàn tất</span>
             </div>
           </div>
         )}
@@ -444,7 +626,11 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             type="submit"
             size="lg"
             loading={isAnalyzing}
-            disabled={isAnalyzing || (!odFile && !osFile && !odPreviewUrl && !osPreviewUrl)}
+            disabled={
+              isAnalyzing ||
+              isLoadingDemo ||
+              (eyeMode === 'Right_OD' ? !odFile && !odPreviewUrl : !osFile && !osPreviewUrl)
+            }
             icon={<Sparkles className="w-4 h-4" />}
           >
             {isAnalyzing ? 'Đang phân tích vi mạch AI...' : 'Bắt đầu phân tích AI'}

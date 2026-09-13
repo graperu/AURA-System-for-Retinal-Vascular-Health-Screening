@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { UserSession } from "../types/auth";
 import { PatientUploader } from "../components/PatientUploader";
 import { InteractiveCDSViewer } from "../components/InteractiveCDSViewer";
+import { ClinicalRiskSummaryCard } from "../components/ClinicalRiskSummaryCard";
 import { PatientDashboardView } from "../features/patient/PatientDashboardView";
 import { PatientHistoryView, PatientHistoryItem } from "../features/patient/PatientHistoryView";
 import { MedicalReportModal } from "../components/MedicalReportModal";
 import { ConsultationChatModal } from "../components/ConsultationChatModal";
 import { CreditPurchaseModal } from "../components/CreditPurchaseModal";
 import { MedicalProfileModal } from "../components/MedicalProfileModal";
+import { useAnalysisProgress } from "../hooks/useAnalysisProgress";
 import {
   AIRiskResult,
   FundusAnalysisRequest,
@@ -78,14 +80,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(
     null,
   );
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [analysisProgress, setAnalysisProgress] = useState<{
-    status: string;
-    percent: number;
-  }>({
-    status: "",
-    percent: 0,
-  });
+  const {
+    isAnalyzing,
+    analysisProgress,
+    startProgress,
+    completeProgress,
+    failProgress,
+    resetProgress,
+  } = useAnalysisProgress();
 
   // Realtime AI Ready Notification
   const [showAiNotification, setShowAiNotification] = useState<boolean>(false);
@@ -320,27 +322,19 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       mimeType?: string;
     },
   ) => {
-    setIsAnalyzing(true);
+    startProgress();
     setShowAiNotification(false);
     setAnalysisErrorMsg(null);
-    setAnalysisProgress({
-      status: "Mã hóa bảo mật & Khởi chạy mô hình AI...",
-      percent: 15,
-    });
 
     try {
-      setAnalysisProgress({
-        status: "Đang gửi ảnh đến AURA AI Core (Multimodal Vision)...",
-        percent: 45,
-      });
       const res = await screeningApi.create({
         imageUrl: request.imageUrl,
-        eyePosition: request.eye,
-        eye: request.eye,
-        scanType: request.scanType,
-        fileName: request.fileName,
+        eyePosition: request.eyePosition || request.eye || "Right_OD",
+        eye: request.eye || request.eyePosition || "Right_OD",
+        scanType: request.scanType || "Fundus_Macula",
+        fileName: request.fileName || request.imageName || "fundus_scan.png",
         fileSize: request.fileSize,
-        mimeType: request.mimeType,
+        mimeType: request.mimeType || "image/png",
       });
       if (!res.success || !res.data || res.data.status === "FAILED") {
         throw new Error(
@@ -349,31 +343,30 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             : (res.message || "Dịch vụ AI chưa sẵn sàng. Không tạo kết quả giả.")
         );
       }
-      setAnalysisProgress({
-        status: "Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...",
-        percent: 85,
-      });
+
       const result = mapScreeningToAIRiskResult(res.data, request.imageUrl);
 
-      setAnalysisResult(result);
-      // Cập nhật lịch sử khám trực tiếp từ PostgreSQL (FR-6)
-      await loadScreeningHistory();
+      // Hoàn tất tiến trình: vọt lên 100%, giữ 600ms rồi chuyển sang giao diện kết quả
+      completeProgress(async () => {
+        setAnalysisResult(result);
+        // Cập nhật lịch sử khám trực tiếp từ PostgreSQL (FR-6)
+        await loadScreeningHistory();
 
-      // Trigger AI Ready Notification
-      setShowAiNotification(true);
-      setTimeout(() => setShowAiNotification(false), 7000);
+        // Trigger AI Ready Notification
+        setShowAiNotification(true);
+        setTimeout(() => setShowAiNotification(false), 7000);
 
-      // Navigate to CDS Viewer automatically
-      onNavigate("cds-viewer");
+        // Navigate to CDS Viewer automatically
+        onNavigate("cds-viewer");
+      });
     } catch (err) {
       console.error(err);
-      setAnalysisErrorMsg(
+      const errMsg =
         err instanceof Error
           ? err.message
-          : "Không thể kết nối đến máy chủ phân tích. Vui lòng thử lại.",
-      );
-    } finally {
-      setIsAnalyzing(false);
+          : "Không thể kết nối đến máy chủ phân tích. Vui lòng thử lại.";
+      failProgress(errMsg);
+      setAnalysisErrorMsg(errMsg);
     }
   };
 
@@ -576,6 +569,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             onStartAnalysis={handleStartAnalysis}
             isAnalyzing={isAnalyzing}
             analysisProgress={analysisProgress}
+            analysisError={analysisErrorMsg}
+            onRetry={() => {
+              setAnalysisErrorMsg(null);
+              resetProgress();
+            }}
           />
         </div>
       )}
@@ -605,10 +603,27 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           </div>
 
           {analysisResult ? (
-            <InteractiveCDSViewer
-              analysisResult={analysisResult}
-              selectedEye="OD (Mắt Phải)"
-            />
+            <div className="space-y-6">
+              <InteractiveCDSViewer
+                analysisResult={analysisResult}
+                selectedEye={
+                  analysisResult.eyePosition === "Left_OS" || analysisResult.eyePosition === "OS"
+                    ? "OS (Mắt Trái)"
+                    : "OD (Mắt Phải)"
+                }
+              />
+              <ClinicalRiskSummaryCard
+                analysisResult={analysisResult}
+                onOpenFullReport={() => setIsReportModalOpen(true)}
+                onConsultDoctor={() => {
+                  if (assignedDoctorId) {
+                    onNavigate("consultation-chat");
+                  } else {
+                    setIsChatModalOpen(true);
+                  }
+                }}
+              />
+            </div>
           ) : (
             <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
               Chưa có kết quả phân tích thật. Hãy tải ảnh võng mạc để bắt đầu.
