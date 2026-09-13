@@ -26,7 +26,7 @@ public class GeminiRetinalAiService {
   @Value("${aura.ai-service.gemini.enabled:true}")
   private boolean enabled;
 
-  @Value("${aura.ai-service.gemini.api-url:https://dallas-adequate-isolation-unity.trycloudflare.com/v1/chat/completions}")
+  @Value("${aura.ai-service.gemini.api-url:http://localhost:20128/v1/chat/completions}")
   private String apiUrl;
 
   @Value("${aura.ai-service.gemini.api-key:sk-7b0cdba71ad7d98c-r1c29o-13878c62}")

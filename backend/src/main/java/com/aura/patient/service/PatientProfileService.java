@@ -334,12 +334,17 @@ public class PatientProfileService {
 
   private PatientProfileResponse toResponse(PatientMedicalProfile profile) {
     UUID patientId = profile.getUser() != null ? profile.getUser().getId() : null;
-    UUID doctorId = (patientId == null || assignmentRepository == null) ? null : assignmentRepository
+    var activeAssignment = (patientId == null || assignmentRepository == null) ? null : assignmentRepository
         .findByPatientIdAndStatus(patientId, AssignmentStatus.ACTIVE)
         .stream()
         .findFirst()
-        .map(assignment -> assignment.getDoctor().getId())
         .orElse(null);
-    return PatientProfileResponse.fromEntity(profile, doctorId);
+    UUID doctorId = activeAssignment != null && activeAssignment.getDoctor() != null
+        ? activeAssignment.getDoctor().getId()
+        : null;
+    String doctorName = activeAssignment != null && activeAssignment.getDoctor() != null
+        ? activeAssignment.getDoctor().getFullName()
+        : null;
+    return PatientProfileResponse.fromEntity(profile, doctorId, doctorName);
   }
 }
