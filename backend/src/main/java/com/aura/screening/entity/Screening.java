@@ -1,5 +1,6 @@
 package com.aura.screening.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -17,139 +18,182 @@ import org.hibernate.annotations.UuidGenerator;
 @Table(name = "screenings")
 public class Screening {
 
+  @JsonProperty("id")
   @Id @GeneratedValue @UuidGenerator private UUID id;
 
+  @JsonProperty("patientId")
   @Column(name = "patient_id", nullable = false)
   private UUID patientId;
 
+  @JsonProperty("doctorId")
   @Column(name = "doctor_id")
   private UUID doctorId;
 
+  @JsonProperty("imageUrl")
   @Column(name = "image_url", nullable = false, columnDefinition = "TEXT")
   private String imageUrl;
 
+  @JsonProperty("status")
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 32)
   private ScreeningStatus status = ScreeningStatus.PENDING;
 
+  @JsonProperty("riskLevel")
   @Enumerated(EnumType.STRING)
   @Column(name = "risk_level", length = 32)
   private RiskLevel riskLevel;
 
+  @JsonProperty("aiRiskLevel")
   @Enumerated(EnumType.STRING)
   @Column(name = "ai_risk_level", length = 32)
   private RiskLevel aiRiskLevel;
 
+  @JsonProperty("doctorRiskLevel")
   @Enumerated(EnumType.STRING)
   @Column(name = "doctor_risk_level", length = 32)
   private RiskLevel doctorRiskLevel;
 
+  @JsonProperty("reviewedAt")
   @Column(name = "reviewed_at")
   private Instant reviewedAt;
 
+  @JsonProperty("confidence")
   @Column(name = "confidence")
   private Double confidence;
 
+  @JsonProperty("findings")
   @Column(name = "findings", columnDefinition = "TEXT")
   private String findings;
 
   // --- FR-3: per-category risk breakdown ---
+  @JsonProperty("cardiovascularRiskScore")
   @Column(name = "cardiovascular_risk_score")
   private Integer cardiovascularRiskScore;
 
+  @JsonProperty("cardiovascularRiskLevel")
   @Column(name = "cardiovascular_risk_level", length = 32)
   private String cardiovascularRiskLevel;
 
+  @JsonProperty("diabeticRetinopathyRiskScore")
   @Column(name = "diabetic_retinopathy_risk_score")
   private Integer diabeticRetinopathyRiskScore;
 
+  @JsonProperty("diabeticRetinopathyRiskLevel")
   @Column(name = "diabetic_retinopathy_risk_level", length = 32)
   private String diabeticRetinopathyRiskLevel;
 
+  @JsonProperty("hypertensionRiskScore")
   @Column(name = "hypertension_risk_score")
   private Integer hypertensionRiskScore;
 
+  @JsonProperty("hypertensionRiskLevel")
   @Column(name = "hypertension_risk_level", length = 32)
   private String hypertensionRiskLevel;
 
+  @JsonProperty("strokeRiskScore")
   @Column(name = "stroke_risk_score")
   private Integer strokeRiskScore;
 
+  @JsonProperty("strokeRiskLevel")
   @Column(name = "stroke_risk_level", length = 32)
   private String strokeRiskLevel;
 
   // --- FR-3 / FR-4: retinal vascular biomarkers ---
+  @JsonProperty("avRatio")
   @Column(name = "av_ratio")
   private Double avRatio;
 
+  @JsonProperty("vesselDensityPercent")
   @Column(name = "vessel_density_percent")
   private Double vesselDensityPercent;
 
+  @JsonProperty("tortuosityIndex")
   @Column(name = "tortuosity_index")
   private Double tortuosityIndex;
 
+  @JsonProperty("verticalCdr")
   @Column(name = "vertical_cdr")
   private Double verticalCdr;
 
   // --- FR-4: Grad-CAM heatmap overlay ---
+  @JsonProperty("heatmapBase64")
   @Column(name = "heatmap_base64", columnDefinition = "TEXT")
   private String heatmapBase64;
 
   // --- FR-5: auto-generated health recommendations ---
+  @JsonProperty("recommendations")
   @Column(name = "recommendations", columnDefinition = "TEXT")
   private String recommendations;
+
+  @JsonProperty("doctorNotes")
   @Column(name = "doctor_notes", columnDefinition = "TEXT")
   private String doctorNotes;
 
+  @JsonProperty("eyePosition")
   @Column(name = "eye_position", length = 32)
   private String eyePosition;
 
+  @JsonProperty("scanType")
   @Column(name = "scan_type", length = 64)
   private String scanType;
 
+  @JsonProperty("fileName")
   @Column(name = "file_name", length = 255)
   private String fileName;
 
+  @JsonProperty("fileSize")
   @Column(name = "file_size")
   private Long fileSize;
 
+  @JsonProperty("mimeType")
   @Column(name = "mime_type", length = 100)
   private String mimeType;
 
+  @JsonProperty("riskScore")
   @Column(name = "risk_score")
   private Integer riskScore;
 
+  @JsonProperty("vesselDensity")
   @Column(name = "vessel_density", length = 32)
   private String vesselDensity;
 
+  @JsonProperty("reviewDecision")
   @Enumerated(EnumType.STRING)
   @Column(name = "review_decision", length = 16)
   private ReviewDecision reviewDecision;
 
+  @JsonProperty("originalAiRiskLevel")
   @Enumerated(EnumType.STRING)
   @Column(name = "original_ai_risk_level", length = 32)
   private RiskLevel originalAiRiskLevel;
 
+  @JsonProperty("doctorCardiovascularRiskLevel")
   @Enumerated(EnumType.STRING)
   @Column(name = "doctor_cardiovascular_risk_level", length = 32)
   private RiskLevel doctorCardiovascularRiskLevel;
 
+  @JsonProperty("doctorDiabeticRetinopathyRiskLevel")
   @Enumerated(EnumType.STRING)
   @Column(name = "doctor_diabetic_retinopathy_risk_level", length = 32)
   private RiskLevel doctorDiabeticRetinopathyRiskLevel;
 
+  @JsonProperty("icd10Codes")
   @Column(name = "icd10_codes", columnDefinition = "TEXT")
   private String icd10Codes;
 
+  @JsonProperty("digitalSignature")
   @Column(name = "digital_signature", columnDefinition = "TEXT")
   private String digitalSignature;
 
+  @JsonProperty("signedAt")
   @Column(name = "signed_at")
   private Instant signedAt;
 
+  @JsonProperty("createdAt")
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
+  @JsonProperty("updatedAt")
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
@@ -490,5 +534,15 @@ public class Screening {
 
   public Instant getUpdatedAt() {
     return updatedAt;
+  }
+
+  @JsonProperty("eye")
+  public String getEye() {
+    return eyePosition;
+  }
+
+  @JsonProperty("overallVascularRiskScore")
+  public Integer getOverallVascularRiskScore() {
+    return riskScore;
   }
 }

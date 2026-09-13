@@ -114,6 +114,7 @@ const adminNavGroups: NavGroup[] = [
       { id: "user-management", label: "Quản lý tài khoản", icon: Users },
       { id: "rbac-matrix", label: "Phân quyền vai trò", icon: ShieldCheck },
       { id: "clinic-approvals", label: "Phê duyệt phòng khám", icon: UserCog },
+      { id: "package-management", label: "Quản lý gói dịch vụ", icon: CreditCard },
     ],
   },
   {

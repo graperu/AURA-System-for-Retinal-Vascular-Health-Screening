@@ -142,7 +142,7 @@ public class DoctorPatientController {
     if (principal == null) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập tài khoản Bác sĩ");
     }
-    Screening screening = screeningService.createScreening(patientId, request.imageUrl());
+    Screening screening = screeningService.createScreening(patientId, request);
     return ApiResponse.success("Tạo ca sàng lọc cho bệnh nhân được phân công thành công", screening);
   }
 }

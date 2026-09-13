@@ -49,33 +49,42 @@ public class ScreeningService {
     this.restClient = restClientBuilder.build();
   }
 
-  @Transactional
   public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request) {
     String eye = request.eyePosition() != null && !request.eyePosition().isBlank() ? request.eyePosition() : "OD";
+    String scanType = request.scanType() != null && !request.scanType().isBlank() ? request.scanType() : "Fundus";
     Screening screening = new Screening(patientId, request.imageUrl());
-    if (request.eyePosition() != null) screening.setEyePosition(request.eyePosition());
-    if (request.scanType() != null) screening.setScanType(request.scanType());
+    screening.setEyePosition(eye);
+    screening.setScanType(scanType);
     if (request.fileName() != null) screening.setFileName(request.fileName());
     if (request.fileSize() != null) screening.setFileSize(request.fileSize());
     if (request.mimeType() != null) screening.setMimeType(request.mimeType());
-    if (request.riskScore() != null) screening.setRiskScore(request.riskScore());
     if (request.avRatio() != null) screening.setAvRatio(request.avRatio());
     if (request.vesselDensity() != null) screening.setVesselDensity(request.vesselDensity());
 
+    // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, eye, request.imageUrl());
 
-    Screening saved = screeningRepository.save(screening);
+    Screening saved = saveScreeningRecord(screening);
+    sendAiReadyNotification(saved, patientId);
+    return saved;
+  }
+
+  public Screening createScreening(UUID patientId, String imageUrl) {
+    Screening screening = new Screening(patientId, imageUrl);
+    screening.setEyePosition("OD");
+    screening.setScanType("Fundus");
+
+    // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
+    executeAiAnalysisAndPopulate(screening, "OD", imageUrl);
+
+    Screening saved = saveScreeningRecord(screening);
     sendAiReadyNotification(saved, patientId);
     return saved;
   }
 
   @Transactional
-  public Screening createScreening(UUID patientId, String imageUrl) {
-    Screening screening = new Screening(patientId, imageUrl);
-    executeAiAnalysisAndPopulate(screening, "OD", imageUrl);
-    Screening saved = screeningRepository.save(screening);
-    sendAiReadyNotification(saved, patientId);
-    return saved;
+  public Screening saveScreeningRecord(Screening screening) {
+    return screeningRepository.save(screening);
   }
 
   private void executeAiAnalysisAndPopulate(Screening screening, String eye, String imageUrl) {
@@ -93,6 +102,9 @@ public class ScreeningService {
         Number overallRisk = (Number) body.get("overallVascularRiskScore");
         if (overallRisk == null) {
           overallRisk = (Number) body.get("overallRiskScore");
+        }
+        if (overallRisk == null) {
+          overallRisk = (Number) body.get("riskScore");
         }
         if (overallRisk == null) {
           throw new IllegalStateException("AI response is missing overallVascularRiskScore");
@@ -170,6 +182,7 @@ public class ScreeningService {
         screening.setStatus(ScreeningStatus.FAILED);
         screening.setRiskLevel(null);
         screening.setAiRiskLevel(null);
+        screening.setRiskScore(null);
         screening.setConfidence(null);
         screening.setFindings("Dịch vụ AI trả về kết quả không hợp lệ. Ảnh chụp đã được lưu trữ an toàn.");
       }
@@ -178,6 +191,7 @@ public class ScreeningService {
       screening.setStatus(ScreeningStatus.FAILED);
       screening.setRiskLevel(null);
       screening.setAiRiskLevel(null);
+      screening.setRiskScore(null);
       screening.setConfidence(null);
       screening.setFindings("Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
     }

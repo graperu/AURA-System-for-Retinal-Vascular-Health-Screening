@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
 import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
+import { ClinicCreditPackageSection } from '../components/ClinicCreditPackageSection';
 import { ClinicBatchJob } from '../types/cds';
 import { bulkScreeningApi, clinicApi } from '../services/api';
 import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard } from 'lucide-react';
@@ -376,13 +377,19 @@ export const ClinicPortalPage: React.FC<{ activeView?: string }> = ({ activeView
       {activeView === 'doctors-manage' && <ClinicDoctorsSection />}
 
       {activeView === 'credit-package' && (
-        <Card padding="lg" className="space-y-4 text-center py-12">
-          <CreditCard className="w-12 h-12 text-brand-600 mx-auto" />
-          <h3 className="text-base font-bold text-clinical-text">Gói Dịch Vụ Cơ Sở & Hạn Mức Khám</h3>
-          <p className="text-xs text-clinical-text-muted max-w-md mx-auto">
-            Quản lý dung lượng lượt khám tầm soát hàng loạt và gia hạn hợp đồng chiến dịch phòng khám.
-          </p>
-        </Card>
+        <ClinicCreditPackageSection
+          batchJob={batchJob}
+          onRefreshBatch={() => {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              try {
+                setBatchJob(JSON.parse(saved));
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          }}
+        />
       )}
 
       {activeView === 'campaign-analytics' && (

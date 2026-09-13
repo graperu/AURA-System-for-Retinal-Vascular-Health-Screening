@@ -73,3 +73,8 @@ models/weights/
 datasets/
 patient-images/
 retinal-images/
+# Local Kilo AI company
+.kilo/
+kilo.json
+kilo.jsonc
+.kilocodemodes

@@ -2,6 +2,7 @@ package com.aura.screening.controller;
 
 import com.aura.auth.exception.AuthException;
 import com.aura.auth.security.AuraUserPrincipal;
+import com.aura.auth.service.PatientAccessService;
 import com.aura.common.response.ApiResponse;
 import com.aura.common.response.ErrorCode;
 import com.aura.screening.dto.CreateScreeningRequest;
@@ -21,9 +22,11 @@ import org.springframework.web.bind.annotation.*;
 public class ScreeningController {
 
   private final ScreeningService screeningService;
+  private final PatientAccessService patientAccessService;
 
-  public ScreeningController(ScreeningService screeningService) {
+  public ScreeningController(ScreeningService screeningService, PatientAccessService patientAccessService) {
     this.screeningService = screeningService;
+    this.patientAccessService = patientAccessService;
   }
 
   @PostMapping
@@ -40,20 +43,51 @@ public class ScreeningController {
 
   @GetMapping
   public ApiResponse<List<Screening>> getScreenings(
+      @RequestParam(required = false) UUID patientId,
       @AuthenticationPrincipal AuraUserPrincipal principal) {
     if (principal == null) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để xem danh sách sàng lọc");
     }
+
     List<Screening> screenings;
-    boolean isDoctorOrAdmin = principal.roles() != null && principal.roles().stream()
-        .anyMatch(r -> r.equalsIgnoreCase("DOCTOR") || r.equalsIgnoreCase("ADMIN"));
-    if (isDoctorOrAdmin) {
-      screenings = screeningService.getAllScreenings();
+    boolean isAdmin = hasRole(principal, "ADMIN");
+    boolean isDoctor = hasRole(principal, "DOCTOR");
+
+    if (isAdmin) {
+      if (patientId != null) {
+        screenings = screeningService.getScreeningsForPatient(patientId);
+      } else {
+        screenings = screeningService.getAllScreenings();
+      }
+    } else if (isDoctor) {
+      if (patientId != null) {
+        if (!patientAccessService.canAccessPatient(principal, patientId)) {
+          throw new AuthException(
+              ErrorCode.ACCESS_DENIED,
+              "Bác sĩ không có quyền truy cập lịch sử của bệnh nhân chưa được phân công");
+        }
+        screenings = screeningService.getScreeningsForPatient(patientId);
+      } else {
+        screenings = screeningService.getScreeningsForDoctor(principal.id());
+      }
     } else {
+      if (patientId != null && !patientId.equals(principal.id())) {
+        throw new AuthException(
+            ErrorCode.ACCESS_DENIED,
+            "Không có quyền truy cập lịch sử sàng lọc của bệnh nhân khác");
+      }
       screenings = screeningService.getScreeningsForPatient(principal.id());
     }
 
     return ApiResponse.success("Lấy danh sách ca sàng lọc thành công", screenings);
+  }
+
+  private boolean hasRole(AuraUserPrincipal principal, String role) {
+    return principal.roles() != null && principal.roles().stream().anyMatch(r -> r.equalsIgnoreCase(role));
+  }
+
+  public ApiResponse<List<Screening>> getScreenings(AuraUserPrincipal principal) {
+    return getScreenings(null, principal);
   }
 
   @GetMapping("/{id}")

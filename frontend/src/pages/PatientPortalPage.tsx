@@ -3,6 +3,7 @@ import { UserSession } from "../types/auth";
 import { PatientUploader } from "../components/PatientUploader";
 import { InteractiveCDSViewer } from "../components/InteractiveCDSViewer";
 import { PatientDashboardView } from "../features/patient/PatientDashboardView";
+import { PatientHistoryView, PatientHistoryItem } from "../features/patient/PatientHistoryView";
 import { MedicalReportModal } from "../components/MedicalReportModal";
 import { ConsultationChatModal } from "../components/ConsultationChatModal";
 import { CreditPurchaseModal } from "../components/CreditPurchaseModal";
@@ -35,13 +36,12 @@ import {
   Stethoscope,
   Send,
   QrCode,
-  FileSpreadsheet,
   AlertTriangle,
   FileText,
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import { mapScreeningToAIRiskResult } from "../services/screeningMapper";
+import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
 
 interface PatientPortalPageProps {
   user: UserSession;
@@ -106,7 +106,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [newChatText, setNewChatText] = useState("");
 
   // Scan History
-  const [scanHistory, setScanHistory] = useState<any[]>([]);
+  const [scanHistory, setScanHistory] = useState<PatientHistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState<boolean>(false);
 
   const loadBillingData = async () => {
     try {
@@ -198,49 +199,98 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     }
   };
 
+  // Load real history from PostgreSQL (FR-6)
+  const loadScreeningHistory = async () => {
+    try {
+      setIsHistoryLoading(true);
+      const res = await screeningApi.getAll();
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped: PatientHistoryItem[] = res.data.map((item: any) => {
+          const cvdScore = item.cardiovascularRiskScore ?? 0;
+          const drScore = item.diabeticRetinopathyRiskScore ?? 0;
+          const score = Math.round(
+            item.riskScore ?? item.overallVascularRiskScore ?? ((cvdScore + drScore) / 2)
+          );
+          const computedLevel =
+            score >= 80 ? "Critical" : score >= 65 ? "High" : score >= 45 ? "Moderate" : "Low";
+
+          return {
+            id: item.id,
+            rawId: item.id,
+            createdAt: item.createdAt || new Date().toISOString(),
+            eyePosition: item.eyePosition || item.eye || "OD",
+            scanType: item.scanType || "Fundus_Macula",
+            riskScore: score,
+            riskLevel: item.riskLevel || computedLevel,
+            status: item.status || "ANALYZED",
+            doctorReviewed: item.status === "REVIEWED",
+            doctorName: item.doctorName || (item.doctorId ? "Bác sĩ phụ trách" : undefined),
+            doctorNotes: item.doctorNotes || item.notes,
+            digitalSignature: item.digitalSignature,
+            signedAt: item.signedAt,
+            icd10Codes: parseIcd10Codes(item.icd10Codes),
+            imageUrl: item.imageUrl,
+            rawScreening: item,
+            notes: item.doctorNotes || item.findings,
+          };
+        });
+        setScanHistory(mapped);
+
+        // Tự động load kết quả sàng lọc mới nhất lên Viewer
+        const latest = res.data[0];
+        if (latest && latest.status !== "FAILED") {
+          setAnalysisResult(mapScreeningToAIRiskResult(latest, latest.imageUrl));
+        }
+      } else {
+        setScanHistory([]);
+      }
+    } catch (e) {
+      console.warn("Could not fetch screenings from DB:", e);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  const handleSelectScreeningForViewer = async (item: PatientHistoryItem) => {
+    try {
+      const realId = item.rawId || item.id;
+      const res = await screeningApi.getById(realId);
+      if (res.success && res.data) {
+        setAnalysisResult(mapScreeningToAIRiskResult(res.data, res.data.imageUrl || item.imageUrl || ""));
+      } else if (item.rawScreening) {
+        setAnalysisResult(mapScreeningToAIRiskResult(item.rawScreening, item.imageUrl || ""));
+      }
+    } catch (err) {
+      console.warn("Could not fetch screening detail for viewer:", err);
+      if (item.rawScreening) {
+        setAnalysisResult(mapScreeningToAIRiskResult(item.rawScreening, item.imageUrl || ""));
+      }
+    }
+    onNavigate("cds-viewer");
+  };
+
+  const handleOpenReportFromHistory = async (item: PatientHistoryItem) => {
+    try {
+      const realId = item.rawId || item.id;
+      const res = await screeningApi.getById(realId);
+      if (res.success && res.data) {
+        setAnalysisResult(mapScreeningToAIRiskResult(res.data, res.data.imageUrl || item.imageUrl || ""));
+      } else if (item.rawScreening) {
+        setAnalysisResult(mapScreeningToAIRiskResult(item.rawScreening, item.imageUrl || ""));
+      }
+    } catch (err) {
+      console.warn("Could not fetch screening detail for report:", err);
+      if (item.rawScreening) {
+        setAnalysisResult(mapScreeningToAIRiskResult(item.rawScreening, item.imageUrl || ""));
+      }
+    }
+    setIsReportModalOpen(true);
+  };
+
   // Load real history and chat messages from PostgreSQL on mount
   useEffect(() => {
     const fetchRealData = async () => {
-      try {
-        const res = await screeningApi.getAll();
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          const mapped = res.data.map((item: any) => ({
-            id: `ANALYSIS-${item.id.slice(0, 8).toUpperCase()}`,
-            rawId: item.id,
-            date: item.createdAt
-              ? new Date(item.createdAt).toLocaleString("vi-VN")
-              : "Không có thời gian",
-            eye: item.eye || "Chưa ghi nhận",
-            scanType: item.scanType || "Chưa ghi nhận",
-            overallScore: item.overallVascularRiskScore ?? null,
-            riskLevel: item.riskLevel || "Chưa có kết quả",
-            cvdRisk:
-              item.cardiovascularRiskScore != null
-                ? `${item.cardiovascularRiskScore}%`
-                : "Chưa có",
-            doctor:
-              item.doctorName ||
-              (item.doctorId ? item.doctorId : "Chờ bác sĩ duyệt"),
-            status:
-              item.status === "REVIEWED"
-                ? "Đã duyệt lâm sàng"
-                : item.status === "ANALYZED"
-                  ? "Đã phân tích AI"
-                  : item.status === "FAILED"
-                    ? "Phân tích thất bại"
-                    : "Đang chờ xử lý",
-          }));
-          setScanHistory(mapped);
-
-          // Tự động load kết quả sàng lọc mới nhất lên Viewer
-          const latest = res.data[0];
-          if (latest && latest.status !== 'FAILED') {
-            setAnalysisResult(mapScreeningToAIRiskResult(latest, latest.imageUrl));
-          }
-        }
-      } catch (e) {
-        console.warn("Could not fetch screenings from DB:", e);
-      }
+      await loadScreeningHistory();
 
       // Fetch profile
       await fetchProfileData();
@@ -262,7 +312,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     fetchRealData();
   }, []);
 
-  const handleStartAnalysis = async (request: FundusAnalysisRequest) => {
+  const handleStartAnalysis = async (
+    request: FundusAnalysisRequest & {
+      eye?: string;
+      fileName?: string;
+      fileSize?: number;
+      mimeType?: string;
+    },
+  ) => {
     setIsAnalyzing(true);
     setShowAiNotification(false);
     setAnalysisErrorMsg(null);
@@ -273,10 +330,18 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
 
     try {
       setAnalysisProgress({
-        status: "Đang gửi ảnh đến AURA AI Core (FastAPI)...",
+        status: "Đang gửi ảnh đến AURA AI Core (Multimodal Vision)...",
         percent: 45,
       });
-      const res = await screeningApi.create(request.imageUrl);
+      const res = await screeningApi.create({
+        imageUrl: request.imageUrl,
+        eyePosition: request.eye,
+        eye: request.eye,
+        scanType: request.scanType,
+        fileName: request.fileName,
+        fileSize: request.fileSize,
+        mimeType: request.mimeType,
+      });
       if (!res.success || !res.data || res.data.status === "FAILED") {
         throw new Error(
           res.message ||
@@ -291,28 +356,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       const result = mapScreeningToAIRiskResult(res.data, request.imageUrl);
 
       setAnalysisResult(result);
-      // Add to Scan History
-      const newScan = {
-        id: result.analysisId,
-        date: new Date().toLocaleString("vi-VN"),
-        eye:
-          request.eyePosition === "Right_OD"
-            ? "Mắt Phải (OD)"
-            : "Mắt Trái (OS)",
-        scanType:
-          request.scanType === "Fundus_Macula"
-            ? "Fundus Cực Sau Hoàng Điểm"
-            : "Fundus Đĩa Thị",
-        overallScore: result.overallVascularRiskScore,
-        riskLevel:
-          result.overallVascularRiskScore >= 75
-            ? "Nguy cơ cao"
-            : "Nguy cơ trung bình",
-        cvdRisk: `${result.cardiovascularRisk.score}%`,
-        doctor: patient.assignedDoctor || "Chờ phân công",
-        status: "Vừa phân tích xong",
-      };
-      setScanHistory((prev) => [newScan, ...prev]);
+      // Cập nhật lịch sử khám trực tiếp từ PostgreSQL (FR-6)
+      await loadScreeningHistory();
 
       // Trigger AI Ready Notification
       setShowAiNotification(true);
@@ -826,130 +871,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       ========================================================================== */}
       {activeView === "scan-history" && (
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-cyan-50 text-cyan-700">
-                  <History className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Lịch Sử Khám & Xuất Báo Cáo Y Khoa (FR-6, FR-7)
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Tra cứu các kết quả khám trước đây, theo dõi tiến trình và
-                    tải báo cáo chuẩn y tế.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsReportModalOpen(true)}
-                className="px-4 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
-              >
-                <Download className="w-4 h-4" /> Xuất Báo Cáo PDF/CSV
-              </button>
-            </div>
-
-            <div className="overflow-hidden rounded-xl border border-slate-200 shadow-xs">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="p-3.5">Mã Phân Tích</th>
-                    <th className="p-3.5">Ngày Khám</th>
-                    <th className="p-3.5">Vị Trí Soi</th>
-                    <th className="p-3.5">Điểm Rủi Ro</th>
-                    <th className="p-3.5">Nguy Cơ Tim Mạch</th>
-                    <th className="p-3.5">Bác Sĩ Phụ Trách</th>
-                    <th className="p-3.5">Thao Tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {scanHistory.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="p-8 text-center text-slate-400"
-                      >
-                        Chưa có lịch sử phân tích hình ảnh võng mạc nào.
-                      </td>
-                    </tr>
-                  ) : (
-                    scanHistory.map((scan) => (
-                      <tr
-                        key={scan.id}
-                        className="hover:bg-slate-50/80 transition-colors"
-                      >
-                        <td className="p-3.5 font-mono-data font-semibold text-cyan-800">
-                          {scan.id}
-                        </td>
-                        <td className="p-3.5 text-slate-500 font-mono-data">
-                          {scan.date}
-                        </td>
-                        <td className="p-3.5 font-medium text-slate-800">
-                          {scan.eye}
-                        </td>
-                        <td className="p-3.5 font-mono-data font-bold">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[11px] ${
-                              scan.overallScore >= 75
-                                ? "bg-red-100 text-red-700 border border-red-300"
-                                : "bg-amber-100 text-amber-800 border border-amber-300"
-                            }`}
-                          >
-                            {scan.overallScore != null
-                              ? `${scan.overallScore}/100`
-                              : "Chưa có"}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-mono-data font-bold text-red-600">
-                          {scan.cvdRisk}
-                        </td>
-                        <td className="p-3.5 text-slate-700 font-medium">
-                          {scan.doctor}
-                        </td>
-                        <td className="p-3.5 flex items-center gap-2">
-                          <button
-                            onClick={async () => {
-                              try {
-                                const realId = scan.rawId || scan.id.replace("ANALYSIS-", "");
-                                const res = await screeningApi.getById(realId);
-                                if (res.success && res.data) {
-                                  setAnalysisResult(mapScreeningToAIRiskResult(res.data, res.data.imageUrl));
-                                }
-                              } catch {
-                                // Keep existing if error
-                              }
-                              onNavigate("cds-viewer");
-                            }}
-                            className="px-3 py-1.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-lg text-xs shadow-xs"
-                          >
-                            Xem Bản Đồ Nhiệt
-                          </button>
-                          <button
-                            onClick={async () => {
-                              try {
-                                const realId = scan.rawId || scan.id.replace("ANALYSIS-", "");
-                                const res = await screeningApi.getById(realId);
-                                if (res.success && res.data) {
-                                  setAnalysisResult(mapScreeningToAIRiskResult(res.data, res.data.imageUrl));
-                                }
-                              } catch {
-                                // Keep existing if error
-                              }
-                              setIsReportModalOpen(true);
-                            }}
-                            className="px-3 py-1.5 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold rounded-lg text-xs shadow-xs"
-                          >
-                            Xuất Báo Cáo
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <PatientHistoryView
+            screenings={scanHistory}
+            loading={isHistoryLoading}
+            onSelectScreening={handleSelectScreeningForViewer}
+            onOpenReportModal={handleOpenReportFromHistory}
+            onRefresh={loadScreeningHistory}
+          />
         </div>
       )}
 

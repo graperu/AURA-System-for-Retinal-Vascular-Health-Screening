@@ -1,24 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CreditCard, CheckCircle2, ShieldCheck, Zap, AlertCircle } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { billingApi } from '../services/api';
 
-interface CreditPackage {
+export interface CreditPackage {
   id: number;
   name: string;
   scansCount: number;
   priceVnd: number;
   isPopular?: boolean;
   features: string[];
+  validityDays?: number;
 }
 
-interface CreditPurchaseModalProps {
+export interface CreditPurchaseModalProps {
   isOpen: boolean;
   onClose: () => void;
   userRole?: 'patient' | 'clinic';
   currentCredits?: number;
   currentCredit?: number;
+  customPackages?: CreditPackage[];
+  initialPackageId?: number;
   onPurchaseSuccess?: (newCredits: number) => void;
   onSuccess?: (added: number) => void;
 }
@@ -29,6 +32,8 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
   userRole = 'patient',
   currentCredits,
   currentCredit,
+  customPackages,
+  initialPackageId,
   onPurchaseSuccess,
   onSuccess,
 }) => {
@@ -36,6 +41,7 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStep, setPaymentStep] = useState<'SELECT' | 'CONFIRM' | 'SUCCESS'>('SELECT');
+  const [paymentMethod, setPaymentMethod] = useState<'VNPAY' | 'MOMO' | 'BANK_TRANSFER'>('VNPAY');
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const patientPackages: CreditPackage[] = [
@@ -73,29 +79,69 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
     },
   ];
 
-  const clinicPackages: CreditPackage[] = [
+  const defaultClinicPackages: CreditPackage[] = [
     {
       id: 101,
-      name: 'Gói Chiến Dịch Cơ Sở 200',
-      scansCount: 200,
-      priceVnd: 3500000,
-      features: ['200 lượt sàng lọc hàng loạt', 'Báo cáo dịch tễ & phân tầng rủi ro', 'Hỗ trợ xử lý tệp DICOM'],
+      name: 'Gói Cơ Sở Sàng Lọc (Clinic Starter)',
+      scansCount: 500,
+      priceVnd: 5000000,
+      validityDays: 90,
+      features: [
+        '500 lượt phân tích ảnh vi mạch võng mạc AI',
+        'Phân tầng 4 cấp độ nguy cơ tim mạch & đáy mắt',
+        'Bản đồ nhiệt Grad-CAM & tính toán A/V ratio',
+        'Báo cáo tóm tắt lâm sàng PDF chuẩn Bộ Y Tế',
+        'Hỗ trợ tối đa 2 tài khoản bác sĩ phân tích',
+      ],
     },
     {
       id: 102,
-      name: 'Gói Chiến Dịch Quy Mô Lớn 1000',
-      scansCount: 1000,
-      priceVnd: 15000000,
+      name: 'Gói Chiến Dịch Lâm Sàng (Clinic Campaign)',
+      scansCount: 2000,
+      priceVnd: 18000000,
+      validityDays: 180,
       isPopular: true,
       features: [
-        '1000 lượt sàng lọc phân tán',
-        'API tích hợp PACS/HIS bệnh viện',
-        'Báo cáo thống kê lâm sàng chuyên sâu',
+        '2.000 lượt phân tích ảnh võng mạc tốc độ cao',
+        'Tự động xử lý theo đợt hàng loạt (Bulk Batch)',
+        'Báo cáo dịch tễ học & thống kê phân tầng nguy cơ',
+        'Phân công bệnh nhân tự động cho bác sĩ',
+        'Xuất dữ liệu báo cáo chuyên sâu CSV/Excel',
+        'Không giới hạn số lượng bác sĩ trong cơ sở',
+      ],
+    },
+    {
+      id: 103,
+      name: 'Gói Quy Mô Lớn / Bệnh Viện (Hospital Enterprise)',
+      scansCount: 5000,
+      priceVnd: 40000000,
+      validityDays: 365,
+      features: [
+        '5.000 lượt phân tích ảnh võng mạc băng thông ưu tiên',
+        'API tích hợp PACS / HIS / EMR bệnh viện',
+        'Báo cáo dịch tễ học và xu hướng thời gian thực',
+        'Ký số y khoa và lưu trữ đám mây chuẩn HIPAA',
+        'Hỗ trợ kỹ thuật chuyên biệt 24/7 & chuyên gia lâm sàng',
+        'Tùy biến mẫu báo cáo theo nhận diện cơ sở y tế',
       ],
     },
   ];
 
-  const packages = userRole === 'clinic' ? clinicPackages : patientPackages;
+  const packages = customPackages && customPackages.length > 0
+    ? customPackages
+    : userRole === 'clinic'
+      ? defaultClinicPackages
+      : patientPackages;
+
+  useEffect(() => {
+    if (initialPackageId && isOpen) {
+      const match = packages.find((p) => p.id === initialPackageId);
+      if (match) {
+        setSelectedPackage(match);
+        setPaymentStep('CONFIRM');
+      }
+    }
+  }, [initialPackageId, isOpen, packages]);
 
   const handleConfirmPurchase = async () => {
     if (!selectedPackage) return;
@@ -103,23 +149,28 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
     setPurchaseError(null);
     try {
       // Call real billing API endpoint
-      const res = await billingApi.purchase(selectedPackage.id, 'VNPAY');
+      const res = await billingApi.purchase(selectedPackage.id, paymentMethod);
       setIsProcessing(false);
-      setPaymentStep('SUCCESS');
-      onPurchaseSuccess?.(activeCredits + selectedPackage.scansCount);
-      onSuccess?.(selectedPackage.scansCount);
+      if (res.success || res.data) {
+        setPaymentStep('SUCCESS');
+        onPurchaseSuccess?.(activeCredits + selectedPackage.scansCount);
+        onSuccess?.(selectedPackage.scansCount);
+      } else {
+        setPurchaseError(res.message || 'Giao dịch thanh toán chưa hoàn tất.');
+      }
     } catch (e: any) {
-      // Fallback update state for demo testing if payment gateway mock
       setIsProcessing(false);
-      setPaymentStep('SUCCESS');
-      onPurchaseSuccess?.(activeCredits + selectedPackage.scansCount);
-      onSuccess?.(selectedPackage.scansCount);
+      setPurchaseError(
+        e?.message ||
+        'Không thể hoàn tất giao dịch thanh toán. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau.'
+      );
     }
   };
 
   const handleClose = () => {
     setPaymentStep('SELECT');
     setSelectedPackage(null);
+    setPurchaseError(null);
     onClose();
   };
 
@@ -232,6 +283,52 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
               </span>
             </div>
           </div>
+
+          <div className="space-y-2 text-xs">
+            <label className="block font-semibold text-clinical-text">Phương thức thanh toán:</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('VNPAY')}
+                className={`p-2.5 rounded-xl border text-center font-semibold transition ${
+                  paymentMethod === 'VNPAY'
+                    ? 'border-brand-600 bg-brand-50 text-brand-700 font-bold ring-2 ring-brand-500/20'
+                    : 'border-clinical-border bg-white text-clinical-text hover:bg-slate-50'
+                }`}
+              >
+                VNPay QR
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('MOMO')}
+                className={`p-2.5 rounded-xl border text-center font-semibold transition ${
+                  paymentMethod === 'MOMO'
+                    ? 'border-[#A50064] bg-pink-50 text-[#A50064] font-bold ring-2 ring-pink-500/20'
+                    : 'border-clinical-border bg-white text-clinical-text hover:bg-slate-50'
+                }`}
+              >
+                Ví MoMo
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('BANK_TRANSFER')}
+                className={`p-2.5 rounded-xl border text-center font-semibold transition ${
+                  paymentMethod === 'BANK_TRANSFER'
+                    ? 'border-emerald-600 bg-emerald-50 text-emerald-700 font-bold ring-2 ring-emerald-500/20'
+                    : 'border-clinical-border bg-white text-clinical-text hover:bg-slate-50'
+                }`}
+              >
+                Chuyển Khoản
+              </button>
+            </div>
+          </div>
+
+          {purchaseError && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{purchaseError}</span>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" size="md" onClick={() => setPaymentStep('SELECT')}>

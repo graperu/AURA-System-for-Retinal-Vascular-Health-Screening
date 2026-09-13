@@ -26,7 +26,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/bulk-screening")
 @Tag(name = "Bulk Screening API", description = "Endpoints for bulk fundus image batch screening, statistics, and alerts")
-@CrossOrigin(origins = "*")
 public class BulkScreeningController {
 
     private static final Logger log = LoggerFactory.getLogger(BulkScreeningController.class);

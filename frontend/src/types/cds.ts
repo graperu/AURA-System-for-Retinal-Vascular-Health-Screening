@@ -99,9 +99,22 @@ export interface AnnotatedVesselMap {
 export interface AIRiskResult {
   analysisId: string;
   imageUrl?: string;
-  status: 'QUEUED' | 'SEGMENTING_VESSELS' | 'CALCULATING_METRICS' | 'SCORING_RISK' | 'COMPLETED' | 'FAILED';
+  status: 'QUEUED' | 'SEGMENTING_VESSELS' | 'CALCULATING_METRICS' | 'SCORING_RISK' | 'COMPLETED' | 'FAILED' | string;
   executionTimeMs: number;
   overallVascularRiskScore: number; // 0 - 100
+  riskScore?: number;
+  eyePosition?: string;
+  scanType?: string;
+  icd10Codes?: string[];
+  doctorNotes?: string;
+  digitalSignature?: string;
+  signedAt?: string;
+  createdAt?: string;
+  doctorName?: string;
+  doctorId?: string;
+  patientId?: string;
+  findings?: string;
+  recommendations?: string;
   cardiovascularRisk: {
     level: RiskLevel;
     score: number;

@@ -36,43 +36,45 @@ import {
   adminClinicApi,
   adminRoleApi,
   adminNotificationApi,
+  adminServicePackageApi,
+  ServicePackagePayload,
 } from "../services/api";
 import { PatientAssignmentBoard } from "../components/PatientAssignmentBoard";
+import {
+  AdminAuditWorkspace,
+  AuditLogItem,
+} from "../features/admin/AdminAuditWorkspace";
 
 interface AdminAuditLogsPageProps {
   activeView?: string;
 }
 
+type AdminTab =
+  | "users"
+  | "rbac"
+  | "notifications"
+  | "clinics"
+  | "assignments"
+  | "packages"
+  | "ai-config"
+  | "audit";
+
 export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   activeView,
 }) => {
-  const sectionToTab: Record<
-    string,
-    | "users"
-    | "rbac"
-    | "notifications"
-    | "clinics"
-    | "assignments"
-    | "ai-config"
-    | "audit"
-  > = {
+  const sectionToTab: Record<string, AdminTab> = {
     "user-management": "users",
     "rbac-matrix": "rbac",
     "notification-config": "notifications",
     "clinic-approvals": "clinics",
+    "package-management": "packages",
     "ai-thresholds": "ai-config",
     "audit-logs": "audit",
   };
 
-  const [activeTab, setActiveTab] = useState<
-    | "users"
-    | "rbac"
-    | "notifications"
-    | "clinics"
-    | "assignments"
-    | "ai-config"
-    | "audit"
-  >((activeView && sectionToTab[activeView]) || "users");
+  const [activeTab, setActiveTab] = useState<AdminTab>(
+    (activeView && sectionToTab[activeView]) || "users",
+  );
 
   useEffect(() => {
     if (activeView && sectionToTab[activeView]) {
@@ -578,35 +580,230 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   };
 
   // ==========================================
+  // FR-34: SERVICE PACKAGE MANAGEMENT STATE & HANDLERS
+  // ==========================================
+  const [packagesList, setPackagesList] = useState<any[]>([]);
+  const [isPackagesLoading, setIsPackagesLoading] = useState(false);
+  const [packageActionNotice, setPackageActionNotice] = useState<string | null>(null);
+  const [editingPackage, setEditingPackage] = useState<any | null>(null);
+  const [isCreatePackageModalOpen, setIsCreatePackageModalOpen] = useState(false);
+  const [packageFilterScope, setPackageFilterScope] = useState<"ALL" | "USER" | "CLINIC">("ALL");
+  const [packageSearchQuery, setPackageSearchQuery] = useState("");
+  const [packageFormData, setPackageFormData] = useState({
+    name: "",
+    scope: "USER" as "USER" | "CLINIC",
+    price: 50000,
+    credits: 10,
+    validityDays: 30,
+    description: "",
+  });
+  const [packageFormError, setPackageFormError] = useState<string | null>(null);
+  const [isSubmittingPackage, setIsSubmittingPackage] = useState(false);
+
+  const loadPackages = async () => {
+    setIsPackagesLoading(true);
+    try {
+      const res = await adminServicePackageApi.listAll();
+      if (res.success && Array.isArray(res.data)) {
+        setPackagesList(res.data);
+      }
+    } catch (e) {
+      console.warn("Could not fetch packages:", e);
+    } finally {
+      setIsPackagesLoading(false);
+    }
+  };
+
+  const handleCreateOrUpdatePackage = async (
+    payload: ServicePackagePayload,
+    packageId?: number | string,
+  ): Promise<boolean> => {
+    try {
+      const res = packageId
+        ? await adminServicePackageApi.update(packageId, payload)
+        : await adminServicePackageApi.create(payload);
+
+      if (res.success) {
+        setPackageActionNotice(
+          packageId
+            ? "Cập nhật thông tin gói dịch vụ thành công."
+            : "Đã tạo mới gói dịch vụ thành công.",
+        );
+        setTimeout(() => setPackageActionNotice(null), 4000);
+        setIsCreatePackageModalOpen(false);
+        setEditingPackage(null);
+        await loadPackages();
+        return true;
+      } else {
+        setPackageActionNotice(res.message || "Lỗi khi lưu gói dịch vụ.");
+        setTimeout(() => setPackageActionNotice(null), 4000);
+        return false;
+      }
+    } catch (e) {
+      console.warn("Could not save package:", e);
+      setPackageActionNotice("Lỗi hệ thống khi lưu thông tin gói dịch vụ.");
+      setTimeout(() => setPackageActionNotice(null), 4000);
+      return false;
+    }
+  };
+
+  const handleTogglePackageStatus = async (
+    packageId: number | string,
+    currentActive: boolean,
+  ) => {
+    try {
+      const newActive = !currentActive;
+      const res = await adminServicePackageApi.setActive(packageId, newActive);
+      if (res.success) {
+        setPackageActionNotice(
+          newActive
+            ? "Đã mở bán lại gói dịch vụ thành công."
+            : "Đã tạm ngưng bán gói dịch vụ.",
+        );
+        setTimeout(() => setPackageActionNotice(null), 4000);
+        await loadPackages();
+      } else {
+        setPackageActionNotice(res.message || "Không thể cập nhật trạng thái gói dịch vụ.");
+        setTimeout(() => setPackageActionNotice(null), 4000);
+      }
+    } catch (e) {
+      console.warn("Could not toggle package status:", e);
+      setPackageActionNotice("Lỗi hệ thống khi cập nhật trạng thái gói dịch vụ.");
+      setTimeout(() => setPackageActionNotice(null), 4000);
+    }
+  };
+
+  const handleOpenCreatePackageModal = () => {
+    setEditingPackage(null);
+    setPackageFormData({
+      name: "",
+      scope: "USER",
+      price: 50000,
+      credits: 10,
+      validityDays: 30,
+      description: "",
+    });
+    setPackageFormError(null);
+    setIsCreatePackageModalOpen(true);
+  };
+
+  const handleOpenEditPackageModal = (pkg: any) => {
+    setEditingPackage(pkg);
+    setPackageFormData({
+      name: pkg.name || "",
+      scope: pkg.scope === "CLINIC" ? "CLINIC" : "USER",
+      price: Number(pkg.price) || 0,
+      credits: Number(pkg.credits) || 1,
+      validityDays: Number(pkg.validityDays) || 30,
+      description: pkg.description || "",
+    });
+    setPackageFormError(null);
+    setIsCreatePackageModalOpen(true);
+  };
+
+  const handleSubmitPackageForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!packageFormData.name.trim()) {
+      setPackageFormError("Vui lòng nhập tên gói dịch vụ.");
+      return;
+    }
+    if (Number(packageFormData.price) < 0) {
+      setPackageFormError("Giá gói không được nhỏ hơn 0 VNĐ.");
+      return;
+    }
+    if (Number(packageFormData.credits) < 1) {
+      setPackageFormError("Số lượt phân tích tối thiểu là 1 lượt.");
+      return;
+    }
+    if (Number(packageFormData.validityDays) < 1) {
+      setPackageFormError("Thời hạn sử dụng tối thiểu là 1 ngày.");
+      return;
+    }
+
+    setPackageFormError(null);
+    setIsSubmittingPackage(true);
+    const payload: ServicePackagePayload = {
+      name: packageFormData.name.trim(),
+      scope: packageFormData.scope,
+      price: Number(packageFormData.price),
+      credits: Number(packageFormData.credits),
+      validityDays: Number(packageFormData.validityDays),
+      description: packageFormData.description?.trim() || "",
+    };
+
+    await handleCreateOrUpdatePackage(
+      payload,
+      editingPackage ? editingPackage.id : undefined,
+    );
+    setIsSubmittingPackage(false);
+  };
+
+  const filteredPackages = packagesList.filter((pkg) => {
+    const matchesScope =
+      packageFilterScope === "ALL" ||
+      (packageFilterScope === "USER" &&
+        (pkg.scope === "USER" || pkg.scope === "INDIVIDUAL")) ||
+      (packageFilterScope === "CLINIC" && pkg.scope === "CLINIC");
+
+    const query = packageSearchQuery.toLowerCase().trim();
+    const matchesQuery =
+      !query ||
+      (pkg.name && pkg.name.toLowerCase().includes(query)) ||
+      (pkg.description && pkg.description.toLowerCase().includes(query));
+
+    return matchesScope && matchesQuery;
+  });
+
+  // ==========================================
   // AI CONFIG & AUDIT LOGS
   // ==========================================
   const [glaucomaSensitivity, setGlaucomaSensitivity] = useState(85);
   const [drConfidence, setDrConfidence] = useState(70);
   const [retrainThreshold, setRetrainThreshold] = useState(60);
   const [isSavedAI, setIsSavedAI] = useState(false);
-  const [logsList, setLogsList] = useState<any[]>([]);
-  const [severityFilter, setSeverityFilter] = useState("All");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [auditWorkspaceLogs, setAuditWorkspaceLogs] = useState<AuditLogItem[]>([]);
+  const [isAuditLoading, setIsAuditLoading] = useState(false);
 
   const loadAuditData = async () => {
+    setIsAuditLoading(true);
     try {
-      const auditRes = await auditApi.getLogs();
+      const auditRes = await auditApi.getLogs(0, 100);
       if (auditRes.success && auditRes.data?.items) {
-        setLogsList(
-          auditRes.data.items.map((a: any) => ({
-            id: `LOG-${a.id?.slice(0, 6).toUpperCase() || "1000"}`,
-            timestamp: a.createdAt
-              ? new Date(a.createdAt).toLocaleString("vi-VN")
-              : "Không có thời gian",
-            tz: "ICT (+7)",
-            severity: a.severity || "Info",
-            title: a.action || "Sự kiện hệ thống",
-            desc: a.details || "Không có chi tiết.",
-            user: a.actorEmail || "System",
-            userType: a.actorRole === "SYSTEM" ? "system" : "person",
-            ip: a.ipAddress || "Không ghi nhận",
-          })),
-        );
+        const mapped: AuditLogItem[] = auditRes.data.items.map((a: any) => {
+          const actionUpper = (a.action || "").toUpperCase();
+          const isFailed = (a.status || "").toUpperCase() === "FAILED";
+          let severity: "INFO" | "WARNING" | "CRITICAL" = "INFO";
+          if (
+            isFailed ||
+            actionUpper.includes("DELETE") ||
+            actionUpper.includes("SECURITY") ||
+            actionUpper.includes("LOCK") ||
+            actionUpper.includes("OVERRIDE")
+          ) {
+            severity = "CRITICAL";
+          } else if (
+            actionUpper.includes("UPDATE") ||
+            actionUpper.includes("REJECT") ||
+            actionUpper.includes("WARN")
+          ) {
+            severity = "WARNING";
+          }
+
+          return {
+            id: a.id ? String(a.id) : `LOG-${Math.random().toString(36).substring(2, 8)}`,
+            timestamp: a.createdAt || new Date().toISOString(),
+            actor: a.userEmail || (a.userId ? String(a.userId) : "Hệ thống"),
+            role: a.actorRole || "USER",
+            action: a.action || "Thao tác hệ thống",
+            resource: a.resourceType
+              ? `${a.resourceType}${a.resourceId ? ` (#${String(a.resourceId).slice(0, 8)})` : ""}`
+              : a.details || "Hệ thống",
+            severity,
+            status: isFailed ? "FAILED" : "SUCCESS",
+            ipAddress: a.ipAddress || "—",
+          };
+        });
+        setAuditWorkspaceLogs(mapped);
       }
       const configRes = await adminUserApi.getAiConfig();
       if (configRes.success && configRes.data) {
@@ -618,6 +815,8 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       }
     } catch (e) {
       console.warn("Could not fetch audit/config:", e);
+    } finally {
+      setIsAuditLoading(false);
     }
   };
 
@@ -627,47 +826,53 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     loadNotifConfig();
     loadClinicProfiles();
     loadAuditData();
+    loadPackages();
   }, []);
 
   const handleExportLogs = async () => {
     try {
       const res = await auditApi.exportLogs();
-      const exportData = res.success && res.data ? res.data : logsList;
-      const csvContent =
-        "data:text/csv;charset=utf-8," +
-        [
-          "Mã Log,Thời Gian,Mức Độ,Sự Kiện,Người Thực Hiện,IP",
-          ...exportData.map(
-            (l: any) =>
-              `"${l.id}","${l.timestamp}","${l.severity}","${l.title} - ${l.desc}","${l.user}","${l.ip}"`,
-          ),
-        ].join("\n");
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute(
-        "download",
-        `AURA_HIPAA_Audit_Logs_${new Date().toISOString().slice(0, 10)}.csv`,
-      );
+      const exportData = res.success && Array.isArray(res.data) ? res.data : auditWorkspaceLogs;
+
+      const sanitizeCsvCell = (val: string): string => {
+        if (!val) return '';
+        const trimmed = String(val).trim();
+        const escaped = trimmed.replace(/"/g, '""');
+        if (/^[=+\-@\t\r]/.test(escaped)) {
+          return `"'${escaped}"`;
+        }
+        return `"${escaped}"`;
+      };
+
+      const csvRows = [
+        "Mã Log,Thời Gian,Mức Độ,Hành Động,Tài Nguyên,Người Thực Hiện,IP,Trạng Thái",
+        ...exportData.map((l: any) =>
+          [
+            sanitizeCsvCell(l.id),
+            sanitizeCsvCell(l.timestamp || l.createdAt || ''),
+            sanitizeCsvCell(l.severity || 'INFO'),
+            sanitizeCsvCell(l.action || l.title || ''),
+            sanitizeCsvCell(l.resource || l.resourceType || l.details || ''),
+            sanitizeCsvCell(l.actor || l.userEmail || l.user || 'Hệ thống'),
+            sanitizeCsvCell(l.ipAddress || l.ip || ''),
+            sanitizeCsvCell(l.status || 'SUCCESS'),
+          ].join(',')
+        ),
+      ].join('\r\n');
+
+      const blob = new Blob(['\uFEFF' + csvRows], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `AURA_Audit_Logs_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (e) {
       console.warn("Export failed:", e);
     }
   };
-
-  const filteredLogs = logsList.filter((log) => {
-    const matchesSeverity =
-      severityFilter === "All" ||
-      log.severity.toLowerCase() === severityFilter.toLowerCase();
-    const matchesSearch =
-      log.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.desc.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.id.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSeverity && matchesSearch;
-  });
 
   return (
     <div className="space-y-6">
@@ -727,6 +932,16 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             }`}
           >
             <Building2 className="w-4 h-4" /> Duyệt Phòng Khám
+          </button>
+          <button
+            onClick={() => setActiveTab("packages")}
+            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+              activeTab === "packages"
+                ? "bg-white text-cyan-800 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <CreditCard className="w-4 h-4" /> Gói Dịch Vụ (FR-34)
           </button>
           <button
             onClick={() => setActiveTab("ai-config")}
@@ -1672,6 +1887,404 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       )}
 
       {/* =========================================================================
+          TAB: SERVICE PACKAGE MANAGEMENT (FR-34)
+      ========================================================================== */}
+      {activeTab === "packages" && (
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-cyan-700" /> Quản Lý Gói Dịch Vụ & Biểu Phí Billing (FR-34)
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Thiết lập các gói sàng lọc vi mạch võng mạc cho cá nhân (USER) và phòng khám (CLINIC), số lượt phân tích (Credits) và hạn mức sử dụng.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadPackages}
+                disabled={isPackagesLoading}
+                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all disabled:opacity-50"
+                title="Làm mới danh sách gói"
+              >
+                <RefreshCw className={`w-4 h-4 ${isPackagesLoading ? "animate-spin" : ""}`} />
+              </button>
+              <button
+                onClick={handleOpenCreatePackageModal}
+                className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Tạo Gói Dịch Vụ Mới
+              </button>
+            </div>
+          </div>
+
+          {/* Action Notice */}
+          {packageActionNotice && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs text-emerald-800 animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>{packageActionNotice}</span>
+              </div>
+              <button
+                onClick={() => setPackageActionNotice(null)}
+                className="text-emerald-500 hover:text-emerald-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Stats Overview */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4">
+              <span className="text-[11px] font-bold text-slate-500 block">Tổng Số Gói</span>
+              <span className="text-2xl font-black text-slate-900 mt-1 block font-mono-data">
+                {packagesList.length}
+              </span>
+            </div>
+            <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4">
+              <span className="text-[11px] font-bold text-emerald-700 block">Đang Mở Bán</span>
+              <span className="text-2xl font-black text-emerald-700 mt-1 block font-mono-data">
+                {packagesList.filter((p) => p.active).length}
+              </span>
+            </div>
+            <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4">
+              <span className="text-[11px] font-bold text-blue-700 block">Gói Cá Nhân (USER)</span>
+              <span className="text-2xl font-black text-blue-700 mt-1 block font-mono-data">
+                {packagesList.filter((p) => p.scope === "INDIVIDUAL" || p.scope === "USER").length}
+              </span>
+            </div>
+            <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-4">
+              <span className="text-[11px] font-bold text-purple-700 block">Gói Cơ Sở (CLINIC)</span>
+              <span className="text-2xl font-black text-purple-700 mt-1 block font-mono-data">
+                {packagesList.filter((p) => p.scope === "CLINIC").length}
+              </span>
+            </div>
+          </div>
+
+          {/* Search & Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+              <input
+                type="text"
+                value={packageSearchQuery}
+                onChange={(e) => setPackageSearchQuery(e.target.value)}
+                placeholder="Tìm theo tên gói hoặc mô tả chi tiết..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-cyan-600 focus:bg-white transition-all"
+              />
+            </div>
+            <select
+              value={packageFilterScope}
+              onChange={(e) => setPackageFilterScope(e.target.value as any)}
+              className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-cyan-600"
+            >
+              <option value="ALL">Tất cả đối tượng</option>
+              <option value="USER">Cá nhân (USER)</option>
+              <option value="CLINIC">Phòng khám (CLINIC)</option>
+            </select>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                <tr>
+                  <th className="p-3.5">Tên Gói Dịch Vụ</th>
+                  <th className="p-3.5">Phạm Vi</th>
+                  <th className="p-3.5">Giá Niêm Yết</th>
+                  <th className="p-3.5">Số Lượt Phân Tích</th>
+                  <th className="p-3.5">Hạn Dùng</th>
+                  <th className="p-3.5">Trạng Thái</th>
+                  <th className="p-3.5 text-right">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {isPackagesLoading && packagesList.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-12 text-center text-slate-400">
+                      <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-600" />
+                      Đang tải danh sách gói dịch vụ...
+                    </td>
+                  </tr>
+                ) : filteredPackages.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-12 text-center text-slate-400">
+                      Không có gói dịch vụ nào phù hợp điều kiện lọc.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredPackages.map((pkg) => {
+                    const isClinic = pkg.scope === "CLINIC";
+                    return (
+                      <tr key={pkg.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3.5 max-w-[240px]">
+                          <span className="font-bold text-slate-900 block text-sm">{pkg.name}</span>
+                          {pkg.description && (
+                            <span className="text-[11px] text-slate-500 block truncate mt-0.5" title={pkg.description}>
+                              {pkg.description}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          {isClinic ? (
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1">
+                              <Building2 className="w-3 h-3" /> CLINIC
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1">
+                              <User className="w-3 h-3" /> USER
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 font-bold font-mono-data text-slate-900">
+                          {Number(pkg.price || 0).toLocaleString("vi-VN")} ₫
+                        </td>
+                        <td className="p-3.5">
+                          <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200 font-mono-data">
+                            {pkg.credits} lượt
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono-data text-slate-600">
+                          {pkg.validityDays} ngày
+                        </td>
+                        <td className="p-3.5">
+                          {pkg.active ? (
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 inline-flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Đang bán
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 inline-flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              Tạm ngưng
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenEditPackageModal(pkg)}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-xs flex items-center gap-1 transition-all"
+                              title="Chỉnh sửa thông tin gói"
+                            >
+                              <Edit className="w-3.5 h-3.5 text-slate-600" /> Sửa
+                            </button>
+                            <button
+                              onClick={() => handleTogglePackageStatus(pkg.id, pkg.active)}
+                              className={`px-2.5 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all border ${
+                                pkg.active
+                                  ? "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
+                                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                              }`}
+                              title={pkg.active ? "Tạm ngưng mở bán gói" : "Kích hoạt mở bán gói"}
+                            >
+                              {pkg.active ? (
+                                <>
+                                  <Lock className="w-3.5 h-3.5" /> Ngưng bán
+                                </>
+                              ) : (
+                                <>
+                                  <Unlock className="w-3.5 h-3.5" /> Mở bán
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Modal Form: Create / Edit Package */}
+          {isCreatePackageModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden my-8">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/70">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base text-slate-900">
+                        {editingPackage ? "Chỉnh Sửa Gói Dịch Vụ" : "Tạo Gói Dịch Vụ Mới"}
+                      </h3>
+                      <span className="text-xs text-slate-500">
+                        {editingPackage ? `ID: #${editingPackage.id}` : "Định nghĩa gói sàng lọc và mức biểu phí"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsCreatePackageModalOpen(false)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <form onSubmit={handleSubmitPackageForm} className="p-6 space-y-4">
+                  {packageFormError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                      <span>{packageFormError}</span>
+                    </div>
+                  )}
+
+                  {/* Name */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tên gói dịch vụ <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={packageFormData.name}
+                      onChange={(e) => setPackageFormData({ ...packageFormData, name: e.target.value })}
+                      placeholder="VD: Gói Sàng Lọc Cá Nhân Tiêu Chuẩn"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-cyan-600"
+                      required
+                    />
+                  </div>
+
+                  {/* Scope */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Đối tượng áp dụng (Scope) <span className="text-rose-500">*</span>
+                    </label>
+                    {editingPackage ? (
+                      <div className="px-3.5 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
+                        <span>{packageFormData.scope === "CLINIC" ? "Phòng khám & Cơ sở y tế (CLINIC)" : "Người dùng cá nhân (USER)"}</span>
+                        <span className="text-[10px] text-slate-500 font-normal">(Phạm vi gói cố định sau khi tạo)</span>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setPackageFormData({ ...packageFormData, scope: "USER" })}
+                          className={`p-3 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all ${
+                            packageFormData.scope === "USER"
+                              ? "bg-blue-50 border-blue-300 text-blue-800 shadow-xs"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          <User className="w-4 h-4 text-blue-600" />
+                          <span>Cá nhân (USER)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPackageFormData({ ...packageFormData, scope: "CLINIC" })}
+                          className={`p-3 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all ${
+                            packageFormData.scope === "CLINIC"
+                              ? "bg-purple-50 border-purple-300 text-purple-800 shadow-xs"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          <Building2 className="w-4 h-4 text-purple-600" />
+                          <span>Phòng khám (CLINIC)</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Price & Credits Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Giá tiền (VNĐ) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1000"
+                        value={packageFormData.price}
+                        onChange={(e) => setPackageFormData({ ...packageFormData, price: Number(e.target.value) })}
+                        placeholder="50000"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data focus:outline-none focus:border-cyan-600"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Số lượt phân tích (Credits) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={packageFormData.credits}
+                        onChange={(e) => setPackageFormData({ ...packageFormData, credits: Number(e.target.value) })}
+                        placeholder="10"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data focus:outline-none focus:border-cyan-600"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Validity Days */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Thời hạn sử dụng (Ngày) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={packageFormData.validityDays}
+                      onChange={(e) => setPackageFormData({ ...packageFormData, validityDays: Number(e.target.value) })}
+                      placeholder="30"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data focus:outline-none focus:border-cyan-600"
+                      required
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Mô tả chi tiết & tính năng
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={packageFormData.description}
+                      onChange={(e) => setPackageFormData({ ...packageFormData, description: e.target.value })}
+                      placeholder="Mô tả quyền lợi gói, bao gồm bản đồ nhiệt Grad-CAM, báo cáo PDF và tư vấn bác sĩ..."
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-cyan-600 resize-none"
+                    />
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatePackageModalOpen(false)}
+                      className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingPackage}
+                      className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
+                    >
+                      {isSubmittingPackage ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5" />
+                      )}
+                      {editingPackage ? "Lưu Thay Đổi" : "Tạo Gói Mới"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
           TAB 5: AI CDS CONFIG (FR-38)
       ========================================================================== */}
       {activeTab === "ai-config" && (
@@ -1745,110 +2358,15 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       )}
 
       {/* =========================================================================
-          TAB 6: HIPAA AUDIT LOGS (FR-34, FR-35)
+          TAB 6: HIPAA AUDIT LOGS (FR-37, NFR-18)
       ========================================================================== */}
       {activeTab === "audit" && (
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-cyan-700" /> Nhật Ký Kiểm Toán
-                & An Toàn Y Tế Chuẩn HIPAA (FR-34, FR-35)
-              </h2>
-              <p className="text-xs text-slate-500">
-                Ghi nhận mọi truy cập hồ sơ bệnh nhân, chữ ký số bác sĩ và suy
-                luận AI không thể chỉnh sửa.
-              </p>
-            </div>
-            <button
-              onClick={handleExportLogs}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
-            >
-              <Download className="w-4 h-4" /> Xuất File CSV
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm sự kiện, người dùng hoặc IP..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none"
-              />
-            </div>
-            <select
-              value={severityFilter}
-              onChange={(e) => setSeverityFilter(e.target.value)}
-              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700"
-            >
-              <option value="All">Tất cả mức độ</option>
-              <option value="Info">Info</option>
-              <option value="Warning">Warning</option>
-              <option value="Critical">Critical</option>
-            </select>
-          </div>
-
-          <div className="overflow-x-auto rounded-2xl border border-slate-200">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                <tr>
-                  <th className="p-3.5">Mã Log</th>
-                  <th className="p-3.5">Thời Gian</th>
-                  <th className="p-3.5">Mức Độ</th>
-                  <th className="p-3.5">Hành Động</th>
-                  <th className="p-3.5">Người Thực Hiện</th>
-                  <th className="p-3.5">Địa Chỉ IP</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-400">
-                      Không có nhật ký kiểm toán phù hợp.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredLogs.map((l) => (
-                    <tr key={l.id} className="hover:bg-slate-50/80">
-                      <td className="p-3.5 font-mono font-bold text-cyan-800">
-                        {l.id}
-                      </td>
-                      <td className="p-3.5 font-mono text-slate-500">
-                        {l.timestamp}
-                      </td>
-                      <td className="p-3.5">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            l.severity === "Critical"
-                              ? "bg-rose-100 text-rose-800"
-                              : l.severity === "Warning"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {l.severity}
-                        </span>
-                      </td>
-                      <td className="p-3.5">
-                        <div className="font-bold text-slate-900">
-                          {l.title}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {l.desc}
-                        </div>
-                      </td>
-                      <td className="p-3.5 text-slate-700">{l.user}</td>
-                      <td className="p-3.5 font-mono text-slate-500">{l.ip}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <AdminAuditWorkspace
+          logs={auditWorkspaceLogs}
+          loading={isAuditLoading}
+          onRefresh={loadAuditData}
+          onExportLogs={handleExportLogs}
+        />
       )}
     </div>
   );
