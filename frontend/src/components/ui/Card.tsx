@@ -15,11 +15,11 @@ export const Card: React.FC<CardProps> = ({
   const baseClasses = 'rounded-2xl transition-all duration-200';
 
   const variantClasses = {
-    default: 'bg-white border border-slate-100/90 shadow-medical-card',
-    subtle: 'bg-[#F8FAFC] border border-slate-200/70',
-    bordered: 'bg-white border border-[#CCFBF1] shadow-medical-sm',
-    interactive: 'bg-white border border-slate-200 shadow-medical-card hover:border-[#0891B2] hover:shadow-lg cursor-pointer group',
-    hero: 'bg-gradient-to-r from-slate-900 via-[#115E59] to-slate-900 text-white border border-slate-800 shadow-xl',
+    default: 'bg-clinical-surface border border-clinical-border shadow-medical-card',
+    subtle: 'bg-clinical-surface-subtle border border-clinical-border-subtle',
+    bordered: 'bg-clinical-surface border border-clinical-border shadow-medical-sm',
+    interactive: 'bg-clinical-surface border border-clinical-border shadow-medical-card hover:border-brand-600 hover:shadow-medical-md cursor-pointer group',
+    hero: 'bg-gradient-to-r from-brand-900 to-slate-900 text-white border border-slate-800 shadow-medical-md',
   }[variant];
 
   const paddingClasses = {
@@ -41,7 +41,7 @@ export const CardHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   className = '',
   ...props
 }) => (
-  <div className={`flex items-center justify-between pb-4 border-b border-slate-100 ${className}`} {...props}>
+  <div className={`flex items-center justify-between pb-4 border-b border-clinical-border-subtle ${className}`} {...props}>
     {children}
   </div>
 );
@@ -51,7 +51,7 @@ export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
   className = '',
   ...props
 }) => (
-  <h3 className={`text-base font-bold text-slate-900 flex items-center gap-2 ${className}`} {...props}>
+  <h3 className={`text-base font-bold text-clinical-text flex items-center gap-2 ${className}`} {...props}>
     {children}
   </h3>
 );

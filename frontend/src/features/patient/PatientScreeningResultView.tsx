@@ -4,6 +4,7 @@ import { AIRiskResult, VesselAnomalyRegion } from '../../types/cds';
 import { Card } from '../../components/ui/Card';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { Button } from '../../components/ui/Button';
+import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
 
 export interface PatientScreeningResultViewProps {
   result: AIRiskResult;
@@ -293,11 +294,8 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
               </div>
             </div>
 
-            {/* Disclaimer & Actions */}
-            <div className="p-3 bg-[#F0FDFA] rounded-xl border border-[#CCFBF1] text-xs text-[#0891B2] flex items-start gap-2">
-              <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>Kết quả hỗ trợ sàng lọc và quyết định lâm sàng. Luôn tham vấn ý kiến Bác sĩ chuyên khoa.</span>
-            </div>
+            {/* Mandatory Medical Safety Disclaimer */}
+            <MedicalDisclaimer variant="compact" />
 
             <div className="flex gap-2 pt-2">
               {onOpenReportModal && (

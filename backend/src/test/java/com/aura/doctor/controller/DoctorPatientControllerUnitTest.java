@@ -253,7 +253,7 @@ class DoctorPatientControllerUnitTest {
     @DisplayName("Thất bại: Principal là null -> Ném AuthException 401 UNAUTHORIZED")
     void createScreening_whenPrincipalNull_throwsAuthException() {
       CreateScreeningRequest req = new CreateScreeningRequest(
-          "https://cdn.aura/scan.png", "OD", "COLOR_FUNDUS", "scan.png", 1024L, "image/png", 65, 0.65, "18.5"
+          "https://cdn.aura/scan.png", "OD", "COLOR_FUNDUS", "scan.png", 1024L, "image/png", 65, 0.65, "18.5", null
       );
 
       assertThatThrownBy(() -> controller.createScreeningForAssignedPatient(null, patientId, req))
@@ -265,7 +265,7 @@ class DoctorPatientControllerUnitTest {
     @DisplayName("Thành công: Bác sĩ tạo ca sàng lọc cho bệnh nhân")
     void createScreening_success() {
       CreateScreeningRequest req = new CreateScreeningRequest(
-          "https://cdn.aura/scan.png", "OD", "COLOR_FUNDUS", "scan.png", 1024L, "image/png", 65, 0.65, "18.5"
+          "https://cdn.aura/scan.png", "OD", "COLOR_FUNDUS", "scan.png", 1024L, "image/png", 65, 0.65, "18.5", null
       );
       Screening screening = new Screening(patientId, "https://cdn.aura/scan.png");
       when(screeningService.createScreening(eq(patientId), eq(req))).thenReturn(screening);

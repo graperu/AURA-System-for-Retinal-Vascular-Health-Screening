@@ -6,3 +6,4 @@ export * from './Modal';
 export * from './PageHeader';
 export * from './FormField';
 export * from './DataTable';
+export * from './MedicalDisclaimer';

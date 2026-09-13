@@ -105,30 +105,49 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                 </div>
 
                 {/* Doctor Assessment Box */}
-                <div className="p-4 rounded-xl bg-[#F0FDFA] border border-[#CCFBF1] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#134E4A] flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-teal-600" />
-                      Bác sĩ phụ trách: {patient.assignedDoctor || 'BS. CKII Nguyễn Thị Thanh'}
-                    </span>
-                    <span className="text-[11px] font-semibold text-teal-800 bg-white px-2 py-0.5 rounded-md border border-[#CCFBF1]">
-                      Đã thẩm định
-                    </span>
+                {latestResult.status === 'REVIEWED' ? (
+                  <div className="p-4 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        Bác sĩ phụ trách: {patient.assignedDoctor || latestResult.doctorName || 'Đang chờ phân công bác sĩ'}
+                      </span>
+                      <span className="text-[11px] font-semibold text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                        Đã thẩm định bởi BS
+                      </span>
+                    </div>
+                    <p className="text-xs text-emerald-950">
+                      {latestResult.doctorNotes || latestResult.findings || 'Chỉ số vi mạch võng mạc đã được bác sĩ chuyên khoa thẩm định và xác nhận.'}
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-600">
-                    Chỉ số vi mạch võng mạc ổn định. Bạn có thể trao đổi trực tiếp với bác sĩ để nhận tư vấn chi tiết.
-                  </p>
-                </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                        Bác sĩ phụ trách: {patient.assignedDoctor || latestResult.doctorName || 'Đang chờ phân công bác sĩ'}
+                      </span>
+                      <span className="text-[11px] font-semibold text-amber-800 bg-white px-2 py-0.5 rounded-md border border-amber-200">
+                        Chờ bác sĩ thẩm định
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-950">
+                      {latestResult.findings || latestResult.recommendations || 'Kết quả phân tích sơ bộ từ AI. Đang chờ bác sĩ chuyên khoa kiểm tra và thẩm định lâm sàng.'}
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="text-center py-8 space-y-2">
-                <div className="w-11 h-11 rounded-full bg-cyan-50 text-[#0891B2] flex items-center justify-center mx-auto">
-                  <UploadCloud className="w-5 h-5" />
+              <div className="text-center py-8 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-cyan-50 text-[#0891B2] flex items-center justify-center mx-auto border border-cyan-100">
+                  <UploadCloud className="w-6 h-6" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-800">Chưa có kết quả khám</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  Tải lên ảnh chụp đáy mắt để bắt đầu đánh giá nguy cơ tim mạch và thị lực.
-                </p>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-slate-800">Chưa có kết quả khám sàng lọc</h3>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                    Bạn chưa thực hiện ca sàng lọc nào. Vui lòng bấm &quot;Phân tích ảnh mới&quot; bên dưới để tải ảnh chụp đáy mắt và nhận đánh giá nguy cơ vi mạch ban đầu từ AI.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -202,7 +221,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
               <div>
                 <h4 className="text-xs font-bold text-slate-900">Bác Sĩ Tư Vấn</h4>
                 <p className="text-[11px] text-slate-500">
-                  {patient.assignedDoctor || 'BS. CKII Nguyễn Thị Thanh'}
+                  {patient.assignedDoctor || 'Đang chờ phân công bác sĩ'}
                 </p>
               </div>
             </div>

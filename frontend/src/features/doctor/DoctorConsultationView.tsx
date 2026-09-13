@@ -15,6 +15,7 @@ import { RiskBadge } from '../../components/ui/RiskBadge';
 import { chatApi } from '../../services/api';
 import { stompClient } from '../../services/websocketService';
 import { DoctorPatientSummary } from '../../pages/CDSDashboardPage';
+import { useAuth } from '../../context/AuthContext';
 
 interface ChatMessage {
   id: string;
@@ -36,9 +37,11 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
   assignedPatients,
   initialSelectedPatientId,
   currentUserId,
-  doctorName = 'BS. CKII Nguyễn Thị Thanh',
+  doctorName,
   onSelectPatientForCDS,
 }) => {
+  const { user } = useAuth();
+  const currentDoctorName = doctorName || user?.name || 'Bác sĩ chuyên khoa';
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
     initialSelectedPatientId || (assignedPatients.length > 0 ? assignedPatients[0].patientId : null)
   );
@@ -102,7 +105,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
             return {
               id: item.id || `msg-${Math.random()}`,
               sender: isDoctor ? 'doctor' : 'patient',
-              senderName: isDoctor ? doctorName : patientDisplayName,
+              senderName: isDoctor ? currentDoctorName : patientDisplayName,
               text: item.messageText,
               timestamp: item.createdAt
                 ? new Date(item.createdAt).toLocaleTimeString('vi-VN', {
@@ -175,7 +178,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
         stompClient.unsubscribe(doctorTopic);
       }
     };
-  }, [selectedPatientId, currentUserId, activePatient, doctorName]);
+  }, [selectedPatientId, currentUserId, activePatient, currentDoctorName]);
 
   // Gửi tin nhắn
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -190,7 +193,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
     const optimisticMsg: ChatMessage = {
       id: tempId,
       sender: 'doctor',
-      senderName: doctorName,
+      senderName: currentDoctorName,
       text: textToSend,
       timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     };
@@ -345,7 +348,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                     <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-3">
                       <span>HA: <strong className="text-slate-700 font-mono-data">{activePatient.systolicBp && activePatient.diastolicBp ? `${activePatient.systolicBp}/${activePatient.diastolicBp}` : '--'}</strong></span>
                       <span>HbA1c: <strong className="text-slate-700 font-mono-data">{activePatient.hba1c ? `${activePatient.hba1c}%` : '--'}</strong></span>
-                      <span className="hidden sm:inline text-teal-700 font-semibold">• Bác sĩ phụ trách: {doctorName}</span>
+                      <span className="hidden sm:inline text-teal-700 font-semibold">• Bác sĩ phụ trách: {currentDoctorName}</span>
                     </div>
                   </div>
                 </div>

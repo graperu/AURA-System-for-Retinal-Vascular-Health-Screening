@@ -21,6 +21,7 @@ interface ConsultationChatModalProps {
   patientName: string;
   patientMrn: string;
   doctorName?: string;
+  partnerName?: string;
   partnerUserId?: string;
   currentUserId?: string;
 }
@@ -31,12 +32,15 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
   currentUserRole,
   patientName,
   patientMrn,
-  doctorName = 'BS. CKII Nguyễn Thị Thanh',
+  doctorName,
+  partnerName,
   partnerUserId,
   currentUserId,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
+
+  const resolvedDoctorName = partnerName || doctorName || 'Bác sĩ chuyên khoa';
 
   // 1. Fetch real chat history from DB on open
   useEffect(() => {
@@ -49,7 +53,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
           const mapped: ChatMessage[] = res.data.map((item: any) => ({
             id: item.id,
             sender: item.senderId === currentUserId ? (currentUserRole === 'doctor' ? 'doctor' : 'patient') : (currentUserRole === 'doctor' ? 'patient' : 'doctor'),
-            senderName: item.senderId === currentUserId ? (currentUserRole === 'doctor' ? doctorName : patientName) : (currentUserRole === 'doctor' ? patientName : doctorName),
+            senderName: item.senderId === currentUserId ? (currentUserRole === 'doctor' ? resolvedDoctorName : patientName) : (currentUserRole === 'doctor' ? patientName : resolvedDoctorName),
             text: item.messageText,
             timestamp: item.createdAt ? new Date(item.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
           }));
@@ -74,7 +78,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
           const incoming: ChatMessage = {
             id: msg.id || String(Date.now()),
             sender: currentUserRole === 'doctor' ? 'patient' : 'doctor',
-            senderName: currentUserRole === 'doctor' ? patientName : doctorName,
+            senderName: currentUserRole === 'doctor' ? patientName : resolvedDoctorName,
             text: msg.messageText,
             timestamp: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
           };
@@ -89,17 +93,21 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
         stompClient.unsubscribe(topic);
       };
     }
-  }, [isOpen, partnerUserId, currentUserId, currentUserRole, doctorName, patientName]);
+  }, [isOpen, partnerUserId, currentUserId, currentUserRole, resolvedDoctorName, patientName]);
 
   const partnerTitle =
     currentUserRole === 'doctor'
       ? `Bệnh nhân: ${patientName} (${patientMrn})`
-      : `${doctorName} (Bác sĩ chuyên khoa)`;
+      : partnerUserId
+        ? `${resolvedDoctorName} (Bác sĩ chuyên khoa)`
+        : 'Chưa có bác sĩ phụ trách';
 
   const partnerRoleDesc =
     currentUserRole === 'doctor'
       ? 'Hồ sơ khám đáy mắt định kỳ'
-      : 'Bác sĩ phụ trách lâm sàng';
+      : partnerUserId
+        ? 'Bác sĩ phụ trách lâm sàng'
+        : 'Đang chờ phân công bác sĩ chuyên khoa';
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -111,7 +119,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
     const optimisticMsg: ChatMessage = {
       id: `tmp-${Date.now()}`,
       sender: currentUserRole === 'doctor' ? 'doctor' : 'patient',
-      senderName: currentUserRole === 'doctor' ? doctorName : patientName,
+      senderName: currentUserRole === 'doctor' ? resolvedDoctorName : patientName,
       text: textToSend,
       timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     };
@@ -161,86 +169,107 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
           <span>Kênh trao đổi chuyên môn y khoa thời gian thực (WebSocket). Không sử dụng cho các trường hợp cấp cứu khẩn cấp.</span>
         </div>
 
-        {/* Message Thread */}
-        <div className="space-y-3 max-h-[360px] min-h-[220px] overflow-y-auto p-2 bg-slate-50/50 rounded-xl border border-clinical-border">
-          {messages.length === 0 ? (
-            <div className="text-center py-10 text-xs text-slate-400">
-              Chưa có tin nhắn nào trong cuộc hội thoại này. Hãy gửi tin nhắn đầu tiên.
+        {!partnerUserId ? (
+          <div className="py-10 px-6 text-center space-y-4 bg-slate-50/70 rounded-xl border border-clinical-border">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
             </div>
-          ) : (
-            messages.map((msg) => {
-              const isMe =
-                (currentUserRole === 'doctor' && msg.sender === 'doctor') ||
-                (currentUserRole === 'patient' && msg.sender === 'patient');
-
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex gap-2.5 max-w-[85%] ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
-                >
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                      msg.sender === 'doctor'
-                        ? 'bg-brand-600 text-white'
-                        : 'bg-teal-700 text-white'
-                    }`}
-                  >
-                    {msg.sender === 'doctor' ? <Stethoscope className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                  </div>
-
-                  <div
-                    className={`p-3 rounded-2xl text-xs space-y-1 ${
-                      isMe
-                        ? 'bg-brand-600 text-white rounded-tr-none'
-                        : 'bg-white text-clinical-text border border-clinical-border rounded-tl-none shadow-xs'
-                    }`}
-                  >
-                    <div className={`flex items-center justify-between gap-3 text-[10px] ${isMe ? 'text-brand-100' : 'text-slate-400'}`}>
-                      <span className="font-semibold">{msg.senderName}</span>
-                      <span>{msg.timestamp}</span>
-                    </div>
-                    <p className="leading-relaxed">{msg.text}</p>
-                  </div>
+            <div className="space-y-1.5 max-w-md mx-auto">
+              <h4 className="text-sm font-bold text-slate-900">Chưa có Bác sĩ phụ trách</h4>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Hồ sơ của bạn hiện đang chờ Admin hoặc Phòng khám phân công Bác sĩ phụ trách. Vui lòng quay lại sau.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Button variant="outline" size="sm" onClick={onClose}>
+                Đóng cửa sổ
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Message Thread */}
+            <div className="space-y-3 max-h-[360px] min-h-[220px] overflow-y-auto p-2 bg-slate-50/50 rounded-xl border border-clinical-border">
+              {messages.length === 0 ? (
+                <div className="text-center py-10 text-xs text-slate-400">
+                  Chưa có tin nhắn nào trong cuộc hội thoại này. Hãy gửi tin nhắn đầu tiên.
                 </div>
-              );
-            })
-          )}
-        </div>
+              ) : (
+                messages.map((msg) => {
+                  const isMe =
+                    (currentUserRole === 'doctor' && msg.sender === 'doctor') ||
+                    (currentUserRole === 'patient' && msg.sender === 'patient');
 
-        {/* Quick Responses */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] font-semibold text-clinical-text-muted">Gợi ý nhanh:</span>
-          {activeQuickReplies.map((reply, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setInputMessage(reply)}
-              className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border border-clinical-border"
-            >
-              {reply}
-            </button>
-          ))}
-        </div>
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex gap-2.5 max-w-[85%] ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                          msg.sender === 'doctor'
+                            ? 'bg-brand-600 text-white'
+                            : 'bg-teal-700 text-white'
+                        }`}
+                      >
+                        {msg.sender === 'doctor' ? <Stethoscope className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                      </div>
 
-        {/* Input Form */}
-        <form onSubmit={handleSendMessage} className="flex gap-2 pt-2">
-          <input
-            type="text"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Nhập nội dung tư vấn chuyên môn..."
-            className="flex-1 h-10 px-3.5 text-xs rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            size="md"
-            disabled={!inputMessage.trim()}
-            icon={<Send className="w-4 h-4" />}
-          >
-            Gửi
-          </Button>
-        </form>
+                      <div
+                        className={`p-3 rounded-2xl text-xs space-y-1 ${
+                          isMe
+                            ? 'bg-brand-600 text-white rounded-tr-none'
+                            : 'bg-white text-clinical-text border border-clinical-border rounded-tl-none shadow-xs'
+                        }`}
+                      >
+                        <div className={`flex items-center justify-between gap-3 text-[10px] ${isMe ? 'text-brand-100' : 'text-slate-400'}`}>
+                          <span className="font-semibold">{msg.senderName}</span>
+                          <span>{msg.timestamp}</span>
+                        </div>
+                        <p className="leading-relaxed">{msg.text}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Quick Responses */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-semibold text-clinical-text-muted">Gợi ý nhanh:</span>
+              {activeQuickReplies.map((reply, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setInputMessage(reply)}
+                  className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border border-clinical-border"
+                >
+                  {reply}
+                </button>
+              ))}
+            </div>
+
+            {/* Input Form */}
+            <form onSubmit={handleSendMessage} className="flex gap-2 pt-2">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="Nhập nội dung tư vấn chuyên môn..."
+                className="flex-1 h-10 px-3.5 text-xs rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                disabled={!inputMessage.trim()}
+                icon={<Send className="w-4 h-4" />}
+              >
+                Gửi
+              </Button>
+            </form>
+          </>
+        )}
       </div>
     </Modal>
   );

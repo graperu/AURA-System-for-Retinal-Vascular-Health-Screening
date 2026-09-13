@@ -17,6 +17,7 @@ import com.aura.doctor.repository.DoctorPatientAssignmentRepository;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.Year;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,7 +64,7 @@ public class PatientProfileService {
 
   // --- FR-18 Worklist & Filter methods ---
 
-  @Transactional(readOnly = true)
+  @Transactional
   public Page<PatientProfileDto> searchPatients(
       String search,
       String riskLevel,
@@ -75,6 +76,7 @@ public class PatientProfileService {
       String doctorName,
       String reviewStatus,
       Pageable pageable) {
+    syncFromMedicalProfilesAndAssignments();
     Specification<PatientProfile> spec = PatientSpecification.filterPatients(
         search,
         riskLevel,
@@ -86,6 +88,23 @@ public class PatientProfileService {
         doctorName,
         reviewStatus);
     return patientRepository.findAll(spec, pageable).map(PatientProfileDto::from);
+  }
+
+  @Transactional(readOnly = true)
+  public List<PatientProfileResponse> getPatientsForDoctor(UUID doctorId) {
+    if (assignmentRepository == null || profileRepository == null) {
+      return List.of();
+    }
+    var assignments = assignmentRepository.findByDoctorIdAndStatus(doctorId, AssignmentStatus.ACTIVE);
+    return assignments.stream()
+        .map(a -> {
+          UUID pId = a.getPatient().getId();
+          return profileRepository.findByUserIdWithUser(pId)
+              .map(med -> PatientProfileResponse.fromEntity(med, doctorId, a.getDoctor().getFullName()))
+              .orElse(null);
+        })
+        .filter(java.util.Objects::nonNull)
+        .toList();
   }
 
   @Transactional(readOnly = true)
@@ -130,93 +149,57 @@ public class PatientProfileService {
     return PatientProfileDto.from(patientRepository.save(existing));
   }
 
-  @PostConstruct
   @Transactional
-  public void seedInitialPatientsIfEmpty() {
+  public void syncFromMedicalProfilesAndAssignments() {
     try {
-      if (patientRepository.count() == 0) {
-        log.info("[AURA PATIENT SEED] Seeding initial realistic clinical patient profiles into PostgreSQL...");
-
-        createSeedPatient("MRN-2026-0941", "Bệnh nhân Nguyễn Trọng Nam", 58, "Male", "0912 345 678", 154, 96, 8.2, true,
-            true, true, "2026-09-03", "BS. CKII Nguyễn Thị Thanh", 85, "HIGH", "PENDING_REVIEW",
-            "Đã thực hiện các ca khám sàng lọc. Bắt chéo động-tĩnh mạch (Gunn sign), co hẹp vi mạch đáy mắt.",
-            "from-red-500 to-rose-600");
-        createSeedPatient("MRN-2026-0942", "Trần Văn Hoàng", 58, "Male", "0912 345 679", 154, 96, 8.2, true, true, true,
-            "2026-09-02", "BS. CKII Nguyễn Thị Thanh", 82, "HIGH", "PENDING_REVIEW",
-            "Bắt chéo động-tĩnh mạch (Gunn sign), hẹp lòng mạch tiểu động mạch độ II, nghi ngờ NPDR nhẹ.",
-            "from-orange-500 to-red-600");
-        createSeedPatient("MRN-2026-1033", "Lê Thị Mai", 44, "Female", "0988 234 567", 128, 82, 5.9, false, false,
-            false, "2026-09-01", "BS. Phan Định", 28, "LOW", "REVIEWED",
-            "Cấu trúc vi mạch đáy mắt bình thường, không có dấu hiệu phình vi mạch hay xuất huyết.",
-            "from-emerald-500 to-teal-600");
-        createSeedPatient("MRN-2026-1188", "Phạm Đức Anh", 67, "Male", "0903 888 999", 168, 102, 9.4, true, true, true,
-            "2026-08-30", "BS. CKII Nguyễn Thị Thanh", 91, "SEVERE", "CRITICAL",
-            "BÁO ĐỘNG ĐỎ: Xuất huyết chấm nông, xuất tiết cứng hoàng điểm kèm hẹp nặng vi mạch (A/V: 0.48).",
-            "from-purple-600 to-indigo-700");
-        createSeedPatient("MRN-2026-1204", "Nguyễn Văn Hùng", 52, "Male", "0977 123 456", 142, 90, 7.1, true, true,
-            false, "2026-08-28", "BS. CKII Nguyễn Thị Thanh", 62, "MODERATE", "PENDING_REVIEW",
-            "Hẹp vi mạch khu trú vùng thái dương trên, vi phình mạch rải rác.", "from-amber-500 to-orange-600");
-        createSeedPatient("MRN-2026-1219", "Đặng Thị Lan", 61, "Female", "0918 567 890", 136, 86, 6.8, true, false,
-            false, "2026-08-25", "BS. Phan Định", 54, "MODERATE", "REVIEWED",
-            "Theo dõi tiến triển bệnh võng mạc đái tháo đường giai đoạn sớm, vi mạch tương đối ổn định.",
-            "from-cyan-500 to-blue-600");
-        createSeedPatient("MRN-2026-1233", "Vũ Đình Quang", 72, "Male", "0933 445 566", 175, 108, 8.8, true, true, true,
-            "2026-08-20", "BS. CKII Nguyễn Thị Thanh", 88, "HIGH", "PENDING_REVIEW",
-            "Xơ vữa tiểu động mạch võng mạc độ 3 (dây bạc - Silver wiring), có ổ xuất huyết nhỏ chu biên.",
-            "from-rose-600 to-red-700");
-        createSeedPatient("MRN-2026-1240", "Hoàng Kim Ngân", 36, "Female", "0944 556 677", 118, 76, 5.4, false, false,
-            false, "2026-08-18", "BS. Phan Định", 18, "LOW", "REVIEWED",
-            "Đáy mắt hoàn toàn bình thường, gai thị hồng rõ nét, tỷ lệ A/V đạt 2/3.", "from-green-500 to-emerald-600");
-        createSeedPatient("MRN-2026-1255", "Bùi Văn Thành", 55, "Male", "0966 778 899", 148, 92, 7.6, true, true, false,
-            "2026-08-15", "BS. CKII Nguyễn Thị Thanh", 74, "MODERATE", "PENDING_REVIEW",
-            "Dấu hiệu Salus bắt chéo A/V, uốn khúc nhẹ nhánh thái dương, đề nghị tái khám 3 tháng.",
-            "from-yellow-500 to-amber-600");
-        createSeedPatient("MRN-2026-1280", "Trịnh Thị Hương", 64, "Female", "0911 223 344", 162, 98, 8.5, true, true,
-            false, "2026-08-10", "BS. CKII Nguyễn Thị Thanh", 79, "HIGH", "PENDING_REVIEW",
-            "Phù gai thị nghi ngờ tăng huyết áp ác tính, đề nghị phối hợp chuyên khoa tim mạch.",
-            "from-red-600 to-rose-700");
-
-        log.info("[AURA PATIENT SEED] Successfully seeded realistic clinical patient profiles.");
+      if (assignmentRepository == null || profileRepository == null || patientRepository == null) {
+        return;
+      }
+      var assignments = assignmentRepository.findAll();
+      for (var assignment : assignments) {
+        if (assignment.getPatient() != null) {
+          UUID patientUserId = assignment.getPatient().getId();
+          var medicalOpt = profileRepository.findByUserIdWithUser(patientUserId);
+          if (medicalOpt.isPresent()) {
+            var med = medicalOpt.get();
+            var existingProfileOpt = patientRepository.findByUserId(patientUserId);
+            PatientProfile pp = existingProfileOpt.orElseGet(() -> {
+              PatientProfile p = new PatientProfile();
+              p.setUserId(patientUserId);
+              p.setMrn(med.getMrn());
+              return p;
+            });
+            String fullName = med.getUser() != null && med.getUser().getFullName() != null
+                ? med.getUser().getFullName()
+                : (assignment.getPatient().getFullName() != null ? assignment.getPatient().getFullName() : "Bệnh nhân");
+            pp.setFullName(fullName);
+            pp.setAge(med.getAge());
+            pp.setGender(med.getGender() != null ? med.getGender() : "Other");
+            pp.setPhone(med.getPhoneNumber());
+            pp.setAddress(med.getAddress());
+            pp.setSystolicBp(med.getSystolicBp());
+            pp.setDiastolicBp(med.getDiastolicBp());
+            pp.setHba1c(med.getHba1c());
+            pp.setHasDiabetes(med.getHasDiabetes() != null ? med.getHasDiabetes() : false);
+            pp.setHasHypertension(med.getHasHypertension() != null ? med.getHasHypertension() : false);
+            pp.setHistoryOfSmoking(med.getHistoryOfSmoking() != null ? med.getHistoryOfSmoking() : false);
+            if (assignment.getDoctor() != null && assignment.getDoctor().getFullName() != null) {
+              pp.setAssignedDoctor(assignment.getDoctor().getFullName());
+            }
+            patientRepository.save(pp);
+          }
+        }
       }
     } catch (Exception ex) {
-      log.warn("[AURA PATIENT SEED] Failed to seed initial patients: {}", ex.getMessage());
+      log.warn("Không thể đồng bộ patient profiles từ assignments: {}", ex.getMessage());
     }
   }
 
-  private void createSeedPatient(
-      String mrn,
-      String fullName,
-      int age,
-      String gender,
-      String phone,
-      int sysBp,
-      int diaBp,
-      double hba1c,
-      boolean hasDiabetes,
-      boolean hasHypertension,
-      boolean historyOfSmoking,
-      String lastExamDate,
-      String assignedDoctor,
-      int riskScore,
-      String riskLevel,
-      String reviewStatus,
-      String findings,
-      String avatarColor) {
-    PatientProfile p = new PatientProfile(mrn, fullName, age, gender, phone);
-    p.setSystolicBp(sysBp);
-    p.setDiastolicBp(diaBp);
-    p.setHba1c(hba1c);
-    p.setHasDiabetes(hasDiabetes);
-    p.setHasHypertension(hasHypertension);
-    p.setHistoryOfSmoking(historyOfSmoking);
-    p.setLastExamDate(lastExamDate);
-    p.setAssignedDoctor(assignedDoctor);
-    p.setRiskScore(riskScore);
-    p.setRiskLevel(riskLevel);
-    p.setReviewStatus(reviewStatus);
-    p.setFindingsSummary(findings);
-    p.setAvatarColor(avatarColor);
-    patientRepository.save(p);
+  @Transactional
+  public void seedInitialPatientsIfEmpty() {
+    // Vô hiệu hóa seed mock data: không chèn các bản ghi mồ côi với user_id=null nữa.
+    // Thay vào đó đồng bộ các bệnh nhân thực tế từ patient_medical_profiles & doctor_patient_assignments
+    syncFromMedicalProfilesAndAssignments();
   }
 
   // --- Patient Medical Profile methods ---

@@ -16,6 +16,7 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { BulkUploadItemPayload } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 interface BatchUploadModalProps {
   isOpen: boolean;
@@ -52,10 +53,14 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
   onSubmitBatch,
   currentCredits,
 }) => {
+  const { user: currentUser } = useAuth();
+  const currentClinicName = currentUser?.name || currentUser?.email || 'Phòng khám chuyên khoa';
+  const currentClinicId = currentUser?.id || 'CLINIC';
+
   const [campaignName, setCampaignName] = useState(
     `Chiến dịch Tầm soát Đột quỵ & Mạch máu Võng mạc Đợt ${new Date().toLocaleDateString('vi-VN')}`
   );
-  const [clinicId, setClinicId] = useState('CLN-CHO-RAY-01');
+  const [clinicId, setClinicId] = useState(currentClinicId);
   const [stagedItems, setStagedItems] = useState<StagedItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -428,9 +433,8 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                 onChange={(e) => setClinicId(e.target.value)}
                 className="w-full px-3.5 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:border-[#0891B2] outline-none font-medium text-slate-800"
               >
-                <option value="CLN-CHO-RAY-01">Bệnh Viện Chợ Rẫy — Trung tâm Sàng lọc Đáy mắt</option>
-                <option value="CLN-MAT-TW-02">Bệnh Viện Mắt Trung Ương — Khoa Dịch Kính Võng Mạc</option>
-                <option value="CLN-DA-KHOA-03">Trung Tâm Y Tế Dự Phòng Quận 1</option>
+                <option value={currentClinicId}>{currentClinicName}</option>
+                <option value="CLINIC_SATELLITE">Điểm sàng lọc vệ tinh / Lưu động</option>
               </select>
             </div>
           </div>

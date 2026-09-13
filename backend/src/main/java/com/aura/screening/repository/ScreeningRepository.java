@@ -15,4 +15,9 @@ public interface ScreeningRepository extends JpaRepository<Screening, UUID> {
 
   long countByPatientId(UUID patientId);
   java.util.Optional<Screening> findTopByPatientIdOrderByCreatedAtDesc(UUID patientId);
+
+  long countByClinicId(UUID clinicId);
+  long countByClinicIdAndRiskLevelIn(UUID clinicId, java.util.Collection<com.aura.screening.entity.RiskLevel> riskLevels);
+  List<Screening> findByClinicIdOrderByCreatedAtDesc(UUID clinicId);
+  long countByRiskLevelIn(java.util.Collection<com.aura.screening.entity.RiskLevel> riskLevels);
 }

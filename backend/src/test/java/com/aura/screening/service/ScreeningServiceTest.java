@@ -116,7 +116,8 @@ class ScreeningServiceTest {
         "image/jpeg",
         null, // riskScore ban đầu rỗng để AI tính toán
         0.62,
-        "17.2%"
+        "17.2%",
+        null
     );
 
     java.util.Map<String, Object> aiResponse = new java.util.HashMap<>();
@@ -176,7 +177,7 @@ class ScreeningServiceTest {
   void createScreening_withRequest_whenAiThrowsException_shouldSetStatusFailedAndNullRisk() {
     UUID patientId = UUID.randomUUID();
     com.aura.screening.dto.CreateScreeningRequest req = new com.aura.screening.dto.CreateScreeningRequest(
-        "https://cdn.aura.com/scan.jpg", "OS", "Fundus", "scan.jpg", 1024L, "image/jpeg", null, null, null
+        "https://cdn.aura.com/scan.jpg", "OS", "Fundus", "scan.jpg", 1024L, "image/jpeg", null, null, null, null
     );
 
     when(geminiAiService.analyzeRetinalVascular(any(), any()))

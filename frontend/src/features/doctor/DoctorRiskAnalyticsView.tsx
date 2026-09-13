@@ -15,6 +15,7 @@ import {
 import { Card } from '../../components/ui/Card';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { RiskBadge } from '../../components/ui/RiskBadge';
+import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
 import { doctorApi, screeningApi } from '../../services/api';
 import { DoctorPatientSummary } from '../../pages/CDSDashboardPage';
 
@@ -562,12 +563,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
       </div>
 
       {/* Medical Safety Disclaimer */}
-      <div className="p-3 rounded-xl bg-slate-100/80 border border-slate-200 text-xs text-slate-600 flex items-center gap-2">
-        <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0" />
-        <span>
-          <strong>Lưu ý y khoa bắt buộc:</strong> Kết quả phân tích do AI thực hiện chỉ nhằm mục đích hỗ trợ sàng lọc và không thay thế chẩn đoán chuyên môn của bác sĩ chuyên khoa mắt hoặc tim mạch.
-        </span>
-      </div>
+      <MedicalDisclaimer variant="subtle" />
     </div>
   );
 };

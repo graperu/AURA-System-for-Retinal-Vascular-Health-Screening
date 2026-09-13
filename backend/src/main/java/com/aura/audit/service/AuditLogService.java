@@ -23,6 +23,8 @@ public class AuditLogService {
   public AuditLog logEvent(
       UUID userId,
       String userEmail,
+      String userRole,
+      String module,
       String action,
       String resourceType,
       String resourceId,
@@ -34,6 +36,8 @@ public class AuditLogService {
         new AuditLog(
             userId,
             userEmail,
+            userRole,
+            module,
             action,
             resourceType,
             resourceId,
@@ -42,6 +46,20 @@ public class AuditLogService {
             status,
             details);
     return auditLogRepository.save(log);
+  }
+
+  @Transactional
+  public AuditLog logEvent(
+      UUID userId,
+      String userEmail,
+      String action,
+      String resourceType,
+      String resourceId,
+      String ipAddress,
+      String userAgent,
+      String status,
+      String details) {
+    return logEvent(userId, userEmail, null, null, action, resourceType, resourceId, ipAddress, userAgent, status, details);
   }
 
   @Transactional(readOnly = true)

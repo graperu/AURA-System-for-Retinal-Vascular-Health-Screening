@@ -56,9 +56,20 @@ export default {
           'high-bg': '#FFF7ED',
           'high-border': '#FFEDD5',
           critical: '#DC2626',  // Red
-          severe: '#DC2626',
           'critical-bg': '#FEF2F2',
           'critical-border': '#FECACA',
+          unverified: '#64748B',
+          'unverified-bg': '#F8FAFC',
+          'unverified-border': '#E2E8F0',
+        },
+        // Dark Room Ophthalmology Inspection Mode (Obsidian Deep Background)
+        darkroom: {
+          bg: '#030712',
+          surface: '#0B132B',
+          card: '#0F172A',
+          border: '#1E293B',
+          accent: '#38BDF8',
+          text: '#F8FAFC',
         }
       },
       fontFamily: {
@@ -70,7 +81,9 @@ export default {
         wide: '0.025em',
       },
       boxShadow: {
-        'medical-sm': '0 2px 8px -2px rgba(8, 145, 178, 0.08)',
+        'medical-xs': '0 1px 2px 0 rgba(7, 13, 45, 0.05)',
+        'medical-sm': '0 2px 8px -2px rgba(7, 13, 45, 0.05)',
+        'medical-md': '0 4px 14px 0 rgba(7, 13, 45, 0.08)',
         'medical-card': '0 4px 20px -4px rgba(7, 13, 45, 0.06)',
         'medical-modal': '0 20px 60px rgba(7, 13, 45, 0.25)',
       },

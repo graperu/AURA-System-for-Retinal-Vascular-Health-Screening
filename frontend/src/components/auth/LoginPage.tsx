@@ -23,17 +23,10 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <main className="auth-page relative bg-gradient-to-br from-[#24376f] via-[#344a88] to-[#202f65]">
-      <div className="auth-pink-shape pointer-events-none absolute" />
-      <div className="auth-dots auth-dots-top pointer-events-none absolute" />
-      <div className="auth-dots auth-dots-bottom pointer-events-none absolute" />
-      <div className="auth-dots auth-dots-left-bottom pointer-events-none absolute" />
-      <div className="auth-dots auth-dots-right-top pointer-events-none absolute" />
-      <div className="auth-dots auth-dots-right-middle pointer-events-none absolute" />
-      
+    <main className="auth-page relative">
       <div className="auth-container relative bg-white shadow-[0_20px_60px_rgba(7,13,45,0.3)]">
         <AuthHeroPanel />
-        <section className="auth-form-panel bg-[#f4f7fc]">
+        <section className="auth-form-panel">
           <div className="auth-form-card w-full max-w-[500px] rounded-[26px] border border-slate-100/80 bg-white p-6 sm:p-8 shadow-sm">
             {/* Header Tabs */}
             <div className="grid grid-cols-2 border-b border-slate-200" role="tablist" aria-label="Chọn hình thức xác thực">
@@ -44,9 +37,9 @@ export const LoginPage: React.FC = () => {
                   role="tab"
                   aria-selected={mode === item}
                   onClick={() => selectMode(item)}
-                  className={`relative pb-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 ${
+                  className={`relative pb-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600 ${
                     mode === item
-                      ? 'text-blue-700 after:absolute after:bottom-0 after:left-1/4 after:h-0.5 after:w-1/2 after:rounded-full after:bg-blue-600'
+                      ? 'text-brand-700 after:absolute after:bottom-0 after:left-1/4 after:h-0.5 after:w-1/2 after:rounded-full after:bg-brand-600'
                       : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >

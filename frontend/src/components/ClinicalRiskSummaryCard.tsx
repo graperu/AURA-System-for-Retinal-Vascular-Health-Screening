@@ -2,6 +2,7 @@ import React from 'react';
 import { AIRiskResult } from '../types/cds';
 import { RiskBadge } from './ui/RiskBadge';
 import { Button } from './ui/Button';
+import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
 import {
   Heart,
   Eye,
@@ -126,7 +127,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               onClick={onOpenFullReport}
               className="bg-white text-slate-900 hover:bg-slate-50 border-white/60 font-bold shadow-md text-xs sm:text-sm flex items-center justify-center gap-2"
             >
-              <FileText className="w-4 h-4 text-[#0891B2]" />
+              <FileText className="w-4 h-4 text-brand-600" />
               Xem & In Báo Cáo (PDF/CSV)
             </Button>
             {onConsultDoctor && (
@@ -277,7 +278,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
         <div className="border border-slate-200 rounded-xl overflow-hidden">
           <div className="bg-slate-100/80 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
             <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <Activity className="w-4 h-4 text-[#0891B2]" />
+              <Activity className="w-4 h-4 text-brand-600" />
               Chỉ Số Sinh Học Định Lượng Mạch Máu Võng Mạc (Retinal Biomarkers)
             </h3>
             <span className="text-[11px] text-slate-500">Trích xuất tự động qua AI Multimodal</span>
@@ -481,7 +482,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
             <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#0891B2]" />
+              <Sparkles className="w-4 h-4 text-brand-600" />
               Nhận Định Lâm Sàng Của AI (Findings)
             </h4>
             <div className="text-xs text-slate-600 leading-relaxed space-y-1.5">
@@ -527,17 +528,8 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
           </div>
         </div>
 
-        {/* 5. MEDICAL DISCLAIMER BẮT BUỘC */}
-        <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-900 flex items-start gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <strong className="font-bold block mb-0.5">Tuyên bố Miễn trừ Y tế (Medical Safety Disclaimer):</strong>
-            <span>
-              Kết quả phân tích do AI thực hiện chỉ nhằm mục đích hỗ trợ sàng lọc và không thay thế
-              chẩn đoán chuyên môn của bác sĩ chuyên khoa mắt hoặc tim mạch.
-            </span>
-          </div>
-        </div>
+        {/* 5. MEDICAL DISCLAIMER BẮT BUỘC (CDS Mandatory Disclaimer) */}
+        <MedicalDisclaimer variant="banner" />
 
         {/* 6. NÚT BẤM HÀNH ĐỘNG CUỐI CARD */}
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-slate-100">
@@ -547,7 +539,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             onClick={onOpenFullReport}
             className="text-xs font-bold gap-2"
           >
-            <FileText className="w-4 h-4 text-[#0891B2]" />
+            <FileText className="w-4 h-4 text-brand-600" />
             Xem & In Phiếu Báo Cáo Đầy Đủ (PDF/CSV)
           </Button>
           {onConsultDoctor && (
@@ -555,7 +547,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               variant="primary"
               size="md"
               onClick={onConsultDoctor}
-              className="text-xs font-bold gap-2 bg-[#0891B2] hover:bg-[#0E7490]"
+              className="text-xs font-bold gap-2"
             >
               <MessageSquare className="w-4 h-4" />
               Trao Đổi Với Bác Sĩ

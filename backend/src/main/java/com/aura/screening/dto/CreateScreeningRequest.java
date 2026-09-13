@@ -3,6 +3,7 @@ package com.aura.screening.dto;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
+import java.util.UUID;
 
 public record CreateScreeningRequest(
     @JsonProperty("imageUrl")
@@ -32,5 +33,8 @@ public record CreateScreeningRequest(
     Double avRatio,
 
     @JsonProperty("vesselDensity")
-    String vesselDensity
+    String vesselDensity,
+
+    @JsonProperty("clinicId")
+    UUID clinicId
 ) {}

@@ -84,7 +84,7 @@ export const PatientAssignmentBoard: React.FC = () => {
         aria-label={`Chọn ${patient.fullName || patient.email}`} />
       <div className="min-w-0">
         <p className="truncate text-xs font-bold text-slate-900">{patient.fullName || patient.email}</p>
-        <p className="truncate text-[11px] text-slate-500">{patient.mrn || 'Chưa có MRN'} · {patient.email}</p>
+        <p className="truncate text-[11px] text-slate-500"><span className="font-mono-data font-semibold text-slate-700">{patient.mrn || 'Chưa có MRN'}</span> · {patient.email}</p>
       </div>
     </div>
   );
@@ -95,10 +95,10 @@ export const PatientAssignmentBoard: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-cyan-100 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-brand-100 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Users className="h-5 w-5 text-cyan-700" /> Điều phối bệnh nhân cho bác sĩ</h2>
+            <h2 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Users className="h-5 w-5 text-brand-700" /> Điều phối bệnh nhân cho bác sĩ</h2>
             <p className="mt-1 text-xs text-slate-500">Kéo thẻ bệnh nhân sang bác sĩ hoặc chọn nhiều bệnh nhân để phân công hàng loạt.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -107,7 +107,7 @@ export const PatientAssignmentBoard: React.FC = () => {
               {board.doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.fullName || doctor.email}</option>)}
             </select>
             <button type="button" disabled={busy || !targetDoctorId || selected.length === 0} onClick={() => void assign(targetDoctorId, selected)}
-              className="rounded-lg bg-cyan-700 px-4 py-2 text-xs font-bold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-50">
+              className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 active:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50">
               Phân công {selected.length > 0 ? `${selected.length} bệnh nhân` : 'đã chọn'}
             </button>
           </div>
@@ -127,8 +127,8 @@ export const PatientAssignmentBoard: React.FC = () => {
           const assigned = board.patients.filter((patient) => patient.assignedDoctorIds.includes(doctor.id));
           return (
             <section key={doctor.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { const item = readDrag(event); if (item) void assign(doctor.id, [item.patientId]); }}
-              className="min-h-64 rounded-2xl border border-cyan-200 bg-cyan-50/40 p-4">
-              <h3 className="mb-1 flex items-center justify-between text-sm font-bold text-cyan-950"><span className="flex items-center gap-2"><Stethoscope className="h-4 w-4" /> {doctor.fullName || doctor.email}</span><span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs">{assigned.length}</span></h3>
+              className="min-h-64 rounded-2xl border border-brand-200 bg-brand-50/50 p-4">
+              <h3 className="mb-1 flex items-center justify-between text-sm font-bold text-brand-950"><span className="flex items-center gap-2"><Stethoscope className="h-4 w-4" /> {doctor.fullName || doctor.email}</span><span className="rounded-full bg-brand-100 text-brand-800 px-2 py-0.5 text-xs">{assigned.length}</span></h3>
               <p className="mb-3 truncate text-[11px] text-slate-500">{doctor.email}</p>
               <div className="space-y-2">{assigned.map((patient) => <PatientCard key={patient.id} patient={patient} sourceDoctorId={doctor.id} />)}</div>
               {assigned.length === 0 && <p className="py-8 text-center text-xs text-slate-500">Thả bệnh nhân vào đây để phân công.</p>}

@@ -63,7 +63,7 @@ class ScreeningControllerTest {
   @DisplayName("FR-2: Patient tạo ca sàng lọc thành công")
   void createScreening_success() {
     CreateScreeningRequest req = new CreateScreeningRequest(
-        "data:image/png;base64,sample", "OD", "FUNDUS", "eye.png", 1024L, "image/png", null, null, null
+        "data:image/png;base64,sample", "OD", "FUNDUS", "eye.png", 1024L, "image/png", null, null, null, null
     );
     Screening screening = new Screening(patientId, req.imageUrl());
 
@@ -236,7 +236,7 @@ class ScreeningControllerTest {
   @DisplayName("Security: Chưa đăng nhập khi tạo ca sàng lọc -> ném UNAUTHORIZED")
   void createScreening_unauthenticated_throwsUnauthorized() {
     CreateScreeningRequest req = new CreateScreeningRequest(
-        "data:image/png;base64,sample", "OD", "FUNDUS", "eye.png", 1024L, "image/png", null, null, null
+        "data:image/png;base64,sample", "OD", "FUNDUS", "eye.png", 1024L, "image/png", null, null, null, null
     );
     AuthException ex = assertThrows(AuthException.class, () ->
         controller.createScreening(null, req));

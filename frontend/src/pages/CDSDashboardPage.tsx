@@ -63,7 +63,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
   onNavigate,
 }) => {
   const { user: currentUser } = useAuth();
-  const doctorDisplayName = currentUser?.name || 'BS. CKII Nguyễn Thị Thanh';
+  const doctorDisplayName = currentUser?.name || 'Bác sĩ chuyên khoa';
 
   const [assignedPatients, setAssignedPatients] = useState<DoctorPatientSummary[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -174,10 +174,21 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
     setPatientsError(null);
     try {
       const res = await doctorApi.getAssignedPatients();
-      if (res.success && Array.isArray(res.data)) {
-        setAssignedPatients(res.data);
-        if (res.data.length > 0) {
-          const first = res.data[0];
+      let patientList: any[] = [];
+      if (res.success && res.data) {
+        if (Array.isArray(res.data)) {
+          patientList = res.data;
+        } else if (Array.isArray((res.data as any).items)) {
+          patientList = (res.data as any).items;
+        } else if (Array.isArray((res.data as any).content)) {
+          patientList = (res.data as any).content;
+        }
+      }
+
+      if (res.success) {
+        setAssignedPatients(patientList);
+        if (patientList.length > 0) {
+          const first = patientList[0];
           setSelectedPatientId(first.patientId);
           await loadPatientDetails(first.patientId, first);
         } else {

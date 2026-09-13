@@ -20,7 +20,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
 
 @Service
 public class ScreeningService {
@@ -30,23 +29,47 @@ public class ScreeningService {
   private final ScreeningRepository screeningRepository;
   private final com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository;
   private final com.aura.notification.service.UserNotificationService userNotificationService;
+  private final com.aura.audit.service.AuditLogService auditLogService;
+  private final com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository;
+  private final com.aura.user.repository.UserRepository userRepository;
   private final GeminiRetinalAiService geminiAiService;
-  private final RestClient restClient;
 
   @Value("${aura.signature.secret:AURA_REVIEW_SIGNATURE_SECRET_2026}")
   private String signatureSecret = "AURA_REVIEW_SIGNATURE_SECRET_2026";
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public ScreeningService(
+      ScreeningRepository screeningRepository,
+      com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      com.aura.notification.service.UserNotificationService userNotificationService,
+      com.aura.audit.service.AuditLogService auditLogService,
+      com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
+      com.aura.user.repository.UserRepository userRepository,
+      GeminiRetinalAiService geminiAiService) {
+    this.screeningRepository = screeningRepository;
+    this.assignmentRepository = assignmentRepository;
+    this.userNotificationService = userNotificationService;
+    this.auditLogService = auditLogService;
+    this.clinicMemberRepository = clinicMemberRepository;
+    this.userRepository = userRepository;
+    this.geminiAiService = geminiAiService;
+  }
+
+  public ScreeningService(
+      ScreeningRepository screeningRepository,
+      com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      com.aura.notification.service.UserNotificationService userNotificationService,
+      GeminiRetinalAiService geminiAiService) {
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService);
+  }
 
   public ScreeningService(
       ScreeningRepository screeningRepository,
       com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
       com.aura.notification.service.UserNotificationService userNotificationService,
       GeminiRetinalAiService geminiAiService,
-      RestClient.Builder restClientBuilder) {
-    this.screeningRepository = screeningRepository;
-    this.assignmentRepository = assignmentRepository;
-    this.userNotificationService = userNotificationService;
-    this.geminiAiService = geminiAiService;
-    this.restClient = restClientBuilder.build();
+      Object ignoredRestClient) {
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService);
   }
 
   public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request) {
@@ -61,11 +84,20 @@ public class ScreeningService {
     if (request.avRatio() != null) screening.setAvRatio(request.avRatio());
     if (request.vesselDensity() != null) screening.setVesselDensity(request.vesselDensity());
 
+    // Gán clinicId từ request
+    if (request.clinicId() != null) {
+      screening.setClinicId(request.clinicId());
+    }
+
+    // Tự động tìm bác sĩ phụ trách từ doctor_patient_assignments (nếu ca khám chưa gán bác sĩ)
+    resolveAndAssignDoctorAndClinic(screening, patientId);
+
     // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, eye, request.imageUrl());
 
     Screening saved = saveScreeningRecord(screening);
     sendAiReadyNotification(saved, patientId);
+    logScreeningCreationAudit(saved, patientId);
     return saved;
   }
 
@@ -74,12 +106,68 @@ public class ScreeningService {
     screening.setEyePosition("OD");
     screening.setScanType("Fundus");
 
+    resolveAndAssignDoctorAndClinic(screening, patientId);
+
     // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, "OD", imageUrl);
 
     Screening saved = saveScreeningRecord(screening);
     sendAiReadyNotification(saved, patientId);
+    logScreeningCreationAudit(saved, patientId);
     return saved;
+  }
+
+  private void resolveAndAssignDoctorAndClinic(Screening screening, UUID patientId) {
+    try {
+      if (screening.getDoctorId() == null && assignmentRepository != null) {
+        var activeAssignments = assignmentRepository.findByPatientIdAndStatus(
+            patientId, com.aura.doctor.entity.AssignmentStatus.ACTIVE);
+        if (activeAssignments != null && !activeAssignments.isEmpty()) {
+          var firstAssignment = activeAssignments.get(0);
+          if (firstAssignment.getDoctor() != null) {
+            screening.setDoctorId(firstAssignment.getDoctor().getId());
+          }
+        }
+      }
+
+      if (screening.getClinicId() == null && screening.getDoctorId() != null && clinicMemberRepository != null) {
+        var clinicMembers = clinicMemberRepository.findByDoctorId(screening.getDoctorId());
+        if (clinicMembers != null && !clinicMembers.isEmpty()) {
+          var firstMember = clinicMembers.get(0);
+          if (firstMember.getClinic() != null) {
+            screening.setClinicId(firstMember.getClinic().getId());
+          }
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Không thể tự động gán bác sĩ/phòng khám cho ca sàng lọc: {}", e.getMessage());
+    }
+  }
+
+  private void logScreeningCreationAudit(Screening saved, UUID patientId) {
+    try {
+      if (auditLogService != null) {
+        String email = null;
+        if (userRepository != null) {
+          email = userRepository.findById(patientId).map(com.aura.user.entity.User::getEmail).orElse(null);
+        }
+        auditLogService.logEvent(
+            patientId,
+            email,
+            "USER",
+            "SCREENING",
+            "SCREENING_CREATE",
+            "SCREENING",
+            saved.getId() != null ? saved.getId().toString() : null,
+            null,
+            null,
+            "SUCCESS",
+            "Tạo phiên sàng lọc võng mạc và thực thi phân tích AI thành công"
+        );
+      }
+    } catch (Exception e) {
+      log.warn("Không thể ghi audit log SCREENING_CREATE: {}", e.getMessage());
+    }
   }
 
   @Transactional
@@ -353,6 +441,4 @@ public class ScreeningService {
     }
     return null;
   }
-
-  public record AiPredictRequest(String patientId, String eye, String imageBase64) {}
 }

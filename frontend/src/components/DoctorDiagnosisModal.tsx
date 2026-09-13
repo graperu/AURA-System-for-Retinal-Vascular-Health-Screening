@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DoctorFeedback, RiskLevel } from '../types/cds';
 import { X, CheckCircle2, Edit3, XCircle, ShieldCheck, Tag, FileText, Download } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface DoctorDiagnosisModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface DoctorDiagnosisModalProps {
   analysisId: string;
   patientName: string;
   mrn: string;
+  doctorName?: string;
   onSaveFeedback: (feedback: DoctorFeedback) => void;
 }
 
@@ -17,8 +19,13 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
   analysisId,
   patientName,
   mrn,
+  doctorName,
   onSaveFeedback,
 }) => {
+  const { user } = useAuth();
+  const signerName = doctorName || user?.name || 'Bác sĩ chuyên khoa';
+  const signerId = user?.id || 'DOC-CURRENT';
+
   const [decision, setDecision] = useState<'APPROVED' | 'MODIFIED' | 'REJECTED'>('APPROVED');
   const [adjustedCardioRisk, setAdjustedCardioRisk] = useState<RiskLevel>('High');
   const [adjustedDrRisk, setAdjustedDrRisk] = useState<RiskLevel>('Moderate');
@@ -53,8 +60,8 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
     const feedback: DoctorFeedback = {
       feedbackId: `FB-${Date.now().toString().slice(-6)}`,
       analysisId,
-      doctorId: 'DOC-9912',
-      doctorName: 'BS. CKII Nguyễn Thị Thanh',
+      doctorId: signerId,
+      doctorName: signerName,
       decision,
       adjustedCardioRisk: decision === 'MODIFIED' ? adjustedCardioRisk : undefined,
       adjustedDrRisk: decision === 'MODIFIED' ? adjustedDrRisk : undefined,
@@ -213,7 +220,7 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
           <div className="flex items-center justify-between border-t border-slate-100 pt-4">
             <div className="text-xs text-slate-500 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
-              Ký số PKI: <strong>BS. CKII Nguyễn Thị Thanh</strong>
+              Ký số PKI: <strong>{signerName}</strong>
             </div>
 
             <div className="flex items-center gap-2">

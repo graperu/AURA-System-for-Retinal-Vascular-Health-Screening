@@ -14,6 +14,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { parseIcd10Codes } from '../services/screeningMapper';
+import { MedicalDisclaimer, MANDATORY_MEDICAL_DISCLAIMER } from './ui/MedicalDisclaimer';
 
 interface MedicalReportModalProps {
   isOpen: boolean;
@@ -78,8 +79,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
     : parseIcd10Codes(result.icd10Codes);
 
   // Tuyên bố miễn trừ trách nhiệm y tế bắt buộc
-  const MEDICAL_DISCLAIMER =
-    'Kết quả phân tích do AI thực hiện chỉ nhằm mục đích hỗ trợ sàng lọc và không thay thế chẩn đoán chuyên môn của bác sĩ chuyên khoa mắt hoặc tim mạch.';
+  const MEDICAL_DISCLAIMER = MANDATORY_MEDICAL_DISCLAIMER;
 
   // Động hóa đánh giá lâm sàng theo ngưỡng y văn
   const evaluateAvRatio = (val: number) => {
@@ -293,13 +293,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           </div>
 
           {/* Medical Disclaimer Banner (Bắt buộc theo quy định an toàn y khoa) */}
-          <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
-            <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="leading-relaxed">
-              <strong className="font-bold">Tuyên bố miễn trừ trách nhiệm y tế: </strong>
-              <span>{MEDICAL_DISCLAIMER}</span>
-            </div>
-          </div>
+          <MedicalDisclaimer variant="compact" />
 
           {/* Banner Thông Báo Sơ Bộ nếu chưa thẩm định */}
           {!isReviewed && (

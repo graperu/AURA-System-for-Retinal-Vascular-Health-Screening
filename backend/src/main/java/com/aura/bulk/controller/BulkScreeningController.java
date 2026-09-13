@@ -32,12 +32,25 @@ public class BulkScreeningController {
 
     private final PatientAnonymizerService anonymizerService;
     private final BatchJobQueue jobQueue;
+    private final com.aura.bulk.repository.BulkScreeningBatchRepository batchRepository;
+    private final com.aura.bulk.repository.BulkScreeningItemRepository itemRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public BulkScreeningController(
+            PatientAnonymizerService anonymizerService,
+            BatchJobQueue jobQueue,
+            com.aura.bulk.repository.BulkScreeningBatchRepository batchRepository,
+            com.aura.bulk.repository.BulkScreeningItemRepository itemRepository) {
+        this.anonymizerService = anonymizerService;
+        this.jobQueue = jobQueue;
+        this.batchRepository = batchRepository;
+        this.itemRepository = itemRepository;
+    }
 
     public BulkScreeningController(
             PatientAnonymizerService anonymizerService,
             BatchJobQueue jobQueue) {
-        this.anonymizerService = anonymizerService;
-        this.jobQueue = jobQueue;
+        this(anonymizerService, jobQueue, null, null);
     }
 
     /**
@@ -62,6 +75,22 @@ public class BulkScreeningController {
 
         jobQueue.createBatchJob(batchId, request.clinicId(), request.imageItems().size());
 
+        java.util.UUID clinicUuid;
+        try {
+            clinicUuid = java.util.UUID.fromString(request.clinicId());
+        } catch (Exception e) {
+            clinicUuid = java.util.UUID.fromString("33333333-3333-3333-3333-333333333333");
+        }
+
+        com.aura.bulk.entity.BulkScreeningBatch batchEntity = null;
+        if (batchRepository != null) {
+            try {
+                batchEntity = batchRepository.save(new com.aura.bulk.entity.BulkScreeningBatch(batchId, clinicUuid, request.imageItems().size()));
+            } catch (Exception e) {
+                log.warn("Không thể lưu BulkScreeningBatch vào PostgreSQL: {}", e.getMessage());
+            }
+        }
+
         for (int i = 0; i < request.imageItems().size(); i++) {
             BulkImageItemUploadDto item = request.imageItems().get(i);
             String itemId = String.format("ITEM-%s-%03d", batchId, i + 1);
@@ -80,7 +109,7 @@ public class BulkScreeningController {
             // 2. Strip DICOM headers
             String strippedBase64 = anonymizerService.stripDicomMetadataHeaders(item.base64ImageContent());
 
-            // 3. Register item status
+            // 3. Register item status in memory
             BatchJobItemStatusDto initialItemStatus = new BatchJobItemStatusDto(
                     itemId,
                     item.fileName(),
@@ -92,7 +121,30 @@ public class BulkScreeningController {
             );
             jobQueue.registerItem(batchId, initialItemStatus);
 
-            // 4. Enqueue to Java LinkedBlockingQueue
+            // 4. Lưu item vào PostgreSQL
+            if (batchEntity != null && batchEntity.getId() != null && itemRepository != null) {
+                try {
+                    com.aura.bulk.entity.BulkScreeningItem itemEntity = new com.aura.bulk.entity.BulkScreeningItem(
+                            batchEntity.getId(),
+                            itemId,
+                            item.fileName(),
+                            item.eyePosition(),
+                            anonymizedPatient.pseudonymId()
+                    );
+                    itemEntity.setPatientName(item.rawPatientName());
+                    itemEntity.setRawMrn(item.rawMrn());
+                    itemEntity.setPatientAge(item.patientAge());
+                    itemEntity.setPatientGender(item.patientGender());
+                    itemEntity.setSystolicBp(item.systolicBp());
+                    itemEntity.setDiastolicBp(item.diastolicBp());
+                    itemEntity.setHba1c(item.hbA1c());
+                    itemRepository.save(itemEntity);
+                } catch (Exception e) {
+                    log.warn("Không thể lưu BulkScreeningItem vào PostgreSQL: {}", e.getMessage());
+                }
+            }
+
+            // 5. Enqueue to Java LinkedBlockingQueue
             BatchItemTask task = new BatchItemTask(
                     batchId,
                     itemId,

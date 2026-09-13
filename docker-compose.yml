@@ -19,6 +19,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 5s
     deploy:
       resources:
         limits:
@@ -55,13 +56,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8081/api/v1/system/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
     deploy:
       resources:
         limits:
           cpus: "2.00"
-          memory: 1024M
+          memory: 1536M
         reservations:
-          memory: 384M
+          memory: 512M
     logging:
       driver: "json-file"
       options:
@@ -77,7 +84,14 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     deploy:
       resources:
         limits:

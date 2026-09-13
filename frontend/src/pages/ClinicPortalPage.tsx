@@ -9,16 +9,21 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { PageHeader } from '../components/ui/PageHeader';
 import { LoadingState } from '../components/ui/StateFeedback';
+import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'AURA_CLINIC_BATCH_JOB';
 
-const getInitialBatchJob = (): ClinicBatchJob => {
+const getInitialBatchJob = (defaultClinicId = 'CLINIC', defaultClinicName = 'Phòng khám chuyên khoa'): ClinicBatchJob => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
-        return parsed;
+        return {
+          ...parsed,
+          clinicId: (parsed.clinicId && parsed.clinicId !== 'CLN-CHO-RAY-01') ? parsed.clinicId : defaultClinicId,
+          clinicName: (parsed.clinicName && !parsed.clinicName.includes('Chợ Rẫy')) ? parsed.clinicName : defaultClinicName,
+        };
       }
     }
   } catch (e) {
@@ -27,8 +32,8 @@ const getInitialBatchJob = (): ClinicBatchJob => {
 
   return {
     batchId: 'CHƯA_TẢI_ĐỢT_NÀO',
-    clinicId: 'CLN-CHO-RAY-01',
-    clinicName: 'Bệnh viện Chợ Rẫy — Trung tâm Sàng lọc Đáy mắt',
+    clinicId: defaultClinicId,
+    clinicName: defaultClinicName,
     totalImages: 0,
     processedCount: 0,
     failedCount: 0,
@@ -179,7 +184,10 @@ const ClinicDoctorsSection: React.FC = () => {
     if (res.success && Array.isArray(res.data)) {
       setMembers(res.data);
       if (res.data.length > 0 && !assignDoctorId) {
-        setAssignDoctorId(res.data[0].id || res.data[0].userId);
+        const firstDocId = res.data[0].doctorId || res.data[0].userId;
+        if (firstDocId) {
+          setAssignDoctorId(firstDocId);
+        }
       }
     }
     setLoading(false);
@@ -275,8 +283,8 @@ const ClinicDoctorsSection: React.FC = () => {
               ) : (
                 members.map((m) => (
                   <tr key={m.id} className="hover:bg-slate-50/50">
-                    <td className="p-3 font-bold text-slate-900">{m.fullName || m.name || 'Bác sĩ'}</td>
-                    <td className="p-3 text-slate-600">{m.email}</td>
+                    <td className="p-3 font-bold text-slate-900">{m.doctorName || m.fullName || m.name || 'Bác sĩ'}</td>
+                    <td className="p-3 text-slate-600">{m.doctorEmail || m.email}</td>
                     <td className="p-3">
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                         Hoạt động
@@ -284,8 +292,8 @@ const ClinicDoctorsSection: React.FC = () => {
                     </td>
                     <td className="p-3 text-right">
                       <button
-                        onClick={() => handleRemove(m.id || m.userId)}
-                        className="text-red-600 hover:text-red-700 p-1"
+                        onClick={() => handleRemove(m.id)}
+                        className="text-red-600 hover:text-red-700 p-1 cursor-pointer"
                         title="Xóa khỏi phòng khám"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -314,11 +322,14 @@ const ClinicDoctorsSection: React.FC = () => {
               onChange={(e) => setAssignDoctorId(e.target.value)}
               className="w-full h-9 px-3 border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:border-[#0891B2]"
             >
-              {members.map((m) => (
-                <option key={m.id} value={m.id || m.userId}>
-                  {m.fullName || m.name || m.email}
-                </option>
-              ))}
+              {members.map((m) => {
+                const docId = m.doctorId || m.userId;
+                return (
+                  <option key={m.id} value={docId}>
+                    {m.doctorName || m.fullName || m.name || m.doctorEmail || m.email}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div>
@@ -344,7 +355,25 @@ const ClinicDoctorsSection: React.FC = () => {
 };
 
 export const ClinicPortalPage: React.FC<{ activeView?: string }> = ({ activeView = 'bulk-batch' }) => {
-  const [batchJob, setBatchJob] = useState<ClinicBatchJob>(getInitialBatchJob);
+  const { user: currentUser } = useAuth();
+  const clinicId = currentUser?.id || 'CLINIC';
+  const clinicName = currentUser?.name || currentUser?.email || 'Phòng khám chuyên khoa';
+
+  const [batchJob, setBatchJob] = useState<ClinicBatchJob>(() => getInitialBatchJob(clinicId, clinicName));
+
+  useEffect(() => {
+    if (currentUser) {
+      setBatchJob((prev) => ({
+        ...prev,
+        clinicId: (!prev.clinicId || prev.clinicId === 'CLN-CHO-RAY-01' || prev.clinicId === 'CLINIC')
+          ? (currentUser.id || 'CLINIC')
+          : prev.clinicId,
+        clinicName: (!prev.clinicName || prev.clinicName.includes('Chợ Rẫy') || prev.clinicName === 'Phòng khám chuyên khoa')
+          ? (currentUser.name || currentUser.email || 'Phòng khám chuyên khoa')
+          : prev.clinicName,
+      }));
+    }
+  }, [currentUser]);
 
   const handleUpdateBatchJob = (updated: ClinicBatchJob) => {
     setBatchJob(updated);
@@ -362,7 +391,7 @@ export const ClinicPortalPage: React.FC<{ activeView?: string }> = ({ activeView
         subtitle="Quản trị chiến dịch tầm soát vi mạch số lượng lớn, phân công bác sĩ và thống kê lâm sàng."
         badge={
           <span className="rounded-full bg-slate-50 border border-clinical-border px-2.5 py-1 text-xs font-semibold text-clinical-text">
-            Bệnh viện Chợ Rẫy
+            {clinicName}
           </span>
         }
       />

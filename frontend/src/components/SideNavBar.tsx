@@ -185,17 +185,17 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[250px] flex-col border-r border-[#CCFBF1] bg-white p-4 transition-transform duration-200 lg:sticky lg:top-[64px] lg:z-30 lg:h-[calc(100vh-64px)] lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[250px] flex-col border-r border-clinical-border bg-white p-4 transition-transform duration-200 lg:sticky lg:top-[64px] lg:z-30 lg:h-[calc(100vh-64px)] lg:translate-x-0 ${
           isOpen ? "translate-x-0 shadow-medical-modal" : "-translate-x-full"
         }`}
         aria-label="Điều hướng chính"
       >
-        <div className="mb-4 px-2 pt-1 pb-3 border-b border-[#CCFBF1]/60 flex items-center justify-between">
+        <div className="mb-4 px-2 pt-1 pb-3 border-b border-clinical-border flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-bold text-[#0891B2] uppercase tracking-wider">
+            <div className="text-[10px] font-bold text-brand-700 uppercase tracking-wider">
               Phân hệ làm việc
             </div>
-            <div className="text-xs font-bold text-[#134E4A] mt-0.5">
+            <div className="text-xs font-bold text-clinical-text mt-0.5">
               {roleTitles[normalizedRole] || "Cổng làm việc"}
             </div>
           </div>
@@ -217,18 +217,18 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
                   <button
                     key={item.id}
                     onClick={() => selectSection(item.id)}
-                    className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all duration-150 ${
+                    className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs transition-all duration-150 ${
                       isSelected
-                        ? "bg-gradient-to-r from-[#F0FDFA] to-[#CCFBF1]/40 text-[#0891B2] border border-[#CCFBF1] shadow-xs"
-                        : "text-slate-600 hover:bg-[#F0FDFA] hover:text-[#0891B2]"
+                        ? "bg-brand-50 text-brand-700 font-semibold border-r-2 border-brand-600"
+                        : "text-clinical-text-secondary hover:bg-slate-50 hover:text-brand-700 font-medium"
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Icon
                         className={`h-4 w-4 shrink-0 transition-colors ${
                           isSelected
-                            ? "text-[#0891B2]"
-                            : "text-slate-400 group-hover:text-[#0891B2]"
+                            ? "text-brand-600"
+                            : "text-clinical-text-muted group-hover:text-brand-600"
                         }`}
                       />
                       <span className="truncate">{item.label}</span>
@@ -240,12 +240,12 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-[#CCFBF1]/60 pt-3">
-          <div className="rounded-xl bg-gradient-to-br from-[#F0FDFA] to-white p-3 border border-[#CCFBF1] text-center shadow-xs">
-            <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-[#0891B2]">
-              <Sparkles className="w-3.5 h-3.5" /> AURA Clinical AI v1.0
+        <div className="mt-auto border-t border-clinical-border pt-3">
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-brand-700">
+              <Sparkles className="w-3.5 h-3.5 text-brand-600" /> AURA Clinical AI v1.0
             </div>
-            <p className="text-[10px] text-slate-500 mt-0.5">
+            <p className="text-[10px] text-clinical-text-muted mt-0.5">
               Hỗ trợ sàng lọc • Không thay thế BS
             </p>
           </div>

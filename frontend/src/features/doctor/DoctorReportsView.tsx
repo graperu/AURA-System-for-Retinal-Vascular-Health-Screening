@@ -18,6 +18,7 @@ import { screeningApi } from '../../services/api';
 import { mapScreeningToAIRiskResult } from '../../services/screeningMapper';
 import { PatientProfile, AIRiskResult } from '../../types/cds';
 import { DoctorPatientSummary } from '../../pages/CDSDashboardPage';
+import { useAuth } from '../../context/AuthContext';
 
 interface DoctorReportsViewProps {
   assignedPatients: DoctorPatientSummary[];
@@ -28,8 +29,10 @@ interface DoctorReportsViewProps {
 export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
   assignedPatients,
   onReviewAndSign,
-  doctorName = 'BS. CKII Nguyễn Thị Thanh',
+  doctorName,
 }) => {
+  const { user } = useAuth();
+  const currentDoctorName = doctorName || user?.name || 'Bác sĩ chuyên khoa';
   const [screenings, setScreenings] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -134,7 +137,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       hba1c: patientSummary?.hba1c ?? null,
       hasDiabetes: patientSummary?.hasDiabetes ?? null,
       hasHypertension: patientSummary?.hasHypertension ?? null,
-      assignedDoctor: doctorName,
+      assignedDoctor: currentDoctorName,
     };
 
     const airisk = mapScreeningToAIRiskResult(screening, screening.imageUrl);
@@ -444,7 +447,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
           }}
           patient={selectedReportPatient}
           result={selectedReportResult}
-          doctorName={doctorName}
+          doctorName={currentDoctorName}
         />
       )}
 
@@ -496,7 +499,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
                   <span className="text-slate-500 font-medium">Bác sĩ ký duyệt:</span>
-                  <span className="font-bold text-slate-900">{doctorName}</span>
+                  <span className="font-bold text-slate-900">{currentDoctorName}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
                   <span className="text-slate-500 font-medium">Thời điểm ký:</span>

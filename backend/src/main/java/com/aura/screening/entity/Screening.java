@@ -29,6 +29,14 @@ public class Screening {
   @Column(name = "doctor_id")
   private UUID doctorId;
 
+  @JsonProperty("clinicId")
+  @Column(name = "clinic_id")
+  private UUID clinicId;
+
+  @JsonProperty("batchId")
+  @Column(name = "batch_id")
+  private UUID batchId;
+
   @JsonProperty("imageUrl")
   @Column(name = "image_url", nullable = false, columnDefinition = "TEXT")
   private String imageUrl;
@@ -534,6 +542,22 @@ public class Screening {
 
   public Instant getUpdatedAt() {
     return updatedAt;
+  }
+
+  public UUID getClinicId() {
+    return clinicId;
+  }
+
+  public void setClinicId(UUID clinicId) {
+    this.clinicId = clinicId;
+  }
+
+  public UUID getBatchId() {
+    return batchId;
+  }
+
+  public void setBatchId(UUID batchId) {
+    this.batchId = batchId;
   }
 
   @JsonProperty("eye")

@@ -381,7 +381,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
     const newJob: ClinicBatchJob = {
       batchId: generatedBatchId,
       clinicId: payload.clinicId,
-      clinicName: payload.campaignName || 'Bệnh viện Chợ Rẫy — Trung tâm Sàng lọc Đáy mắt',
+      clinicName: payload.campaignName || 'Phòng khám chuyên khoa',
       totalImages: payload.items.length,
       processedCount: 0,
       failedCount: 0,

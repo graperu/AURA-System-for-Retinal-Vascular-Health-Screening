@@ -11,12 +11,15 @@ import {
 import { DoctorFeedback, RiskLevel } from '../types/cds';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import { useAuth } from '../context/AuthContext';
 
 export interface ClinicalValidationBarProps {
   analysisId: string;
   onSaveFeedback: (feedback: DoctorFeedback) => Promise<void>;
   onOpenReportModal?: () => void;
   isSubmitting?: boolean;
+  doctorName?: string;
+  doctorId?: string;
 }
 
 export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
@@ -24,7 +27,13 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   onSaveFeedback,
   onOpenReportModal,
   isSubmitting = false,
+  doctorName,
+  doctorId,
 }) => {
+  const { user } = useAuth();
+  const currentDoctorName = doctorName || user?.name || 'Bác sĩ chuyên khoa';
+  const currentDoctorId = doctorId || user?.id || 'DOC-CURRENT';
+
   const [decision, setDecision] = useState<'APPROVED' | 'MODIFIED' | 'REJECTED'>('APPROVED');
   const [adjustedCardioRisk, setAdjustedCardioRisk] = useState<RiskLevel>('Moderate');
   const [adjustedDrRisk, setAdjustedDrRisk] = useState<RiskLevel>('Low');
@@ -38,8 +47,8 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
     const feedback: DoctorFeedback = {
       feedbackId: `FB-${Date.now()}`,
       analysisId,
-      doctorId: 'DOC-CURRENT',
-      doctorName: 'BS. CKII Nguyễn Thị Thanh',
+      doctorId: currentDoctorId,
+      doctorName: currentDoctorName,
       decision,
       adjustedCardioRisk: decision === 'MODIFIED' ? adjustedCardioRisk : undefined,
       adjustedDrRisk: decision === 'MODIFIED' ? adjustedDrRisk : undefined,

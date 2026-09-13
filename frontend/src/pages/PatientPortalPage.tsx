@@ -511,7 +511,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <span>
                 Bác sĩ phụ trách:{" "}
                 <strong className="text-white">
-                  {patient.assignedDoctor || "Chưa được phân công"}
+                  {patient.assignedDoctor || "Đang chờ phân công bác sĩ"}
                 </strong>
               </span>
               <span>
@@ -1258,6 +1258,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         currentUserRole="patient"
         patientName={patient.fullName || "Bệnh nhân"}
         patientMrn={patient.mrn || "Chưa có MRN"}
+        doctorName={patient.assignedDoctor || undefined}
+        partnerName={patient.assignedDoctor || undefined}
         partnerUserId={assignedDoctorId || undefined}
         currentUserId={user?.id}
       />

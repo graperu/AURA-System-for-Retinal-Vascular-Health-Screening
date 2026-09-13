@@ -3,6 +3,7 @@ import { AIRiskResult, RiskLevel } from '../types/cds';
 import { Heart, Activity, BrainCircuit, ShieldCheck, Eye } from 'lucide-react';
 import { Card } from './ui/Card';
 import { RiskBadge } from './ui/RiskBadge';
+import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
 
 interface RiskAssessmentPanelProps {
   result: AIRiskResult;
@@ -164,6 +165,9 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
           </div>
         </div>
       </div>
+
+      {/* Mandatory Medical Safety Disclaimer */}
+      <MedicalDisclaimer variant="compact" />
     </Card>
   );
 };

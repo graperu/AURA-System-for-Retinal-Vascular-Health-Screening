@@ -3,3 +3,4 @@ data
 .git
 .vscode
 *.log
+src/test

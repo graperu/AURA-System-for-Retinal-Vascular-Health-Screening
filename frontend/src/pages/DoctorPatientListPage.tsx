@@ -37,8 +37,16 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
     setLoading(true);
     try {
       const res = await doctorPatientApi.getPatients({ size: 100 });
-      if (res.success && res.data && Array.isArray(res.data.items)) {
-        setPatients(res.data.items);
+      if (res.success && res.data) {
+        let items: PatientProfile[] = [];
+        if (Array.isArray(res.data)) {
+          items = res.data;
+        } else if (Array.isArray((res.data as any).items)) {
+          items = (res.data as any).items;
+        } else if (Array.isArray((res.data as any).content)) {
+          items = (res.data as any).content;
+        }
+        setPatients(items);
       } else {
         setPatients([]);
       }

@@ -28,7 +28,7 @@ const toSession = (user: BackendUser, token: string): UserSession => {
   const titles: Record<UserRole, string> = { patient: 'Người dùng AURA', doctor: 'Bác sĩ', clinic: 'Phòng khám', admin: 'Quản trị viên' };
   let cleanName = user.fullName || user.email;
   if (cleanName && cleanName.includes('?')) {
-    cleanName = role === 'patient' ? 'Bệnh nhân Nguyễn Trọng Nam' : (role === 'doctor' ? 'BS. CKII Nguyễn Thị Thanh' : cleanName);
+    cleanName = role === 'patient' ? (user.email?.split('@')[0] || 'Bệnh nhân') : (role === 'doctor' ? 'Bác sĩ chuyên khoa' : cleanName);
   }
   return { id: user.id, email: user.email, name: cleanName, role, roleTitle: titles[role], organization: 'AURA', token };
 };
