@@ -39,7 +39,15 @@ public record PatientProfileResponse(
   }
 
   public static PatientProfileResponse fromEntity(PatientMedicalProfile profile, UUID assignedDoctorId) {
+    return fromEntity(profile, assignedDoctorId, null);
+  }
+
+  public static PatientProfileResponse fromEntity(
+      PatientMedicalProfile profile, UUID assignedDoctorId, String assignedDoctorName) {
     var user = profile.getUser();
+    String doctorName = assignedDoctorName != null
+        ? assignedDoctorName
+        : (assignedDoctorId != null ? profile.getAssignedDoctor() : null);
     return new PatientProfileResponse(
         profile.getId(),
         user != null ? user.getId() : null,
@@ -66,7 +74,7 @@ public record PatientProfileResponse(
         profile.getAllergies(),
         profile.getEmergencyContactName(),
         profile.getEmergencyContactPhone(),
-        profile.getAssignedDoctor(),
+        doctorName,
         assignedDoctorId,
         profile.getUpdatedAt() != null ? profile.getUpdatedAt().toString() : null
     );

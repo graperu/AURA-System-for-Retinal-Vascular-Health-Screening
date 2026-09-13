@@ -7,7 +7,8 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ClinicMemberRepository extends JpaRepository<ClinicMember, UUID> {
-  List<ClinicMember> findByClinicId(UUID clinicId);
+  @org.springframework.data.jpa.repository.Query("SELECT m FROM ClinicMember m JOIN FETCH m.doctor JOIN FETCH m.clinic WHERE m.clinic.id = :clinicId")
+  List<ClinicMember> findByClinicId(@org.springframework.data.repository.query.Param("clinicId") UUID clinicId);
 
   Optional<ClinicMember> findByClinicIdAndDoctorId(UUID clinicId, UUID doctorId);
 
