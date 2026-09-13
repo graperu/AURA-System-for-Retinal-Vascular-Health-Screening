@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DoctorWorklistView } from '../features/doctor/DoctorWorklistView';
 import { PatientProfile } from '../types/cds';
-import { MOCK_PATIENTS } from '../services/mockAiEngine';
 import { doctorPatientApi, screeningApi } from '../services/api';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
@@ -38,13 +37,13 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
     setLoading(true);
     try {
       const res = await doctorPatientApi.getPatients({ size: 100 });
-      if (res.success && res.data && Array.isArray(res.data.items) && res.data.items.length > 0) {
+      if (res.success && res.data && Array.isArray(res.data.items)) {
         setPatients(res.data.items);
       } else {
-        setPatients([...MOCK_PATIENTS]);
+        setPatients([]);
       }
     } catch {
-      setPatients([...MOCK_PATIENTS]);
+      setPatients([]);
     } finally {
       setLoading(false);
     }

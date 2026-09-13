@@ -157,6 +157,7 @@ public class ScreeningService {
           screening.setHeatmapBase64(heatmapBase64);
         }
 
+        screening.setRiskScore(score);
         screening.setRiskLevel(calculatedRisk);
         screening.setAiRiskLevel(calculatedRisk);
         screening.setConfidence(confidence != null ? Math.round(confidence * 100.0) / 100.0 : null);

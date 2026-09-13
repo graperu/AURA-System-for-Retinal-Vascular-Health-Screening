@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, User, Stethoscope, MessageSquare, AlertCircle } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
+import { chatApi } from '../services/api';
+import { stompClient } from '../services/websocketService';
 
 interface ChatMessage {
   id: string;
@@ -19,6 +21,8 @@ interface ConsultationChatModalProps {
   patientName: string;
   patientMrn: string;
   doctorName?: string;
+  partnerUserId?: string;
+  currentUserId?: string;
 }
 
 export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
@@ -28,39 +32,64 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
   patientName,
   patientMrn,
   doctorName = 'BS. CKII Nguyễn Thị Thanh',
+  partnerUserId,
+  currentUserId,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      sender: 'patient',
-      senderName: patientName,
-      text: `Kính chào Bác sĩ! Tôi vừa nhận kết quả phân tích ảnh võng mạc mã ${patientMrn}, thấy chỉ số nguy cơ tim mạch 74% và tỷ lệ A/V 0.52. Bác sĩ tư vấn giúp tôi có nguy hiểm không ạ?`,
-      timestamp: '14:20',
-    },
-    {
-      id: '2',
-      sender: 'doctor',
-      senderName: doctorName,
-      text: `Chào bác ${patientName}, tôi đã thẩm định lại ảnh chụp đáy mắt và bản đồ nhiệt AI của bác. Tỷ lệ A/V 0.52 cho thấy động mạch nhỏ võng mạc hơi co thắt do huyết áp 138/88 mmHg. Chưa có tổn thương nặng nhưng cần theo dõi chặt chẽ.`,
-      timestamp: '14:25',
-    },
-    {
-      id: '3',
-      sender: 'doctor',
-      senderName: doctorName,
-      text: 'Tôi đã ký xác nhận kết quả và gửi kèm hướng dẫn chế độ ăn giảm muối. Bác có thể tải bản Báo cáo PDF chính thức trên hệ thống nhé.',
-      timestamp: '14:26',
-    },
-    {
-      id: '4',
-      sender: 'patient',
-      senderName: patientName,
-      text: 'Dạ cảm ơn Bác sĩ rất nhiều! Tôi sẽ uống thuốc đúng giờ và tái khám sau 6 tháng như dặn ạ.',
-      timestamp: '14:28',
-    },
-  ]);
-
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
+
+  // 1. Fetch real chat history from DB on open
+  useEffect(() => {
+    if (!isOpen || !partnerUserId) return;
+
+    const loadHistory = async () => {
+      try {
+        const res = await chatApi.getConversation(partnerUserId);
+        if (res.success && Array.isArray(res.data)) {
+          const mapped: ChatMessage[] = res.data.map((item: any) => ({
+            id: item.id,
+            sender: item.senderId === currentUserId ? (currentUserRole === 'doctor' ? 'doctor' : 'patient') : (currentUserRole === 'doctor' ? 'patient' : 'doctor'),
+            senderName: item.senderId === currentUserId ? (currentUserRole === 'doctor' ? doctorName : patientName) : (currentUserRole === 'doctor' ? patientName : doctorName),
+            text: item.messageText,
+            timestamp: item.createdAt ? new Date(item.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
+          }));
+          setMessages(mapped);
+        }
+      } catch (err) {
+        console.warn('Could not load chat history:', err);
+      }
+    };
+
+    loadHistory();
+
+    // 2. Connect WebSocket / STOMP for Realtime updates
+    if (currentUserId) {
+      stompClient.connect();
+      const topic = `/topic/chat.${currentUserId}`;
+      stompClient.subscribe(topic, (msg: any) => {
+        if (msg && msg.messageText) {
+          // Bỏ qua tin nhắn do chính mình gửi qua websocket vì đã được cập nhật qua optimistic UI
+          if (msg.senderId === currentUserId) return;
+
+          const incoming: ChatMessage = {
+            id: msg.id || String(Date.now()),
+            sender: currentUserRole === 'doctor' ? 'patient' : 'doctor',
+            senderName: currentUserRole === 'doctor' ? patientName : doctorName,
+            text: msg.messageText,
+            timestamp: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+          };
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === incoming.id)) return prev;
+            return [...prev, incoming];
+          });
+        }
+      });
+
+      return () => {
+        stompClient.unsubscribe(topic);
+      };
+    }
+  }, [isOpen, partnerUserId, currentUserId, currentUserRole, doctorName, patientName]);
 
   const partnerTitle =
     currentUserRole === 'doctor'
@@ -69,23 +98,33 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
 
   const partnerRoleDesc =
     currentUserRole === 'doctor'
-      ? 'Hồ sơ khám đáy mắt định kỳ • HA: 138/88 mmHg'
+      ? 'Hồ sơ khám đáy mắt định kỳ'
       : 'Bác sĩ phụ trách lâm sàng';
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || !partnerUserId) return;
 
-    const newMsg: ChatMessage = {
-      id: String(Date.now()),
+    const textToSend = inputMessage.trim();
+    setInputMessage('');
+
+    const optimisticMsg: ChatMessage = {
+      id: `tmp-${Date.now()}`,
       sender: currentUserRole === 'doctor' ? 'doctor' : 'patient',
       senderName: currentUserRole === 'doctor' ? doctorName : patientName,
-      text: inputMessage.trim(),
+      text: textToSend,
       timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     };
+    setMessages((prev) => [...prev, optimisticMsg]);
 
-    setMessages((prev) => [...prev, newMsg]);
-    setInputMessage('');
+    try {
+      const res = await chatApi.sendMessage(partnerUserId, textToSend);
+      if (!res.success) {
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+      }
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+    }
   };
 
   const quickRepliesDoctor = [
@@ -119,47 +158,53 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
         {/* Medical Safety Disclaimer */}
         <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-          <span>Kênh trao đổi chuyên môn y khoa. Không sử dụng cho các trường hợp cấp cứu khẩn cấp.</span>
+          <span>Kênh trao đổi chuyên môn y khoa thời gian thực (WebSocket). Không sử dụng cho các trường hợp cấp cứu khẩn cấp.</span>
         </div>
 
         {/* Message Thread */}
-        <div className="space-y-3 max-h-[360px] overflow-y-auto p-2 bg-slate-50/50 rounded-xl border border-clinical-border">
-          {messages.map((msg) => {
-            const isMe =
-              (currentUserRole === 'doctor' && msg.sender === 'doctor') ||
-              (currentUserRole === 'patient' && msg.sender === 'patient');
+        <div className="space-y-3 max-h-[360px] min-h-[220px] overflow-y-auto p-2 bg-slate-50/50 rounded-xl border border-clinical-border">
+          {messages.length === 0 ? (
+            <div className="text-center py-10 text-xs text-slate-400">
+              Chưa có tin nhắn nào trong cuộc hội thoại này. Hãy gửi tin nhắn đầu tiên.
+            </div>
+          ) : (
+            messages.map((msg) => {
+              const isMe =
+                (currentUserRole === 'doctor' && msg.sender === 'doctor') ||
+                (currentUserRole === 'patient' && msg.sender === 'patient');
 
-            return (
-              <div
-                key={msg.id}
-                className={`flex gap-2.5 max-w-[85%] ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
-              >
+              return (
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                    msg.sender === 'doctor'
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-teal-700 text-white'
-                  }`}
+                  key={msg.id}
+                  className={`flex gap-2.5 max-w-[85%] ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
                 >
-                  {msg.sender === 'doctor' ? <Stethoscope className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                </div>
-
-                <div
-                  className={`p-3 rounded-2xl text-xs space-y-1 ${
-                    isMe
-                      ? 'bg-brand-600 text-white rounded-tr-none'
-                      : 'bg-white text-clinical-text border border-clinical-border rounded-tl-none shadow-xs'
-                  }`}
-                >
-                  <div className={`flex items-center justify-between gap-3 text-[10px] ${isMe ? 'text-brand-100' : 'text-slate-400'}`}>
-                    <span className="font-semibold">{msg.senderName}</span>
-                    <span>{msg.timestamp}</span>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                      msg.sender === 'doctor'
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-teal-700 text-white'
+                    }`}
+                  >
+                    {msg.sender === 'doctor' ? <Stethoscope className="w-4 h-4" /> : <User className="w-4 h-4" />}
                   </div>
-                  <p className="leading-relaxed">{msg.text}</p>
+
+                  <div
+                    className={`p-3 rounded-2xl text-xs space-y-1 ${
+                      isMe
+                        ? 'bg-brand-600 text-white rounded-tr-none'
+                        : 'bg-white text-clinical-text border border-clinical-border rounded-tl-none shadow-xs'
+                    }`}
+                  >
+                    <div className={`flex items-center justify-between gap-3 text-[10px] ${isMe ? 'text-brand-100' : 'text-slate-400'}`}>
+                      <span className="font-semibold">{msg.senderName}</span>
+                      <span>{msg.timestamp}</span>
+                    </div>
+                    <p className="leading-relaxed">{msg.text}</p>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
 
         {/* Quick Responses */}
