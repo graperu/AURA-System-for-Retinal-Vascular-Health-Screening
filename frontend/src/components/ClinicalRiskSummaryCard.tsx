@@ -26,6 +26,16 @@ export interface ClinicalRiskSummaryCardProps {
   onConsultDoctor?: () => void;
 }
 
+const formatHypertensionStage = (stage?: string | null): string => {
+  if (!stage) return 'Giai đoạn 0 (Bình thường)';
+  const upper = stage.toUpperCase();
+  if (upper === 'LOW' || upper === 'NORMAL' || upper.includes('STAGE_0') || upper.includes('STAGE 0')) return 'Giai đoạn 0 (Bình thường)';
+  if (upper === 'MODERATE' || upper === 'MEDIUM' || upper.includes('STAGE_1') || upper.includes('STAGE 1')) return 'Giai đoạn 1 (Co nhẹ vi mạch)';
+  if (upper === 'HIGH' || upper.includes('STAGE_2') || upper.includes('STAGE 2')) return 'Giai đoạn 2 (Tăng áp rõ)';
+  if (upper === 'CRITICAL' || upper === 'SEVERE' || upper.includes('STAGE_3') || upper.includes('STAGE 3')) return 'Giai đoạn 3 (Áp lực cao)';
+  return stage;
+};
+
 export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = ({
   analysisResult,
   onOpenFullReport,
@@ -40,26 +50,28 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
   const getComputedRiskLevel = (s: number): 'Low' | 'Moderate' | 'High' | 'Critical' => {
     if (s >= 80) return 'Critical';
     if (s >= 65) return 'High';
-    if (s >= 45) return 'Moderate';
+    if (s >= 40) return 'Moderate';
     return 'Low';
   };
 
   const riskLevel = getComputedRiskLevel(score);
 
-  // Normalize sub-scores if corrupted by legacy confidence bugs
+  // Normalize sub-scores to guarantee 100% harmony between score and risk level
   let rawCvdScore = analysisResult.cardiovascularRisk?.score ?? 0;
-  let cvdLevel = analysisResult.cardiovascularRisk?.level || getComputedRiskLevel(rawCvdScore);
-  if (cvdLevel === 'Low' && rawCvdScore > 40) {
-    rawCvdScore = Math.min(25, 100 - rawCvdScore);
-  } else if (cvdLevel === 'Moderate' && rawCvdScore > 64) {
+  if (analysisResult.cardiovascularRisk?.level === 'Low' && rawCvdScore >= 40) {
+    rawCvdScore = 25;
+  } else if (analysisResult.cardiovascularRisk?.level === 'Moderate' && (rawCvdScore < 40 || rawCvdScore >= 65)) {
     rawCvdScore = 48;
   }
+  const cvdLevel = getComputedRiskLevel(rawCvdScore);
 
   let rawDrScore = analysisResult.diabeticRetinopathyRisk?.score ?? 0;
-  let drLevel = analysisResult.diabeticRetinopathyRisk?.level || getComputedRiskLevel(rawDrScore);
-  if (drLevel === 'Low' && rawDrScore > 40) {
-    rawDrScore = Math.min(18, 100 - rawDrScore);
+  if (analysisResult.diabeticRetinopathyRisk?.level === 'Low' && rawDrScore >= 40) {
+    rawDrScore = 18;
+  } else if (analysisResult.diabeticRetinopathyRisk?.level === 'Moderate' && (rawDrScore < 40 || rawDrScore >= 65)) {
+    rawDrScore = 48;
   }
+  const drLevel = getComputedRiskLevel(rawDrScore);
 
   const isDoctorReviewed =
     analysisResult.status === 'REVIEWED' || Boolean(analysisResult.digitalSignature);
@@ -190,12 +202,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               <div className="flex justify-between">
                 <span>Huyết áp võng mạc:</span>
                 <strong className="text-slate-800">
-                  {analysisResult.cardiovascularRisk?.hypertensionStage || 'Giai đoạn 0 (Bình thường)'}
+                  {formatHypertensionStage(analysisResult.cardiovascularRisk?.hypertensionStage)}
                 </strong>
               </div>
               <div className="flex justify-between">
                 <span>Nguy cơ đột quỵ 3 năm:</span>
-                <strong className="text-rose-600 font-mono-data">
+                <strong className="text-slate-900 font-mono-data">
                   {rawCvdScore}%
                 </strong>
               </div>

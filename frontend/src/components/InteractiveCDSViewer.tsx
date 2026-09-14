@@ -189,15 +189,25 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
             <span>Bình thường</span>
           </span>
-          <label className="flex items-center gap-1.5 cursor-pointer ml-1">
-            <input
-              type="checkbox"
-              checked={showAnomalies}
-              onChange={(e) => setShowAnomalies(e.target.checked)}
-              className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
-            />
-            <span className="font-medium text-slate-600 dark:text-slate-300">Hiển thị tọa độ tổn thương ({anomalies.length})</span>
-          </label>
+          {anomalies.length > 0 ? (
+            <label className="flex items-center gap-1.5 cursor-pointer ml-1">
+              <input
+                type="checkbox"
+                checked={showAnomalies}
+                onChange={(e) => setShowAnomalies(e.target.checked)}
+                className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
+              />
+              <span className="font-medium text-slate-600 dark:text-slate-300">
+                Hiển thị tọa độ tổn thương ({anomalies.length})
+              </span>
+            </label>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+              <span>Vi mạch bình thường (0 điểm tổn thương)</span>
+              <span className="hidden">Hiển thị tọa độ tổn thương (0)</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -327,17 +337,6 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
           </button>
         </div>
       )}
-
-      {/* 4. Tóm tắt kết quả ngắn gọn, dễ hiểu cho người xem */}
-      <div className="p-3.5 rounded-xl bg-teal-50/70 border border-teal-200/80 text-xs space-y-1 text-teal-950">
-        <div className="flex items-center gap-1.5 font-bold text-teal-900">
-          <Sparkles className="w-4 h-4 text-teal-700" />
-          <span>Hướng dẫn đọc bản đồ:</span>
-        </div>
-        <p className="text-teal-900/90 leading-relaxed">
-          Kéo thanh trượt về <strong>0%</strong> để xem ảnh chụp thật, hoặc kéo lên <strong>100%</strong> để thấy rõ vùng màu AI đánh dấu. Kết quả này giúp bác sĩ chuyên khoa dễ dàng đối chiếu và phát hiện sớm các dấu hiệu liên quan đến huyết áp, tim mạch hoặc đường huyết.
-        </p>
-      </div>
 
       {/* Cảnh báo y tế bắt buộc */}
       <MedicalDisclaimer
