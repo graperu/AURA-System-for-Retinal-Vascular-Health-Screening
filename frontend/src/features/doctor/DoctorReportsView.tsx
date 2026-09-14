@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { RiskBadge } from '../../components/ui/RiskBadge';
+import { EyeBadge } from '../../components/ui/EyeBadge';
+import { ScanTypeBadge } from '../../components/ui/ScanTypeBadge';
 import { MedicalReportModal } from '../../components/MedicalReportModal';
 import { screeningApi } from '../../services/api';
 import { mapScreeningToAIRiskResult } from '../../services/screeningMapper';
@@ -37,6 +39,13 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ANALYZED' | 'REVIEWED'>('ALL');
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  const handleRefreshReports = async () => {
+    await loadScreenings();
+    setActionNotice('Đã làm mới danh sách hồ sơ báo cáo y khoa thành công');
+    setTimeout(() => setActionNotice(null), 3500);
+  };
 
   // Modal in phiếu kết quả
   const [selectedReportPatient, setSelectedReportPatient] = useState<PatientProfile | null>(null);
@@ -150,13 +159,11 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
     {
       header: 'Mã Ca Khám',
       accessor: (row) => (
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           <span className="font-mono-data font-bold text-slate-900 block text-xs">
             #{String(row.id || '').slice(0, 8).toUpperCase()}
           </span>
-          <span className="text-[11px] text-slate-400 font-mono-data block">
-            {row.scanType || 'Chụp Đáy Mắt'}
-          </span>
+          <ScanTypeBadge scanType={row.scanType} />
         </div>
       ),
     },
@@ -185,16 +192,16 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       accessor: (row) => {
         const patient = patientMap.get(row.patientId);
         return (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#F0FDFA] text-[#0891B2] font-bold flex items-center justify-center border border-[#CCFBF1] shrink-0 text-xs">
+          <div className="flex items-center gap-2.5 font-sans">
+            <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-800 font-bold flex items-center justify-center border border-teal-200/80 shrink-0 text-xs font-sans">
               {patient?.fullName ? patient.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : 'BN'}
             </div>
             <div>
-              <span className="font-bold text-slate-900 block truncate max-w-[140px]">
+              <span className="font-semibold text-slate-900 block truncate max-w-[140px]">
                 {patient?.fullName || 'Bệnh nhân'}
               </span>
-              <span className="text-[11px] text-slate-500 font-mono-data">
-                {patient?.mrn || 'Chưa có MRN'} • {patient?.age ? `${patient.age}t` : ''}
+              <span className="text-[11px] text-slate-500">
+                <span className="font-mono-data">{patient?.mrn || 'Chưa có MRN'}</span> • {patient?.age ? `${patient.age} tuổi` : ''}
               </span>
             </div>
           </div>
@@ -203,16 +210,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
     },
     {
       header: 'Mắt Khám',
-      accessor: (row) => {
-        const eye = row.eyePosition || 'Right_OD';
-        const isOD = eye.includes('OD') || eye.includes('Right');
-        return (
-          <span className="inline-flex items-center gap-1 font-mono-data font-bold text-xs px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 border border-teal-200">
-            <Eye className="w-3.5 h-3.5 text-teal-600" />
-            {isOD ? 'OD (Mắt Phải)' : 'OS (Mắt Trái)'}
-          </span>
-        );
-      },
+      accessor: (row) => <EyeBadge position={row.eyePosition} />,
     },
     {
       header: 'Mức Rủi Ro AI',
@@ -224,10 +222,10 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
         const isReviewed = row.status === 'REVIEWED' || row.reviewDecision != null || row.digitalSignature != null;
         return (
           <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border select-none ${
               isReviewed
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                : 'bg-amber-50 text-amber-800 border-amber-200'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80'
+                : 'bg-amber-50 text-amber-800 border-amber-200/80'
             }`}
           >
             {isReviewed ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Clock className="w-3.5 h-3.5 text-amber-600" />}
@@ -242,7 +240,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
         const hasSig = Boolean(row.digitalSignature);
         if (!hasSig) {
           return (
-            <span className="text-[11px] text-slate-400 italic">Chưa ký số</span>
+            <span className="text-[11px] text-slate-400 italic font-sans">Chưa ký số</span>
           );
         }
         const patient = patientMap.get(row.patientId);
@@ -260,11 +258,11 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
                 decision: row.reviewDecision || 'APPROVED',
               })
             }
-            className="inline-flex items-center gap-1 text-[11px] font-mono-data text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-200 transition-colors"
+            className="inline-flex items-center gap-1.5 text-[11px] text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200/80 transition-colors font-sans font-medium cursor-pointer"
             title="Nhấp để kiểm tra chứng thư số HMAC-SHA256"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>{shortSig}</span>
+            <span className="font-mono-data font-semibold">{shortSig}</span>
           </button>
         );
       },
@@ -274,15 +272,15 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       align: 'right',
       accessor: (row) => {
         return (
-          <div className="flex items-center justify-end gap-1.5">
-            {/* Nút Thẩm Định / Ký Số: Chuyển về CDS Viewer với bệnh nhân và ca khám này */}
+          <div className="flex items-center justify-end gap-2 font-sans">
+            {/* Nút Thẩm Định / Ký Số */}
             <button
               type="button"
               onClick={() => onReviewAndSign(row.patientId, row.id)}
               title="Mở ảnh đáy mắt trên bàn chẩn đoán CDS để ký duyệt lâm sàng"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
-              <Eye className="w-3 h-3 text-[#0891B2]" />
+              <Eye className="w-3.5 h-3.5 text-teal-700" />
               <span>Thẩm Định / Ký</span>
             </button>
 
@@ -291,9 +289,9 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
               type="button"
               onClick={() => handleOpenPrintModal(row)}
               title="Xem và in phiếu kết quả chẩn đoán y khoa"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0891B2] hover:bg-[#0e7490] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
-              <Printer className="w-3 h-3" />
+              <Printer className="w-3.5 h-3.5" />
               <span>In Báo Cáo</span>
             </button>
           </div>
@@ -318,7 +316,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={loadScreenings}
+            onClick={handleRefreshReports}
             disabled={loading}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
           >
@@ -327,6 +325,22 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
           </button>
         </div>
       </div>
+
+      {actionNotice && (
+        <div className="p-3.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 text-xs font-semibold flex items-center justify-between shadow-xs animate-in fade-in">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+            {actionNotice}
+          </span>
+          <button
+            type="button"
+            onClick={() => setActionNotice(null)}
+            className="text-teal-700 hover:text-teal-950 text-xs font-bold px-2 py-0.5"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 3 Summary Badges / Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -367,55 +381,77 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
         </div>
       </div>
 
-      {/* Bộ Lọc & Tìm Kiếm */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-medical-sm flex flex-col md:flex-row items-center justify-between gap-4">
+      {/* Bộ Lọc & Tìm Kiếm Clean UI */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row items-end justify-between gap-4">
         {/* Search */}
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm theo MRN, tên bệnh nhân, mã ca..."
-            className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0891B2] focus:bg-white transition-all"
-          />
+        <div className="w-full md:w-80 space-y-1.5">
+          <label className="block text-xs font-semibold text-slate-700">
+            Tìm kiếm hồ sơ báo cáo
+          </label>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm theo MRN, tên bệnh nhân, mã ca..."
+              className="w-full h-10 pl-10 pr-4 text-xs bg-slate-50/50 border border-slate-200/90 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium"
+            />
+          </div>
         </div>
 
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
-          <span className="text-xs font-semibold text-slate-500 shrink-0 hidden sm:inline">Trạng thái:</span>
-          <button
-            onClick={() => setStatusFilter('ALL')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all shrink-0 ${
-              statusFilter === 'ALL'
-                ? 'bg-[#0891B2] text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Tất cả ({screenings.length})
-          </button>
-          <button
-            onClick={() => setStatusFilter('ANALYZED')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all shrink-0 flex items-center gap-1.5 ${
-              statusFilter === 'ANALYZED'
-                ? 'bg-amber-500 text-white shadow-xs'
-                : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
-            }`}
-          >
-            <Clock className="w-3 h-3" />
-            <span>Chờ Thẩm Định ({stats.pending})</span>
-          </button>
-          <button
-            onClick={() => setStatusFilter('REVIEWED')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all shrink-0 flex items-center gap-1.5 ${
-              statusFilter === 'REVIEWED'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
-            }`}
-          >
-            <ShieldCheck className="w-3 h-3" />
-            <span>Đã Ký Duyệt ({stats.reviewed})</span>
-          </button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full md:w-auto">
+          <label className="text-xs font-semibold text-slate-700 sm:hidden">Lọc trạng thái:</label>
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ALL')}
+              className={`px-3.5 py-2 text-xs font-semibold rounded-xl transition-all shrink-0 cursor-pointer ${
+                statusFilter === 'ALL'
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'bg-slate-100/90 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Tất cả ({screenings.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ANALYZED')}
+              className={`px-3.5 py-2 text-xs font-semibold rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                statusFilter === 'ANALYZED'
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/80'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Chờ Thẩm Định ({stats.pending})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('REVIEWED')}
+              className={`px-3.5 py-2 text-xs font-semibold rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                statusFilter === 'REVIEWED'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/80'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Đã Ký Duyệt ({stats.reviewed})</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Header Danh Sách */}
+      <div className="flex items-center justify-between gap-3 px-1">
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+            Danh sách hồ sơ báo cáo
+          </h2>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200/80">
+            ({filteredScreenings.length})
+          </span>
         </div>
       </div>
 

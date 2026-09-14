@@ -34,6 +34,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [riskFilter, setRiskFilter] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW'>('ALL');
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const loadAnalyticsData = useCallback(async () => {
     setLoading(true);
@@ -53,6 +54,12 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
       setLoading(false);
     }
   }, []);
+
+  const handleRefreshAnalytics = async () => {
+    await loadAnalyticsData();
+    setActionNotice('Đã làm mới dữ liệu thống kê lâm sàng thành công');
+    setTimeout(() => setActionNotice(null), 3500);
+  };
 
   useEffect(() => {
     loadAnalyticsData();
@@ -268,28 +275,44 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
   return (
     <div className="space-y-6">
       {/* Header & Refresh */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#CCFBF1] rounded-2xl p-5 shadow-medical-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-clinical-border rounded-2xl p-5 shadow-medical-sm">
         <div>
           <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-[#0891B2]" />
-            <h1 className="text-lg font-bold text-[#134E4A]">Thống Kê Nguy Cơ & Hiệu Suất Lâm Sàng</h1>
+            <Activity className="w-5 h-5 text-brand-600" />
+            <h1 className="text-lg font-bold text-clinical-text">Thống Kê Nguy Cơ & Hiệu Suất Lâm Sàng</h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-clinical-text-muted mt-1">
             FR-21: Bảng tổng hợp các chỉ số nguy cơ vi mạch võng mạc, phân bố rủi ro và tỷ lệ đồng thuận với AI.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={loadAnalyticsData}
+            onClick={handleRefreshAnalytics}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-clinical-border bg-white hover:bg-slate-50 text-clinical-text-secondary text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Làm mới</span>
           </button>
         </div>
       </div>
+
+      {actionNotice && (
+        <div className="p-3.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 text-xs font-semibold flex items-center justify-between shadow-xs animate-in fade-in">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+            {actionNotice}
+          </span>
+          <button
+            type="button"
+            onClick={() => setActionNotice(null)}
+            className="text-teal-700 hover:text-teal-950 text-xs font-bold px-2 py-0.5"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 4 Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -340,17 +363,17 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
         </div>
 
         {/* Card 4: Tỷ lệ đồng thuận với AI */}
-        <div className="bg-white border border-cyan-200/80 rounded-2xl p-5 shadow-medical-sm relative overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-medical-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#0891B2]">Đồng Thuận Với AI</span>
-            <div className="w-9 h-9 rounded-xl bg-[#F0FDFA] text-[#0891B2] flex items-center justify-center border border-[#CCFBF1]">
+            <span className="text-xs font-bold text-brand-700">Đồng Thuận Với AI</span>
+            <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-[#0891B2] font-mono-data mt-3">
+          <div className="text-3xl font-bold text-brand-700 font-mono-data mt-3">
             {consensusRate}%
           </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">Tỷ lệ đồng ý với phân loại AI</span>
+          <span className="text-[11px] text-clinical-text-muted mt-1 block">Tỷ lệ đồng ý với phân loại AI</span>
         </div>
       </div>
 
@@ -475,50 +498,50 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
         </div>
 
         {/* Thống kê trung bình các chỉ số sinh học vi mạch (5 cols) */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 shadow-medical-sm space-y-4">
+        <div className="lg:col-span-5 bg-white border border-clinical-border rounded-2xl p-5 shadow-medical-sm space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-[#0891B2]" />
-              <h3 className="text-sm font-bold text-slate-900">Chỉ Số Sinh Học Vi Mạch Trung Bình</h3>
+              <Activity className="w-4 h-4 text-brand-600" />
+              <h3 className="text-sm font-bold text-clinical-text">Chỉ Số Sinh Học Vi Mạch Trung Bình</h3>
             </div>
-            <span className="text-[11px] text-slate-400 font-mono-data">Trung bình nhóm</span>
+            <span className="text-[11px] text-clinical-text-muted font-mono-data">Trung bình nhóm</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             {/* A/V Ratio */}
-            <div className="p-3 rounded-xl bg-[#F0FDFA] border border-[#CCFBF1]">
-              <span className="text-[11px] text-slate-600 font-semibold block">Tỷ lệ A/V Ratio</span>
-              <div className="text-2xl font-extrabold text-[#0891B2] font-mono-data mt-1">
+            <div className="p-3.5 rounded-xl bg-slate-50/80 border border-clinical-border space-y-1">
+              <span className="text-[11px] text-clinical-text-secondary font-medium block">Tỷ lệ A/V Ratio</span>
+              <div className="text-2xl font-bold text-clinical-text font-mono-data text-right mt-1">
                 {biomarkerAverages.avgAvRatio}
               </div>
-              <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn tham chiếu: ~0.67 (2:3)</span>
+              <span className="text-[10px] text-clinical-text-muted block mt-0.5">Chuẩn tham chiếu: ~0.67 (2:3)</span>
             </div>
 
             {/* Mật độ vi mạch */}
-            <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100">
-              <span className="text-[11px] text-slate-600 font-semibold block">Mật Độ Vi Mạch</span>
-              <div className="text-2xl font-extrabold text-blue-700 font-mono-data mt-1">
+            <div className="p-3.5 rounded-xl bg-slate-50/80 border border-clinical-border space-y-1">
+              <span className="text-[11px] text-clinical-text-secondary font-medium block">Mật Độ Vi Mạch</span>
+              <div className="text-2xl font-bold text-clinical-text font-mono-data text-right mt-1">
                 {biomarkerAverages.avgDensity}%
               </div>
-              <span className="text-[10px] text-slate-500 block mt-0.5">Bình thường: 42% - 50%</span>
+              <span className="text-[10px] text-clinical-text-muted block mt-0.5">Bình thường: 42% - 50%</span>
             </div>
 
             {/* Độ xoắn vặn mạch */}
-            <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-100">
-              <span className="text-[11px] text-slate-600 font-semibold block">Độ Xoắn Vặn (Tortuosity)</span>
-              <div className="text-2xl font-extrabold text-purple-700 font-mono-data mt-1">
+            <div className="p-3.5 rounded-xl bg-slate-50/80 border border-clinical-border space-y-1">
+              <span className="text-[11px] text-clinical-text-secondary font-medium block">Độ Xoắn Vặn (Tortuosity)</span>
+              <div className="text-2xl font-bold text-clinical-text font-mono-data text-right mt-1">
                 {biomarkerAverages.avgTortuosity}
               </div>
-              <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn: 0.08 - 0.12</span>
+              <span className="text-[10px] text-clinical-text-muted block mt-0.5">Chuẩn: 0.08 - 0.12</span>
             </div>
 
             {/* Vertical CDR */}
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[11px] text-slate-600 font-semibold block">Lõm Gai Thị (CDR)</span>
-              <div className="text-2xl font-extrabold text-slate-800 font-mono-data mt-1">
+            <div className="p-3.5 rounded-xl bg-slate-50/80 border border-clinical-border space-y-1">
+              <span className="text-[11px] text-clinical-text-secondary font-medium block">Lõm Gai Thị (CDR)</span>
+              <div className="text-2xl font-bold text-clinical-text font-mono-data text-right mt-1">
                 {biomarkerAverages.avgCdr}
               </div>
-              <span className="text-[10px] text-slate-500 block mt-0.5">Sinh lý bình thường: 0.3 - 0.4</span>
+              <span className="text-[10px] text-clinical-text-muted block mt-0.5">Sinh lý bình thường: 0.3 - 0.4</span>
             </div>
           </div>
 
