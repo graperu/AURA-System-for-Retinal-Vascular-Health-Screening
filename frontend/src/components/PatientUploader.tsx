@@ -10,10 +10,14 @@ import {
   FileCheck,
   Loader2,
   RotateCcw,
+  Target,
+  CircleDot,
+  Layers,
 } from 'lucide-react';
 import { FundusAnalysisRequest, PatientProfile } from '../types/cds';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
+import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
 
 export interface PatientUploaderProps {
   activePatient: PatientProfile;
@@ -33,6 +37,27 @@ export interface PatientUploaderProps {
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
 const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.tif', '.tiff', '.dcm'];
+
+const SCAN_TYPE_OPTIONS: ClinicalSelectOption<'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan'>[] = [
+  {
+    value: 'Fundus_Macula',
+    label: 'Ảnh màu đáy mắt hoàng điểm',
+    sublabel: 'Fundus Color - Macula Centered (Hoàng điểm & vi mạch trung tâm)',
+    icon: <Target className="w-4 h-4 text-[#0891B2]" />,
+  },
+  {
+    value: 'Fundus_OpticDisc',
+    label: 'Ảnh màu đáy mắt gai thị',
+    sublabel: 'Fundus Color - Optic Disc (Gai thị & tỷ lệ cup/disc)',
+    icon: <CircleDot className="w-4 h-4 text-[#0891B2]" />,
+  },
+  {
+    value: 'OCT_Scan',
+    label: 'Chụp cắt lớp võng mạc (OCT)',
+    sublabel: 'Optical Coherence Tomography (Phân tích lớp cắt chuyên sâu)',
+    icon: <Layers className="w-4 h-4 text-[#0891B2]" />,
+  },
+];
 
 export const PatientUploader: React.FC<PatientUploaderProps> = ({
   activePatient,
@@ -294,7 +319,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   };
 
   return (
-    <Card padding="lg" className="space-y-6">
+    <Card id="patient-uploader-card" padding="lg" className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-clinical-border pb-4">
         <div>
@@ -396,20 +421,15 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             </div>
           </div>
 
-          {/* Scan Type */}
+          {/* Scan Type Custom Clinical Select */}
           <div>
-            <label className="block text-xs font-semibold text-clinical-text mb-1.5">
-              Loại ảnh chụp đáy mắt
-            </label>
-            <select
+            <ClinicalSelect<'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan'>
+              label="Loại ảnh chụp đáy mắt"
               value={scanType}
-              onChange={(e) => setScanType(e.target.value as any)}
-              className="w-full h-9 px-3 text-xs rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
-            >
-              <option value="Fundus_Macula">Ảnh màu đáy mắt hoàng điểm (Fundus Color - Macula Centered)</option>
-              <option value="Fundus_OpticDisc">Ảnh màu đáy mắt gai thị (Fundus Color - Optic Disc)</option>
-              <option value="OCT_Scan">Chụp cắt lớp võng mạc (Optical Coherence Tomography - OCT)</option>
-            </select>
+              onChange={(newVal) => setScanType(newVal)}
+              options={SCAN_TYPE_OPTIONS}
+              size="md"
+            />
           </div>
         </div>
 
@@ -452,6 +472,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               >
                 <input
                   type="file"
+                  id="patient-uploader-od-input"
                   ref={odInputRef}
                   onChange={(e) => {
                     if (e.target.files?.[0]) handleOdFile(e.target.files[0]);

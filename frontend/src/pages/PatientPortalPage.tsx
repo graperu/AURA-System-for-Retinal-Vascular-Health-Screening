@@ -271,6 +271,21 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     onNavigate("cds-viewer");
   };
 
+  const handleUploadNewScanClick = () => {
+    onNavigate("upload-scan");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => {
+      const uploader = document.getElementById("patient-uploader-card");
+      if (uploader) {
+        uploader.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      const fileInput = document.getElementById("patient-uploader-od-input");
+      if (fileInput) {
+        (fileInput as HTMLInputElement).click();
+      }
+    }, 150);
+  };
+
   const handleOpenReportFromHistory = async (item: PatientHistoryItem) => {
     try {
       const realId = item.rawId || item.id;
@@ -531,7 +546,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         {/* Action Shortcuts */}
         <div className="z-10 flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => onNavigate("upload-scan")}
+            onClick={handleUploadNewScanClick}
             className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
           >
             <UploadCloud className="w-4 h-4" /> Tải Ảnh Khám Mới
