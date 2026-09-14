@@ -46,4 +46,10 @@ public class BillingController {
         return ApiResponse.success("Lấy lịch sử thanh toán thành công",
                 billingService.myPayments(principal.id(), pageable).items());
     }
+
+    @GetMapping("/credits")
+    public ApiResponse<java.util.Map<String, Object>> myCredits(@AuthenticationPrincipal AuraUserPrincipal principal) {
+        int remaining = billingService.getRemainingCredits(principal.id());
+        return ApiResponse.success("Lấy số lượt phân tích khả dụng thành công", java.util.Map.of("remainingCredits", remaining));
+    }
 }

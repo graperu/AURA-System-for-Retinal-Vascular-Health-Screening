@@ -337,6 +337,15 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       mimeType?: string;
     },
   ) => {
+    // FR-11, FR-12: Kiểm tra hạn mức lượt khám của Bệnh nhân trước khi phân tích
+    if (userCredits <= 0) {
+      setIsCreditModalOpen(true);
+      setAnalysisErrorMsg(
+        "Tài khoản của bạn hiện có 0 lượt khám. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để bắt đầu phân tích AI."
+      );
+      return;
+    }
+
     startProgress();
     setShowAiNotification(false);
     setAnalysisErrorMsg(null);
@@ -364,6 +373,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       // Hoàn tất tiến trình: vọt lên 100%, giữ 600ms rồi chuyển sang giao diện kết quả
       completeProgress(async () => {
         setAnalysisResult(result);
+        // Trừ 1 lượt khám và đồng bộ với database
+        setUserCredits((prev) => Math.max(0, prev - 1));
+        loadBillingData();
+
         // Cập nhật lịch sử khám trực tiếp từ PostgreSQL (FR-6)
         await loadScreeningHistory();
 
@@ -586,6 +599,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             isAnalyzing={isAnalyzing}
             analysisProgress={analysisProgress}
             analysisError={analysisErrorMsg}
+            userCredits={userCredits}
+            onOpenCreditModal={() => setIsCreditModalOpen(true)}
             onRetry={() => {
               setAnalysisErrorMsg(null);
               resetProgress();
@@ -1286,7 +1301,15 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         onClose={() => setIsCreditModalOpen(false)}
         userRole="patient"
         currentCredit={userCredits}
-        onSuccess={(added) => setUserCredits((prev) => prev + added)}
+        patientMrn={patient.mrn || "AUR9842"}
+        onSuccess={(added) => {
+          setUserCredits((prev) => prev + added);
+          loadBillingData();
+        }}
+        onPurchaseSuccess={(newCredits) => {
+          setUserCredits(newCredits);
+          loadBillingData();
+        }}
       />
 
       <MedicalProfileModal

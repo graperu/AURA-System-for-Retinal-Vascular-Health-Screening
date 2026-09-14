@@ -57,7 +57,19 @@ public class BillingService {
     @Transactional
     public PaymentTransactionResponse purchaseOrRenew(UUID ownerId, Long servicePackageId,String paymentMethod) {
         User owner = userRepository.findById(ownerId).orElseThrow(() -> new UserNotFoundException(ownerId.toString()));
-        ServicePackage servicePackage = servicePackageService.findOrThrow(servicePackageId);
+        ServicePackage servicePackage;
+        try {
+            servicePackage = servicePackageService.findOrThrow(servicePackageId);
+        } catch (com.aura.billing.exception.ServicePackageNotFoundException ex) {
+            boolean isClinic = userRoleRepository.existsByUserIdAndRole(ownerId, RoleName.CLINIC);
+            PackageScope targetScope = isClinic ? PackageScope.CLINIC : PackageScope.INDIVIDUAL;
+            var candidates = servicePackageService.browse(targetScope);
+            if (!candidates.isEmpty()) {
+                servicePackage = servicePackageService.findOrThrow(candidates.get(0).id());
+            } else {
+                throw ex;
+            }
+        }
 
         if (!servicePackage.isActive()) {
             throw new PackageInactiveException(servicePackageId);
@@ -156,6 +168,32 @@ public class BillingService {
         return PageResponse.from(
                 paymentTransactionRepository.findByBuyerIdOrderByCreatedAtDesc(ownerId, pageable),
                 PaymentTransactionResponse::from);
+    }
+
+    public int getRemainingCredits(UUID ownerId) {
+        return subscriptionRepository.findByOwnerId(ownerId).stream()
+                .map(this::expireIfPast)
+                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
+                .mapToInt(Subscription::getRemainingCredits)
+                .sum();
+    }
+
+    @Transactional
+    public boolean deductCredit(UUID ownerId) {
+        List<Subscription> activeSubs = subscriptionRepository.findByOwnerId(ownerId).stream()
+                .map(this::expireIfPast)
+                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE && s.getRemainingCredits() > 0)
+                .sorted(java.util.Comparator.comparing(Subscription::getExpiresAt))
+                .toList();
+
+        if (activeSubs.isEmpty()) {
+            return false;
+        }
+
+        Subscription sub = activeSubs.get(0);
+        sub.setRemainingCredits(sub.getRemainingCredits() - 1);
+        subscriptionRepository.save(sub);
+        return true;
     }
 
     private Subscription expireIfPast(Subscription subscription) {

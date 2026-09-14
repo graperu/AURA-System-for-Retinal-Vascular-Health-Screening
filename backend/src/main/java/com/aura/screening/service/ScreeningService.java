@@ -33,6 +33,7 @@ public class ScreeningService {
   private final com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository;
   private final com.aura.user.repository.UserRepository userRepository;
   private final GeminiRetinalAiService geminiAiService;
+  private final com.aura.billing.service.BillingService billingService;
 
   @Value("${aura.signature.secret:AURA_REVIEW_SIGNATURE_SECRET_2026}")
   private String signatureSecret = "AURA_REVIEW_SIGNATURE_SECRET_2026";
@@ -45,7 +46,9 @@ public class ScreeningService {
       com.aura.audit.service.AuditLogService auditLogService,
       com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
       com.aura.user.repository.UserRepository userRepository,
-      GeminiRetinalAiService geminiAiService) {
+      GeminiRetinalAiService geminiAiService,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+      com.aura.billing.service.BillingService billingService) {
     this.screeningRepository = screeningRepository;
     this.assignmentRepository = assignmentRepository;
     this.userNotificationService = userNotificationService;
@@ -53,6 +56,18 @@ public class ScreeningService {
     this.clinicMemberRepository = clinicMemberRepository;
     this.userRepository = userRepository;
     this.geminiAiService = geminiAiService;
+    this.billingService = billingService;
+  }
+
+  public ScreeningService(
+      ScreeningRepository screeningRepository,
+      com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      com.aura.notification.service.UserNotificationService userNotificationService,
+      com.aura.audit.service.AuditLogService auditLogService,
+      com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
+      com.aura.user.repository.UserRepository userRepository,
+      GeminiRetinalAiService geminiAiService) {
+    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository, userRepository, geminiAiService, null);
   }
 
   public ScreeningService(
@@ -60,7 +75,7 @@ public class ScreeningService {
       com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
       com.aura.notification.service.UserNotificationService userNotificationService,
       GeminiRetinalAiService geminiAiService) {
-    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService);
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null);
   }
 
   public ScreeningService(
@@ -69,7 +84,7 @@ public class ScreeningService {
       com.aura.notification.service.UserNotificationService userNotificationService,
       GeminiRetinalAiService geminiAiService,
       Object ignoredRestClient) {
-    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService);
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null);
   }
 
   public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request) {
@@ -89,6 +104,18 @@ public class ScreeningService {
       screening.setClinicId(request.clinicId());
     }
 
+    // FR-11, FR-12: Kiểm tra hạn mức và trừ lượt khám đối với bệnh nhân cá nhân
+    if (billingService != null && request.clinicId() == null) {
+      boolean deducted = billingService.deductCredit(patientId);
+      if (!deducted) {
+        int remaining = billingService.getRemainingCredits(patientId);
+        if (remaining <= 0) {
+          throw new com.aura.billing.exception.PaymentFailedException(
+              "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
+        }
+      }
+    }
+
     // Tự động tìm bác sĩ phụ trách từ doctor_patient_assignments (nếu ca khám chưa gán bác sĩ)
     resolveAndAssignDoctorAndClinic(screening, patientId);
 
@@ -105,6 +132,17 @@ public class ScreeningService {
     Screening screening = new Screening(patientId, imageUrl);
     screening.setEyePosition("OD");
     screening.setScanType("Fundus");
+
+    if (billingService != null && screening.getClinicId() == null) {
+      boolean deducted = billingService.deductCredit(patientId);
+      if (!deducted) {
+        int remaining = billingService.getRemainingCredits(patientId);
+        if (remaining <= 0) {
+          throw new com.aura.billing.exception.PaymentFailedException(
+              "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
+        }
+      }
+    }
 
     resolveAndAssignDoctorAndClinic(screening, patientId);
 

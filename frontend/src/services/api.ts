@@ -12,11 +12,11 @@ export interface ApiResponse<T = any> {
   timestamp?: string;
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(
+const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || "").replace(
   /\/$/,
   "",
 );
-let accessToken: string | null = localStorage.getItem("accessToken");
+let accessToken: string | null = typeof localStorage !== "undefined" ? localStorage.getItem("accessToken") : null;
 let refreshRequest: Promise<string | null> | null = null;
 
 export const getAccessToken = () => accessToken;
@@ -239,6 +239,11 @@ export const billingApi = {
 
   myPayments: () =>
     apiFetch<any[]>("/api/v1/me/payments", {
+      method: "GET",
+    }),
+
+  getRemainingCredits: () =>
+    apiFetch<{ remainingCredits: number }>("/api/v1/me/credits", {
       method: "GET",
     }),
 };
@@ -557,7 +562,7 @@ export const clinicAnalyticsApi = {
 
   exportData: async (fileName = "aura_clinic_export.csv") => {
     const response = await fetch(
-      `${(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "")}/api/v1/clinic/analytics/export`,
+      `${(import.meta.env?.VITE_API_BASE_URL || "").replace(/\/$/, "")}/api/v1/clinic/analytics/export`,
       {
         headers: getAccessToken()
           ? { Authorization: `Bearer ${getAccessToken()}` }
