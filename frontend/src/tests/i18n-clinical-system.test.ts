@@ -497,12 +497,14 @@ runTest('DOT-NOTATION-4: Tái sử dụng từ điển qua getAnomalyName và nh
     )
   );
 
-  assert.ok(htmlEn.includes('Microaneurysm'));
-  assert.ok(htmlEn.includes('Retinal Hemorrhage'));
-  assert.ok(htmlEn.includes('Available screening quota:'));
-  assert.ok(htmlEn.includes('exceeds maximum allowed size (15MB)'));
-  assert.ok(htmlEn.includes('File is empty (0 bytes)'));
-  assert.ok(htmlEn.includes('Unsupported file format'));
+  // Hệ thống đã khóa chỉ dùng Tiếng Việt và tự động reset 'en' về 'vi'
+  assert.ok(htmlEn.includes('Vi phình mạch'), 'Hệ thống tự động khóa tiếng Việt');
+  assert.ok(htmlEn.includes('Xuất huyết võng mạc'), 'Hệ thống tự động khóa tiếng Việt');
+  assert.ok(htmlEn.includes('Lượt khám khả dụng:'), 'Hệ thống tự động khóa tiếng Việt');
+  assert.ok(htmlEn.includes('vượt quá dung lượng tối đa cho phép (15MB)'), 'Hệ thống tự động khóa tiếng Việt');
+  assert.ok(htmlEn.includes('Tệp rỗng (0 bytes)'), 'Hệ thống tự động khóa tiếng Việt');
+  assert.ok(htmlEn.includes('Định dạng tệp không được hỗ trợ'), 'Hệ thống tự động khóa tiếng Việt');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 // -----------------------------------------------------------------------------
@@ -510,7 +512,7 @@ runTest('DOT-NOTATION-4: Tái sử dụng từ điển qua getAnomalyName và nh
 // -----------------------------------------------------------------------------
 console.log('\n--- 4. Kiểm thử Nút Chuyển Đổi Ngôn Ngữ (LanguageSwitcher) ---');
 
-runTest('SWITCHER-1: Render đầy đủ icon Globe, indicator ngôn ngữ VI/EN và trợ năng', () => {
+runTest('SWITCHER-1: LanguageSwitcher trả về null (không render DOM) theo chính sách chỉ dùng Tiếng Việt', () => {
   const html = renderToStaticMarkup(
     React.createElement(
       LanguageProvider,
@@ -519,13 +521,10 @@ runTest('SWITCHER-1: Render đầy đủ icon Globe, indicator ngôn ngữ VI/EN
     )
   );
 
-  assert.ok(html.includes('lucide-globe'), 'Chứa icon Globe');
-  assert.ok(html.includes('VI'), 'Hiển thị indicator VI');
-  assert.ok(html.includes('EN'), 'Hiển thị indicator EN');
-  assert.ok(html.includes('aria-label='), 'Có thuộc tính aria-label');
+  assert.strictEqual(html, '', 'LanguageSwitcher trả về null/rỗng');
 });
 
-runTest('SWITCHER-2: Biến thể compact hiển thị mã ngôn ngữ gọn gàng', () => {
+runTest('SWITCHER-2: Biến thể compact trả về null theo chính sách chỉ dùng Tiếng Việt', () => {
   const html = renderToStaticMarkup(
     React.createElement(
       LanguageProvider,
@@ -534,11 +533,10 @@ runTest('SWITCHER-2: Biến thể compact hiển thị mã ngôn ngữ gọn gà
     )
   );
 
-  assert.ok(html.includes('lucide-globe'), 'Chứa icon Globe');
-  assert.ok(html.includes('VI') || html.includes('EN'));
+  assert.strictEqual(html, '', 'Biến thể compact trả về null/rỗng');
 });
 
-runTest('SWITCHER-3: Hỗ trợ chế độ Darkroom mode với độ tương phản cao', () => {
+runTest('SWITCHER-3: Chế độ Darkroom mode trả về null theo chính sách chỉ dùng Tiếng Việt', () => {
   const html = renderToStaticMarkup(
     React.createElement(
       LanguageProvider,
@@ -547,7 +545,7 @@ runTest('SWITCHER-3: Hỗ trợ chế độ Darkroom mode với độ tương ph
     )
   );
 
-  assert.ok(html.includes('bg-slate-900/90') || html.includes('text-cyan'), 'Áp dụng styling Darkroom');
+  assert.strictEqual(html, '', 'Chế độ darkroom trả về null/rỗng');
 });
 
 // -----------------------------------------------------------------------------
@@ -610,7 +608,7 @@ runTest('LIVE-RENDER-1: InteractiveCDSViewer render tiếng Việt chuẩn và k
   assert.ok(!htmlVi.includes('Interactive CDS Workspace'), 'Không hiển thị nhãn tiếng Anh khi ở chế độ VI');
 });
 
-runTest('LIVE-RENDER-2: InteractiveCDSViewer render tiếng Anh chuẩn và không lẫn tiếng Việt', () => {
+runTest('LIVE-RENDER-2: InteractiveCDSViewer tự động khóa tiếng Việt kể cả khi localStorage set en', () => {
   localStorage.setItem('aura_language', 'en');
   const htmlEn = renderToStaticMarkup(
     React.createElement(
@@ -618,17 +616,18 @@ runTest('LIVE-RENDER-2: InteractiveCDSViewer render tiếng Anh chuẩn và khô
       null,
       React.createElement(InteractiveCDSViewer, {
         analysisResult: sampleAnalysisResult,
-        selectedEye: 'OD (Right Eye)',
+        selectedEye: 'OD (Mắt Phải)',
       })
     )
   );
 
-  assert.ok(htmlEn.includes('Interactive CDS Workspace — Grad-CAM Heatmap'), 'Tiêu đề tiếng Anh chuẩn');
-  assert.ok(!htmlEn.includes('Bàn chẩn đoán tương tác CDS'), 'Không hiển thị nhãn tiếng Việt khi ở chế độ EN');
+  assert.ok(htmlEn.includes('Bàn chẩn đoán tương tác CDS — Bản đồ nhiệt Grad-CAM'), 'Tiêu đề tiếng Việt chuẩn');
+  assert.ok(!htmlEn.includes('Interactive CDS Workspace'), 'Không hiển thị nhãn tiếng Anh khi ở chế độ VI');
   assert.ok(!htmlEn.includes('Fundus &amp; Grad-CAM Heatmap Viewer'), 'Cấm chuỗi lai tạp cũ');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
-runTest('LIVE-RENDER-3: MedicalDisclaimer render chính xác thông điệp Bộ Y Tế (VI) và AAO (EN) cùng tiêu đề banner', () => {
+runTest('LIVE-RENDER-3: MedicalDisclaimer render chính xác thông điệp Bộ Y Tế (VI), tự động reset và khóa tiếng Việt khi có en', () => {
   // Tiếng Việt
   localStorage.setItem('aura_language', 'vi');
   const htmlVi = renderToStaticMarkup(
@@ -642,18 +641,19 @@ runTest('LIVE-RENDER-3: MedicalDisclaimer render chính xác thông điệp Bộ
   );
   assert.ok(htmlBannerVi.includes('Tuyên bố Miễn trừ Y tế:'), 'Banner tiếng Việt có tiêu đề chuẩn');
 
-  // Tiếng Anh
+  // Thử nghiệm lưu en trong localStorage -> Hệ thống phải tự động khóa tiếng Việt
   localStorage.setItem('aura_language', 'en');
   const htmlEn = renderToStaticMarkup(
     React.createElement(LanguageProvider, null, React.createElement(MedicalDisclaimer, null))
   );
-  assert.ok(htmlEn.includes(MANDATORY_MEDICAL_DISCLAIMER_EN), 'Khớp tuyên bố miễn trừ tiếng Anh');
-  assert.ok(!htmlEn.includes(MANDATORY_MEDICAL_DISCLAIMER_VI), 'Không lẫn tuyên bố tiếng Việt');
+  assert.ok(htmlEn.includes(MANDATORY_MEDICAL_DISCLAIMER_VI), 'Khóa tuyên bố miễn trừ tiếng Việt chuẩn');
+  assert.ok(!htmlEn.includes(MANDATORY_MEDICAL_DISCLAIMER_EN), 'Không hiển thị tuyên bố tiếng Anh');
 
   const htmlBannerEn = renderToStaticMarkup(
     React.createElement(LanguageProvider, null, React.createElement(MedicalDisclaimer, { variant: 'banner' }))
   );
-  assert.ok(htmlBannerEn.includes('Medical Safety Disclaimer:'), 'Banner tiếng Anh có tiêu đề chuẩn');
+  assert.ok(htmlBannerEn.includes('Tuyên bố Miễn trừ Y tế:'), 'Banner vẫn giữ tiếng Việt');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 // -----------------------------------------------------------------------------
@@ -903,13 +903,8 @@ runTest('PATIENT-I18N-1: PatientDashboardView render song ngữ chuẩn (VI & EN
     'en'
   );
 
-  assert.ok(enHtml.includes('Latest Screening Scan'), 'EN: Có "Latest Screening Scan"');
-  assert.ok(enHtml.includes('Retinal Microvascular Assessment Summary'), 'EN: Có "Retinal Microvascular Assessment Summary"');
-  assert.ok(enHtml.includes('Cardiovascular'), 'EN: Có "Cardiovascular"');
-  assert.ok(enHtml.includes('Diabetic Retinopathy'), 'EN: Có "Diabetic Retinopathy"');
-  assert.ok(enHtml.includes('Current screening quota') || enHtml.includes('Screening Credits'), 'EN: Có Credits title');
-  assert.ok(!enHtml.includes('Ca Sàng Lọc Gần Nhất'), 'EN: Không còn chuỗi tiếng Việt "Ca Sàng Lọc Gần Nhất"');
-  assert.ok(!enHtml.includes('Hạn Mức Sàng Lọc'), 'EN: Không còn chuỗi tiếng Việt "Hạn Mức Sàng Lọc"');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('PATIENT-I18N-2: PatientHistoryView render song ngữ chuẩn (VI & EN)', () => {
@@ -932,11 +927,8 @@ runTest('PATIENT-I18N-2: PatientHistoryView render song ngữ chuẩn (VI & EN)'
     'en'
   );
 
-  assert.ok(enHtml.includes('Retinal screening history'), 'EN: Có "Retinal screening history"');
-  assert.ok(enHtml.includes('Search screenings'), 'EN: Có "Search screenings"');
-  assert.ok(enHtml.includes('All eyes'), 'EN: Có "All eyes"');
-  assert.ok(enHtml.includes('Low Risk'), 'EN: Có "Low Risk"');
-  assert.ok(!enHtml.includes('Tìm kiếm ca khám'), 'EN: Không còn "Tìm kiếm ca khám"');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('PATIENT-I18N-3: PatientScreeningResultView render song ngữ chuẩn (VI & EN)', () => {
@@ -957,9 +949,8 @@ runTest('PATIENT-I18N-3: PatientScreeningResultView render song ngữ chuẩn (V
     'en'
   );
 
-  assert.ok(enHtml.includes('Retinal Scan &amp; Grad-CAM Heatmap') || enHtml.includes('Retinal Scan & Grad-CAM Heatmap'), 'EN: Có "Retinal Scan & Grad-CAM Heatmap"');
-  assert.ok(enHtml.includes('Clinical Risk Assessment'), 'EN: Có "Clinical Risk Assessment"');
-  assert.ok(!enHtml.includes('Đánh Giá Nguy Cơ Lâm Sàng'), 'EN: Không còn chuỗi "Đánh Giá Nguy Cơ Lâm Sàng"');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('PATIENT-I18N-4: ConsultationChatModal render song ngữ chuẩn (VI & EN)', () => {
@@ -990,9 +981,8 @@ runTest('PATIENT-I18N-4: ConsultationChatModal render song ngữ chuẩn (VI & E
     'en'
   );
 
-  assert.ok(enHtml.includes('Real-time clinical consultation channel'), 'EN: Có disclaimer tiếng Anh');
-  assert.ok(enHtml.includes('No assigned specialist physician'), 'EN: Có unassigned title tiếng Anh');
-  assert.ok(!enHtml.includes('Chưa có Bác sĩ chuyên khoa phụ trách'), 'EN: Không còn chuỗi tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('PATIENT-I18N-5: MedicalProfileModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1020,10 +1010,8 @@ runTest('PATIENT-I18N-5: MedicalProfileModal render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.ok(enHtml.includes('Medical Profile &amp; Clinical History') || enHtml.includes('Medical Profile & Clinical History'), 'EN: Tiêu đề modal');
-  assert.ok(enHtml.includes('Personal Info'), 'EN: Tab 1');
-  assert.ok(enHtml.includes('Vital Signs'), 'EN: Tab 2');
-  assert.ok(!enHtml.includes('Thông Tin Cá Nhân'), 'EN: Không còn "Thông Tin Cá Nhân"');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('PATIENT-I18N-6: CreditPurchaseModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1071,10 +1059,9 @@ runTest('PATIENT-I18N-6: CreditPurchaseModal render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.ok(enHtml.includes('Purchase AI Screening Credits'), 'EN: Tiêu đề modal');
-  assert.ok(enHtml.includes('Basic Package (Single Scan)'), 'EN: Tên gói cơ bản');
-  assert.ok(enHtml.includes('Continue to Payment Method'), 'EN: Nút tiếp tục');
-  assert.ok(!enHtml.includes('Nạp Thêm Lượt Khám Sàng Lọc AI'), 'EN: Không còn chuỗi tiếng Việt');
+  assert.ok(enHtml.includes('Nạp Thêm Lượt Khám Sàng Lọc AI'), 'VI: Tiêu đề modal (khóa tiếng Việt)');
+  assert.ok(enHtml.includes('Tiếp tục chọn phương thức'), 'VI: Nút tiếp tục (khóa tiếng Việt)');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('PATIENT-I18N-7: PatientPortalPage render song ngữ chuẩn (VI & EN)', () => {
@@ -1104,16 +1091,8 @@ runTest('PATIENT-I18N-7: PatientPortalPage render song ngữ chuẩn (VI & EN)',
     'en'
   );
 
-  assert.ok(enHtml.includes('Periodic Retinal Screening'), 'EN: Hero badge');
-  assert.ok(
-    enHtml.includes('Upload new scan') || enHtml.includes('upload new scan'),
-    'EN: Nút tải ảnh'
-  );
-  assert.ok(
-    enHtml.includes('Medical profile') || enHtml.includes('Medical Profile'),
-    'EN: Nút hồ sơ'
-  );
-  assert.ok(!enHtml.includes('Khám Định Kỳ Võng Mạc'), 'EN: Không còn "Khám Định Kỳ Võng Mạc"');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 // -----------------------------------------------------------------------------
@@ -1163,12 +1142,8 @@ runTest('DOCTOR-I18N-1: DoctorWorklistView render song ngữ chuẩn (VI & EN)',
     'en'
   );
 
-  assert.ok(enHtml.includes('Assigned Screening Queue'), 'EN: Tiêu đề danh sách');
-  assert.ok(enHtml.includes('Search patients'), 'EN: Nhãn tìm kiếm');
-  assert.ok(enHtml.includes('Review status'), 'EN: Bộ lọc trạng thái');
-  assert.ok(enHtml.includes('Risk level'), 'EN: Bộ lọc nguy cơ');
-  assert.ok(enHtml.includes('Open CDS'), 'EN: Nút mở CDS');
-  assert.ok(!enHtml.includes('Danh sách ca khám phân công'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('DOCTOR-I18N-2: DoctorDiagnosisModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1203,13 +1178,8 @@ runTest('DOCTOR-I18N-2: DoctorDiagnosisModal render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.ok(enHtml.includes('Clinical Validation &amp; Digital Sign-off') || enHtml.includes('Clinical Validation & Digital Sign-off'), 'EN: Tiêu đề modal');
-  assert.ok(enHtml.includes('Approve AI'), 'EN: Nút approve AI');
-  assert.ok(enHtml.includes('Modify'), 'EN: Nút modify');
-  assert.ok(enHtml.includes('Reject'), 'EN: Nút reject');
-  assert.ok(enHtml.includes('PKI Digital Signature:'), 'EN: Nhãn chữ ký số');
-  assert.ok(enHtml.includes('Save &amp; Record sign-off') || enHtml.includes('Save & Record sign-off') || enHtml.includes('Save'), 'EN: Nút save');
-  assert.ok(!enHtml.includes('Thẩm định kết quả và Ký số kết luận lâm sàng'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('DOCTOR-I18N-3: DoctorRiskAnalyticsView render song ngữ chuẩn (VI & EN)', () => {
@@ -1234,11 +1204,8 @@ runTest('DOCTOR-I18N-3: DoctorRiskAnalyticsView render song ngữ chuẩn (VI & 
     'en'
   );
 
-  assert.ok(enHtml.includes('Population Risk Analytics &amp; Clinical Performance') || enHtml.includes('Population Risk Analytics & Clinical Performance'), 'EN: Tiêu đề analytics');
-  assert.ok(enHtml.includes('Assigned Patients'), 'EN: Assigned patients');
-  assert.ok(enHtml.includes('Clinically Reviewed'), 'EN: Clinically reviewed');
-  assert.ok(enHtml.includes('Consensus with AI'), 'EN: Consensus with AI');
-  assert.ok(!enHtml.includes('Bệnh Nhân Phụ Trách'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('DOCTOR-I18N-4: DoctorReportsView render song ngữ chuẩn (VI & EN)', () => {
@@ -1263,11 +1230,8 @@ runTest('DOCTOR-I18N-4: DoctorReportsView render song ngữ chuẩn (VI & EN)', 
     'en'
   );
 
-  assert.ok(enHtml.includes('Medical Reports &amp; Sign-off Archives') || enHtml.includes('Medical Reports & Sign-off Archives'), 'EN: Tiêu đề báo cáo');
-  assert.ok(enHtml.includes('Total Medical Reports'), 'EN: Total reports');
-  assert.ok(enHtml.includes('Pending Review'), 'EN: Pending review');
-  assert.ok(enHtml.includes('Clinically Approved &amp; Signed') || enHtml.includes('Clinically Approved & Signed'), 'EN: Approved & signed');
-  assert.ok(!enHtml.includes('Tổng Số Hồ Sơ Báo Cáo'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('DOCTOR-I18N-5: DoctorConsultationView render song ngữ chuẩn (VI & EN)', () => {
@@ -1291,10 +1255,8 @@ runTest('DOCTOR-I18N-5: DoctorConsultationView render song ngữ chuẩn (VI & E
     'en'
   );
 
-  assert.ok(enHtml.includes('Online Patient Consultation &amp; Direct Channel') || enHtml.includes('Online Patient Consultation & Direct Channel'), 'EN: Tiêu đề chat');
-  assert.ok(enHtml.includes('Assigned Patients'), 'EN: Assigned patients');
-  assert.ok(enHtml.includes('Medical Safety Notice:'), 'EN: Medical safety notice');
-  assert.ok(!enHtml.includes('Cảnh báo an toàn y khoa:'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('DOCTOR-I18N-6: ClinicalValidationBar render song ngữ chuẩn (VI & EN)', () => {
@@ -1318,10 +1280,8 @@ runTest('DOCTOR-I18N-6: ClinicalValidationBar render song ngữ chuẩn (VI & EN
     'en'
   );
 
-  assert.ok(enHtml.includes('Clinical Validation &amp; Screening Approval') || enHtml.includes('Clinical Validation & Screening Approval'), 'EN: Tiêu đề validation bar');
-  assert.ok(enHtml.includes('Approve AI'), 'EN: Approve AI');
-  assert.ok(enHtml.includes('Modify Risk'), 'EN: Modify Risk');
-  assert.ok(!enHtml.includes('Hiệu chỉnh nguy cơ'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('DOCTOR-I18N-7: PatientAssignmentBoard render song ngữ chuẩn (VI & EN)', () => {
@@ -1337,8 +1297,8 @@ runTest('DOCTOR-I18N-7: PatientAssignmentBoard render song ngữ chuẩn (VI & E
     'en'
   );
 
-  assert.ok(enHtml.includes('Patient Assignment &amp; Care Coordination') || enHtml.includes('Patient Assignment & Care Coordination') || enHtml.includes('Loading assignment board...'), 'EN: Bảng phân công');
-  assert.ok(!enHtml.includes('Điều phối bệnh nhân cho bác sĩ'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('DOCTOR-I18N-8: MedicalReportModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1371,15 +1331,8 @@ runTest('DOCTOR-I18N-8: MedicalReportModal render song ngữ chuẩn (VI & EN)',
     'en'
   );
 
-  assert.ok(enHtml.includes('AURA RETINAL VASCULAR SCREENING SYSTEM'), 'EN: Tiêu đề hệ thống');
-  assert.ok(
-    enHtml.includes('AURA Retinal Medical Screening Report') ||
-      enHtml.includes('AURA AI Preliminary Screening Report'),
-    'EN: Tiêu đề báo cáo'
-  );
-  assert.ok(enHtml.includes('Export CSV'), 'EN: Nút export CSV');
-  assert.ok(enHtml.includes('Print / PDF'), 'EN: Nút in PDF');
-  assert.ok(!enHtml.includes('HỆ THỐNG SÀNG LỌC MẠCH MÁU VÕNG MẠC AURA'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('DOCTOR-I18N-9: RiskAssessmentPanel render song ngữ chuẩn (VI & EN)', () => {
@@ -1401,10 +1354,8 @@ runTest('DOCTOR-I18N-9: RiskAssessmentPanel render song ngữ chuẩn (VI & EN)'
     'en'
   );
 
-  assert.ok(enHtml.includes('AI Clinical Risk Assessment'), 'EN: Tiêu đề panel');
-  assert.ok(enHtml.includes('Cardiovascular Risk'), 'EN: Cardiovascular Risk');
-  assert.ok(enHtml.includes('Stroke Risk'), 'EN: Stroke Risk');
-  assert.ok(!enHtml.includes('Nguy Cơ Tim Mạch'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 // -----------------------------------------------------------------------------
@@ -1481,12 +1432,8 @@ runTest('CLINIC-I18N-1: ClinicBatchWorkspace render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.ok(enHtml.includes('Total images in batch'), 'EN: Total images in batch');
-  assert.ok(enHtml.includes('AI completed'), 'EN: AI completed');
-  assert.ok(enHtml.includes('All statuses'), 'EN: All statuses');
-  assert.ok(enHtml.includes('Export CSV'), 'EN: Export CSV');
-  assert.ok(enHtml.includes('Campaign scan files'), 'EN: Campaign scan files');
-  assert.ok(!enHtml.includes('Tổng số ảnh trong đợt'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('CLINIC-I18N-2: ClinicBatchProcessing render song ngữ chuẩn (VI & EN)', () => {
@@ -1509,11 +1456,8 @@ runTest('CLINIC-I18N-2: ClinicBatchProcessing render song ngữ chuẩn (VI & EN
     'en'
   );
 
-  assert.ok(enHtml.includes('Campaign ID:'), 'EN: Campaign ID');
-  assert.ok(enHtml.includes('AI Queue Processing Progress'), 'EN: Bulk Queue Progress');
-  assert.ok(enHtml.includes('Screening Credits Management'), 'EN: Credits Management');
-  assert.ok(enHtml.includes('Risk distribution breakdown'), 'EN: Risk breakdown');
-  assert.ok(!enHtml.includes('Quản lý lượt khám sàng lọc'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('CLINIC-I18N-3: BatchUploadModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1541,10 +1485,8 @@ runTest('CLINIC-I18N-3: BatchUploadModal render song ngữ chuẩn (VI & EN)', (
     'en'
   );
 
-  assert.ok(enHtml.includes('Upload Bulk Retinal Image Batch'), 'EN: Tiêu đề upload batch');
-  assert.ok(enHtml.includes('Screening campaign name'), 'EN: Tên chiến dịch');
-  assert.ok(enHtml.includes('Load 100 demo scans'), 'EN: Nút nạp demo EN');
-  assert.ok(!enHtml.includes('Tải lên lô ảnh võng mạc hàng loạt'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('CLINIC-I18N-4: BatchItemDetailModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1569,10 +1511,8 @@ runTest('CLINIC-I18N-4: BatchItemDetailModal render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.ok(enHtml.includes('Overall vascular risk'), 'EN: Overall vascular risk');
-  assert.ok(enHtml.includes('Grad-CAM heatmap &amp; lesion regions') || enHtml.includes('Grad-CAM heatmap & lesion regions'), 'EN: Grad-CAM');
-  assert.ok(enHtml.includes('Quantitative retinal biomarkers'), 'EN: Biomarkers');
-  assert.ok(!enHtml.includes('Nguy cơ mạch máu chung'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('CLINIC-I18N-5: ClinicCampaignAnalytics render song ngữ chuẩn (VI & EN)', () => {
@@ -1588,8 +1528,8 @@ runTest('CLINIC-I18N-5: ClinicCampaignAnalytics render song ngữ chuẩn (VI & 
     'en'
   );
 
-  assert.ok(enHtml.includes('Loading clinical campaign analytics data...'), 'EN: Loading state');
-  assert.ok(!enHtml.includes('Đang tải dữ liệu báo cáo chiến dịch lâm sàng...'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('CLINIC-I18N-6: ClinicCreditPackageSection render song ngữ chuẩn (VI & EN)', () => {
@@ -1609,8 +1549,8 @@ runTest('CLINIC-I18N-6: ClinicCreditPackageSection render song ngữ chuẩn (VI
     'en'
   );
 
-  assert.ok(enHtml.includes('Loading clinic screening credits and service packages...'), 'EN: Loading credit packages');
-  assert.ok(!enHtml.includes('Đang tải dữ liệu hạn mức và gói cước phòng khám...'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('CLINIC-I18N-7: ClinicPortalPage render song ngữ chuẩn (VI & EN)', () => {
@@ -1627,9 +1567,8 @@ runTest('CLINIC-I18N-7: ClinicPortalPage render song ngữ chuẩn (VI & EN)', (
     'en'
   );
 
-  assert.ok(enHtml.includes('Clinic Screening Operations Portal'), 'EN: Portal title');
-  assert.ok(enHtml.includes('Manage bulk microvascular screening campaigns'), 'EN: Portal subtitle');
-  assert.ok(!enHtml.includes('Không gian quản lý sàng lọc phòng khám'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 // -----------------------------------------------------------------------------
@@ -1678,13 +1617,8 @@ runTest('ADMIN-I18N-1: AdminAuditWorkspace render song ngữ chuẩn (VI & EN)',
     'en'
   );
 
-  assert.ok(enHtml.includes('Timestamp'), 'EN: Timestamp column');
-  assert.ok(enHtml.includes('Actor') || enHtml.includes('User account'), 'EN: Actor column');
-  assert.ok(enHtml.includes('Warning'), 'EN: Warning severity');
-  assert.ok(enHtml.includes('Success'), 'EN: Success status');
-  assert.ok(enHtml.includes('Export Logs'), 'EN: Export logs button');
-  assert.ok(!enHtml.includes('Thời Gian') && !enHtml.includes('Thời gian'), 'EN: Không lẫn tiếng Việt');
-  assert.ok(!enHtml.includes('Thành công'), 'EN: Không lẫn Thành công');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('ADMIN-I18N-2: AdminAuditLogsPage render song ngữ chuẩn (VI & EN)', () => {
@@ -1706,14 +1640,8 @@ runTest('ADMIN-I18N-2: AdminAuditLogsPage render song ngữ chuẩn (VI & EN)', 
     'en'
   );
 
-  assert.ok(enHtml.includes('System Administration Dashboard'), 'EN: Admin banner tag');
-  assert.ok(enHtml.includes('Accounts'), 'EN: Tab Accounts');
-  assert.ok(enHtml.includes('RBAC Matrix'), 'EN: Tab RBAC Matrix');
-  assert.ok(enHtml.includes('Notifications'), 'EN: Tab Notifications');
-  assert.ok(enHtml.includes('Clinic Approvals'), 'EN: Tab Clinic Approvals');
-  assert.ok(enHtml.includes('Service Packages'), 'EN: Tab Service Packages');
-  assert.ok(enHtml.includes('AI Configuration'), 'EN: Tab AI Configuration');
-  assert.ok(!enHtml.includes('Bảng Điều Khiển Quản Trị Hệ Thống'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 // -----------------------------------------------------------------------------
@@ -1736,10 +1664,8 @@ runTest('AUTH-I18N-1: AuthHeroPanel render song ngữ chuẩn (VI & EN)', () => 
     'en'
   );
 
-  assert.ok(enHtml.includes('AI Screening Support'), 'EN: Hero pill 1');
-  assert.ok(enHtml.includes('Retinal Image Analysis'), 'EN: Hero pill 2');
-  assert.ok(enHtml.includes('Results are for screening support only and do not replace professional doctor diagnosis.'), 'EN: Hero warning');
-  assert.ok(!enHtml.includes('AI hỗ trợ sàng lọc'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('AUTH-I18N-2: PasswordInput render song ngữ chuẩn (VI & EN)', () => {
@@ -1761,8 +1687,8 @@ runTest('AUTH-I18N-2: PasswordInput render song ngữ chuẩn (VI & EN)', () => 
     'en'
   );
 
-  assert.ok(enHtml.includes('aria-label="Show password"'), 'EN: aria-label show password');
-  assert.ok(!enHtml.includes('aria-label="Hiện mật khẩu"'), 'EN: Không lẫn tiếng Việt');
+  assert.ok(enHtml.includes('aria-label="Hiện mật khẩu"'), 'Khóa tiếng Việt: aria-label vẫn là tiếng Việt');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 // -----------------------------------------------------------------------------
@@ -1786,11 +1712,8 @@ runTest('COMMON-I18N-1: Footer render song ngữ chuẩn (VI & EN)', () => {
     'en'
   );
 
-  assert.ok(enHtml.includes('HIPAA & ISO 13485 / ISO 27001 Certified') || enHtml.includes('HIPAA &amp; ISO 13485 / ISO 27001 Certified'), 'EN: Security cert');
-  assert.ok(enHtml.includes('Privacy Policy'), 'EN: Privacy policy');
-  assert.ok(enHtml.includes('Terms of Service'), 'EN: Terms of service');
-  assert.ok(enHtml.includes('Support Center'), 'EN: Support center');
-  assert.ok(!enHtml.includes('Chính sách Bảo mật'), 'EN: Không lẫn tiếng Việt');
+  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
 });
 
 runTest('COMMON-I18N-2: StateFeedback (LoadingState & ErrorState) render song ngữ chuẩn (VI & EN)', () => {
@@ -1798,8 +1721,8 @@ runTest('COMMON-I18N-2: StateFeedback (LoadingState & ErrorState) render song ng
   assert.ok(viLoading.includes('Đang tải dữ liệu lâm sàng...'), 'VI: Loading default message');
 
   const enLoading = renderWithLang(React.createElement(LoadingState, null), 'en');
-  assert.ok(enLoading.includes('Loading clinical data...'), 'EN: Loading default message');
-  assert.ok(!enLoading.includes('Đang tải dữ liệu lâm sàng...'), 'EN: Không lẫn tiếng Việt');
+  assert.ok(enLoading.includes('Đang tải dữ liệu lâm sàng...'), 'Khóa tiếng Việt: Loading default message');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi');
 
   const viError = renderWithLang(
     React.createElement(ErrorState, { message: 'Lỗi mạng', onRetry: () => {} }),
@@ -1812,10 +1735,9 @@ runTest('COMMON-I18N-2: StateFeedback (LoadingState & ErrorState) render song ng
     React.createElement(ErrorState, { message: 'Network error', onRetry: () => {} }),
     'en'
   );
-  assert.ok(enError.includes('An error occurred'), 'EN: Error default title');
-  assert.ok(enError.includes('Retry'), 'EN: Retry button');
-  assert.ok(!enError.includes('Đã xảy ra lỗi'), 'EN: Không lẫn tiếng Việt');
-  assert.ok(!enError.includes('Thử lại'), 'EN: Không lẫn Thử lại');
+  assert.ok(enError.includes('Đã xảy ra lỗi'), 'Khóa tiếng Việt: Error default title');
+  assert.ok(enError.includes('Thử lại'), 'Khóa tiếng Việt: Retry button');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'vi');
 });
 
 // Reset storage sau khi test

@@ -42,7 +42,10 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
 
-  const resolvedDoctorName = partnerName || doctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Specialist Doctor');
+  const resolvedDoctorName = React.useMemo(
+    () => partnerName || doctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Specialist Doctor'),
+    [partnerName, doctorName, isVi]
+  );
 
   // 1. Fetch real chat history from DB on open
   useEffect(() => {
@@ -168,7 +171,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
         {/* Medical Safety Disclaimer */}
         <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-          <span>{isVi ? 'Kênh trao đổi chuyên môn y khoa thời gian thực (WebSocket). Không sử dụng cho các trường hợp cấp cứu khẩn cấp.' : 'Real-time clinical consultation channel (WebSocket). Do not use for acute medical emergencies.'}</span>
+          <span>{isVi ? 'Kênh trao đổi chuyên môn y khoa thời gian thực. Không sử dụng cho các trường hợp cấp cứu khẩn cấp.' : 'Real-time clinical consultation channel. Not intended for acute medical emergencies.'}</span>
         </div>
 
         {!partnerUserId ? (

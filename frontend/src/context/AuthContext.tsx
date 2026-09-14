@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiFetch, getAccessToken, setAccessToken, type ApiErrorDetail } from '../services/api';
+import { stompClient } from '../services/websocketService';
 import type { UserSession } from '../types/auth';
 import type { UserRole } from '../types/cds';
 
@@ -114,7 +115,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (data: { fullName?: string; email: string; password: string; phone?: string; role?: string }): Promise<AuthResult> => {
-    const payload = { email: data.email.trim(), password: data.password, ...(data.fullName?.trim() ? { fullName: data.fullName.trim() } : {}) };
+    const payload: Record<string, any> = {
+      email: data.email.trim(),
+      password: data.password,
+      ...(data.fullName?.trim() ? { fullName: data.fullName.trim() } : {}),
+      ...(data.role ? { role: data.role.toUpperCase() === 'CLINIC' ? 'CLINIC' : 'USER' } : {}),
+    };
     const response = await apiFetch<BackendUser>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify(payload) });
     return { success: response.success, message: response.message, code: response.code, details: response.details };
   };
@@ -133,6 +139,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('AURA_CLINIC_BATCH_JOB_ANONYMOUS');
     } catch {
       // Bỏ qua lỗi truy cập storage
+    }
+
+    try {
+      stompClient.disconnect();
+    } catch {
+      // Ignore disconnect error
     }
 
     await apiFetch('/api/v1/auth/logout', { method: 'POST' });

@@ -1,5 +1,6 @@
 import React from 'react';
-import { ShieldCheck, AlertTriangle, AlertCircle, HelpCircle, Info } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, AlertCircle, HelpCircle } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export type RiskLevelType =
   | 'Low'
@@ -29,6 +30,7 @@ export const RiskBadge: React.FC<RiskBadgeProps> = ({
   showIcon = true,
   className = '',
 }) => {
+  const { t, isVi } = useLanguage();
   const normLevel = (level || 'LOW').toUpperCase();
 
   const config = (() => {
@@ -36,27 +38,27 @@ export const RiskBadge: React.FC<RiskBadgeProps> = ({
       case 'NORMAL':
       case 'LOW':
         return {
-          label: 'Nguy cơ Thấp',
+          label: isVi ? 'Nguy cơ Thấp' : 'Low Risk',
           classes: 'bg-emerald-50 text-emerald-800 border-emerald-200',
           icon: <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />,
         };
       case 'MODERATE':
       case 'MEDIUM':
         return {
-          label: 'Nguy cơ Trung bình',
+          label: isVi ? 'Nguy cơ Trung bình' : 'Moderate Risk',
           classes: 'bg-amber-50 text-amber-800 border-amber-200',
           icon: <AlertCircle className="w-3.5 h-3.5 text-amber-600" />,
         };
       case 'HIGH':
         return {
-          label: 'Nguy cơ Cao',
+          label: isVi ? 'Nguy cơ Cao' : 'High Risk',
           classes: 'bg-orange-50 text-orange-800 border-orange-200',
           icon: <AlertTriangle className="w-3.5 h-3.5 text-orange-600" />,
         };
       case 'CRITICAL':
       case 'SEVERE':
         return {
-          label: 'Nguy kịch',
+          label: isVi ? 'Nguy kịch' : 'Critical Risk',
           classes: 'bg-red-50 text-red-800 border-red-200 font-bold',
           icon: <AlertTriangle className="w-3.5 h-3.5 text-red-600" />,
         };
@@ -64,13 +66,13 @@ export const RiskBadge: React.FC<RiskBadgeProps> = ({
       case 'INCONCLUSIVE':
       case 'REQUIRES_RETEST':
         return {
-          label: 'Cần thẩm định lại',
+          label: isVi ? 'Cần thẩm định lại' : 'Unverified / Re-test',
           classes: 'bg-slate-50 text-slate-700 border-slate-200',
           icon: <HelpCircle className="w-3.5 h-3.5 text-slate-500" />,
         };
       default:
         return {
-          label: level || 'Cần thẩm định lại',
+          label: level || (isVi ? 'Cần thẩm định lại' : 'Unverified'),
           classes: 'bg-slate-50 text-slate-700 border-slate-200',
           icon: <HelpCircle className="w-3.5 h-3.5 text-slate-500" />,
         };

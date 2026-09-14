@@ -102,7 +102,7 @@ public class BulkScreeningController {
             @AuthenticationPrincipal AuraUserPrincipal principal) {
         if (request.imageItems() == null || request.imageItems().isEmpty()) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Danh sách ảnh tải lên không được để trống (Yêu cầu ít nhất 1 ảnh DICOM/PNG)."));
+                    .body(Map.of("success", false, "message", "Danh sách ảnh tải lên không được để trống (Yêu cầu ít nhất 1 ảnh DICOM/PNG)."));
         }
 
         String effectiveClinicId;
@@ -252,11 +252,11 @@ public class BulkScreeningController {
         BatchJobResponseDto status = jobQueue.getBatchStatus(batchId);
         if (status == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "Không tìm thấy đợt sàng lọc hàng loạt với Mã ID: " + batchId));
+                    .body(Map.of("success", false, "message", "Không tìm thấy đợt sàng lọc hàng loạt với Mã ID: " + batchId));
         }
         if (!isAuthorizedForBatch(status, principal)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác."));
+                    .body(Map.of("success", false, "message", "Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác."));
         }
 
         return ResponseEntity.ok(status);
@@ -281,11 +281,11 @@ public class BulkScreeningController {
         BulkBatchRiskStatisticsDto stats = jobQueue.calculateRiskStatistics(batchId);
         if (stats == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "Không tìm thấy đợt sàng lọc với Mã ID: " + batchId));
+                    .body(Map.of("success", false, "message", "Không tìm thấy đợt sàng lọc với Mã ID: " + batchId));
         }
         if (!isAuthorizedForClinic(stats.clinicId(), principal)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác."));
+                    .body(Map.of("success", false, "message", "Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác."));
         }
         return ResponseEntity.ok(stats);
     }

@@ -355,12 +355,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     rawCvdScore >= 80
-                      ? 'bg-rose-600'
+                      ? 'bg-[#DC2626]'
                       : rawCvdScore >= 65
-                      ? 'bg-orange-500'
+                      ? 'bg-[#EA580C]'
                       : rawCvdScore >= 40
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-500'
+                      ? 'bg-[#D97706]'
+                      : 'bg-[#16A34A]'
                   }`}
                   style={{ width: `${Math.min(100, Math.max(0, rawCvdScore))}%` }}
                 />
@@ -378,7 +378,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
                 <span className="text-[10px] text-slate-400 block font-medium">{isVi ? 'Nguy cơ đột quỵ 3 năm' : '3-Year Stroke Risk'}</span>
                 <strong className="text-slate-900 font-black font-mono-data block mt-0.5">
-                  {analysisResult.cardiovascularRisk?.threeYearStrokeRiskPercent ?? rawCvdScore}%
+                  {analysisResult.cardiovascularRisk?.threeYearStrokeRiskPercent != null
+                    ? `${analysisResult.cardiovascularRisk.threeYearStrokeRiskPercent}%`
+                    : (isVi ? 'Chưa xác định' : 'Undetermined')}
                 </strong>
               </div>
             </div>
@@ -409,12 +411,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     rawDrScore >= 80
-                      ? 'bg-rose-600'
+                      ? 'bg-[#DC2626]'
                       : rawDrScore >= 65
-                      ? 'bg-orange-500'
+                      ? 'bg-[#EA580C]'
                       : rawDrScore >= 40
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-500'
+                      ? 'bg-[#D97706]'
+                      : 'bg-[#16A34A]'
                   }`}
                   style={{ width: `${Math.min(100, Math.max(0, rawDrScore))}%` }}
                 />
@@ -463,12 +465,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     glaucomaScore >= 80
-                      ? 'bg-rose-600'
+                      ? 'bg-[#DC2626]'
                       : glaucomaScore >= 65
-                      ? 'bg-orange-500'
+                      ? 'bg-[#EA580C]'
                       : glaucomaScore >= 40
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-500'
+                      ? 'bg-[#D97706]'
+                      : 'bg-[#16A34A]'
                   }`}
                   style={{ width: `${Math.min(100, Math.max(0, glaucomaScore))}%` }}
                 />
@@ -810,7 +812,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                         <th className="py-2.5 px-4">{isVi ? 'Chỉ số sinh học' : 'Biomarker'}</th>
                         <th className="py-2.5 px-4 text-center">{isVi ? 'Giá trị' : 'Value'}</th>
                         <th className="py-2.5 px-4 text-center">{isVi ? 'Dải chuẩn' : 'Reference Range'}</th>
-                        <th className="py-2.5 px-4">{isVi ? 'Đánh giá lâm sàng (AI)' : 'Clinical Evaluation (AI)'}</th>
+                        <th className="py-2.5 px-4">{isVi ? 'Đánh giá lâm sàng' : 'Clinical Evaluation'}</th>
                         <th className="py-2.5 px-4 text-center">{isVi ? 'Trạng thái' : 'Status'}</th>
                       </tr>
                     </thead>
@@ -818,7 +820,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                       {/* 1. AVR */}
                       <tr className="hover:bg-slate-50/50">
                         <td className="py-2.5 px-4 font-semibold text-slate-800">
-                          <div>{isVi ? 'Tỷ lệ động/tĩnh mạch võng mạc (AVR)' : 'Retinal Arteriovenous Ratio (AVR)'}</div>
+                          <div>{isVi ? 'Tỷ lệ động/tĩnh mạch võng mạc' : 'Retinal Arteriovenous Ratio'}</div>
                           <div className="text-[10px] text-slate-400 font-normal">Artery-to-Vein Ratio</div>
                         </td>
                         <td className="py-2.5 px-4 text-center font-mono-data font-bold text-slate-900">

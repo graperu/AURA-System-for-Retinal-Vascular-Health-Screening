@@ -59,7 +59,7 @@ aura:
       api-key: ${GEMINI_API_KEY:}
       model: ${GEMINI_MODEL:ag/gemini-3.7-flash-high}
   anonymization:
-    hmac-secret: AURA_HIPAA_NFR_JAVA_HMAC_SECRET_2026
+    hmac-secret: ${HIPAA_HMAC_SECRET:AURA_HIPAA_NFR_JAVA_HMAC_SECRET_2026}
   signature:
     secret: ${REVIEW_SIGNATURE_SECRET:AURA_REVIEW_SIGNATURE_SECRET_2026}
 payment:

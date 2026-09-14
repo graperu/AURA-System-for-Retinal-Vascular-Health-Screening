@@ -433,7 +433,7 @@ export const MOCK_SAMPLE_RESULT: AIRiskResult = {
         'Phát hiện 3 vùng vi phình mạch kèm xuất huyết chấm nông khu vực hoàng điểm, dấu hiệu đặc trưng của tổn thương vi mạch do đái tháo đường.',
     },
     {
-      title: 'Độ Uốn Lượn Mạch Máu (Vessel Tortuosity)',
+      title: 'Độ Uốn Lượn Mạch Máu',
       impact: 'Medium',
       clinicalRationale:
         'Chỉ số uốn lượn 1.42 vượt mức bình thường, liên quan tới biến đổi áp lực dòng chảy động mạch cảnh.',
@@ -464,7 +464,7 @@ export class MockAIService {
     onProgress: (status: string, percent: number) => void
   ): Promise<AIRiskResult> {
     const steps = [
-      { status: 'Gửi ảnh tới AI Microservice (PyTorch)...', percent: 20, delay: 600 },
+      { status: 'Gửi ảnh tới AI Microservice...', percent: 20, delay: 600 },
       { status: 'Tiền xử lý ảnh võng mạc & Anonymization HIPAA...', percent: 45, delay: 800 },
       { status: 'Trích xuất mạng lưới vi mạch & Chỉ số A/V Ratio...', percent: 75, delay: 900 },
       { status: 'Hoàn tất phân tích & Sinh bản đồ nhiệt Grad-CAM...', percent: 100, delay: 500 },
@@ -478,26 +478,7 @@ export class MockAIService {
     const uploadedImageUrl = request.imageUrl || '/assets/images/fundus_original.png';
     let dynamicHeatmapUrl = '';
 
-    // Try calling real FastAPI microservice if file is available
-    if (request.file) {
-      try {
-        const formData = new FormData();
-        formData.append('file', request.file);
-        formData.append('eye', request.eyePosition === 'Right_OD' ? 'OD' : 'OS');
-        const res = await fetch('/ai/api/v1/predict/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        if (res.ok) {
-          const aiData = await res.json();
-          if (aiData.heatmap_base64) {
-            dynamicHeatmapUrl = aiData.heatmap_base64;
-          }
-        }
-      } catch {
-        // Fallback to client-side dynamic heatmap generator
-      }
-    }
+    // Generate client-side dynamic Grad-CAM heatmap if needed
 
     // Compute a deterministic hash based on image data/filename/size to vary scores naturally per image
     let hash = 0;

@@ -16,10 +16,10 @@ import { useLanguage } from '../context/LanguageContext';
 
 const BATCH_STATUS_OPTIONS: ClinicalSelectOption<string>[] = [
   { value: 'ALL', label: 'Tất cả Trạng thái' },
-  { value: 'DONE', label: 'Đã xong (DONE)', riskLevel: 'low' },
+  { value: 'DONE', label: 'Đã hoàn thành', riskLevel: 'low' },
   { value: 'PROCESSING', label: 'Đang xử lý', riskLevel: 'moderate' },
   { value: 'PENDING', label: 'Chờ hàng đợi' },
-  { value: 'FAILED', label: 'Lỗi (FAILED)', riskLevel: 'critical' },
+  { value: 'FAILED', label: 'Lỗi xử lý', riskLevel: 'critical' },
 ];
 
 const BATCH_RISK_OPTIONS: ClinicalSelectOption<string>[] = [
@@ -39,13 +39,13 @@ const BATCH_SORT_OPTIONS: ClinicalSelectOption<string>[] = [
   { value: 'NEWEST', label: 'Mới nhất trước' },
   { value: 'OLDEST', label: 'Cũ nhất trước' },
   { value: 'RISK_DESC', label: 'Nguy cơ cao nhất' },
-  { value: 'MRN_ASC', label: 'Sắp theo MRN (A-Z)' },
+  { value: 'MRN_ASC', label: 'Sắp theo mã MRN tăng dần' },
 ];
 
 const PAGE_SIZE_OPTIONS: ClinicalSelectOption<number>[] = [
   { value: 25, label: '25 ảnh / trang' },
   { value: 50, label: '50 ảnh / trang' },
-  { value: 100, label: '100 ảnh / trang (Chuẩn FR-24)' },
+  { value: 100, label: '100 ảnh / trang' },
   { value: -1, label: 'Tất cả ảnh' },
 ];
 import {

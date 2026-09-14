@@ -100,13 +100,30 @@ public class GlobalExceptionHandler {
         ApiErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR, exception.getMessage(), List.of()));
   }
 
+  @ExceptionHandler(com.aura.user.exception.UserNotFoundException.class)
+  ResponseEntity<ApiErrorResponse> handleUserNotFound(com.aura.user.exception.UserNotFoundException exception) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        ApiErrorResponse.of(ErrorCode.RESOURCE_NOT_FOUND, exception.getMessage(), List.of()));
+  }
+
+  @ExceptionHandler({
+      com.aura.billing.exception.PackageInactiveException.class,
+      com.aura.billing.exception.PackageScopeMismatchException.class
+  })
+  ResponseEntity<ApiErrorResponse> handleBillingValidation(RuntimeException exception) {
+    return response(
+        HttpStatus.BAD_REQUEST,
+        ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, exception.getMessage(), List.of()));
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiErrorResponse> handleUnexpected(Exception exception) {
     org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Unexpected error in request: ", exception);
     return response(
         HttpStatus.INTERNAL_SERVER_ERROR,
         ApiErrorResponse.of(
-            ErrorCode.INTERNAL_SERVER_ERROR, "An unexpected error occurred: " + exception.getMessage(), List.of()));
+            ErrorCode.INTERNAL_SERVER_ERROR, "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.", List.of()));
   }
 
   private ErrorDetail toDetail(FieldError error) {

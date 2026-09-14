@@ -9,7 +9,7 @@ export const getAnalysisStatusMessage = (p: number): string => {
   if (p < 25) {
     return 'Khởi tạo mã hóa bảo mật & tiền xử lý ảnh võng mạc...';
   } else if (p < 60) {
-    return 'AURA AI Core (Multimodal Vision) đang phân tích vi mạch...';
+    return 'Hệ thống AURA AI đang phân tích vi mạch...';
   } else if (p < 85) {
     return 'Nhận diện vi phình mạch, xuất huyết & tính toán Biomarkers...';
   } else if (p < 95) {

@@ -54,6 +54,15 @@ public class PatientProfileController {
         profileService.updateProfile(principal.id(), request));
   }
 
+  @PostMapping
+  public ApiResponse<PatientProfileResponse> createOrUpdateMyProfile(
+      @AuthenticationPrincipal AuraUserPrincipal principal,
+      @Valid @RequestBody UpdatePatientProfileRequest request) {
+    requirePrincipal(principal);
+    return ApiResponse.success("Lưu thông tin hồ sơ y tế thành công",
+        profileService.updateProfile(principal.id(), request));
+  }
+
   @GetMapping("/{patientId}")
   @PreAuthorize("@patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<PatientProfileResponse> getPatientProfileById(

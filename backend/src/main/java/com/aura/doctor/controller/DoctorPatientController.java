@@ -168,7 +168,7 @@ public class DoctorPatientController {
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN', 'CLINIC')")
   @ResponseStatus(HttpStatus.CREATED)
   @Operation(summary = "Create new patient profile")
-  public ApiResponse<PatientProfileDto> createPatient(@RequestBody PatientProfile patient) {
+  public ApiResponse<PatientProfileDto> createPatient(@jakarta.validation.Valid @RequestBody PatientProfile patient) {
     PatientProfileDto created = profileService.createPatient(patient);
     return ApiResponse.success("Tạo hồ sơ bệnh nhân mới thành công", created);
   }
@@ -178,7 +178,7 @@ public class DoctorPatientController {
   @Operation(summary = "Update patient profile")
   public ApiResponse<PatientProfileDto> updatePatient(
       @PathVariable UUID id,
-      @RequestBody PatientProfile patient,
+      @jakarta.validation.Valid @RequestBody PatientProfile patient,
       @AuthenticationPrincipal AuraUserPrincipal principal) {
 
     boolean isDoctor = principal != null && principal.roles() != null && principal.roles().contains("DOCTOR");

@@ -5,17 +5,27 @@ import { AIRiskResult, RiskLevel, VesselAnomalyRegion } from '../types/cds';
  * Low/Moderate/High) sang RiskLevel mà giao diện đang dùng ('Low' | 'Moderate' | 'High' | 'Severe').
  */
 export const toFrontendRiskLevel = (level?: string | null): RiskLevel => {
-  switch ((level || '').toUpperCase()) {
+  if (!level || !level.trim()) return 'Unverified';
+  switch (level.trim().toUpperCase()) {
     case 'CRITICAL':
     case 'SEVERE':
-      return 'Severe';
+      return 'Critical';
     case 'HIGH':
       return 'High';
     case 'MODERATE':
     case 'MEDIUM':
       return 'Moderate';
-    default:
+    case 'LOW':
+    case 'NORMAL':
       return 'Low';
+    case 'UNVERIFIED':
+    case 'INCONCLUSIVE':
+    case 'REQUIRES_RETEST':
+    case 'PENDING':
+    case 'UNKNOWN':
+      return 'Unverified';
+    default:
+      return 'Unverified';
   }
 };
 
@@ -159,12 +169,12 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
     },
     xaiExplainability: [
       {
-        title: 'Phân Tích Cấu Trúc Vi Mạch (AURA AI)',
+        title: 'Phân Tích Cấu Trúc Vi Mạch AURA AI',
         impact: cvdScore >= 65 ? 'High' : cvdScore >= 40 ? 'Medium' : 'Low',
         clinicalRationale: screening.findings || 'Đang chờ dữ liệu phân tích chi tiết.',
       },
       {
-        title: 'Khuyến Nghị Sức Khỏe Tự Động (FR-5)',
+        title: 'Khuyến Nghị Sức Khỏe Tự Động',
         impact: cvdScore >= 65 ? 'High' : 'Medium',
         clinicalRationale: screening.recommendations || 'Chưa có khuyến nghị.',
       },

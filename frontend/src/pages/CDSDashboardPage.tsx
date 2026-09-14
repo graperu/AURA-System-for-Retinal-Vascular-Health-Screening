@@ -575,7 +575,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                 <h3 className="text-base font-bold text-slate-800">{t('doctor.cds.noResultsYet', 'Chưa Có Kết Quả Sàng Lọc')}</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
                   {isVi
-                    ? `Bệnh nhân ${activePatient.fullName || activePatient.mrn || 'này'} chưa có ca sàng lọc nào trong hệ thống. Bác sĩ có thể tải lên ảnh chụp đáy mắt (Fundus) ở bảng bên trái để thực hiện phân tích và đánh giá nguy cơ vi mạch.`
+                    ? `Bệnh nhân ${activePatient.fullName || activePatient.mrn || 'này'} chưa có ca sàng lọc nào trong hệ thống. Bác sĩ có thể tải lên ảnh chụp đáy mắt ở bảng bên trái để thực hiện phân tích và đánh giá nguy cơ vi mạch.`
                     : `Patient ${activePatient.fullName || activePatient.mrn || 'this patient'} has no screening records in the system yet. You can upload a retinal fundus scan on the left to analyze microvascular risks.`}
                 </p>
               </div>

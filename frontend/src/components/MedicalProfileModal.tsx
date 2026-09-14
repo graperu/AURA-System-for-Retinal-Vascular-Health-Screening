@@ -89,8 +89,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
 
   const diabetesTypeOptions = useMemo<ClinicalSelectOption<string>[]>(
     () => [
-      { value: 'Type1', label: isVi ? 'Type 1 (Phụ thuộc Insulin)' : 'Type 1 (Insulin-dependent)' },
-      { value: 'Type2', label: isVi ? 'Type 2 (Không phụ thuộc Insulin)' : 'Type 2 (Non-insulin dependent)' },
+      { value: 'Type1', label: isVi ? 'Type 1 - Phụ thuộc Insulin' : 'Type 1 - Insulin-dependent' },
+      { value: 'Type2', label: isVi ? 'Type 2 - Không phụ thuộc Insulin' : 'Type 2 - Non-insulin dependent' },
       { value: 'Gestational', label: isVi ? 'Đái tháo đường thai kỳ' : 'Gestational diabetes' },
       { value: 'Other', label: isVi ? 'Khác' : 'Other' },
     ],
@@ -207,7 +207,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
     if (formState.hba1c.trim() === '') return null;
     const val = Number(formState.hba1c);
     if (isNaN(val) || val < 2.0 || val > 20.0) {
-      return isVi ? 'Chỉ số HbA1c phải từ 2.0% đến 20.0% (để trống nếu chưa đo)' : 'HbA1c must be between 2.0% and 20.0% (leave blank if not measured)';
+      return isVi ? 'Chỉ số HbA1c phải từ 2.0% đến 20.0%' : 'HbA1c must be between 2.0% and 20.0%';
     }
     return null;
   }, [formState.hba1c, isVi]);
@@ -468,7 +468,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {isVi ? 'Tuổi' : 'Age'} {formState.dateOfBirth ? (isVi ? '(Tự động tính từ ngày sinh)' : '(Computed from DOB)') : ''}
+                      {isVi ? 'Tuổi' : 'Age'} {formState.dateOfBirth ? (isVi ? '- Tự động tính theo ngày sinh' : '- Computed from DOB') : ''}
                     </label>
                     <input
                       type="number"
@@ -696,7 +696,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> {isVi ? 'Tiền Sử Dị Ứng (Thuốc / Thức ăn / Dị nguyên)' : 'Allergy History (Drugs / Food / Allergens)'}
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> {isVi ? 'Tiền Sử Dị Ứng' : 'Allergy History'}
                   </label>
                   <input
                     type="text"
