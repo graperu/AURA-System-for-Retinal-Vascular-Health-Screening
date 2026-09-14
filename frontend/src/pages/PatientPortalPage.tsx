@@ -437,9 +437,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     <div className="space-y-6 animate-fadeIn">
       {/* Toast Notification (FR-9) */}
       {showAiNotification && analysisResult && (
-        <div className="fixed top-20 right-6 z-50 max-w-md bg-white border-2 border-emerald-500 rounded-2xl p-4 shadow-2xl animate-slideInRight flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
-            <Bell className="w-5 h-5 animate-bounce" />
+        <div className="fixed top-20 right-6 z-50 max-w-md bg-white border border-emerald-200 rounded-xl p-4 shadow-medical-modal animate-slideInRight flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+            <Bell className="w-5 h-5" />
           </div>
           <div className="flex-1 space-y-1">
             <div className="flex items-center justify-between">
@@ -453,7 +453,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <p className="text-xs text-slate-600 leading-snug">
               Ảnh võng mạc của bạn đã được phân tích hoàn tất! Điểm rủi ro tổng
               hợp:{" "}
-              <strong className="text-red-600 font-bold">
+              <strong className="text-slate-900 font-bold font-mono-data">
                 {analysisResult.overallVascularRiskScore}/100
               </strong>
               .
@@ -469,8 +469,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       )}
 
       {analysisErrorMsg && (
-        <div className="fixed top-20 right-6 z-50 max-w-md bg-white border-2 border-red-500 rounded-2xl p-4 shadow-2xl animate-slideInRight flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-red-100 text-red-700">
+        <div className="fixed top-20 right-6 z-50 max-w-md bg-white border border-red-200 rounded-xl p-4 shadow-medical-modal animate-slideInRight flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-red-50 text-red-600 shrink-0">
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div className="flex-1 space-y-1">
@@ -491,37 +491,38 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       )}
 
       {/* Top Patient Hero Banner */}
-      <div className="bg-gradient-to-r from-[#24376f] via-[#115E59] to-[#0891B2] text-white rounded-2xl p-6 sm:p-7 shadow-medical-card flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-96 bg-cyan-400/10 blur-3xl pointer-events-none" />
+      <div className="bg-white border border-clinical-border shadow-medical-card rounded-2xl p-6 sm:p-7 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+        {/* Subtle Brand Accent Stripe on Top */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-600 via-brand-500 to-teal-500" />
 
         <div className="flex items-center gap-4 z-10">
-          <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-md text-white border border-white/25 flex items-center justify-center font-bold text-xl shadow-inner">
+          <div className="w-14 h-14 rounded-2xl bg-brand-50 text-brand-600 border border-brand-100 flex items-center justify-center font-bold text-xl shadow-medical-xs shrink-0">
             <UserCheck className="w-7 h-7" />
           </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-clinical-text">
                 {patient.fullName}
               </h1>
-              <span className="text-xs px-3 py-0.5 rounded-full bg-white/20 text-white font-bold font-mono-data border border-white/30 backdrop-blur-xs">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-clinical-text-secondary font-semibold font-mono-data border border-clinical-border">
                 {patient.mrn || "Chưa có MRN"}
               </span>
             </div>
-            <p className="text-xs text-cyan-100/90 mt-1.5 flex flex-wrap items-center gap-3">
+            <p className="text-xs text-clinical-text-muted mt-1.5 flex flex-wrap items-center gap-3">
               <span>
                 Bác sĩ phụ trách:{" "}
-                <strong className="text-white">
+                <strong className="text-clinical-text-secondary font-semibold">
                   {patient.assignedDoctor || "Đang chờ phân công bác sĩ"}
                 </strong>
               </span>
               <span>
                 Lần khám gần nhất:{" "}
-                <strong className="text-white">
+                <strong className="text-clinical-text-secondary font-semibold font-mono-data">
                   {patient.lastExamDate || "Chưa có lần khám"}
                 </strong>
               </span>
-              <span className="flex items-center gap-1 text-emerald-300 font-bold">
-                <ShieldCheck className="w-4 h-4" /> Khám Định Kỳ Võng Mạc
+              <span className="flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Khám Định Kỳ Võng Mạc
               </span>
             </p>
           </div>
@@ -531,13 +532,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         <div className="z-10 flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => onNavigate("upload-scan")}
-            className="px-4 py-2.5 bg-white text-[#0891B2] hover:bg-cyan-50 font-bold rounded-xl text-xs shadow-md transition-all flex items-center gap-1.5 active:scale-95"
+            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
           >
             <UploadCloud className="w-4 h-4" /> Tải Ảnh Khám Mới
           </button>
           <button
             onClick={() => setIsProfileModalOpen(true)}
-            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl text-xs border border-white/30 backdrop-blur-sm transition-all flex items-center gap-1.5"
+            className="px-4 py-2.5 bg-clinical-surface-subtle hover:bg-slate-100 text-clinical-text-secondary font-bold rounded-xl text-xs border border-clinical-border transition-all flex items-center gap-1.5"
           >
             <UserCog className="w-4 h-4" /> Hồ Sơ Y Tế
           </button>
@@ -583,23 +584,24 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       ========================================================================== */}
       {activeView === "cds-viewer" && (
         <div className="space-y-6">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Eye className="w-5 h-5 text-[#0891B2]" />
-                Trực Quan Ảnh Võng Mạc & Bản Đồ Nhiệt Grad-CAM Heatmap (FR-4)
+                Bản Đồ Soi Vùng Tổn Thương Võng Mạc
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Kéo thanh trượt Opacity để soi rõ các nhánh mao mạch và vùng tổn
-                thương vi mạch do AI phát hiện.
+                Kéo thanh trượt để so sánh ảnh chụp gốc với các vùng màu AI phát hiện bất thường.
               </p>
             </div>
-            <button
-              onClick={() => setIsReportModalOpen(true)}
-              className="px-4 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
-            >
-              <Download className="w-4 h-4" /> Xuất Báo Cáo PDF/CSV
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsReportModalOpen(true)}
+                className="px-3.5 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+              >
+                <Download className="w-4 h-4" /> Xuất Báo Cáo
+              </button>
+            </div>
           </div>
 
           {analysisResult ? (

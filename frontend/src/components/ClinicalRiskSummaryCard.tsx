@@ -276,12 +276,19 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
 
         {/* 3. BẢNG CHỈ SỐ SINH HỌC ĐỊNH LƯỢNG (BIOMARKERS) */}
         <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <div className="bg-slate-100/80 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <Activity className="w-4 h-4 text-brand-600" />
-              Chỉ Số Sinh Học Định Lượng Mạch Máu Võng Mạc (Retinal Biomarkers)
-            </h3>
-            <span className="text-[11px] text-slate-500">Trích xuất tự động qua AI Multimodal</span>
+          <div className="bg-slate-100/80 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Activity className="w-4 h-4 text-brand-600" />
+                Thông Số Mạch Máu Chi Tiết (Dành Cho Bác Sĩ Tham Khảo)
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Các chỉ số kỹ thuật bên dưới giúp bác sĩ đánh giá chính xác độ co thắt và tuần hoàn đáy mắt.
+              </p>
+            </div>
+            <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded-full w-fit">
+              AI Trích Xuất Tự Động
+            </span>
           </div>
 
           <div className="overflow-x-auto">

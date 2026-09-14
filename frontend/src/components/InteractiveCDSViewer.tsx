@@ -10,6 +10,9 @@ import {
   Target,
   Info,
   Moon,
+  Sparkles,
+  HelpCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
@@ -30,9 +33,9 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
   const [isDarkRoom, setIsDarkRoom] = useState<boolean>(false);
 
-  const anomalies = analysisResult.annotatedMap.detectedAnomalies || [];
+  const anomalies = analysisResult.annotatedMap?.detectedAnomalies || [];
   const rawImage = analysisResult.imageUrl || '/assets/images/fundus_original.png';
-  const heatmapImg = analysisResult.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.png';
+  const heatmapImg = analysisResult.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.png';
 
   return (
     <Card
@@ -41,129 +44,120 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
         isDarkRoom ? 'bg-darkroom-card border-darkroom-border text-darkroom-text' : 'bg-white'
       }`}
     >
-      {/* Header Toolbar */}
+      {/* 1. Tiêu đề tinh gọn, dễ hiểu cho người bệnh */}
       <div
-        className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4 ${
+        className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b pb-3.5 px-2 sm:px-3 pt-1 ${
           isDarkRoom ? 'border-darkroom-border' : 'border-clinical-border'
         }`}
       >
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2
               className={`text-base sm:text-lg font-bold flex items-center gap-2 ${
-                isDarkRoom ? 'text-darkroom-text' : 'text-clinical-text'
+                isDarkRoom ? 'text-darkroom-text' : 'text-slate-900'
               }`}
             >
               <Eye className="w-5 h-5 text-brand-600" />
-              Bàn Chẩn Đoán Tương Tác CDS (Fundus & Grad-CAM Heatmap Viewer)
+              <span>Bàn Chẩn Đoán Tương Tác CDS (Fundus &amp; Grad-CAM Heatmap Viewer)</span>
             </h2>
             <span
               className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
                 isDarkRoom
-                  ? 'bg-slate-800 text-cyan-300 border-slate-700 font-mono-data'
-                  : 'bg-slate-100 text-slate-700 border-clinical-border'
+                  ? 'bg-slate-800 text-cyan-300 border-slate-700'
+                  : 'bg-teal-50 text-teal-800 border-teal-200'
               }`}
             >
               {selectedEye}
             </span>
           </div>
           <p
-            className={`text-xs mt-0.5 ${
-              isDarkRoom ? 'text-slate-400' : 'text-clinical-text-muted'
+            className={`text-xs mt-1 leading-relaxed ${
+              isDarkRoom ? 'text-slate-400' : 'text-slate-600'
             }`}
           >
-            Bản đồ chú ý AI (Grad-CAM) làm nổi bật các vùng ảnh ảnh hưởng nhiều đến dự đoán vi mạch võng mạc.
+            AI làm nổi bật các nhánh mạch máu bằng màu sắc. Vùng <strong className="text-rose-600">màu đỏ/vàng</strong> là nơi có dấu hiệu bất thường cần bác sĩ lưu ý.
           </p>
         </div>
 
-        {/* View Controls */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Dark Room Ophthalmology Mode Toggle Button */}
+        {/* Các nút công cụ tinh giản */}
+        <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
+          {/* Nút Buồng Tối */}
           <button
             type="button"
             onClick={() => setIsDarkRoom(!isDarkRoom)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
               isDarkRoom
                 ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50 shadow-xs'
-                : 'bg-slate-50 text-slate-700 border-clinical-border hover:bg-slate-100'
+                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
-            title="Chuyển đổi Buồng Tối khám mắt (Dark Room Mode - Nền Obsidian chống lóa)"
+            title="Chế độ nền tối giúp nhìn rõ mạch máu hơn"
           >
-            <Moon className={`w-4 h-4 ${isDarkRoom ? 'text-cyan-400 fill-cyan-400/30' : 'text-slate-500'}`} />
+            <Moon className={`w-3.5 h-3.5 ${isDarkRoom ? 'text-cyan-400 fill-cyan-400/30' : 'text-slate-500'}`} />
             <span>{isDarkRoom ? 'Buồng Tối: BẬT' : 'Buồng Tối (Dark Room)'}</span>
           </button>
 
-          {/* Zoom Controls */}
+          {/* Phóng to / Thu nhỏ */}
           <div
-            className={`flex items-center rounded-lg p-1 border ${
-              isDarkRoom ? 'bg-darkroom-surface border-darkroom-border' : 'bg-slate-50 border-clinical-border'
+            className={`flex items-center rounded-xl p-0.5 border gap-0.5 ${
+              isDarkRoom ? 'bg-darkroom-surface border-darkroom-border' : 'bg-slate-50 border-slate-200'
             }`}
           >
             <button
               onClick={() => setZoomLevel((z) => Math.max(0.8, z - 0.2))}
-              className={`p-1 transition-colors ${
-                isDarkRoom ? 'text-slate-400 hover:text-cyan-300' : 'text-slate-600 hover:text-brand-600'
-              }`}
+              className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors"
               title="Thu nhỏ"
             >
-              <ZoomOut className="w-4 h-4" />
+              <ZoomOut className="w-3.5 h-3.5" />
             </button>
             <span
-              className={`text-xs font-mono-data px-2 font-semibold ${
-                isDarkRoom ? 'text-slate-200' : 'text-slate-700'
+              className={`text-xs font-semibold px-1.5 min-w-[40px] text-center ${
+                isDarkRoom ? 'text-slate-200' : 'text-slate-800'
               }`}
             >
               {(zoomLevel * 100).toFixed(0)}%
             </span>
             <button
               onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
-              className={`p-1 transition-colors ${
-                isDarkRoom ? 'text-slate-400 hover:text-cyan-300' : 'text-slate-600 hover:text-brand-600'
-              }`}
+              className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors"
               title="Phóng to"
             >
-              <ZoomIn className="w-4 h-4" />
+              <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setZoomLevel(1.0)}
-              className={`p-1 ml-1 border-l pl-1.5 transition-colors ${
-                isDarkRoom
-                  ? 'border-darkroom-border text-slate-500 hover:text-slate-300'
-                  : 'border-clinical-border text-slate-400 hover:text-slate-700'
-              }`}
-              title="Đặt lại zoom"
+              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
+              title="Đặt lại kích thước chuẩn"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3 h-3" />
             </button>
           </div>
 
-          {/* Toggle Layers */}
+          {/* Lớp mạch máu */}
           <button
             onClick={() => setShowVesselsOverlay(!showVesselsOverlay)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
               showVesselsOverlay
-                ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
-                : isDarkRoom
-                ? 'bg-darkroom-surface text-slate-300 border-darkroom-border'
-                : 'bg-slate-50 text-slate-600 border-clinical-border'
+                ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            Mạch Máu Red/Blue
+            <Layers className="w-3.5 h-3.5" />
+            <span>Lớp Mạch Máu</span>
           </button>
         </div>
       </div>
 
-      {/* Heatmap Opacity & Controls Bar */}
+      {/* 2. Thanh trượt điều chỉnh bản đồ nhiệt & Hướng dẫn màu sắc */}
       <div
-        className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-4 text-xs ${
+        className={`p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${
           isDarkRoom
             ? 'bg-darkroom-surface border-darkroom-border text-slate-200'
-            : 'bg-slate-50 border-clinical-border text-clinical-text'
+            : 'bg-slate-50/80 border-slate-200 text-slate-800'
         }`}
       >
-        <div className="flex items-center gap-3 flex-1 min-w-[240px]">
-          <Sliders className={`w-4 h-4 ${isDarkRoom ? 'text-cyan-400' : 'text-brand-600'}`} />
+        {/* Thanh trượt Opacity */}
+        <div className="flex items-center gap-2.5 flex-1 w-full sm:w-auto">
+          <Sliders className="w-4 h-4 text-teal-600 shrink-0" />
           <span className="font-semibold whitespace-nowrap">Độ Mờ Heatmap:</span>
           <input
             type="range"
@@ -172,42 +166,46 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             step="0.05"
             value={heatmapOpacity}
             onChange={(e) => setHeatmapOpacity(parseFloat(e.target.value))}
-            className="w-full accent-brand-600 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg cursor-pointer"
+            className="w-full accent-teal-600 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer appearance-none"
+            aria-label="Độ mờ bản đồ nhiệt AI"
           />
-          <span
-            className={`font-mono-data font-bold w-10 text-right ${
-              isDarkRoom ? 'text-cyan-300' : 'text-slate-700'
-            }`}
-          >
+          <span className="font-bold font-mono text-teal-800 bg-teal-100/70 px-2 py-0.5 rounded text-xs min-w-[42px] text-center">
             {(heatmapOpacity * 100).toFixed(0)}%
           </span>
         </div>
 
-        <div
-          className={`flex items-center gap-4 text-[11px] border-l pl-4 ${
-            isDarkRoom
-              ? 'border-darkroom-border text-slate-300'
-              : 'border-clinical-border text-clinical-text-secondary'
-          }`}
-        >
-          <label className="flex items-center gap-1.5 cursor-pointer">
+        {/* Chú thích màu sắc trực quan (Legend) */}
+        <div className="flex items-center gap-3 text-[11px] flex-wrap pt-1 sm:pt-0 sm:border-l sm:pl-3 border-slate-200">
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
+            <span>Vùng chú ý cao</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
+            <span>Vùng theo dõi</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+            <span>Bình thường</span>
+          </span>
+          <label className="flex items-center gap-1.5 cursor-pointer ml-1">
             <input
               type="checkbox"
               checked={showAnomalies}
               onChange={(e) => setShowAnomalies(e.target.checked)}
-              className="rounded text-brand-600 focus:ring-brand-500"
+              className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
             />
-            <span className="font-medium">Hiển thị tọa độ tổn thương ({anomalies.length})</span>
+            <span className="font-medium text-slate-600 dark:text-slate-300">Hiển thị tọa độ tổn thương ({anomalies.length})</span>
           </label>
         </div>
       </div>
 
-      {/* Dual Side-by-Side Canvas Viewport (Obsidian #030712) */}
+      {/* 3. Khung soi 2 ảnh song song: Ảnh chụp gốc & Vùng AI phát hiện */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Left: Original Fundus Retinal Image */}
+        {/* Ảnh Gốc */}
         <div
-          className={`relative rounded-xl overflow-hidden border bg-darkroom-bg flex flex-col items-center justify-center min-h-[380px] ${
-            isDarkRoom ? 'border-darkroom-border' : 'border-clinical-border'
+          className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] ${
+            isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
           }`}
         >
           <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700">
@@ -221,19 +219,19 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             <img
               src={rawImage}
               alt="Ảnh võng mạc gốc"
-              className="max-h-[350px] w-auto object-contain rounded-lg shadow-md"
+              className="max-h-[340px] w-auto object-contain rounded-lg shadow-md"
             />
           </div>
         </div>
 
-        {/* Right: AI Heatmap & Vessel Anomaly Overlay */}
+        {/* Bản Đồ AI */}
         <div
-          className={`relative rounded-xl overflow-hidden border bg-darkroom-bg flex flex-col items-center justify-center min-h-[380px] ${
-            isDarkRoom ? 'border-darkroom-border' : 'border-clinical-border'
+          className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] ${
+            isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
           }`}
         >
           <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
             Lớp Phủ AI Attention (Grad-CAM XAI)
           </div>
 
@@ -241,28 +239,28 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             className="relative transition-transform duration-150 overflow-hidden flex items-center justify-center p-2"
             style={{ transform: `scale(${zoomLevel})` }}
           >
-            {/* Base Image */}
+            {/* Ảnh nền */}
             <img
               src={rawImage}
               alt="Lớp nền võng mạc"
-              className="max-h-[350px] w-auto object-contain rounded-lg"
+              className="max-h-[340px] w-auto object-contain rounded-lg"
             />
 
-            {/* Heatmap Overlay */}
+            {/* Lớp nhiệt màu */}
             <img
               src={heatmapImg}
               alt="AI Grad-CAM Heatmap"
-              className="absolute inset-0 m-auto max-h-[350px] w-auto object-contain rounded-lg pointer-events-none cds-canvas-overlay transition-opacity duration-150"
+              className="absolute inset-0 m-auto max-h-[340px] w-auto object-contain rounded-lg pointer-events-none cds-canvas-overlay transition-opacity duration-150"
               style={{ opacity: heatmapOpacity }}
             />
 
-            {/* Detected Anomaly Markers */}
+            {/* Các điểm tổn thương nếu có */}
             {showAnomalies &&
               anomalies.map((anomaly) => (
                 <button
                   key={anomaly.id}
                   onClick={() => setActiveAnomaly(anomaly)}
-                  className="absolute z-20 flex items-center justify-center rounded-full border-2 border-amber-500 bg-amber-500/40 text-white transition-transform hover:scale-125 focus:outline-none"
+                  className="absolute z-20 flex items-center justify-center rounded-full border-2 border-amber-400 bg-amber-400/40 text-white transition-transform hover:scale-125 focus:outline-none"
                   style={{
                     left: `${anomaly.coordinates.x}%`,
                     top: `${anomaly.coordinates.y}%`,
@@ -279,16 +277,16 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
         </div>
       </div>
 
-      {/* Anomaly Detail Drawer / Info Box */}
+      {/* Chi tiết điểm tổn thương khi người dùng nhấp vào */}
       {activeAnomaly && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start justify-between gap-3 text-xs animate-in fade-in">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start justify-between gap-3 text-xs">
           <div className="flex items-start gap-2">
             <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
             <div>
               <div className="font-bold text-amber-950 flex items-center gap-2">
                 <span>{anomalyNameMap(activeAnomaly.type)}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold uppercase">
-                  Độ tin cậy AI: {(activeAnomaly.confidence * 100).toFixed(0)}%
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold">
+                  Độ tin cậy: {(activeAnomaly.confidence * 100).toFixed(0)}%
                 </span>
               </div>
               <p className="text-amber-800 mt-0.5">{activeAnomaly.description}</p>
@@ -296,14 +294,25 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
           </div>
           <button
             onClick={() => setActiveAnomaly(null)}
-            className="text-amber-700 hover:text-amber-950 font-bold p-1"
+            className="text-amber-700 hover:text-amber-950 font-bold p-1 text-xs"
           >
             ✕
           </button>
         </div>
       )}
 
-      {/* Mandatory Medical Safety Disclaimer */}
+      {/* 4. Tóm tắt kết quả ngắn gọn, dễ hiểu cho người xem */}
+      <div className="p-3.5 rounded-xl bg-teal-50/70 border border-teal-200/80 text-xs space-y-1 text-teal-950">
+        <div className="flex items-center gap-1.5 font-bold text-teal-900">
+          <Sparkles className="w-4 h-4 text-teal-700" />
+          <span>Hướng dẫn đọc bản đồ:</span>
+        </div>
+        <p className="text-teal-900/90 leading-relaxed">
+          Kéo thanh trượt về <strong>0%</strong> để xem ảnh chụp thật, hoặc kéo lên <strong>100%</strong> để thấy rõ vùng màu AI đánh dấu. Kết quả này giúp bác sĩ chuyên khoa dễ dàng đối chiếu và phát hiện sớm các dấu hiệu liên quan đến huyết áp, tim mạch hoặc đường huyết.
+        </p>
+      </div>
+
+      {/* Cảnh báo y tế bắt buộc */}
       <MedicalDisclaimer
         variant={isDarkRoom ? 'subtle' : 'compact'}
         className={isDarkRoom ? 'bg-darkroom-surface border-darkroom-border text-slate-300' : ''}
@@ -328,3 +337,4 @@ function anomalyNameMap(type: string): string {
       return type;
   }
 }
+
