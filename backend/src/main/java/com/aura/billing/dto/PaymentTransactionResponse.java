@@ -35,10 +35,20 @@ public record PaymentTransactionResponse(
     }
 
     public static PaymentTransactionResponse from(PaymentTransaction transaction) {
+        Long pkgId = null;
+        String pkgName = "Gói dịch vụ AURA";
+        try {
+            if (transaction.getServicePackage() != null) {
+                pkgId = transaction.getServicePackage().getId();
+                pkgName = transaction.getServicePackage().getName();
+            }
+        } catch (Exception ignored) {
+            // Lazy proxy safety fallback
+        }
         return new PaymentTransactionResponse(
                 transaction.getId(),
-                transaction.getServicePackage().getId(),
-                transaction.getServicePackage().getName(),
+                pkgId,
+                pkgName,
                 transaction.getAmount(),
                 transaction.getStatus(),
                 transaction.getProvider(),

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AIRiskResult } from '../types/cds';
 import { RiskBadge } from './ui/RiskBadge';
 import { Button } from './ui/Button';
@@ -7,7 +7,6 @@ import {
   Heart,
   Eye,
   Activity,
-  AlertTriangle,
   FileText,
   MessageSquare,
   ShieldCheck,
@@ -18,6 +17,8 @@ import {
   HelpCircle,
   Clock,
   UserCheck,
+  LayoutGrid,
+  Table as TableIcon,
 } from 'lucide-react';
 
 export interface ClinicalRiskSummaryCardProps {
@@ -36,12 +37,123 @@ const formatHypertensionStage = (stage?: string | null): string => {
   return stage;
 };
 
+const formatEtdrsGrade = (grade?: string | null, score?: number, level?: string): string => {
+  const s = score ?? 0;
+  const l = (level || '').toLowerCase();
+  if (s >= 80 || l.includes('critical') || l.includes('severe')) {
+    return grade && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr') && !grade.toLowerCase().includes('theo phân tích')
+      ? grade
+      : 'Cấp độ 4 (PDR - Tăng sinh)';
+  }
+  if (s >= 65 || l.includes('high')) {
+    return grade && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr') && !grade.toLowerCase().includes('theo phân tích')
+      ? grade
+      : 'Cấp độ 3 (NPDR nặng)';
+  }
+  if (s >= 40 || l.includes('moderate') || l.includes('medium')) {
+    return grade && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr') && !grade.toLowerCase().includes('theo phân tích')
+      ? grade
+      : 'Cấp độ 2 (NPDR trung bình)';
+  }
+  if (s >= 25) {
+    return grade && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr') && !grade.toLowerCase().includes('theo phân tích')
+      ? grade
+      : 'Cấp độ 1 (NPDR nhẹ)';
+  }
+  if (grade && !grade.toLowerCase().includes('theo phân tích')) {
+    return grade;
+  }
+  return 'Cấp độ 0 (Không DR)';
+};
+
+// Helper phân tách nhận định / khuyến nghị thành các ý rõ ràng, giảm tải chữ
+const parseClinicalPoints = (text?: string | null, defaultPoints: string[] = []): string[] => {
+  if (!text || !text.trim()) return defaultPoints;
+  if (text.includes('\n')) {
+    const lines = text
+      .split('\n')
+      .map((s) => s.trim().replace(/^[-*•\d.]\s*/, ''))
+      .filter((s) => s.length > 0);
+    if (lines.length > 0) return lines;
+  }
+  const sentences = text
+    .split(/(?<=[.;])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 3);
+  if (sentences.length >= 2) {
+    return sentences;
+  }
+  const clauses = text
+    .split(/,\s+(?=[A-ZÀ-Ỹa-zà-ỹ])/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (clauses.length >= 2 && clauses.length <= 4) {
+    return clauses.map((c) => c.charAt(0).toUpperCase() + c.slice(1).replace(/[.;]$/, ''));
+  }
+  return [text];
+};
+
+// Component thanh dải tham chiếu trực quan (Visual Range Gauge Bar)
+interface BiomarkerRangeBarProps {
+  value?: number | null;
+  min: number;
+  max: number;
+  targetMin?: number;
+  targetMax?: number;
+  isNormal: boolean;
+}
+
+const BiomarkerRangeBar: React.FC<BiomarkerRangeBarProps> = ({
+  value,
+  min,
+  max,
+  targetMin,
+  targetMax,
+  isNormal,
+}) => {
+  if (value === undefined || value === null || Number.isNaN(value)) {
+    return (
+      <div className="w-full bg-slate-100 h-1.5 rounded-full relative overflow-hidden my-2 border border-dashed border-slate-300">
+        <div className="absolute inset-0 bg-slate-200/40" />
+      </div>
+    );
+  }
+
+  const clampedVal = Math.max(min, Math.min(max, value));
+  const pct = Math.round(((clampedVal - min) / (max - min)) * 100);
+  const displayPct = Math.max(6, Math.min(94, pct));
+
+  const tMin = targetMin !== undefined ? Math.max(min, targetMin) : min;
+  const tMax = targetMax !== undefined ? Math.min(max, targetMax) : max;
+  const targetLeftPct = Math.round(((tMin - min) / (max - min)) * 100);
+  const targetWidthPct = Math.round(((tMax - tMin) / (max - min)) * 100);
+
+  return (
+    <div className="w-full bg-slate-100 h-1.5 rounded-full relative my-2">
+      {/* Vùng tham chiếu chuẩn màu xanh lá nhạt */}
+      <div
+        className="absolute top-0 bottom-0 bg-emerald-200/80 rounded-full"
+        style={{ left: `${targetLeftPct}%`, width: `${targetWidthPct}%` }}
+        title="Dải tham chiếu chuẩn bình thường"
+      />
+      {/* Con trỏ giá trị đo hiện tại */}
+      <div
+        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-all duration-300 ${
+          isNormal ? 'bg-emerald-600 ring-1 ring-emerald-400/40' : 'bg-amber-500 ring-1 ring-amber-400/40'
+        }`}
+        style={{ left: `${displayPct}%` }}
+      />
+    </div>
+  );
+};
+
 export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = ({
   analysisResult,
   onOpenFullReport,
   onConsultDoctor,
 }) => {
-  const [isBiomarkersOpen, setIsBiomarkersOpen] = React.useState(true);
+  const [isBiomarkersOpen, setIsBiomarkersOpen] = useState(true);
+  const [biomarkerMode, setBiomarkerMode] = useState<'cards' | 'table'>('cards');
 
   const score = Math.round(
     analysisResult.overallVascularRiskScore ?? analysisResult.riskScore ?? 0
@@ -56,7 +168,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
 
   const riskLevel = getComputedRiskLevel(score);
 
-  // Normalize sub-scores to guarantee 100% harmony between score and risk level
+  // Chuẩn hóa điểm CVD để đồng bộ với mức rủi ro
   let rawCvdScore = analysisResult.cardiovascularRisk?.score ?? 0;
   if (analysisResult.cardiovascularRisk?.level === 'Low' && rawCvdScore >= 40) {
     rawCvdScore = 25;
@@ -65,6 +177,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
   }
   const cvdLevel = getComputedRiskLevel(rawCvdScore);
 
+  // Chuẩn hóa điểm DR để đồng bộ với mức rủi ro
   let rawDrScore = analysisResult.diabeticRetinopathyRisk?.score ?? 0;
   if (analysisResult.diabeticRetinopathyRisk?.level === 'Low' && rawDrScore >= 40) {
     rawDrScore = 18;
@@ -72,6 +185,8 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
     rawDrScore = 48;
   }
   const drLevel = getComputedRiskLevel(rawDrScore);
+
+  const glaucomaScore = analysisResult.glaucomaRisk?.score ?? 0;
 
   const isDoctorReviewed =
     analysisResult.status === 'REVIEWED' || Boolean(analysisResult.digitalSignature);
@@ -89,7 +204,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
   const hasVcdr = typeof rawVcdr === 'number' && !Number.isNaN(rawVcdr);
 
   const isAvNormal = hasAvRatio ? rawAvRatio >= 0.67 : false;
-  const isDensityNormal = hasVesselDensity ? (rawVesselDensity >= 15.5 && rawVesselDensity <= 19.0) : false;
+  const isDensityNormal = hasVesselDensity ? rawVesselDensity >= 15.5 && rawVesselDensity <= 19.0 : false;
   const isTortuosityNormal = hasTortuosity ? rawTortuosity < 1.25 : false;
   const isVcdrNormal = hasVcdr ? rawVcdr < 0.5 : false;
 
@@ -103,6 +218,18 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
       ? 'from-amber-900/90 via-yellow-900/80 to-amber-950 text-white'
       : 'from-[#115E59] via-[#0D9488] to-[#0891B2] text-white';
 
+  // Danh sách nhận định và khuyến nghị được phân tách ngắn gọn
+  const findingsItems = parseClinicalPoints(analysisResult.findings, [
+    'Chưa phát hiện tổn thương vi phình mạch hoặc xuất huyết diện rộng.',
+    'Cấu trúc vi tuần hoàn hoàng điểm và gai thị tương đối ổn định.',
+  ]);
+
+  const recommendationItems = parseClinicalPoints(analysisResult.recommendations, [
+    'Khám mắt định kỳ 6 - 12 tháng/lần để theo dõi diễn tiến vi mạch đáy mắt.',
+    'Kiểm soát huyết áp < 130/80 mmHg và đường huyết HbA1c < 7.0%.',
+    'Duy trì chế độ ăn ít muối, tăng cường rau xanh và tập thể dục đều đặn.',
+  ]);
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-medical-card overflow-hidden space-y-6">
       {/* 1. BANNER MỨC ĐỘ NGUY CƠ TỔNG HỢP */}
@@ -113,7 +240,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xs uppercase tracking-wider font-extrabold bg-white/20 px-3 py-1 rounded-full backdrop-blur-xs border border-white/20">
-                Tóm Tắt Nguy Cơ Vi Mạch Lâm Sàng (CDS)
+                Tóm Tắt Nguy Cơ Vi Mạch Lâm Sàng
               </span>
               {isDoctorReviewed ? (
                 <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/30 text-emerald-100 font-bold border border-emerald-400/40 flex items-center gap-1.5 backdrop-blur-xs">
@@ -138,7 +265,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               </span>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
               <RiskBadge level={riskLevel} size="lg" className="shadow-xs font-bold" />
               <p className="text-xs text-white/90">
                 {riskLevel === 'Low' && 'Hệ vi mạch võng mạc bình thường, nguy cơ tim mạch và đột quỵ thấp.'}
@@ -146,16 +273,6 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 {riskLevel === 'High' && 'Phát hiện tổn thương vi mạch rõ rệt, cần bác sĩ chuyên khoa khám xác định sớm.'}
                 {riskLevel === 'Critical' && 'Nguy cơ biến chứng mạch máu cao, đề nghị chuyển khám chuyên khoa tim mạch / mắt khẩn cấp.'}
               </p>
-            </div>
-
-            {/* Thước đo giải thích thang điểm rủi ro rõ ràng */}
-            <div className="flex items-center gap-2 text-[11px] bg-white/10 px-3 py-1 rounded-full w-fit backdrop-blur-xs border border-white/15 flex-wrap">
-              <span className="opacity-90 font-medium">Thang đo rủi ro y tế:</span>
-              <span className="font-bold text-emerald-200">0–39: An toàn / Nguy cơ thấp</span>
-              <span className="opacity-60">•</span>
-              <span className="font-semibold text-amber-200">40–64: Cần theo dõi</span>
-              <span className="opacity-60">•</span>
-              <span className="font-semibold text-rose-200">65–100: Nguy cơ cao</span>
             </div>
           </div>
 
@@ -167,7 +284,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               className="bg-white text-slate-900 hover:bg-slate-50 border-white/60 font-bold shadow-md text-xs sm:text-sm flex items-center justify-center gap-2"
             >
               <FileText className="w-4 h-4 text-brand-600" />
-              Xem & In Báo Cáo (PDF/CSV)
+              Xem & In Phiếu Báo Cáo Chi Tiết
             </Button>
             {onConsultDoctor && (
               <Button
@@ -185,39 +302,56 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
       </div>
 
       <div className="px-6 pb-6 space-y-6">
-        {/* 2. 3 THẺ NGUY CƠ THÀNH PHẦN */}
+        {/* 2. 3 THẺ NGUY CƠ THÀNH PHẦN - TRỰC QUAN & TINH GỌN */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Card 1: Cardiovascular */}
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all space-y-3">
+          <div className="p-4 rounded-xl border border-rose-200/80 bg-gradient-to-b from-white to-rose-50/20 hover:border-rose-300 transition-all shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-rose-700 font-bold text-sm">
+              <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
                 <div className="p-2 rounded-lg bg-rose-100 text-rose-700">
                   <Heart className="w-4 h-4" />
                 </div>
-                <span>Tim Mạch 3 Năm (CVD)</span>
+                <span>Nguy cơ tim mạch 3 năm</span>
               </div>
-              <RiskBadge
-                level={cvdLevel}
-                size="sm"
-              />
+              <RiskBadge level={cvdLevel} size="sm" />
             </div>
-            <div className="flex items-baseline justify-between pt-1 border-t border-slate-200">
-              <span className="text-xs text-slate-500">Điểm nguy cơ:</span>
-              <span className="text-lg font-black font-mono-data text-slate-900">
-                {rawCvdScore}
-                <span className="text-xs text-slate-400 font-normal">/100</span>
-              </span>
+
+            {/* Điểm số & Thanh đo rủi ro */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs text-slate-500 font-medium">Điểm nguy cơ:</span>
+                <span className="text-lg font-black font-mono-data text-slate-900">
+                  {rawCvdScore}
+                  <span className="text-xs text-slate-400 font-normal">/100</span>
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    rawCvdScore >= 80
+                      ? 'bg-rose-600'
+                      : rawCvdScore >= 65
+                      ? 'bg-orange-500'
+                      : rawCvdScore >= 40
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(0, rawCvdScore))}%` }}
+                />
+              </div>
             </div>
-            <div className="text-xs space-y-1 text-slate-600">
-              <div className="flex justify-between">
-                <span>Huyết áp võng mạc:</span>
-                <strong className="text-slate-800">
+
+            {/* Hai thông số thành phần dạng chip */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
+                <span className="text-[10px] text-slate-400 block font-medium">Huyết áp võng mạc</span>
+                <strong className="text-slate-800 font-semibold truncate block mt-0.5" title={formatHypertensionStage(analysisResult.cardiovascularRisk?.hypertensionStage)}>
                   {formatHypertensionStage(analysisResult.cardiovascularRisk?.hypertensionStage)}
                 </strong>
               </div>
-              <div className="flex justify-between">
-                <span>Nguy cơ đột quỵ 3 năm:</span>
-                <strong className="text-slate-900 font-mono-data">
+              <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
+                <span className="text-[10px] text-slate-400 block font-medium">Nguy cơ đột quỵ 3 năm</span>
+                <strong className="text-slate-900 font-black font-mono-data block mt-0.5">
                   {rawCvdScore}%
                 </strong>
               </div>
@@ -225,359 +359,699 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
           </div>
 
           {/* Card 2: Diabetic Retinopathy */}
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all space-y-3">
+          <div className="p-4 rounded-xl border border-amber-200/80 bg-gradient-to-b from-white to-amber-50/20 hover:border-amber-300 transition-all shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-amber-700 font-bold text-sm">
+              <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
                 <div className="p-2 rounded-lg bg-amber-100 text-amber-700">
                   <Eye className="w-4 h-4" />
                 </div>
-                <span>Võng Mạc ĐTĐ (DR)</span>
+                <span>Bệnh võng mạc đái tháo đường</span>
               </div>
-              <RiskBadge
-                level={drLevel}
-                size="sm"
-              />
+              <RiskBadge level={drLevel} size="sm" />
             </div>
-            <div className="flex items-baseline justify-between pt-1 border-t border-slate-200">
-              <span className="text-xs text-slate-500">Điểm nguy cơ:</span>
-              <span className="text-lg font-black font-mono-data text-slate-900">
-                {rawDrScore}
-                <span className="text-xs text-slate-400 font-normal">/100</span>
-              </span>
+
+            {/* Điểm số & Thanh đo rủi ro */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs text-slate-500 font-medium">Điểm nguy cơ:</span>
+                <span className="text-lg font-black font-mono-data text-slate-900">
+                  {rawDrScore}
+                  <span className="text-xs text-slate-400 font-normal">/100</span>
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    rawDrScore >= 80
+                      ? 'bg-rose-600'
+                      : rawDrScore >= 65
+                      ? 'bg-orange-500'
+                      : rawDrScore >= 40
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(0, rawDrScore))}%` }}
+                />
+              </div>
             </div>
-            <div className="text-xs space-y-1 text-slate-600">
-              <div className="flex justify-between">
-                <span>Phân độ ETDRS:</span>
-                <strong className="text-slate-800 truncate max-w-[150px]" title={analysisResult.diabeticRetinopathyRisk?.etdrsGrade}>
-                  {analysisResult.diabeticRetinopathyRisk?.etdrsGrade || 'Theo phân tích AURA AI'}
+
+            {/* Hai thông số thành phần dạng chip */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
+                <span className="text-[10px] text-slate-400 block font-medium">Phân độ ETDRS</span>
+                <strong className="text-slate-800 font-semibold truncate block mt-0.5" title={analysisResult.diabeticRetinopathyRisk?.etdrsGrade}>
+                  {formatEtdrsGrade(analysisResult.diabeticRetinopathyRisk?.etdrsGrade, rawDrScore, drLevel)}
                 </strong>
               </div>
-              <div className="flex justify-between">
-                <span>Phù hoàng điểm:</span>
-                <strong
-                  className={
-                    rawDrScore >= 50
-                      ? 'text-rose-600'
-                      : 'text-emerald-700'
-                  }
-                >
-                  {rawDrScore >= 50
-                    ? 'Có phát hiện'
-                    : 'Không phát hiện'}
+              <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
+                <span className="text-[10px] text-slate-400 block font-medium">Phù hoàng điểm</span>
+                <strong className={`font-semibold block mt-0.5 ${rawDrScore >= 50 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                  {rawDrScore >= 50 ? 'Có phát hiện' : 'Không phát hiện'}
                 </strong>
               </div>
             </div>
           </div>
 
           {/* Card 3: Glaucoma */}
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all space-y-3">
+          <div className="p-4 rounded-xl border border-teal-200/80 bg-gradient-to-b from-white to-teal-50/20 hover:border-teal-300 transition-all shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-teal-700 font-bold text-sm">
+              <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
                 <div className="p-2 rounded-lg bg-teal-100 text-teal-700">
                   <Activity className="w-4 h-4" />
                 </div>
-                <span>Thiên Đầu Thống (Glaucoma)</span>
+                <span>Nguy cơ tăng nhãn áp</span>
               </div>
-              <RiskBadge
-                level={analysisResult.glaucomaRisk?.level || 'Low'}
-                size="sm"
-              />
+              <RiskBadge level={analysisResult.glaucomaRisk?.level || 'Low'} size="sm" />
             </div>
-            <div className="flex items-baseline justify-between pt-1 border-t border-slate-200">
-              <span className="text-xs text-slate-500">Điểm nguy cơ:</span>
-              <span className="text-lg font-black font-mono-data text-slate-900">
-                {analysisResult.glaucomaRisk?.score ?? 0}
-                <span className="text-xs text-slate-400 font-normal">/100</span>
-              </span>
+
+            {/* Điểm số & Thanh đo rủi ro */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs text-slate-500 font-medium">Điểm nguy cơ:</span>
+                <span className="text-lg font-black font-mono-data text-slate-900">
+                  {glaucomaScore}
+                  <span className="text-xs text-slate-400 font-normal">/100</span>
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    glaucomaScore >= 80
+                      ? 'bg-rose-600'
+                      : glaucomaScore >= 65
+                      ? 'bg-orange-500'
+                      : glaucomaScore >= 40
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(0, glaucomaScore))}%` }}
+                />
+              </div>
             </div>
-            <div className="text-xs space-y-1 text-slate-600">
-              <div className="flex justify-between">
-                <span>Tỷ lệ lõm gai VCDR:</span>
-                <strong className="text-slate-800 font-mono-data">
+
+            {/* Hai thông số thành phần dạng chip */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
+                <span className="text-[10px] text-slate-400 block font-medium">Tỷ lệ lõm gai thị</span>
+                <strong className="text-slate-800 font-mono-data font-semibold block mt-0.5">
                   {hasVcdr ? rawVcdr.toFixed(2) : 'Chưa xác định'}
                 </strong>
               </div>
-              <div className="flex justify-between">
-                <span>Trạng thái gai thị:</span>
+              <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
+                <span className="text-[10px] text-slate-400 block font-medium">Trạng thái gai thị</span>
                 {hasVcdr ? (
-                  <strong className={isVcdrNormal ? 'text-emerald-700' : 'text-amber-700'}>
-                    {isVcdrNormal ? 'Bình thường (< 0.50)' : 'Lõm gai mở rộng (Cần theo dõi)'}
+                  <strong className={`font-semibold truncate block mt-0.5 ${isVcdrNormal ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {isVcdrNormal ? 'Bình thường (< 0.50)' : 'Lõm gai mở rộng'}
                   </strong>
                 ) : (
-                  <strong className="text-slate-500">
-                    Chưa đo được
-                  </strong>
+                  <strong className="text-slate-400 font-medium block mt-0.5">Chưa đo được</strong>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* 3. BẢNG CHỈ SỐ SINH HỌC ĐỊNH LƯỢNG (BIOMARKERS) - Có nút thu gọn/mở rộng */}
+        {/* 3. BẢNG CHỈ SỐ SINH HỌC VI MẠCH - CHẾ ĐỘ XEM TRỰC QUAN MỚI (Visual Cards) HOẶC BẢNG */}
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-          <div className="bg-slate-50/90 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          {/* Header thanh công cụ thông số vi mạch */}
+          <div className="bg-slate-50/90 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                 <Activity className="w-4 h-4 text-brand-600" />
-                Thông Số Mạch Máu Chi Tiết (Dành Cho Bác Sĩ Tham Khảo)
+                Chỉ Số Vi Mạch Chuyên Sâu
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Các chỉ số kỹ thuật bên dưới giúp bác sĩ đánh giá chính xác độ co thắt và tuần hoàn đáy mắt.
+                Dành cho bác sĩ chuyên khoa tham khảo đánh giá tuần hoàn đáy mắt.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsBiomarkersOpen(!isBiomarkersOpen)}
-              className="text-xs font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1.5 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-200 transition-colors self-start sm:self-auto"
-            >
-              <span>{isBiomarkersOpen ? 'Thu Gọn Bảng Chỉ Số ▲' : 'Xem Đầy Đủ 4 Chỉ Số ▼'}</span>
-            </button>
-          </div>
 
-          <div className={isBiomarkersOpen ? 'block' : 'hidden sm:block'}>
-            <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 font-semibold">
-                  <th className="py-2.5 px-4">Tên Chỉ Số Sinh Học</th>
-                  <th className="py-2.5 px-4 text-center">Giá Trị Đo</th>
-                  <th className="py-2.5 px-4 text-center">Ngưỡng Tham Chiếu</th>
-                  <th className="py-2.5 px-4">Đánh Giá Lâm Sàng</th>
-                  <th className="py-2.5 px-4 text-center">Trạng Thái</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {/* 1. A/V Ratio */}
-                <tr className="hover:bg-slate-50/50">
-                  <td className="py-3 px-4 font-semibold text-slate-800">
-                    <div>Tỷ lệ Động mạch / Tĩnh mạch (A/V Ratio)</div>
-                    <div className="text-[11px] text-slate-400 font-normal">Arteriole-to-Venule Ratio</div>
-                  </td>
-                  <td className="py-3 px-4 text-center font-mono-data font-bold text-slate-900">
-                    {hasAvRatio ? (
-                      rawAvRatio.toFixed(2)
-                    ) : (
-                      <span className="text-slate-400 font-normal">Chưa xác định</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-center text-slate-600 font-mono-data">
-                    ≥ 0.67 (Tỷ lệ 2:3)
-                  </td>
-                  <td className="py-3 px-4 text-slate-700">
-                    {hasAvRatio
-                      ? isAvNormal
-                        ? 'Lòng mạch phân nhánh đồng đều, không thấy co thắt.'
-                        : 'Hẹp lòng tiểu động mạch, nghi ngờ ảnh hưởng bởi tăng huyết áp.'
-                      : 'Chưa đủ dữ liệu để phân tích tỷ lệ động/tĩnh mạch.'}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    {hasAvRatio ? (
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
-                          isAvNormal
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}
-                      >
-                        {isAvNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                        {isAvNormal ? 'Bình thường' : 'Cần lưu ý'}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
-                        <HelpCircle className="w-3 h-3 text-slate-400" />
-                        Chưa đo được
-                      </span>
-                    )}
-                  </td>
-                </tr>
-
-                {/* 2. Vessel Density */}
-                <tr className="hover:bg-slate-50/50">
-                  <td className="py-3 px-4 font-semibold text-slate-800">
-                    <div>Mật độ mao mạch võng mạc (Vessel Density)</div>
-                    <div className="text-[11px] text-slate-400 font-normal">Retinal Capillary Density</div>
-                  </td>
-                  <td className="py-3 px-4 text-center font-mono-data font-bold text-slate-900">
-                    {hasVesselDensity ? (
-                      `${rawVesselDensity.toFixed(1)}%`
-                    ) : (
-                      <span className="text-slate-400 font-normal">Chưa xác định</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-center text-slate-600 font-mono-data">
-                    15.5% - 19.0%
-                  </td>
-                  <td className="py-3 px-4 text-slate-700">
-                    {hasVesselDensity
-                      ? isDensityNormal
-                        ? 'Mạng lưới mao mạch tưới máu đầy đủ.'
-                        : rawVesselDensity < 15.5
-                        ? 'Giảm tưới máu mao mạch, dấu hiệu thiếu máu cục bộ võng mạc.'
-                        : 'Tăng sinh mạch máu bất thường.'
-                      : 'Chưa đủ dữ liệu để phân tích mật độ mao mạch võng mạc.'}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    {hasVesselDensity ? (
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
-                          isDensityNormal
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}
-                      >
-                        {isDensityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                        {isDensityNormal ? 'Bình thường' : 'Bất thường'}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
-                        <HelpCircle className="w-3 h-3 text-slate-400" />
-                        Chưa đo được
-                      </span>
-                    )}
-                  </td>
-                </tr>
-
-                {/* 3. Tortuosity Index */}
-                <tr className="hover:bg-slate-50/50">
-                  <td className="py-3 px-4 font-semibold text-slate-800">
-                    <div>Độ uốn lượn vi mạch (Tortuosity Index)</div>
-                    <div className="text-[11px] text-slate-400 font-normal">Vascular Curvature Metric</div>
-                  </td>
-                  <td className="py-3 px-4 text-center font-mono-data font-bold text-slate-900">
-                    {hasTortuosity ? (
-                      rawTortuosity.toFixed(2)
-                    ) : (
-                      <span className="text-slate-400 font-normal">Chưa xác định</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-center text-slate-600 font-mono-data">
-                    &lt; 1.25
-                  </td>
-                  <td className="py-3 px-4 text-slate-700">
-                    {hasTortuosity
-                      ? isTortuosityNormal
-                        ? 'Đường đi mạch máu đều đặn, không bị xoắn vặn quá mức.'
-                        : 'Mạch máu uốn lượn bất thường, phản ánh áp lực thành mạch cao.'
-                      : 'Chưa đủ dữ liệu để đo lường độ cong vi mạch võng mạc.'}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    {hasTortuosity ? (
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
-                          isTortuosityNormal
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}
-                      >
-                        {isTortuosityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                        {isTortuosityNormal ? 'Bình thường' : 'Uốn lượn'}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
-                        <HelpCircle className="w-3 h-3 text-slate-400" />
-                        Chưa đo được
-                      </span>
-                    )}
-                  </td>
-                </tr>
-
-                {/* 4. Optic Cup-to-Disc Ratio */}
-                <tr className="hover:bg-slate-50/50">
-                  <td className="py-3 px-4 font-semibold text-slate-800">
-                    <div>Tỷ lệ lõm gai thị VCDR</div>
-                    <div className="text-[11px] text-slate-400 font-normal">Vertical Cup-to-Disc Ratio</div>
-                  </td>
-                  <td className="py-3 px-4 text-center font-mono-data font-bold text-slate-900">
-                    {hasVcdr ? (
-                      rawVcdr.toFixed(2)
-                    ) : (
-                      <span className="text-slate-400 font-normal">Chưa xác định</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-center text-slate-600 font-mono-data">
-                    &lt; 0.50 (Chuẩn 0.30 - 0.45)
-                  </td>
-                  <td className="py-3 px-4 text-slate-700">
-                    {hasVcdr
-                      ? isVcdrNormal
-                        ? 'Gai thị hồng, viền thần kinh võng mạc đều, không tổn hại.'
-                        : 'Lõm gai thị mở rộng, nguy cơ tổn hại sợi thần kinh thị giác (Glaucoma).'
-                      : 'Gai thị không nằm trong trường nhìn hoặc chưa định vị rõ bờ gai thị.'}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    {hasVcdr ? (
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
-                          isVcdrNormal
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
-                        }`}
-                      >
-                        {isVcdrNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                        {isVcdrNormal ? 'Bình thường' : 'Nghi ngờ Glaucoma'}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
-                        <HelpCircle className="w-3 h-3 text-slate-400" />
-                        Chưa đo được
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-        {/* 4. NHẬN ĐỊNH LÂM SÀNG & KHUYẾN NGHỊ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
-            <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-brand-600" />
-              Nhận Định Lâm Sàng Của AI (Findings)
-            </h4>
-            <div className="text-xs text-slate-600 leading-relaxed space-y-1.5">
-              {analysisResult.findings ? (
-                <p className="whitespace-pre-line">{analysisResult.findings}</p>
-              ) : (
-                <p>
-                  Chưa phát hiện tổn thương vi phình mạch hoặc xuất huyết võng mạc diện rộng.
-                  Cấu trúc vi tuần hoàn hoàng điểm và gai thị tương đối ổn định.
-                </p>
-              )}
-            </div>
-            {analysisResult.doctorNotes && (
-              <div className="mt-3 pt-3 border-t border-slate-200/80">
-                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                  <UserCheck className="w-3.5 h-3.5 text-teal-700" />
-                  Ghi chú Bác sĩ phụ trách ({analysisResult.doctorName || 'Bác sĩ chuyên khoa'}):
-                </span>
-                <p className="text-xs text-slate-600 italic mt-0.5">
-                  "{analysisResult.doctorNotes}"
-                </p>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              {/* Nút chuyển chế độ Trực quan / Bảng */}
+              <div className="inline-flex items-center p-0.5 bg-slate-200/70 rounded-lg text-xs">
+                <button
+                  type="button"
+                  onClick={() => setBiomarkerMode('cards')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all ${
+                    biomarkerMode === 'cards'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Chế độ thẻ trực quan"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Trực quan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBiomarkerMode('table')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all ${
+                    biomarkerMode === 'table'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Chế độ bảng chi tiết"
+                >
+                  <TableIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Dạng bảng</span>
+                </button>
               </div>
-            )}
-          </div>
 
-          <div className="p-4 rounded-xl border border-slate-200 bg-teal-50/40 space-y-2">
-            <h4 className="text-xs font-bold text-teal-900 flex items-center gap-2">
-              <FileBadge className="w-4 h-4 text-teal-700" />
-              Khuyến Nghị Y Khoa & Theo Dõi (Recommendations)
-            </h4>
-            <div className="text-xs text-slate-700 leading-relaxed space-y-1.5">
-              {analysisResult.recommendations ? (
-                <p className="whitespace-pre-line">{analysisResult.recommendations}</p>
-              ) : (
-                <ul className="list-disc list-inside space-y-1 text-slate-600">
-                  <li>Khám mắt định kỳ 6 - 12 tháng/lần để theo dõi diễn tiến vi mạch đáy mắt.</li>
-                  <li>Kiểm soát huyết áp &lt; 130/80 mmHg và đường huyết HbA1c &lt; 7.0%.</li>
-                  <li>Duy trì chế độ ăn ít muối, tăng cường rau xanh và tập thể dục đều đặn.</li>
-                  <li>Nếu có hiện tượng nhìn mờ đột ngột hoặc ruồi bay, cần đến viện mắt khám ngay.</li>
-                </ul>
-              )}
+              {/* Nút thu gọn / mở rộng */}
+              <button
+                type="button"
+                onClick={() => setIsBiomarkersOpen(!isBiomarkersOpen)}
+                className="text-xs font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-200 transition-colors"
+              >
+                <span>{isBiomarkersOpen ? 'Thu Gọn Bảng Chỉ Số ▲' : 'Xem Đầy Đủ 4 Chỉ Số ▼'}</span>
+              </button>
             </div>
           </div>
+
+          {/* Nội dung chỉ số khi mở */}
+          {isBiomarkersOpen && (
+            <div className="p-4 bg-slate-50/40">
+              {/* CHẾ ĐỘ 1: THẺ TRỰC QUAN (Visual Metric Cards) - Tinh gọn, trực quan, bớt chữ */}
+              {biomarkerMode === 'cards' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  {/* Biomarker 1: A/V Ratio */}
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-brand-300 transition-all">
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <span className="text-xs font-bold text-slate-800 truncate" title="Tỷ lệ Động mạch / Tĩnh mạch">
+                          Tỷ Lệ Động - Tĩnh Mạch
+                        </span>
+                        {hasAvRatio ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] shrink-0 ${
+                              isAvNormal
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}
+                          >
+                            {isAvNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                            {isAvNormal ? 'Bình thường' : 'Cần lưu ý'}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                            <HelpCircle className="w-3 h-3 text-slate-400" />
+                            Chưa đo được
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold font-mono-data text-slate-900">
+                          {hasAvRatio ? rawAvRatio.toFixed(2) : 'Chưa xác định'}
+                        </span>
+                        <span className="text-[11px] text-slate-400">Động / Tĩnh</span>
+                      </div>
+
+                      {/* Visual Range Bar */}
+                      <BiomarkerRangeBar
+                        value={rawAvRatio}
+                        min={0.4}
+                        max={0.9}
+                        targetMin={0.67}
+                        targetMax={0.9}
+                        isNormal={isAvNormal}
+                      />
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono-data">
+                        <span>Chuẩn: ≥ 0.67 (2:3)</span>
+                        <span className={isAvNormal ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-semibold'}>
+                          {hasAvRatio ? (isAvNormal ? 'Đạt chuẩn' : 'Co thắt nhẹ') : '---'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 leading-snug">
+                      {hasAvRatio
+                        ? isAvNormal
+                          ? 'Lòng mạch phân nhánh đồng đều.'
+                          : 'Hẹp nhẹ tiểu động mạch, nghi do HA.'
+                        : 'Chưa đủ dữ liệu để phân tích tỷ lệ.'}
+                    </div>
+                  </div>
+
+                  {/* Biomarker 2: Vessel Density */}
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-brand-300 transition-all">
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <span className="text-xs font-bold text-slate-800 truncate" title="Mật độ mao mạch võng mạc">
+                          Mật Độ Mao Mạch
+                        </span>
+                        {hasVesselDensity ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] shrink-0 ${
+                              isDensityNormal
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}
+                          >
+                            {isDensityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                            {isDensityNormal ? 'Bình thường' : 'Bất thường'}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                            <HelpCircle className="w-3 h-3 text-slate-400" />
+                            Chưa đo được
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold font-mono-data text-slate-900">
+                          {hasVesselDensity ? `${rawVesselDensity.toFixed(1)}%` : 'Chưa xác định'}
+                        </span>
+                        <span className="text-[11px] text-slate-400">Diện tích</span>
+                      </div>
+
+                      {/* Visual Range Bar */}
+                      <BiomarkerRangeBar
+                        value={rawVesselDensity}
+                        min={12.0}
+                        max={22.0}
+                        targetMin={15.5}
+                        targetMax={19.0}
+                        isNormal={isDensityNormal}
+                      />
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono-data">
+                        <span>Chuẩn: 15.5% – 19.0%</span>
+                        <span className={isDensityNormal ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-semibold'}>
+                          {hasVesselDensity ? (isDensityNormal ? 'Tưới máu tốt' : 'Ngoài chuẩn') : '---'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 leading-snug">
+                      {hasVesselDensity
+                        ? isDensityNormal
+                          ? 'Mạng lưới mao mạch tưới máu đầy đủ.'
+                          : rawVesselDensity < 15.5
+                          ? 'Giảm tưới máu, nghi thiếu máu vi mạch.'
+                          : 'Tăng sinh mạch bất thường.'
+                        : 'Chưa đủ dữ liệu đo lường.'}
+                    </div>
+                  </div>
+
+                  {/* Biomarker 3: Tortuosity Index */}
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-brand-300 transition-all">
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <span className="text-xs font-bold text-slate-800 truncate" title="Độ uốn lượn vi mạch">
+                          Độ Uốn Lượn Vi Mạch
+                        </span>
+                        {hasTortuosity ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] shrink-0 ${
+                              isTortuosityNormal
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}
+                          >
+                            {isTortuosityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                            {isTortuosityNormal ? 'Bình thường' : 'Uốn lượn'}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                            <HelpCircle className="w-3 h-3 text-slate-400" />
+                            Chưa đo được
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold font-mono-data text-slate-900">
+                          {hasTortuosity ? rawTortuosity.toFixed(2) : 'Chưa xác định'}
+                        </span>
+                        <span className="text-[11px] text-slate-400">Chỉ số uốn</span>
+                      </div>
+
+                      {/* Visual Range Bar */}
+                      <BiomarkerRangeBar
+                        value={rawTortuosity}
+                        min={1.0}
+                        max={1.45}
+                        targetMin={1.0}
+                        targetMax={1.25}
+                        isNormal={isTortuosityNormal}
+                      />
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono-data">
+                        <span>Chuẩn: &lt; 1.25</span>
+                        <span className={isTortuosityNormal ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-semibold'}>
+                          {hasTortuosity ? (isTortuosityNormal ? 'Đều đặn' : 'Xoắn vặn') : '---'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 leading-snug">
+                      {hasTortuosity
+                        ? isTortuosityNormal
+                          ? 'Đường đi mạch máu đều, không xoắn vặn.'
+                          : 'Mạch máu uốn lượn, áp lực thành mạch cao.'
+                        : 'Chưa đủ dữ liệu đo độ uốn.'}
+                    </div>
+                  </div>
+
+                  {/* Biomarker 4: Cup-to-Disc Ratio (VCDR) */}
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-brand-300 transition-all">
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <span className="text-xs font-bold text-slate-800 truncate" title="Tỷ lệ lõm gai thị">
+                          Tỷ Lệ Lõm Gai Thị
+                        </span>
+                        {hasVcdr ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] shrink-0 ${
+                              isVcdrNormal
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            }`}
+                          >
+                            {isVcdrNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                            {isVcdrNormal ? 'Bình thường' : 'Nghi ngờ tăng nhãn áp'}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                            <HelpCircle className="w-3 h-3 text-slate-400" />
+                            Chưa đo được
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold font-mono-data text-slate-900">
+                          {hasVcdr ? rawVcdr.toFixed(2) : 'Chưa xác định'}
+                        </span>
+                        <span className="text-[11px] text-slate-400">Cup / Disc</span>
+                      </div>
+
+                      {/* Visual Range Bar */}
+                      <BiomarkerRangeBar
+                        value={rawVcdr}
+                        min={0.1}
+                        max={0.7}
+                        targetMin={0.1}
+                        targetMax={0.5}
+                        isNormal={isVcdrNormal}
+                      />
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono-data">
+                        <span>Chuẩn: &lt; 0.50 (0.3 - 0.45)</span>
+                        <span className={isVcdrNormal ? 'text-emerald-700 font-semibold' : 'text-rose-700 font-semibold'}>
+                          {hasVcdr ? (isVcdrNormal ? 'An toàn' : 'Lõm rộng') : '---'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 leading-snug">
+                      {hasVcdr
+                        ? isVcdrNormal
+                          ? 'Gai thị hồng, viền thần kinh đều.'
+                          : 'Lõm gai mở rộng, nghi ngờ tăng nhãn áp.'
+                        : 'Chưa định vị rõ bờ gai thị.'}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* CHẾ ĐỘ 2: BẢNG DỮ LIỆU ĐƯỢC LÀM MỚI TINH GỌN (Compact Modern Table) */
+                <div className="overflow-x-auto bg-white rounded-xl border border-slate-200">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 text-slate-500 border-b border-slate-200 font-semibold">
+                        <th className="py-2.5 px-4">Tên Chỉ Số Sinh Học</th>
+                        <th className="py-2.5 px-4 text-center">Giá Trị Đo</th>
+                        <th className="py-2.5 px-4 text-center">Ngưỡng Tham Chiếu</th>
+                        <th className="py-2.5 px-4">Đánh Giá Lâm Sàng</th>
+                        <th className="py-2.5 px-4 text-center">Trạng Thái</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {/* 1. A/V Ratio */}
+                      <tr className="hover:bg-slate-50/50">
+                        <td className="py-2.5 px-4 font-semibold text-slate-800">
+                          <div>Tỷ lệ động - tĩnh mạch</div>
+                          <div className="text-[10px] text-slate-400 font-normal">Arteriolar-Venular Ratio</div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center font-mono-data font-bold text-slate-900">
+                          {hasAvRatio ? rawAvRatio.toFixed(2) : <span className="text-slate-400 font-normal">Chưa xác định</span>}
+                        </td>
+                        <td className="py-2.5 px-4 text-center text-slate-600 font-mono-data">
+                          ≥ 0.67 (Tỷ lệ 2:3)
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-700">
+                          {hasAvRatio
+                            ? isAvNormal
+                              ? 'Lòng mạch phân nhánh đồng đều, không thấy co thắt.'
+                              : 'Hẹp lòng tiểu động mạch, nghi ngờ ảnh hưởng bởi tăng huyết áp.'
+                            : 'Chưa đủ dữ liệu để phân tích tỷ lệ động/tĩnh mạch.'}
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          {hasAvRatio ? (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
+                                isAvNormal
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}
+                            >
+                              {isAvNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                              {isAvNormal ? 'Bình thường' : 'Cần lưu ý'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
+                              <HelpCircle className="w-3 h-3 text-slate-400" />
+                              Chưa đo được
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+
+                      {/* 2. Vessel Density */}
+                      <tr className="hover:bg-slate-50/50">
+                        <td className="py-2.5 px-4 font-semibold text-slate-800">
+                          <div>Mật độ mao mạch võng mạc</div>
+                          <div className="text-[10px] text-slate-400 font-normal">Retinal Capillary Density</div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center font-mono-data font-bold text-slate-900">
+                          {hasVesselDensity ? `${rawVesselDensity.toFixed(1)}%` : <span className="text-slate-400 font-normal">Chưa xác định</span>}
+                        </td>
+                        <td className="py-2.5 px-4 text-center text-slate-600 font-mono-data">
+                          15.5% - 19.0%
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-700">
+                          {hasVesselDensity
+                            ? isDensityNormal
+                              ? 'Mạng lưới mao mạch tưới máu đầy đủ.'
+                              : rawVesselDensity < 15.5
+                              ? 'Giảm tưới máu mao mạch, dấu hiệu thiếu máu cục bộ võng mạc.'
+                              : 'Tăng sinh mạch máu bất thường.'
+                            : 'Chưa đủ dữ liệu để phân tích mật độ mao mạch võng mạc.'}
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          {hasVesselDensity ? (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
+                                isDensityNormal
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}
+                            >
+                              {isDensityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                              {isDensityNormal ? 'Bình thường' : 'Bất thường'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
+                              <HelpCircle className="w-3 h-3 text-slate-400" />
+                              Chưa đo được
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+
+                      {/* 3. Tortuosity Index */}
+                      <tr className="hover:bg-slate-50/50">
+                        <td className="py-2.5 px-4 font-semibold text-slate-800">
+                          <div>Độ uốn lượn vi mạch</div>
+                          <div className="text-[10px] text-slate-400 font-normal">Vascular Curvature Metric</div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center font-mono-data font-bold text-slate-900">
+                          {hasTortuosity ? rawTortuosity.toFixed(2) : <span className="text-slate-400 font-normal">Chưa xác định</span>}
+                        </td>
+                        <td className="py-2.5 px-4 text-center text-slate-600 font-mono-data">
+                          &lt; 1.25
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-700">
+                          {hasTortuosity
+                            ? isTortuosityNormal
+                              ? 'Đường đi mạch máu đều đặn, không bị xoắn vặn quá mức.'
+                              : 'Mạch máu uốn lượn bất thường, phản ánh áp lực thành mạch cao.'
+                            : 'Chưa đủ dữ liệu để đo lường độ cong vi mạch võng mạc.'}
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          {hasTortuosity ? (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
+                                isTortuosityNormal
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}
+                            >
+                              {isTortuosityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                              {isTortuosityNormal ? 'Bình thường' : 'Uốn lượn'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
+                              <HelpCircle className="w-3 h-3 text-slate-400" />
+                              Chưa đo được
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+
+                      {/* 4. Optic Cup-to-Disc Ratio */}
+                      <tr className="hover:bg-slate-50/50">
+                        <td className="py-2.5 px-4 font-semibold text-slate-800">
+                          <div>Tỷ lệ lõm gai thị</div>
+                          <div className="text-[10px] text-slate-400 font-normal">Vertical Cup-to-Disc Ratio</div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center font-mono-data font-bold text-slate-900">
+                          {hasVcdr ? rawVcdr.toFixed(2) : <span className="text-slate-400 font-normal">Chưa xác định</span>}
+                        </td>
+                        <td className="py-2.5 px-4 text-center text-slate-600 font-mono-data">
+                          &lt; 0.50 (Chuẩn 0.30 - 0.45)
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-700">
+                          {hasVcdr
+                            ? isVcdrNormal
+                              ? 'Gai thị hồng, viền thần kinh võng mạc đều, không tổn hại.'
+                              : 'Lõm gai thị mở rộng, nguy cơ tổn hại sợi thần kinh thị giác trong bệnh tăng nhãn áp.'
+                            : 'Gai thị không nằm trong trường nhìn hoặc chưa định vị rõ bờ gai thị.'}
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          {hasVcdr ? (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
+                                isVcdrNormal
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              }`}
+                            >
+                              {isVcdrNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                              {isVcdrNormal ? 'Bình thường' : 'Nghi ngờ tăng nhãn áp'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
+                              <HelpCircle className="w-3 h-3 text-slate-400" />
+                              Chưa đo được
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 4. NHẬN ĐỊNH LÂM SÀNG & KHUYẾN NGHỊ Y KHOA */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Card Nhận định AI */}
+            <div className="p-4 sm:p-5 rounded-xl border border-slate-200/90 bg-slate-50/50 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/70">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-sky-100 text-sky-700 shrink-0">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 tracking-tight">
+                      Nhận định lâm sàng từ AI
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Đặc điểm vi tuần hoàn và hình thái võng mạc
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200/60 shrink-0">
+                  Phân tích hình ảnh
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+                {findingsItems.map((point, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white border border-slate-200/60 shadow-2xs hover:border-sky-200 transition-colors"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-sky-500 ring-4 ring-sky-100 shrink-0 mt-1.5" />
+                    <span className="leading-snug">{point}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Card Khuyến nghị y khoa */}
+            <div className="p-4 sm:p-5 rounded-xl border border-teal-200/80 bg-teal-50/30 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between pb-2.5 border-b border-teal-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-teal-100 text-teal-700 shrink-0">
+                    <FileBadge className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-teal-950 tracking-tight">
+                      Khuyến nghị y khoa & theo dõi
+                    </h4>
+                    <p className="text-[11px] text-teal-700/80 mt-0.5">
+                      Kế hoạch chăm sóc và định kỳ sàng lọc
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-md bg-teal-100/80 text-teal-800 border border-teal-200/60 shrink-0">
+                  Hỗ trợ quyết định lâm sàng
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+                {recommendationItems.map((rec, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white border border-teal-200/60 shadow-2xs hover:border-teal-300 transition-colors"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="leading-snug">{rec}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Ghi chú thẩm định từ Bác sĩ phụ trách */}
+          {analysisResult.doctorNotes && (
+            <div className="p-4 sm:p-5 rounded-2xl border border-teal-200/80 bg-gradient-to-r from-teal-50/60 via-white to-cyan-50/40 space-y-2.5 shadow-xs border-l-4 border-l-teal-600">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-teal-100 text-teal-800">
+                    <UserCheck className="w-4 h-4 text-teal-700" />
+                  </div>
+                  <h4 className="text-xs sm:text-sm font-bold text-teal-950">
+                    Ghi chú thẩm định từ bác sĩ phụ trách
+                  </h4>
+                </div>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-teal-100/80 text-teal-800 border border-teal-200/60 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+                  {analysisResult.doctorName || 'Bác sĩ chuyên khoa'}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-700 italic pl-7 border-l-2 border-teal-300/60 ml-2 py-0.5 leading-relaxed">
+                "{analysisResult.doctorNotes}"
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 5. MEDICAL DISCLAIMER BẮT BUỘC (CDS Mandatory Disclaimer) */}
@@ -589,17 +1063,17 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             variant="outline"
             size="md"
             onClick={onOpenFullReport}
-            className="text-xs font-bold gap-2"
+            className="text-xs font-bold gap-2 shadow-xs"
           >
             <FileText className="w-4 h-4 text-brand-600" />
-            Xem & In Phiếu Báo Cáo Đầy Đủ (PDF/CSV)
+            Xem & In Phiếu Báo Cáo Chi Tiết
           </Button>
           {onConsultDoctor && (
             <Button
               variant="primary"
               size="md"
               onClick={onConsultDoctor}
-              className="text-xs font-bold gap-2"
+              className="text-xs font-bold gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700"
             >
               <MessageSquare className="w-4 h-4" />
               Trao Đổi Với Bác Sĩ

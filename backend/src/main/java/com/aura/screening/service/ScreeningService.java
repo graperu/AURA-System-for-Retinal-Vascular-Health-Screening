@@ -8,6 +8,7 @@ import com.aura.screening.entity.ScreeningStatus;
 import com.aura.screening.repository.ScreeningRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -248,6 +249,7 @@ public class ScreeningService {
         }
 
         String findings = null;
+        List<String> combinedNotes = new ArrayList<>();
         // --- FR-3: parse per-category risk breakdown from the AI Core's `predictions` array ---
         List<Map> predictions = (List<Map>) body.get("predictions");
         if (predictions != null) {
@@ -286,13 +288,36 @@ public class ScreeningService {
               screening.setHypertensionRiskScore(predScore);
               screening.setHypertensionRiskLevel(predRiskLevel);
               if (clinicalNote != null && !clinicalNote.isBlank()) {
-                findings = clinicalNote;
+                combinedNotes.add("• Tim mạch & Huyết áp: " + clinicalNote);
               }
             } else if (category.contains("Diabetic Retinopathy")) {
               screening.setDiabeticRetinopathyRiskScore(predScore);
               screening.setDiabeticRetinopathyRiskLevel(predRiskLevel);
+
+              String etdrs = (String) prediction.get("etdrsGrade");
+              if (etdrs == null || etdrs.isBlank()) {
+                if (predScore >= 80 || "CRITICAL".equalsIgnoreCase(predRiskLevel)) {
+                  etdrs = "Cấp độ 4 (PDR - Tăng sinh)";
+                } else if (predScore >= 65 || "HIGH".equalsIgnoreCase(predRiskLevel)) {
+                  etdrs = "Cấp độ 3 (NPDR nặng - Tiền tăng sinh)";
+                } else if (predScore >= 45 || "MODERATE".equalsIgnoreCase(predRiskLevel)) {
+                  etdrs = "Cấp độ 2 (NPDR trung bình)";
+                } else if (predScore >= 25) {
+                  etdrs = "Cấp độ 1 (NPDR nhẹ)";
+                } else {
+                  etdrs = "Cấp độ 0 (Không DR)";
+                }
+              }
+              screening.setEtdrsGrade(etdrs);
+              if (clinicalNote != null && !clinicalNote.isBlank()) {
+                combinedNotes.add("• Võng mạc ĐTĐ (" + etdrs + "): " + clinicalNote);
+              }
             }
           }
+        }
+
+        if (!combinedNotes.isEmpty()) {
+          findings = String.join("\n", combinedNotes);
         }
 
         String xai = (String) body.get("xaiRationale");
@@ -346,15 +371,12 @@ public class ScreeningService {
   private void sendAiReadyNotification(Screening saved, UUID patientId) {
     try {
       if (saved.getStatus() == ScreeningStatus.ANALYZED) {
-        String severity = saved.getRiskLevel() == RiskLevel.CRITICAL ? "CRITICAL"
-            : (saved.getRiskLevel() == RiskLevel.HIGH ? "WARNING" : "SUCCESS");
         userNotificationService.sendNotificationToUser(
             patientId,
-            "Kết quả phân tích AI đã sẵn sàng",
-            "Ảnh võng mạc của bạn đã được phân tích. Mức độ nguy cơ vi mạch: " + saved.getRiskLevel()
-                + (saved.getConfidence() != null ? " (Độ tin cậy: " + saved.getConfidence() + ")" : "") + ".",
+            "Ảnh võng mạc đã hoàn tất phân tích sơ bộ",
+            "Ảnh võng mạc của bạn đã được phân tích sơ bộ bởi AI và đang được chuyển đến bác sĩ chuyên khoa thẩm định lâm sàng.",
             "AI_READY",
-            severity,
+            "INFO",
             "/cds-viewer"
         );
       }

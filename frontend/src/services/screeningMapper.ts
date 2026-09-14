@@ -46,6 +46,27 @@ export const parseIcd10Codes = (raw: any): string[] => {
   return [];
 };
 
+export const computeEtdrsGrade = (grade?: string | null, score?: number, level?: string | null): string => {
+  if (grade && !grade.toLowerCase().includes('theo phân tích') && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr')) {
+    return grade;
+  }
+  const s = score ?? 0;
+  const l = (level || '').toUpperCase();
+  if (s >= 80 || l.includes('CRITICAL') || l.includes('SEVERE')) {
+    return 'Cấp độ 4 (PDR - Tăng sinh)';
+  }
+  if (s >= 65 || l.includes('HIGH')) {
+    return 'Cấp độ 3 (NPDR nặng - Tiền tăng sinh)';
+  }
+  if (s >= 40 || l.includes('MODERATE') || l.includes('MEDIUM')) {
+    return 'Cấp độ 2 (NPDR trung bình)';
+  }
+  if (s >= 25) {
+    return 'Cấp độ 1 (NPDR nhẹ - Vi phình mạch)';
+  }
+  return 'Cấp độ 0 (Không DR)';
+};
+
 /**
  * Chuyển đổi bản ghi Screening thật từ backend (Spring Boot + AURA AI Core thật)
  * sang định dạng AIRiskResult mà RiskAssessmentPanel / InteractiveCDSViewer /
@@ -101,7 +122,11 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
     diabeticRetinopathyRisk: {
       level: toFrontendRiskLevel(screening.diabeticRetinopathyRiskLevel),
       score: drScore,
-      etdrsGrade: screening.etdrsGrade || 'Theo phân tích AURA AI',
+      etdrsGrade: computeEtdrsGrade(
+        screening.etdrsGrade,
+        drScore,
+        screening.diabeticRetinopathyRiskLevel
+      ),
       macularEdemaPresent: drScore >= 50,
     },
     glaucomaRisk: {

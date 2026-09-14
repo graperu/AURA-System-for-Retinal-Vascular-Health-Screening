@@ -29,7 +29,7 @@ public class GeminiRetinalAiService {
   @Value("${aura.ai-service.gemini.api-url:http://localhost:20128/v1/chat/completions}")
   private String apiUrl;
 
-  @Value("${aura.ai-service.gemini.api-key:sk-7b0cdba71ad7d98c-r1c29o-13878c62}")
+  @Value("${aura.ai-service.gemini.api-key:}")
   private String apiKey;
 
   @Value("${aura.ai-service.gemini.model:ag/gemini-3.7-flash-high}")
@@ -80,6 +80,7 @@ public class GeminiRetinalAiService {
                 "riskScore": 12,
                 "confidence": 0.95,
                 "riskLevel": "LOW",
+                "etdrsGrade": "Cấp độ 0 (Không DR)",
                 "clinicalNote": "Không phát hiện vi phình mạch hoặc xuất huyết võng mạc, vùng hoàng điểm phẳng và sáng."
               }
             ],

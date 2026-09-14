@@ -90,6 +90,10 @@ public class Screening {
   @Column(name = "diabetic_retinopathy_risk_level", length = 32)
   private String diabeticRetinopathyRiskLevel;
 
+  @JsonProperty("etdrsGrade")
+  @Column(name = "etdrs_grade", length = 100)
+  private String etdrsGrade;
+
   @JsonProperty("hypertensionRiskScore")
   @Column(name = "hypertension_risk_score")
   private Integer hypertensionRiskScore;
@@ -335,6 +339,14 @@ public class Screening {
 
   public void setDiabeticRetinopathyRiskLevel(String diabeticRetinopathyRiskLevel) {
     this.diabeticRetinopathyRiskLevel = diabeticRetinopathyRiskLevel;
+  }
+
+  public String getEtdrsGrade() {
+    return etdrsGrade;
+  }
+
+  public void setEtdrsGrade(String etdrsGrade) {
+    this.etdrsGrade = etdrsGrade;
   }
 
   public Integer getHypertensionRiskScore() {
