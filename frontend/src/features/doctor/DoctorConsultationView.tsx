@@ -225,7 +225,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
           ]
         : [
             'Your retinal microvascular analysis has been reviewed and signed off.',
-            'Arteriovenous (A/V) ratio is stable; maintain current regimen and check morning BP.',
+            'Arteriovenous ratio is stable; maintain current regimen and check morning BP.',
             'Mild retinal arteriolar sclerosis detected; reduce sodium intake and follow up in 3 months.',
             'Clinical report has been issued and is available for download in your patient portal.',
           ],

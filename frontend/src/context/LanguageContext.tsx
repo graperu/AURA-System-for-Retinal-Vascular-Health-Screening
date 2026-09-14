@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { SupportedLanguage, translations, ClinicalTranslationSchema } from '../i18n/translations';
+import React, { createContext, useContext, useEffect, useCallback, useMemo } from 'react';
+import { SupportedLanguage, translations } from '../i18n/translations';
 
 const STORAGE_KEY = 'aura_language';
 
@@ -32,18 +32,11 @@ function resolvePath(obj: any, path: string): any {
   return current;
 }
 
-const defaultTranslate = (lang: SupportedLanguage, path: string, fallback?: string): string => {
-  const currentLangObj = translations[lang] || translations.vi;
+const defaultTranslate = (_lang: SupportedLanguage, path: string, fallback?: string): string => {
+  const currentLangObj = translations.vi;
   const resolved = resolvePath(currentLangObj, path);
   if (typeof resolved === 'string') return resolved;
   if (resolved !== undefined && resolved !== null) return String(resolved);
-
-  // Fallback to Vietnamese if English key is missing
-  if (lang !== 'vi') {
-    const viResolved = resolvePath(translations.vi, path);
-    if (typeof viResolved === 'string') return viResolved;
-    if (viResolved !== undefined && viResolved !== null) return String(viResolved);
-  }
 
   return fallback !== undefined ? fallback : path;
 };
@@ -59,50 +52,69 @@ const defaultContextValue: LanguageContextType = {
 const LanguageContext = createContext<LanguageContextType>(defaultContextValue);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<SupportedLanguage>(() => {
-    try {
+  // Tự động kiểm tra và reset localStorage về 'vi' nếu trước đó lưu 'en' hoặc giá trị khác
+  try {
+    if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === 'en' || stored === 'vi') return stored;
+      if (stored !== 'vi') {
+        localStorage.setItem(STORAGE_KEY, 'vi');
+      }
+    }
+  } catch {
+    // LocalStorage might be restricted
+  }
+
+  // Đảm bảo thẻ html luôn mang thuộc tính lang="vi"
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.lang = 'vi';
+  }
+
+  useEffect(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored !== 'vi') {
+          localStorage.setItem(STORAGE_KEY, 'vi');
+        }
+      }
     } catch {
       // LocalStorage might be restricted
     }
-    return 'vi';
-  });
-
-  const setLanguage = useCallback((newLang: SupportedLanguage) => {
-    setLanguageState(newLang);
-    try {
-      localStorage.setItem(STORAGE_KEY, newLang);
-      if (typeof document !== 'undefined' && document.documentElement) {
-        document.documentElement.lang = newLang;
-      }
-    } catch (e) {
-      console.warn('Could not persist language preference:', e);
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.lang = 'vi';
     }
   }, []);
 
-  useEffect(() => {
-    if (typeof document !== 'undefined' && document.documentElement) {
-      document.documentElement.lang = language;
+  // setLanguage là no-op (không cho phép đổi sang ngôn ngữ khác ngoài 'vi')
+  const setLanguage = useCallback((_newLang: SupportedLanguage) => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, 'vi');
+      }
+      if (typeof document !== 'undefined' && document.documentElement) {
+        document.documentElement.lang = 'vi';
+      }
+    } catch {
+      // ignore
     }
-  }, [language]);
+  }, []);
 
   const t = useCallback(
     (path: string, fallback?: string): string => {
-      return defaultTranslate(language, path, fallback);
+      return defaultTranslate('vi', path, fallback);
     },
-    [language]
+    []
   );
 
   const contextValue = useMemo<LanguageContextType>(
     () => ({
-      language,
+      language: 'vi',
       setLanguage,
       t,
-      isVi: language === 'vi',
-      isEn: language === 'en',
+      isVi: true,
+      isEn: false,
     }),
-    [language, setLanguage, t]
+    [setLanguage, t]
   );
 
   return (

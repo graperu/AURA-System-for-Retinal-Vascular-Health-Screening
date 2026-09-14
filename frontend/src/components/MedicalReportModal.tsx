@@ -226,7 +226,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             <div>
               <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                 {isReviewed
-                  ? t('doctor.reportModal.officialReportTitle', 'Báo Cáo Sàng Lọc Y Tế Võng Mạc AURA (FR-7)')
+                  ? t('doctor.reportModal.officialReportTitle', 'Báo Cáo Sàng Lọc Y Tế Võng Mạc AURA')
                   : t('doctor.reportModal.preliminaryReportTitle', 'Báo Cáo Sàng Lọc Sơ Bộ AURA AI - Đang Chờ Bác Sĩ Thẩm Định')}
                 {hasDualData && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
@@ -295,7 +295,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                   : 'bg-amber-50 text-amber-800 border-amber-200'
               }`}>
                 {isReviewed
-                  ? t('doctor.reportModal.reviewedStatus', 'Đã duyệt lâm sàng (HL7/FHIR)')
+                  ? t('doctor.reportModal.reviewedStatus', 'Đã duyệt lâm sàng')
                   : t('doctor.reportModal.pendingStatus', 'Chờ bác sĩ thẩm định')}
               </span>
             </div>
@@ -324,7 +324,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
               <strong className="text-slate-900 text-sm">{patient.fullName || (isVi ? 'Chưa ghi nhận' : 'Not recorded')}</strong>
             </div>
             <div>
-              <span className="text-slate-500 block">{t('doctor.reportModal.patientId', 'Mã bệnh nhân (MRN):')}</span>
+              <span className="text-slate-500 block">{t('doctor.reportModal.patientId', 'Mã bệnh nhân:')}</span>
               <strong className="font-mono-data text-cyan-800 text-sm">{patient.mrn || 'N/A'}</strong>
             </div>
             <div>
@@ -348,7 +348,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-900 flex items-center justify-between border-b border-slate-200 pb-1.5">
               <span className="flex items-center gap-2">
                 <Eye className="h-4 w-4 text-cyan-700" />
-                {t('doctor.reportModal.section1', '1. Hình Ảnh Võng Mạc & Bản Đồ Nhiệt Vi Mạch AI (XAI Heatmap)')}
+                {t('doctor.reportModal.section1', '1. Hình Ảnh Võng Mạc & Bản Đồ Nhiệt Vi Mạch AI')}
               </span>
               {hasDualData && (
                 <span className="text-[11px] font-bold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
@@ -524,7 +524,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           <div className="space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-900 flex items-center gap-2 border-b border-slate-200 pb-1.5">
               <Heart className="h-4 w-4 text-rose-600" />
-              {t('doctor.reportModal.section2', '2. Đánh Giá Nguy Cơ Lâm Sàng Đa Bệnh Lý (AI Risk Assessment)')}
+              {t('doctor.reportModal.section2', '2. Đánh Giá Nguy Cơ Lâm Sàng Đa Bệnh Lý')}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* CVD Card */}
@@ -672,7 +672,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           <div className="space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-900 flex items-center gap-2 border-b border-slate-200 pb-1.5">
               <Activity className="h-4 w-4 text-cyan-700" />
-              {t('doctor.reportModal.section3', '3. Phân Tích Chỉ Số Sinh Học Vi Mạch Võng Mạc (Vascular Biomarkers)')}
+              {t('doctor.reportModal.section3', '3. Phân Tích Chỉ Số Sinh Học Vi Mạch Võng Mạc')}
             </h3>
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <table className="w-full text-left text-xs">
@@ -693,7 +693,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   <tr>
-                    <td className="p-2.5 font-medium">{t('doctor.reportModal.bmAvr', 'Tỷ lệ Động/Tĩnh mạch (A/V Ratio)')}</td>
+                    <td className="p-2.5 font-medium">{t('doctor.reportModal.bmAvr', 'Tỷ lệ Động/Tĩnh mạch')}</td>
                     {hasDualData ? (
                       <>
                         <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData.annotatedMap.arteryVeinRatio}</td>
@@ -771,7 +771,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     )}
                   </tr>
                   <tr>
-                    <td className="p-2.5 font-medium">{t('doctor.reportModal.bmCdr', 'Tỷ lệ lõm gai thị (Vertical CDR)')}</td>
+                    <td className="p-2.5 font-medium">{t('doctor.reportModal.bmCdr', 'Tỷ lệ lõm gai thị')}</td>
                     {hasDualData ? (
                       <>
                         <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData.annotatedMap.opticCupToDiscRatio}</td>

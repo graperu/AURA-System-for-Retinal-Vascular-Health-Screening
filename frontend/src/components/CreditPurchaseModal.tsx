@@ -94,7 +94,7 @@ export const getClinicalFeatures = (scansCount: number, isVi: boolean): string[]
   if (scansCount === 2000) {
     return [
       isVi ? "2.000 lượt phân tích ảnh võng mạc tốc độ cao" : "2,000 high-throughput retinal analyses",
-      isVi ? "Tự động xử lý theo đợt hàng loạt (Bulk Batch)" : "Automated bulk batch screening pipeline",
+      isVi ? "Tự động xử lý theo đợt hàng loạt" : "Automated bulk batch screening pipeline",
       isVi ? "Báo cáo dịch tễ học & thống kê phân tầng nguy cơ" : "Epidemiological and risk stratification analytics",
       isVi ? "Phân công bệnh nhân tự động cho bác sĩ" : "Automated patient assignment to doctors",
       isVi ? "Xuất dữ liệu báo cáo chuyên sâu CSV/Excel" : "In-depth CSV/Excel clinical data export",
@@ -337,7 +337,7 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
               failureReason ||
               (status === "EXPIRED"
                 ? (isVi
-                    ? "Phiên thanh toán đã hết hạn (quá 15 phút). Vui lòng tạo giao dịch mới."
+                    ? "Phiên thanh toán đã hết hạn sau 15 phút. Vui lòng tạo giao dịch mới."
                     : "Payment session has expired. Please create a new transaction.")
                 : (isVi
                     ? "Giao dịch thanh toán không thành công. Vui lòng thử lại."
@@ -374,7 +374,7 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
     () => [
       {
         id: "VIETQR" as const,
-        name: isVi ? "Mã QR Ngân Hàng (VietQR Napas 24/7)" : "VietQR Bank Transfer (Napas 24/7)",
+        name: isVi ? "Chuyển Khoản Ngân Hàng VietQR Napas 24/7" : "VietQR Napas 24/7 Bank Transfer",
         badge: isVi ? "Quét bằng 40+ App Ngân Hàng & Ví" : "40+ Banking Apps & E-Wallets",
         description: isVi
           ? "Mở ứng dụng ngân hàng bất kỳ (Vietcombank, MB, Techcombank, ACB, VPBank, MoMo...) quét mã chuyển khoản tức thì"
@@ -385,29 +385,29 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
       },
       {
         id: "MOMO" as const,
-        name: isVi ? "Ví Điện Tử MoMo QR" : "MoMo E-Wallet QR",
-        badge: isVi ? "Thanh toán siêu tốc 1 chạm" : "1-Tap Instant Checkout",
+        name: isVi ? "Ví Điện Tử MoMo" : "MoMo E-Wallet",
+        badge: isVi ? "Thanh toán 1 chạm" : "1-Tap Checkout",
         description: isVi
-          ? "Quét mã QR qua ứng dụng MoMo trên điện thoại"
-          : "Scan QR code via MoMo app on your mobile phone",
+          ? "Quét mã MoMo QR hoặc chuyển hướng sang ứng dụng MoMo xác nhận"
+          : "Scan MoMo QR or redirect to MoMo application to complete",
         color: "border-pink-500 bg-pink-50/40 text-pink-800",
         icon: <Wallet className="w-5 h-5 text-pink-600" />,
-        tag: isVi ? "Tiện lợi" : "Convenient",
+        tag: isVi ? "Nhanh chóng" : "Fast",
       },
       {
         id: "VNPAY" as const,
-        name: isVi ? "Cổng VNPAY / VNPAY-QR" : "VNPAY Gateway / VNPAY-QR",
-        badge: isVi ? "Cổng Thanh Toán Quốc Gia" : "National Payment Gateway",
+        name: isVi ? "Cổng Thanh Toán VNPAY-QR" : "VNPAY Payment Gateway",
+        badge: isVi ? "Hỗ trợ Thẻ & Internet Banking" : "ATM & Online Banking",
         description: isVi
-          ? "Thanh toán qua cổng VNPAY-QR, Internet Banking và thẻ nội địa"
-          : "Payment via VNPAY-QR, local Internet Banking and ATM debit cards",
+          ? "Thanh toán qua cổng VNPay hỗ trợ thẻ ATM nội địa và quét QR liên ngân hàng"
+          : "Pay via VNPay gateway with domestic ATM cards and interbank QR",
         color: "border-blue-500 bg-blue-50/40 text-blue-800",
         icon: <Building2 className="w-5 h-5 text-blue-600" />,
         tag: isVi ? "Phổ biến" : "Popular",
       },
       {
         id: "CREDIT_CARD" as const,
-        name: isVi ? "Thẻ Quốc Tế (Visa / MasterCard)" : "International Cards (Visa / MasterCard)",
+        name: isVi ? "Thẻ Quốc Tế Visa / MasterCard" : "International Cards",
         badge: isVi ? "Bảo mật PCI-DSS 256-bit" : "PCI-DSS 256-bit Security",
         description: isVi
           ? "Hỗ trợ thẻ tín dụng & ghi nợ quốc tế phát hành toàn cầu"
@@ -423,7 +423,7 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
   // Cấu hình tài khoản ngân hàng thụ hưởng AURA
   const bankConfig = {
     bankId: "MB",
-    bankName: "MBBank (Ngân hàng TMCP Quân Đội)",
+    bankName: "MBBank - Ngân hàng TMCP Quân Đội",
     accountNo: "0399882026",
     accountName: "CONG TY AI Y TE AURA",
   };
@@ -506,8 +506,8 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
         <h5 className="font-bold text-cyan-900 flex items-center gap-1.5">
           <span>
             {isVi
-              ? "Hướng Dẫn Sử Dụng Hạn Mức Gói Gia Đình (15 Lượt Khám)"
-              : "Family Package Clinical Guidelines (15 Scans)"}
+              ? "Hướng Dẫn Sử Dụng Hạn Mức Gói Gia Đình"
+              : "Family Package Clinical Guidelines"}
           </span>
         </h5>
         <p className="leading-relaxed text-cyan-800">
@@ -528,7 +528,7 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
         <div className="flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-teal-600" />
           <span>
-            {isVi ? "Nạp Thêm Lượt Khám Sàng Lọc AI (FR-11, FR-28)" : "Purchase AI Screening Credits (FR-11, FR-28)"}
+            {isVi ? "Nạp Thêm Lượt Khám Sàng Lọc AI" : "Purchase AI Screening Credits"}
           </span>
         </div>
       }
@@ -883,7 +883,7 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
               <div>
                 <p className="font-bold">
-                  {isVi ? "Phiên thanh toán đã hết hạn (quá 15 phút)" : "Payment session expired (15 minutes limit)"}
+                  {isVi ? "Phiên thanh toán đã hết hạn sau 15 phút" : "Payment session expired"}
                 </p>
                 <p className="text-[11px] text-amber-800">
                   {isVi
@@ -930,8 +930,8 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
               <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-teal-600" />
                 {isVi
-                  ? "Thông tin tài khoản thụ hưởng (AURA System)"
-                  : "Beneficiary Account Details (AURA System)"}
+                  ? "Thông tin tài khoản thụ hưởng"
+                  : "Beneficiary Account Details"}
               </h4>
 
               <div className="space-y-2 text-xs bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
@@ -1129,7 +1129,7 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">
-                  {isVi ? "Mã giao dịch (TxnRef):" : "Transaction Ref:"}
+                  {isVi ? "Mã giao dịch:" : "Transaction Ref:"}
                 </span>
                 <span className="font-bold text-teal-700 truncate max-w-[200px]">
                   {lastTxnDetails.providerReference ||

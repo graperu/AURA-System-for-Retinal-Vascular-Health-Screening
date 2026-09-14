@@ -82,7 +82,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
 
   const packageScopeOptions = useMemo<ClinicalSelectOption<string>[]>(() => [
     { value: "ALL", label: t('admin.packages.scopeAll', isVi ? "Tất cả đối tượng" : "All Audiences") },
-    { value: "USER", label: t('admin.packages.scopeUser', isVi ? "Cá nhân" : "Individual (Patient)") },
+    { value: "USER", label: t('admin.packages.scopeUser', isVi ? "Cá nhân" : "Individual") },
     { value: "CLINIC", label: t('admin.packages.scopeClinic', isVi ? "Phòng khám" : "Clinic") },
   ], [t, isVi]);
 
@@ -1755,7 +1755,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">
-                    {t('admin.templates.codeLabel', isVi ? 'Mã định danh (Code)' : 'Template Code')}
+                    {t('admin.templates.codeLabel', isVi ? 'Mã định danh' : 'Template Code')}
                   </label>
                   <input
                     type="text"
@@ -2202,7 +2202,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                           }`}
                         >
                           <User className="w-4 h-4 text-blue-600" />
-                          <span>{isVi ? "Cá nhân" : "Individual (Patient)"}</span>
+                          <span>{isVi ? "Cá nhân" : "Individual"}</span>
                         </button>
                         <button
                           type="button"

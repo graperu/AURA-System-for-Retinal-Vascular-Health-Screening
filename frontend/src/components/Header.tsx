@@ -16,7 +16,6 @@ import {
 import { UserSession } from '../types/auth';
 import { notificationApi, getAccessToken } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
-import { LanguageSwitcher } from './ui/LanguageSwitcher';
 
 interface HeaderProps {
   currentUser: UserSession;
@@ -201,9 +200,6 @@ export const Header: React.FC<HeaderProps> = ({
             <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
             {t('header.hipaaStandard', 'Chuẩn bảo mật HIPAA')}
           </div>
-
-          {/* Language Switcher */}
-          <LanguageSwitcher />
 
           {/* Notifications Dropdown */}
           <div className="relative">

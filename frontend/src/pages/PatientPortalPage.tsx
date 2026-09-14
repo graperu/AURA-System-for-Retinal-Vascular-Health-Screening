@@ -476,7 +476,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           <div className="flex-1 space-y-1">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-slate-900">
-                {isVi ? "Thông Báo AI Sẵn Sàng (FR-9)" : "AI Analysis Ready (FR-9)"}
+                {isVi ? "Thông Báo AI Sẵn Sàng" : "AI Analysis Ready"}
               </h4>
               <span className="text-[10px] text-emerald-600 font-mono-data font-semibold">
                 {isVi ? "Vừa xong" : "Just now"}
@@ -788,7 +788,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
                     <span className="text-slate-500 block text-xs">
-                      {isVi ? "Huyết áp (Systolic/Diastolic)" : "Blood Pressure (Systolic/Diastolic)"}
+                      {isVi ? "Huyết áp tâm thu / tâm trương" : "Systolic / Diastolic Blood Pressure"}
                     </span>
                     {patient.systolicBp != null &&
                     patient.diastolicBp != null ? (
@@ -797,7 +797,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                           {patient.systolicBp}/{patient.diastolicBp}
                         </span>
                         <span className="text-[11px] text-slate-500 block mt-0.5">
-                          {isVi ? "mmHg (Chỉ số đo gần nhất)" : "mmHg (Latest measurement)"}
+                          {isVi ? "Đơn vị: mmHg" : "Unit: mmHg"}
                         </span>
                       </>
                     ) : (
@@ -1066,7 +1066,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">
-                    {isVi ? "Quản Lý Gói Dịch Vụ & Lượt Phân Tích (FR-11, FR-12)" : "Service Packages & Credit Management (FR-11, FR-12)"}
+                    {isVi ? "Quản Lý Gói Dịch Vụ & Lượt Phân Tích" : "Service Packages & Credit Management"}
                   </h2>
                   <p className="text-xs text-slate-500">
                     {isVi
@@ -1201,7 +1201,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <History className="w-4 h-4 text-cyan-700" /> {isVi ? "Lịch Sử Thanh Toán & Giao Dịch Hóa Đơn (FR-12)" : "Payment & Billing Transaction History (FR-12)"}
+                  <History className="w-4 h-4 text-cyan-700" /> {isVi ? "Lịch Sử Thanh Toán & Giao Dịch Hóa Đơn" : "Payment & Billing Transaction History"}
                 </h3>
                 <button
                   onClick={loadBillingData}

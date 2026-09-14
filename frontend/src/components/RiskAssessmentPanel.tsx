@@ -41,7 +41,12 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
           <span className="text-[11px] text-clinical-text-muted block font-sans">
             {isVi ? 'Tổng Điểm Rủi Ro:' : 'Overall Risk Score:'}
           </span>
-          <span className="text-xl font-bold text-red-600">{result.overallVascularRiskScore}/100</span>
+          <span
+            className="text-xl font-bold"
+            style={{ color: getGaugeColor(result.overallVascularRiskScore) }}
+          >
+            {result.overallVascularRiskScore}/100
+          </span>
         </div>
       </div>
 
@@ -142,13 +147,13 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
       <div className="space-y-3 pt-2">
         <h3 className="text-xs font-bold uppercase tracking-wider text-clinical-text-muted">
           {isVi
-            ? 'Thông Số Sinh Học Vi Mạch Võng Mạc (Retinal Biomarkers)'
+            ? 'Thông Số Sinh Học Vi Mạch Võng Mạc'
             : 'Retinal Microvascular Biomarkers'}
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
             <span className="text-[11px] text-clinical-text-muted block">
-              {isVi ? 'Tỷ lệ Động-Tĩnh mạch (AVR)' : 'Arteriovenous Ratio (AVR)'}
+              {isVi ? 'Tỷ lệ Động-Tĩnh mạch' : 'Arteriovenous Ratio'}
             </span>
             <span className="text-sm font-bold font-mono-data text-clinical-text">
               {result.annotatedMap.arteryVeinRatio ? result.annotatedMap.arteryVeinRatio.toFixed(2) : '0.00'}
@@ -159,7 +164,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
           </div>
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
             <span className="text-[11px] text-clinical-text-muted block">
-              {isVi ? 'Mật độ vi mạch (Density)' : 'Capillary Density'}
+              {isVi ? 'Mật độ vi mạch' : 'Capillary Density'}
             </span>
             <span className="text-sm font-bold font-mono-data text-clinical-text">
               {result.annotatedMap.vesselDensityPercentage ? result.annotatedMap.vesselDensityPercentage.toFixed(1) : '0.0'}%
@@ -170,7 +175,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
           </div>
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
             <span className="text-[11px] text-clinical-text-muted block">
-              {isVi ? 'Độ uốn lượn (Tortuosity)' : 'Vascular Tortuosity'}
+              {isVi ? 'Độ uốn lượn mạch máu' : 'Vascular Tortuosity'}
             </span>
             <span className="text-sm font-bold font-mono-data text-clinical-text">
               {result.annotatedMap.tortuosityIndex ? result.annotatedMap.tortuosityIndex.toFixed(2) : '0.00'}
@@ -181,7 +186,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
           </div>
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
             <span className="text-[11px] text-clinical-text-muted block">
-              {isVi ? 'Tỷ lệ Cup/Disc (CDR)' : 'Cup-to-Disc Ratio (CDR)'}
+              {isVi ? 'Tỷ lệ lõm đĩa thị' : 'Cup-to-Disc Ratio'}
             </span>
             <span className="text-sm font-bold font-mono-data text-clinical-text">
               {result.annotatedMap.opticCupToDiscRatio ? result.annotatedMap.opticCupToDiscRatio.toFixed(2) : '0.00'}

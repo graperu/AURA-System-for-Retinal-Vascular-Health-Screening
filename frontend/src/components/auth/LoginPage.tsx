@@ -3,7 +3,6 @@ import { CheckCircle2 } from 'lucide-react';
 import { AuthHeroPanel } from './AuthHeroPanel';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
-import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { useLanguage } from '../../context/LanguageContext';
 
 type Mode = 'login' | 'register';
@@ -27,11 +26,6 @@ export const LoginPage: React.FC = () => {
 
   return (
     <main className="auth-page relative">
-      {/* Floating Language Switcher in top right */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
-        <LanguageSwitcher />
-      </div>
-
       <div className="auth-container relative bg-white shadow-[0_20px_60px_rgba(7,13,45,0.3)]">
         <AuthHeroPanel />
         <section className="auth-form-panel">

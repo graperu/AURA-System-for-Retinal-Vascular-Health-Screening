@@ -299,8 +299,8 @@ runTest('AI-FLOW.9: An toàn y tế ClinicalRiskSummaryCard: null/undefined biom
 runTest('AI-FLOW.10: useAnalysisProgress derived status thuần khiết, tính toán chính xác và trả về chuỗi rỗng khi chưa phân tích', () => {
   assert.strictEqual(getAnalysisStatusMessage(0), 'Khởi tạo mã hóa bảo mật & tiền xử lý ảnh võng mạc...');
   assert.strictEqual(getAnalysisStatusMessage(24), 'Khởi tạo mã hóa bảo mật & tiền xử lý ảnh võng mạc...');
-  assert.strictEqual(getAnalysisStatusMessage(25), 'AURA AI Core (Multimodal Vision) đang phân tích vi mạch...');
-  assert.strictEqual(getAnalysisStatusMessage(59), 'AURA AI Core (Multimodal Vision) đang phân tích vi mạch...');
+  assert.strictEqual(getAnalysisStatusMessage(25), 'Hệ thống AURA AI đang phân tích vi mạch...');
+  assert.strictEqual(getAnalysisStatusMessage(59), 'Hệ thống AURA AI đang phân tích vi mạch...');
   assert.strictEqual(getAnalysisStatusMessage(60), 'Nhận diện vi phình mạch, xuất huyết & tính toán Biomarkers...');
   assert.strictEqual(getAnalysisStatusMessage(84), 'Nhận diện vi phình mạch, xuất huyết & tính toán Biomarkers...');
   assert.strictEqual(getAnalysisStatusMessage(85), 'Trích xuất bản đồ Grad-CAM & tổng hợp nguy cơ lâm sàng...');

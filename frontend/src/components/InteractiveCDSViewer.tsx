@@ -581,8 +581,8 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               <Info className="w-3 h-3 text-amber-600 shrink-0" />
               <span>
                 {isVi
-                  ? 'Biến đổi vi mạch toàn thể (Chưa định vị ổ khu trú đơn độc)'
-                  : 'Diffuse microvascular alterations (No focal lesions)'}
+                  ? 'Biến đổi vi mạch toàn thể - Chưa định vị ổ khu trú đơn độc'
+                  : 'Diffuse microvascular alterations - No focal lesions'}
               </span>
               <span className="hidden">{t('cdsViewer.showCoordinates', 'Hiển thị tọa độ tổn thương')} (0)</span>
             </span>
@@ -794,8 +794,8 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               <div className="font-bold text-amber-950 flex items-center gap-2 flex-wrap">
                 <span>
                   {isVi
-                    ? 'Cảnh báo: Biến đổi vi mạch toàn thể / lan tỏa (Không phát hiện ổ khu trú đơn độc)'
-                    : 'Notice: Diffuse Retinal Vascular Alterations (No focal lesions detected)'}
+                    ? 'Cảnh báo: Biến đổi vi mạch toàn thể lan tỏa - Không phát hiện ổ khu trú đơn độc'
+                    : 'Notice: Diffuse Retinal Vascular Alterations - No focal lesions detected'}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-semibold border border-amber-300">
                   {isVi ? 'Theo dõi lan tỏa' : 'Diffuse Survey'}

@@ -521,7 +521,7 @@ public class ScreeningService {
         String.valueOf(screening.getId()),
         doctorId.toString(),
         decision.name(),
-        doctorNotes,
+        doctorNotes != null ? doctorNotes : "",
         String.valueOf(adjustedCardioRisk),
         String.valueOf(adjustedDrRisk),
         icd10Codes == null ? "" : String.join(",", icd10Codes),

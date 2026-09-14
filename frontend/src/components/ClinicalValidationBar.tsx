@@ -75,7 +75,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
           <FileSignature className="w-5 h-5 text-brand-600" />
           <div>
             <h3 className="text-sm sm:text-base font-bold text-clinical-text">
-              {t('doctor.validationBar.title', 'Thẩm Định Lâm Sàng & Phê Duyệt Kết Quả Sàng Lọc (Doctor Sign-Off)')}
+              {t('doctor.validationBar.title', 'Thẩm Định Lâm Sàng & Phê Duyệt Kết Quả Sàng Lọc')}
             </h3>
             <p className="text-xs text-clinical-text-muted">
               {t('doctor.validationBar.subtitle', 'Bác sĩ xác nhận độ chính xác của AI hoặc điều chỉnh mức độ rủi ro theo chuyên môn.')}

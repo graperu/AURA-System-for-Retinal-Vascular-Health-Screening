@@ -42,7 +42,7 @@ const request = async <T>(
     credentials: "include",
   });
 
-  let body: ApiResponse<T>;
+  let body: any;
   try {
     body = await response.json();
   } catch {
@@ -54,7 +54,23 @@ const request = async <T>(
           : "Phản hồi từ máy chủ không hợp lệ.",
     };
   }
-  if (!response.ok) body.success = false;
+
+  if (!response.ok) {
+    if (typeof body === "object" && body !== null) {
+      body.success = false;
+    }
+  } else {
+    // Tự động chuẩn hóa phản hồi từ các endpoint chưa bọc ApiResponse
+    if (typeof body === "object" && body !== null && body.success === undefined) {
+      body = Array.isArray(body)
+        ? { success: true, data: body }
+        : {
+            success: true,
+            data: body,
+            ...body,
+          };
+    }
+  }
   return { response, body };
 };
 
@@ -357,11 +373,13 @@ export const adminUserApi = {
       body: JSON.stringify({ active }),
     }),
 
-  updateRole: (userId: string, roleName: string) =>
-    apiFetch<any>(`/api/v1/admin/users/${userId}/role`, {
+  updateRole: (userId: string, roleName: string) => {
+    const cleanRole = (roleName || "").replace(/^ROLE_/, "");
+    return apiFetch<any>(`/api/v1/admin/users/${userId}/role`, {
       method: "PUT",
-      body: JSON.stringify({ roleName }),
-    }),
+      body: JSON.stringify({ role: cleanRole, roleName: cleanRole }),
+    });
+  },
 
   getAiConfig: () =>
     apiFetch<any>("/api/v1/admin/ai-config", { method: "GET" }),
@@ -496,11 +514,14 @@ export const patientApi = {
 };
 
 export const doctorApi = {
-  getPatients: (params?: { page?: number; size?: number; q?: string }) =>
-    apiFetch<any>(
-      `/api/v1/doctor/patients?page=${params?.page ?? 0}&size=${params?.size ?? 20}${params?.q ? `&q=${encodeURIComponent(params.q)}` : ""}`,
+  getPatients: (params?: { page?: number; size?: number; q?: string; search?: string }) => {
+    const term = params?.search || params?.q;
+    const searchParam = term ? `&search=${encodeURIComponent(term)}&q=${encodeURIComponent(term)}` : '';
+    return apiFetch<any>(
+      `/api/v1/doctor/patients?page=${params?.page ?? 0}&size=${params?.size ?? 20}${searchParam}`,
       { method: "GET" },
-    ),
+    );
+  },
 
   getAssignedPatients: () =>
     apiFetch<any[]>("/api/v1/doctor/patients", {
@@ -529,7 +550,7 @@ export const doctorApi = {
   },
 
   create: (patientData: any) =>
-    apiFetch<any>("/api/v1/patient/profile", {
+    apiFetch<any>("/api/v1/doctor/patients", {
       method: "POST",
       body: JSON.stringify(patientData),
     }),
@@ -618,7 +639,7 @@ export const clinicAnalyticsApi = {
 
   exportData: async (fileName = "aura_clinic_export.csv") => {
     const response = await fetch(
-      `${(import.meta.env?.VITE_API_BASE_URL || "").replace(/\/$/, "")}/api/v1/clinic/analytics/export`,
+      `${API_BASE_URL}/api/v1/clinic/analytics/export`,
       {
         headers: getAccessToken()
           ? { Authorization: `Bearer ${getAccessToken()}` }
@@ -700,7 +721,7 @@ export interface ServicePackagePayload {
   price: number;
   credits: number;
   validityDays: number;
-  scope: 'USER' | 'CLINIC';
+  scope: 'INDIVIDUAL' | 'CLINIC' | 'USER';
   active?: boolean;
   features?: string[];
 }

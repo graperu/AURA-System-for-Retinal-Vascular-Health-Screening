@@ -569,13 +569,13 @@ runTest('VIEWER-6B: Xử lý an toàn y khoa ca nguy cơ cao (score >= 40) khi 0
   assert.ok(!html.includes('Khảo sát vi mạch toàn diện: Cấu trúc bình thường'), 'Cấm banner âm tính khi score >= 40');
 
   // 2. Legend hiển thị nhãn cảnh báo biến đổi toàn thể
-  assert.ok(html.includes('Biến đổi vi mạch toàn thể (Chưa định vị ổ khu trú đơn độc)'), 'Legend có nhãn cảnh báo biến đổi toàn thể');
+  assert.ok(html.includes('Biến đổi vi mạch toàn thể - Chưa định vị ổ khu trú đơn độc'), 'Legend có nhãn cảnh báo biến đổi toàn thể');
 
   // 3. Góc ảnh có thông báo tổn thương lan tỏa
   assert.ok(html.includes('Tổn thương vi mạch lan tỏa — Tham chiếu bản đồ nhiệt'), 'Góc ảnh có nhãn cảnh báo lan tỏa');
 
   // 4. Banner cảnh báo hổ phách
-  assert.ok(html.includes('Cảnh báo: Biến đổi vi mạch toàn thể / lan tỏa'), 'Banner cảnh báo biến đổi toàn thể');
+  assert.ok(html.includes('Cảnh báo: Biến đổi vi mạch toàn thể lan tỏa'), 'Banner cảnh báo biến đổi toàn thể');
   assert.ok(html.includes('bg-amber-50'), 'Banner có nền hổ phách cảnh báo');
 });
 
