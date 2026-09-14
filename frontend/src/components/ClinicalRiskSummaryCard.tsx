@@ -138,7 +138,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <RiskBadge level={riskLevel} size="lg" className="shadow-xs font-bold" />
               <p className="text-xs text-white/90">
                 {riskLevel === 'Low' && 'Hệ vi mạch võng mạc bình thường, nguy cơ tim mạch và đột quỵ thấp.'}
@@ -146,6 +146,16 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 {riskLevel === 'High' && 'Phát hiện tổn thương vi mạch rõ rệt, cần bác sĩ chuyên khoa khám xác định sớm.'}
                 {riskLevel === 'Critical' && 'Nguy cơ biến chứng mạch máu cao, đề nghị chuyển khám chuyên khoa tim mạch / mắt khẩn cấp.'}
               </p>
+            </div>
+
+            {/* Thước đo giải thích thang điểm rủi ro rõ ràng */}
+            <div className="flex items-center gap-2 text-[11px] bg-white/10 px-3 py-1 rounded-full w-fit backdrop-blur-xs border border-white/15 flex-wrap">
+              <span className="opacity-90 font-medium">Thang đo rủi ro y tế:</span>
+              <span className="font-bold text-emerald-200">0–39: An toàn / Nguy cơ thấp</span>
+              <span className="opacity-60">•</span>
+              <span className="font-semibold text-amber-200">40–64: Cần theo dõi</span>
+              <span className="opacity-60">•</span>
+              <span className="font-semibold text-rose-200">65–100: Nguy cơ cao</span>
             </div>
           </div>
 
