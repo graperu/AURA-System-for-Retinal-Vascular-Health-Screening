@@ -17,12 +17,12 @@ export const PasswordInput: React.FC<Props> = ({ label, error, id, ...props }) =
         placeholder="••••••••••••"
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
-        className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-12 text-sm text-slate-900 outline-none transition focus:ring-4 ${error ? 'border-red-500 focus:border-red-600 focus:ring-red-100' : 'border-slate-300 focus:border-blue-600 focus:ring-blue-100'}`}
+        className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-12 text-sm text-slate-900 transition focus:outline-none focus:ring-2 ${error ? 'border-red-500 focus:border-red-600 focus:ring-red-500/20' : 'border-slate-300 focus:border-brand-600 focus:ring-brand-500/20'}`}
       />
       <button
         type="button"
         onClick={() => setVisible(value => !value)}
-        className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+        className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
         aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
       >
         {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

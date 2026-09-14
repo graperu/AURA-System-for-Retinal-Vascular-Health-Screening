@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AIRiskResult } from '../types/cds';
 import { RiskBadge } from './ui/RiskBadge';
 import { Button } from './ui/Button';
@@ -168,23 +168,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
 
   const riskLevel = getComputedRiskLevel(score);
 
-  // Chuẩn hóa điểm CVD để đồng bộ với mức rủi ro
-  let rawCvdScore = analysisResult.cardiovascularRisk?.score ?? 0;
-  if (analysisResult.cardiovascularRisk?.level === 'Low' && rawCvdScore >= 40) {
-    rawCvdScore = 25;
-  } else if (analysisResult.cardiovascularRisk?.level === 'Moderate' && (rawCvdScore < 40 || rawCvdScore >= 65)) {
-    rawCvdScore = 48;
-  }
+  const rawCvdScore = analysisResult.cardiovascularRisk?.score ?? 0;
   const cvdLevel = getComputedRiskLevel(rawCvdScore);
 
-  // Chuẩn hóa điểm DR để đồng bộ với mức rủi ro
-  let rawDrScore = analysisResult.diabeticRetinopathyRisk?.score ?? 0;
-  if (analysisResult.diabeticRetinopathyRisk?.level === 'Low' && rawDrScore >= 40) {
-    rawDrScore = 18;
-  } else if (analysisResult.diabeticRetinopathyRisk?.level === 'Moderate' && (rawDrScore < 40 || rawDrScore >= 65)) {
-    rawDrScore = 48;
-  }
+  const rawDrScore = analysisResult.diabeticRetinopathyRisk?.score ?? 0;
   const drLevel = getComputedRiskLevel(rawDrScore);
+  const hasMacularEdema = analysisResult.diabeticRetinopathyRisk?.macularEdemaPresent ?? (rawDrScore >= 50);
 
   const glaucomaScore = analysisResult.glaucomaRisk?.score ?? 0;
 
@@ -219,16 +208,23 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
       : 'from-[#115E59] via-[#0D9488] to-[#0891B2] text-white';
 
   // Danh sách nhận định và khuyến nghị được phân tách ngắn gọn
-  const findingsItems = parseClinicalPoints(analysisResult.findings, [
-    'Chưa phát hiện tổn thương vi phình mạch hoặc xuất huyết diện rộng.',
-    'Cấu trúc vi tuần hoàn hoàng điểm và gai thị tương đối ổn định.',
-  ]);
+  const findingsItems = useMemo(
+    () => parseClinicalPoints(analysisResult.findings, [
+      'Cung mạch thái dương và mạng lưới vi mạch võng mạc phân bố đồng đều.',
+      'Không phát hiện dấu hiệu xuất huyết võng mạc hay vi phình mạch.',
+      'Chưa ghi nhận biến đổi bệnh lý vi tuần hoàn đáy mắt tại thời điểm ghi hình.'
+    ]),
+    [analysisResult.findings]
+  );
 
-  const recommendationItems = parseClinicalPoints(analysisResult.recommendations, [
-    'Khám mắt định kỳ 6 - 12 tháng/lần để theo dõi diễn tiến vi mạch đáy mắt.',
-    'Kiểm soát huyết áp < 130/80 mmHg và đường huyết HbA1c < 7.0%.',
-    'Duy trì chế độ ăn ít muối, tăng cường rau xanh và tập thể dục đều đặn.',
-  ]);
+  const recommendationItems = useMemo(
+    () => parseClinicalPoints(analysisResult.recommendations, [
+      'Duy trì khám mắt định kỳ 6-12 tháng/lần để theo dõi sức khỏe vi tuần hoàn võng mạc.',
+      'Kiểm soát huyết áp và chỉ số đường huyết trong giới hạn bình thường.',
+      'Duy trì chế độ dinh dưỡng lành mạnh và lối sống vận động thường xuyên.'
+    ]),
+    [analysisResult.recommendations]
+  );
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-medical-card overflow-hidden space-y-6">
@@ -352,7 +348,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
                 <span className="text-[10px] text-slate-400 block font-medium">Nguy cơ đột quỵ 3 năm</span>
                 <strong className="text-slate-900 font-black font-mono-data block mt-0.5">
-                  {rawCvdScore}%
+                  {analysisResult.cardiovascularRisk?.threeYearStrokeRiskPercent ?? rawCvdScore}%
                 </strong>
               </div>
             </div>
@@ -405,8 +401,8 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               </div>
               <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
                 <span className="text-[10px] text-slate-400 block font-medium">Phù hoàng điểm</span>
-                <strong className={`font-semibold block mt-0.5 ${rawDrScore >= 50 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                  {rawDrScore >= 50 ? 'Có phát hiện' : 'Không phát hiện'}
+                <strong className={`font-semibold block mt-0.5 ${hasMacularEdema ? 'text-rose-600' : 'text-emerald-700'}`}>
+                  {hasMacularEdema ? 'Có phát hiện' : 'Không phát hiện'}
                 </strong>
               </div>
             </div>

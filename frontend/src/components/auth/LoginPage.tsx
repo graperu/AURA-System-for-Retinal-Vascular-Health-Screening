@@ -3,10 +3,13 @@ import { CheckCircle2 } from 'lucide-react';
 import { AuthHeroPanel } from './AuthHeroPanel';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
+import { LanguageSwitcher } from '../ui/LanguageSwitcher';
+import { useLanguage } from '../../context/LanguageContext';
 
 type Mode = 'login' | 'register';
 
 export const LoginPage: React.FC = () => {
+  const { t } = useLanguage();
   const [mode, setMode] = useState<Mode>('login');
   const [loginEmail, setLoginEmail] = useState('');
   const [success, setSuccess] = useState('');
@@ -24,12 +27,17 @@ export const LoginPage: React.FC = () => {
 
   return (
     <main className="auth-page relative">
+      {/* Floating Language Switcher in top right */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+        <LanguageSwitcher />
+      </div>
+
       <div className="auth-container relative bg-white shadow-[0_20px_60px_rgba(7,13,45,0.3)]">
         <AuthHeroPanel />
         <section className="auth-form-panel">
           <div className="auth-form-card w-full max-w-[500px] rounded-[26px] border border-slate-100/80 bg-white p-6 sm:p-8 shadow-sm">
             {/* Header Tabs */}
-            <div className="grid grid-cols-2 border-b border-slate-200" role="tablist" aria-label="Chọn hình thức xác thực">
+            <div className="grid grid-cols-2 border-b border-slate-200" role="tablist" aria-label={t('login.tabLogin', 'Chọn hình thức xác thực')}>
               {(['login', 'register'] as Mode[]).map(item => (
                 <button
                   key={item}
@@ -43,7 +51,7 @@ export const LoginPage: React.FC = () => {
                       : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  {item === 'login' ? 'Đăng nhập' : 'Đăng ký'}
+                  {item === 'login' ? t('login.tabLogin', 'Đăng nhập') : t('login.tabRegister', 'Đăng ký')}
                 </button>
               ))}
             </div>
@@ -51,10 +59,10 @@ export const LoginPage: React.FC = () => {
             {/* Title & Subtitle */}
             <div className="mt-5">
               <h1 className="text-[30px] font-bold tracking-tight text-slate-900 leading-tight">
-                {mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}
+                {mode === 'login' ? t('login.titleLogin', 'Đăng nhập') : t('login.titleRegister', 'Đăng ký')}
               </h1>
               <p className="mt-1 text-[15px] text-slate-500">
-                {mode === 'login' ? 'Truy cập hệ thống AURA' : 'Tạo tài khoản để sử dụng hệ thống AURA'}
+                {mode === 'login' ? t('login.subtitleLogin', 'Truy cập hệ thống AURA') : t('login.subtitleRegister', 'Tạo tài khoản để sử dụng hệ thống AURA')}
               </p>
             </div>
 

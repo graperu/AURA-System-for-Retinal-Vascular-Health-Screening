@@ -277,4 +277,62 @@ class ScreeningServiceTest {
     assertThrows(com.aura.common.exception.ResourceNotFoundException.class,
         () -> screeningService.getScreeningById(screeningId));
   }
+
+  @Test
+  @DisplayName("detectedAnomalies: Trích xuất tọa độ tổn thương vi mạch và ánh xạ sang ScreeningResponse")
+  void createScreening_withDetectedAnomalies_shouldPersistAndMapToResponse() {
+    UUID patientId = UUID.randomUUID();
+    String imageUrl = "https://cdn.aura.test/fundus_anomalies.png";
+
+    java.util.Map<String, Object> aiMap = new java.util.HashMap<>();
+    aiMap.put("overallVascularRiskScore", 72);
+    aiMap.put("confidence", 0.94);
+    aiMap.put("detectedAnomalies", java.util.List.of(
+        java.util.Map.of(
+            "id", "ANO-01",
+            "type", "Microaneurysm",
+            "coordinates", java.util.Map.of("x", 62.5, "y", 41.2, "width", 24, "height", 24),
+            "confidence", 0.92,
+            "description", "Vi phình mạch nhỏ"
+        )
+    ));
+
+    when(geminiAiService.analyzeRetinalVascular("OD", imageUrl)).thenReturn(aiMap);
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    Screening saved = screeningService.createScreening(patientId, imageUrl);
+
+    assertNotNull(saved.getDetectedAnomalies());
+    assertTrue(saved.getDetectedAnomalies().contains("ANO-01"));
+    assertTrue(saved.getDetectedAnomalies().contains("Microaneurysm"));
+
+    com.aura.screening.dto.ScreeningResponse response = com.aura.screening.dto.ScreeningResponse.fromEntity(saved);
+    assertNotNull(response.detectedAnomalies());
+    assertEquals(saved.getDetectedAnomalies(), response.detectedAnomalies());
+  }
+
+  @Test
+  @DisplayName("vesselMaskUrl: Lưu trữ đường dẫn mặt nạ phân đoạn mạch máu và ánh xạ sang ScreeningResponse")
+  void createScreening_withVesselMask_shouldPersistAndMapToResponse() {
+    UUID patientId = UUID.randomUUID();
+    String imageUrl = "https://cdn.aura.test/fundus_vessel_mask.png";
+    String maskUrl = "https://cdn.aura.test/masks/vessel_mask_01.png";
+
+    java.util.Map<String, Object> aiMap = new java.util.HashMap<>();
+    aiMap.put("overallVascularRiskScore", 35);
+    aiMap.put("confidence", 0.95);
+    aiMap.put("vesselMaskUrl", maskUrl);
+
+    when(geminiAiService.analyzeRetinalVascular("OD", imageUrl)).thenReturn(aiMap);
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    Screening saved = screeningService.createScreening(patientId, imageUrl);
+
+    assertNotNull(saved.getVesselMaskUrl());
+    assertEquals(maskUrl, saved.getVesselMaskUrl());
+
+    com.aura.screening.dto.ScreeningResponse response = com.aura.screening.dto.ScreeningResponse.fromEntity(saved);
+    assertNotNull(response.vesselMaskUrl());
+    assertEquals(maskUrl, response.vesselMaskUrl());
+  }
 }

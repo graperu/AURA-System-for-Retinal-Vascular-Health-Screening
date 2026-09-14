@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Eye, Layers, Sliders, Target, ZoomIn, ZoomOut, RotateCcw, ShieldCheck, Heart, BrainCircuit, Activity } from 'lucide-react';
+import { Eye, Layers, Sliders, Target, ZoomIn, ZoomOut, RotateCcw, ShieldCheck, Heart, BrainCircuit, Activity, AlertCircle } from 'lucide-react';
 import { AIRiskResult, VesselAnomalyRegion } from '../../types/cds';
 import { Card } from '../../components/ui/Card';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { Button } from '../../components/ui/Button';
 import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
+import { useLanguage } from '../../context/LanguageContext';
 
 export interface PatientScreeningResultViewProps {
   result: AIRiskResult;
@@ -15,17 +16,20 @@ export interface PatientScreeningResultViewProps {
 
 export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProps> = ({
   result,
-  selectedEye = 'OD (Mắt Phải)',
+  selectedEye,
   onOpenReportModal,
   onOpenChatModal,
 }) => {
+  const { t, isVi } = useLanguage();
   const [activeTab, setActiveTab] = useState<'OVERLAY' | 'HEATMAP' | 'ORIGINAL'>('OVERLAY');
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.65);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
   const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
 
+  const displayEye = selectedEye || (isVi ? 'OD (Mắt Phải)' : 'OD (Right Eye)');
   const rawImage = result.imageUrl || '/assets/images/fundus_original.png';
   const heatmapImg = result.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.png';
+  const isMockSampleHeatmap = !result.annotatedMap?.heatmapUrl || result.annotatedMap.heatmapUrl === '/assets/images/fundus_heatmap.png';
   const anomalies = result.annotatedMap?.detectedAnomalies || [];
 
   return (
@@ -40,10 +44,10 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
               <div className="flex items-center gap-2">
                 <span className="font-bold text-white flex items-center gap-1.5">
                   <Eye className="w-4 h-4 text-[#22D3EE]" />
-                  Ảnh Võng Mạc & Grad-CAM Heatmap
+                  {isVi ? 'Ảnh Võng Mạc & Grad-CAM Heatmap' : 'Retinal Scan & Grad-CAM Heatmap'}
                 </span>
                 <span className="px-2 py-0.5 rounded-md bg-slate-800 text-cyan-300 font-mono-data text-[11px] font-bold border border-slate-700">
-                  {selectedEye}
+                  {displayEye}
                 </span>
               </div>
 
@@ -58,7 +62,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Lớp phủ AI
+                  {isVi ? 'Lớp phủ AI' : 'AI Overlay'}
                 </button>
                 <button
                   type="button"
@@ -80,7 +84,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Ảnh gốc
+                  {isVi ? 'Ảnh gốc' : 'Original'}
                 </button>
               </div>
             </div>
@@ -89,7 +93,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
             <div className="flex items-center justify-between gap-4 text-xs text-slate-300">
               <div className="flex items-center gap-2 flex-1 max-w-xs">
                 <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="text-[11px] text-slate-400">Độ mờ:</span>
+                <span className="text-[11px] text-slate-400">{isVi ? 'Độ mờ:' : 'Opacity:'}</span>
                 <input
                   type="range"
                   min="0"
@@ -109,7 +113,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                   type="button"
                   onClick={() => setZoomLevel((z) => Math.max(0.8, z - 0.2))}
                   className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  title="Thu nhỏ"
+                  title={t('common.zoomOut', isVi ? 'Thu nhỏ' : 'Zoom out')}
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
@@ -120,7 +124,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                   type="button"
                   onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
                   className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  title="Phóng to"
+                  title={t('common.zoomIn', isVi ? 'Phóng to' : 'Zoom in')}
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
@@ -128,7 +132,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                   type="button"
                   onClick={() => setZoomLevel(1.0)}
                   className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  title="Đặt lại"
+                  title={t('common.resetZoom', isVi ? 'Đặt lại' : 'Reset')}
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                 </button>
@@ -144,21 +148,34 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 {/* Base Fundus Image */}
                 <img
                   src={rawImage}
-                  alt="Ảnh chụp võng mạc"
+                  alt={isVi ? 'Ảnh chụp võng mạc' : 'Retinal fundus image'}
                   className="max-h-[380px] w-auto object-contain rounded-lg"
                 />
 
                 {/* Heatmap Overlay */}
-                {(activeTab === 'OVERLAY' || activeTab === 'HEATMAP') && (
-                  <img
-                    src={heatmapImg}
-                    alt="AI Attention Heatmap"
-                    className="absolute inset-0 m-auto max-h-[380px] w-auto object-contain rounded-lg pointer-events-none cds-canvas-overlay transition-opacity duration-150"
-                    style={{
-                      opacity: activeTab === 'HEATMAP' ? 1.0 : heatmapOpacity,
-                    }}
-                  />
-                )}
+                {(activeTab === 'OVERLAY' || activeTab === 'HEATMAP') &&
+                  (isMockSampleHeatmap ? (
+                    <>
+                      <div className="absolute top-3 left-3 z-10 bg-slate-900/85 backdrop-blur-xs text-amber-300 text-xs font-semibold px-2.5 py-1 rounded-md border border-amber-500/40 flex items-center gap-1.5 shadow-sm pointer-events-none">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{isVi ? 'Chưa có bản đồ nhiệt Grad-CAM' : 'No Grad-CAM Heatmap available'}</span>
+                      </div>
+                      <img
+                        src={heatmapImg}
+                        alt="AI Attention Heatmap"
+                        className="hidden"
+                      />
+                    </>
+                  ) : (
+                    <img
+                      src={heatmapImg}
+                      alt="AI Attention Heatmap"
+                      className="absolute inset-0 m-auto max-h-[380px] w-auto object-contain rounded-lg pointer-events-none cds-canvas-overlay transition-opacity duration-150"
+                      style={{
+                        opacity: activeTab === 'HEATMAP' ? 1.0 : heatmapOpacity,
+                      }}
+                    />
+                  ))}
 
                 {/* Detected Anomalies Pinpoints */}
                 {anomalies.map((ano) => (
@@ -204,10 +221,10 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[11px] font-bold text-[#0891B2] uppercase tracking-wider block">
-                  Phân Tích AI
+                  {isVi ? 'Phân Tích AI' : 'AI Analysis'}
                 </span>
                 <h3 className="text-base font-bold text-slate-900 mt-0.5">
-                  Đánh Giá Nguy Cơ Lâm Sàng
+                  {isVi ? 'Đánh Giá Nguy Cơ Lâm Sàng' : 'Clinical Risk Assessment'}
                 </h3>
               </div>
               <RiskBadge level={result.cardiovascularRisk.level} size="md" />
@@ -219,14 +236,14 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     <Heart className="w-4 h-4 text-red-500" />
-                    Nguy cơ Tim Mạch 3 năm
+                    {isVi ? 'Nguy cơ Tim Mạch 3 năm' : '3-Year Cardiovascular Risk'}
                   </span>
                   <span className="font-mono-data font-bold text-slate-900 text-sm">
                     {result.cardiovascularRisk.score}%
                   </span>
                 </div>
                 <span className="text-[11px] text-slate-500 block">
-                  Phân độ huyết áp: {result.cardiovascularRisk.hypertensionStage}
+                  {isVi ? 'Phân độ huyết áp' : 'Hypertension stage'}: {result.cardiovascularRisk.hypertensionStage}
                 </span>
               </div>
 
@@ -234,14 +251,14 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     <Eye className="w-4 h-4 text-[#0891B2]" />
-                    Bệnh Võng Mạc ĐTĐ
+                    {isVi ? 'Bệnh Võng Mạc ĐTĐ' : 'Diabetic Retinopathy'}
                   </span>
                   <span className="font-mono-data font-bold text-slate-900 text-sm">
                     {result.diabeticRetinopathyRisk.score}%
                   </span>
                 </div>
                 <span className="text-[11px] text-slate-500 block">
-                  Phân độ ETDRS: {result.diabeticRetinopathyRisk.etdrsGrade}
+                  {isVi ? 'Phân độ ETDRS' : 'ETDRS Grade'}: {result.diabeticRetinopathyRisk.etdrsGrade}
                 </span>
               </div>
 
@@ -249,14 +266,14 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     <BrainCircuit className="w-4 h-4 text-amber-500" />
-                    Nguy Cơ Đột Quỵ 3 năm
+                    {isVi ? 'Nguy Cơ Đột Quỵ 3 năm' : '3-Year Stroke Risk'}
                   </span>
                   <span className="font-mono-data font-bold text-slate-900 text-sm">
                     {result.cardiovascularRisk.threeYearStrokeRiskPercent}%
                   </span>
                 </div>
                 <span className="text-[11px] text-slate-500 block">
-                  Ước tính thuật toán vi mạch hoàng điểm
+                  {isVi ? 'Ước tính thuật toán vi mạch hoàng điểm' : 'Macular microvascular algorithmic estimate'}
                 </span>
               </div>
             </div>
@@ -264,29 +281,29 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
             {/* Retinal Biomarkers 4-Grid */}
             <div className="pt-2 border-t border-slate-100 space-y-2">
               <span className="text-xs font-bold text-slate-700 block">
-                Chỉ Số Vi Mạch Võng Mạc (Biomarkers)
+                {t('patient.results.microvascularBiomarkers', isVi ? 'Chỉ số sinh học vi mạch võng mạc' : 'Retinal Microvascular Biomarkers')}
               </span>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">Tỷ lệ A/V Ratio</span>
+                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.avr.label', isVi ? 'Tỷ lệ động-tĩnh mạch (A/V)' : 'Arteriovenous Ratio (A/V)')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.arteryVeinRatio}
                   </span>
                 </div>
                 <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">Mật độ vi mạch</span>
+                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.vesselDensity.label', isVi ? 'Mật độ vi mạch' : 'Vessel Density')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.vesselDensityPercentage}%
                   </span>
                 </div>
                 <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">Độ uốn lượn</span>
+                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.tortuosity.label', isVi ? 'Độ uốn lượn' : 'Vessel Tortuosity')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.tortuosityIndex}
                   </span>
                 </div>
                 <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">Tỷ lệ Cup/Disc</span>
+                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.cdr.label', isVi ? 'Tỷ lệ Cup/Disc' : 'Optic Cup-to-Disc Ratio (CDR)')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.opticCupToDiscRatio}
                   </span>
@@ -300,12 +317,12 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
             <div className="flex gap-2 pt-2">
               {onOpenReportModal && (
                 <Button variant="primary" size="md" className="flex-1" onClick={onOpenReportModal}>
-                  Xem Báo Cáo PDF
+                  {t('patient.results.print', isVi ? 'Xem Báo Cáo PDF' : 'View PDF Report')}
                 </Button>
               )}
               {onOpenChatModal && (
                 <Button variant="secondary" size="md" className="flex-1" onClick={onOpenChatModal}>
-                  Tư Vấn Bác Sĩ
+                  {t('patient.results.askDoctor', isVi ? 'Tư Vấn Bác Sĩ' : 'Consult Doctor')}
                 </Button>
               )}
             </div>

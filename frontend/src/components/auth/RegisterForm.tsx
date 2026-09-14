@@ -152,7 +152,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     return (
       <form onSubmit={handleVerifyOtp} noValidate className="mt-4 space-y-4">
         <div className="flex flex-col items-center text-center">
-          <div className="mb-3 flex h-13 w-13 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+          <div className="mb-3 flex h-13 w-13 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
             <ShieldCheck className="h-7 w-7" />
           </div>
           <h3 className="text-base font-bold text-slate-800">Xác thực mã OTP</h3>
@@ -187,7 +187,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
               setOtp(val);
               if (errors.otp) setErrors({});
             }}
-            className={`h-[54px] w-full text-center font-mono text-2xl font-bold tracking-[0.5em] rounded-xl border bg-slate-50/50 text-slate-900 outline-none transition focus:bg-white focus:ring-4 ${errors.otp ? 'border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-600 focus:ring-blue-100'}`}
+            className={`h-[54px] w-full text-center font-mono text-2xl font-bold tracking-[0.5em] rounded-xl border bg-slate-50/50 text-slate-900 transition focus:bg-white focus:outline-none focus:ring-2 ${errors.otp ? 'border-red-500 focus:border-red-600 focus:ring-red-500/20' : 'border-slate-300 focus:border-brand-600 focus:ring-brand-500/20'}`}
           />
           {errors.otp && <p className="mt-1.5 text-center text-xs text-red-600" role="alert">{errors.otp}</p>}
         </div>
@@ -201,7 +201,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
               type="button"
               onClick={handleResendOtp}
               disabled={submitting}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+              className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline"
             >
               Gửi lại mã OTP
             </button>
@@ -212,7 +212,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
         <button
           type="submit"
           disabled={submitting || otp.length < 6}
-          className="flex h-[52px] w-full items-center justify-center rounded-xl bg-blue-600 text-base font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-[52px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white shadow-sm transition hover:bg-brand-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? (
             <><Loader2 className="h-5 w-5 animate-spin mr-2" />Đang xác thực…</>
@@ -250,10 +250,10 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
           type="button"
           onClick={handleGoogleAuth}
           disabled={Boolean(socialLoading) || submitting}
-          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:opacity-50"
+          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 focus-visible:border-brand-600 disabled:opacity-50"
         >
           {socialLoading === 'google' ? (
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
           ) : (
             <>
               <img src={googleLogo || '/assets/sso/google.png'} alt="Google" className="h-5 w-5 object-contain shrink-0" />
@@ -289,7 +289,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
             value={fullName}
             onChange={e => setFullName(e.target.value)}
             autoComplete="name"
-            className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:ring-4 ${errors.fullName ? 'border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-600 focus:ring-blue-100'}`}
+            className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-slate-900 transition focus:outline-none focus:ring-2 ${errors.fullName ? 'border-red-500 focus:border-red-600 focus:ring-red-500/20' : 'border-slate-300 focus:border-brand-600 focus:ring-brand-500/20'}`}
           />
         </div>
         {errors.fullName && <p className="mt-1.5 text-xs text-red-600" role="alert">{errors.fullName}</p>}
@@ -309,7 +309,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
             value={email}
             onChange={e => setEmail(e.target.value)}
             autoComplete="email"
-            className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:ring-4 ${errors.email ? 'border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-600 focus:ring-blue-100'}`}
+            className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-slate-900 transition focus:outline-none focus:ring-2 ${errors.email ? 'border-red-500 focus:border-red-600 focus:ring-red-500/20' : 'border-slate-300 focus:border-brand-600 focus:ring-brand-500/20'}`}
           />
         </div>
         {errors.email && <p id="register-email-error" className="mt-1.5 text-xs text-red-600" role="alert">{errors.email}</p>}
@@ -340,7 +340,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
       <button
         type="submit"
         disabled={submitting || Boolean(socialLoading)}
-        className="flex h-[52px] w-full items-center justify-center rounded-xl bg-blue-600 text-base font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-65"
+        className="flex h-[52px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white shadow-sm transition hover:bg-brand-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-65"
       >
         {submitting ? (
           <><Loader2 className="h-5 w-5 animate-spin mr-2" />Đang gửi mã OTP…</>

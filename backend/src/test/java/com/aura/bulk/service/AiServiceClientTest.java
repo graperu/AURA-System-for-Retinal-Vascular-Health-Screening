@@ -14,6 +14,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -130,6 +134,59 @@ class AiServiceClientTest {
       assertThat(result.overallVascularRiskScore()).isEqualTo(50);
       assertThat(result.cardiovascularRiskLevel()).isEqualTo("MODERATE");
     }
+
+    @ParameterizedTest(name = "Heatmap blank fallback: ''{0}'' -> heatmapOverlayBase64 is null")
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "\t\n"})
+    @DisplayName("Heatmap null hoặc blank -> kết quả heatmapOverlayBase64 là null")
+    void executeFundusAnalysis_whenHeatmapNullOrBlank_returnsNullInDto(String blankHeatmap) {
+      Map<String, Object> aiResult = new HashMap<>();
+      aiResult.put("overallVascularRiskScore", 60);
+      aiResult.put("heatmapBase64", blankHeatmap);
+      when(geminiAiService.analyzeRetinalVascular("OD", "b64")).thenReturn(aiResult);
+
+      AiInferenceResultDto result = client.executeFundusAnalysis("PSEUDO-HEATMAP-NULL", "OD", "b64");
+
+      assertThat(result).isNotNull();
+      assertThat(result.heatmapOverlayUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("Heatmap hợp lệ -> trả về đúng chuỗi Base64 heatmap trong DTO")
+    void executeFundusAnalysis_whenHeatmapValid_returnsHeatmapInDto() {
+      Map<String, Object> aiResult = new HashMap<>();
+      aiResult.put("overallVascularRiskScore", 75);
+      aiResult.put("heatmapBase64", "data:image/png;base64,VALID_HEATMAP_DATA");
+      when(geminiAiService.analyzeRetinalVascular("OS", "b64")).thenReturn(aiResult);
+
+      AiInferenceResultDto result = client.executeFundusAnalysis("PSEUDO-HEATMAP-OK", "OS", "b64");
+
+      assertThat(result).isNotNull();
+      assertThat(result.heatmapOverlayUrl()).isEqualTo("data:image/png;base64,VALID_HEATMAP_DATA");
+    }
+
+    @ParameterizedTest(name = "Risk boundary: score={0} -> level=''{1}''")
+    @CsvSource({
+      "80, 'CRITICAL'",
+      "79, 'HIGH'",
+      "65, 'HIGH'",
+      "64, 'MODERATE'",
+      "40, 'MODERATE'",
+      "39, 'LOW'",
+      "0, 'LOW'"
+    })
+    @DisplayName("Kiểm tra phân loại mức độ rủi ro tại các ngưỡng biên 80, 65, 40")
+    void executeFundusAnalysis_riskLevelBoundaries(int score, String expectedLevel) {
+      Map<String, Object> aiResult = new HashMap<>();
+      aiResult.put("overallVascularRiskScore", score);
+      when(geminiAiService.analyzeRetinalVascular("OD", "b64")).thenReturn(aiResult);
+
+      AiInferenceResultDto result = client.executeFundusAnalysis("PSEUDO-BOUND", "OD", "b64");
+
+      assertThat(result).isNotNull();
+      assertThat(result.overallVascularRiskScore()).isEqualTo(score);
+      assertThat(result.cardiovascularRiskLevel()).isEqualTo(expectedLevel);
+    }
   }
 
   @Nested
@@ -137,44 +194,37 @@ class AiServiceClientTest {
   class FailSafeAndTimeoutTests {
 
     @Test
-    @DisplayName("Timeout khi gọi Cloud AI API -> Trả về kết quả an toàn mặc định (Fail-safe)")
-    void executeFundusAnalysis_whenTimeout_returnsFallbackDefault() {
+    @DisplayName("Timeout khi gọi Cloud AI API -> Ném ngoại lệ để xử lý FAILED (Không dùng Mock Data)")
+    void executeFundusAnalysis_whenTimeout_throwsException() {
       when(geminiAiService.analyzeRetinalVascular(anyString(), anyString()))
           .thenThrow(new RuntimeException("Connection timed out after 30000ms"));
 
-      AiInferenceResultDto result = client.executeFundusAnalysis("PSEUDO-TIMEOUT", "OD", "b64");
-
-      assertThat(result).isNotNull();
-      assertThat(result.overallVascularRiskScore()).isEqualTo(45);
-      assertThat(result.cardiovascularRiskLevel()).isEqualTo("MODERATE");
-      assertThat(result.threeYearStrokeRiskPercent()).isEqualTo(18.0);
-      assertThat(result.xaiRationales()).contains("Phân tích an toàn mặc định");
+      org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+          client.executeFundusAnalysis("PSEUDO-TIMEOUT", "OD", "b64")
+      ).isInstanceOf(IllegalStateException.class)
+       .hasMessageContaining("AI inference execution failed");
     }
 
     @Test
-    @DisplayName("Cloud AI trả về null -> Trả về kết quả an toàn mặc định")
-    void executeFundusAnalysis_whenNullResult_returnsFallbackDefault() {
+    @DisplayName("Cloud AI trả về null -> Ném ngoại lệ để xử lý FAILED (Không dùng Mock Data)")
+    void executeFundusAnalysis_whenNullResult_throwsException() {
       when(geminiAiService.analyzeRetinalVascular(anyString(), anyString())).thenReturn(null);
 
-      AiInferenceResultDto result = client.executeFundusAnalysis("PSEUDO-NULL", "OD", "b64");
-
-      assertThat(result).isNotNull();
-      assertThat(result.overallVascularRiskScore()).isEqualTo(45);
-      assertThat(result.cardiovascularRiskLevel()).isEqualTo("MODERATE");
-      assertThat(result.xaiRationales()).contains("Phân tích an toàn mặc định");
+      org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+          client.executeFundusAnalysis("PSEUDO-NULL", "OD", "b64")
+      ).isInstanceOf(IllegalStateException.class)
+       .hasMessageContaining("AI engine returned null response or analysis failed");
     }
 
     @Test
-    @DisplayName("Dịch vụ Gemini AI là null (Offline / Service Unavailable) -> Trả về kết quả an toàn mặc định")
-    void executeFundusAnalysis_whenServiceNull_returnsFallbackDefault() {
+    @DisplayName("Dịch vụ Gemini AI là null (Offline / Service Unavailable) -> Ném ngoại lệ")
+    void executeFundusAnalysis_whenServiceNull_throwsException() {
       AiServiceClient offlineClient = new AiServiceClient(null);
 
-      AiInferenceResultDto result = offlineClient.executeFundusAnalysis("PSEUDO-OFFLINE", "OD", "b64");
-
-      assertThat(result).isNotNull();
-      assertThat(result.overallVascularRiskScore()).isEqualTo(45);
-      assertThat(result.cardiovascularRiskLevel()).isEqualTo("MODERATE");
-      assertThat(result.xaiRationales()).contains("Phân tích an toàn mặc định");
+      org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+          offlineClient.executeFundusAnalysis("PSEUDO-OFFLINE", "OD", "b64")
+      ).isInstanceOf(IllegalStateException.class)
+       .hasMessageContaining("AI Service is unavailable or offline");
     }
   }
 }

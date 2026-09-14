@@ -10,6 +10,43 @@ import { CreditPurchaseModal } from './CreditPurchaseModal';
 import { BatchUploadModal } from './BatchUploadModal';
 import { BatchItemDetailModal } from './BatchItemDetailModal';
 import { bulkScreeningApi, BulkUploadPayload, BulkUploadItemPayload, billingApi } from '../services/api';
+import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
+import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
+
+const BATCH_STATUS_OPTIONS: ClinicalSelectOption<string>[] = [
+  { value: 'ALL', label: 'Tất cả Trạng thái' },
+  { value: 'DONE', label: 'Đã xong (DONE)', riskLevel: 'low' },
+  { value: 'PROCESSING', label: 'Đang xử lý', riskLevel: 'moderate' },
+  { value: 'PENDING', label: 'Chờ hàng đợi' },
+  { value: 'FAILED', label: 'Lỗi (FAILED)', riskLevel: 'critical' },
+];
+
+const BATCH_RISK_OPTIONS: ClinicalSelectOption<string>[] = [
+  { value: 'ALL', label: 'Tất cả Mức Nguy Cơ' },
+  { value: 'HIGH_OR_CRITICAL', label: 'Nguy Cơ Cao & Nguy Cấp (≥70%)', riskLevel: 'critical' },
+  { value: 'MODERATE', label: 'Nguy Cơ Trung Bình (40-69%)', riskLevel: 'moderate' },
+  { value: 'LOW', label: 'Nguy Cơ Thấp (<40%)', riskLevel: 'low' },
+];
+
+const BATCH_EYE_OPTIONS: ClinicalSelectOption<string>[] = [
+  { value: 'ALL', label: 'Tất cả Mắt' },
+  { value: 'OD', label: 'Mắt Phải (OD)' },
+  { value: 'OS', label: 'Mắt Trái (OS)' },
+];
+
+const BATCH_SORT_OPTIONS: ClinicalSelectOption<string>[] = [
+  { value: 'NEWEST', label: 'Mới nhất trước' },
+  { value: 'OLDEST', label: 'Cũ nhất trước' },
+  { value: 'RISK_DESC', label: 'Nguy cơ cao nhất' },
+  { value: 'MRN_ASC', label: 'Sắp theo MRN (A-Z)' },
+];
+
+const PAGE_SIZE_OPTIONS: ClinicalSelectOption<number>[] = [
+  { value: 25, label: '25 ảnh / trang' },
+  { value: 50, label: '50 ảnh / trang' },
+  { value: 100, label: '100 ảnh / trang (Chuẩn FR-24)' },
+  { value: -1, label: 'Tất cả ảnh' },
+];
 import {
   UploadCloud,
   Building2,
@@ -524,8 +561,17 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
     window.print();
   };
 
-  // Export Comprehensive Clinical CSV (UTF-8 with BOM)
+  // Export Comprehensive Clinical CSV (UTF-8 with BOM) & Sanitize against CSV injection
   const handleExportCSV = () => {
+    const sanitizeCsvField = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      let str = String(val);
+      if (/^[=+\-@]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const headers = [
       'STT',
       'Ma_MRN_Goc',
@@ -551,27 +597,28 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
 
     const rows = currentJob.items.map((it, idx) => {
       const ai = it.aiResult;
+      const bpStr = it.systolicBp && it.diastolicBp ? `${it.systolicBp}/${it.diastolicBp}` : (it.systolicBp ? `${it.systolicBp}` : 'Chưa đo');
       return [
         idx + 1,
-        `"${it.mrn}"`,
-        `"${it.pseudonymId || 'N/A'}"`,
-        `"${it.patientName}"`,
-        it.patientAge || 55,
-        `"${it.patientGender || 'N/A'}"`,
-        `"${it.systolicBp || 125}/${it.diastolicBp || 80}"`,
-        it.hbA1c || 5.8,
-        `"${it.eye}"`,
-        `"${it.fileName}"`,
-        `"${it.status}"`,
-        it.riskScore || ai?.overallVascularRiskScore || 0,
-        `"${it.riskLevel || 'Chờ phân tích'}"`,
-        ai?.cardiovascularRiskScore || 0,
-        ai?.diabeticRetinopathyScore || 0,
-        ai?.threeYearStrokeRiskPercent || 0,
-        ai?.arteryVeinRatio || 0.52,
-        ai?.tortuosityIndex || 1.34,
-        ai?.vesselDensityPercentage || 14.8,
-        it.durationMs || 0,
+        sanitizeCsvField(it.mrn),
+        sanitizeCsvField(it.pseudonymId || 'N/A'),
+        sanitizeCsvField(it.patientName),
+        it.patientAge ?? '',
+        sanitizeCsvField(it.patientGender || 'N/A'),
+        sanitizeCsvField(bpStr),
+        it.hbA1c ?? '',
+        sanitizeCsvField(it.eye),
+        sanitizeCsvField(it.fileName),
+        sanitizeCsvField(it.status),
+        it.riskScore ?? ai?.overallVascularRiskScore ?? '',
+        sanitizeCsvField(it.riskLevel || 'Chờ phân tích'),
+        ai?.cardiovascularRiskScore ?? '',
+        ai?.diabeticRetinopathyScore ?? '',
+        ai?.threeYearStrokeRiskPercent ?? '',
+        ai?.arteryVeinRatio ?? '',
+        ai?.tortuosityIndex ?? '',
+        ai?.vesselDensityPercentage ?? '',
+        it.durationMs ?? 0,
       ];
     });
 
@@ -1147,49 +1194,37 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
               />
             </div>
 
-            <select
+            <ClinicalSelect<string>
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-[#0891B2]"
-            >
-              <option value="ALL">Tất cả Trạng thái</option>
-              <option value="DONE">Đã xong (DONE)</option>
-              <option value="PROCESSING">Đang xử lý</option>
-              <option value="PENDING">Chờ hàng đợi</option>
-              <option value="FAILED">Lỗi (FAILED)</option>
-            </select>
+              onChange={setStatusFilter}
+              options={BATCH_STATUS_OPTIONS}
+              size="sm"
+              className="w-40 shrink-0"
+            />
 
-            <select
+            <ClinicalSelect<string>
               value={riskFilter}
-              onChange={(e) => setRiskFilter(e.target.value)}
-              className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-[#0891B2]"
-            >
-              <option value="ALL">Tất cả Mức Nguy Cơ</option>
-              <option value="HIGH_OR_CRITICAL">Nguy Cơ Cao & Nguy Cấp (&ge;70%)</option>
-              <option value="MODERATE">Nguy Cơ Trung Bình (40-69%)</option>
-              <option value="LOW">Nguy Cơ Thấp (&lt;40%)</option>
-            </select>
+              onChange={setRiskFilter}
+              options={BATCH_RISK_OPTIONS}
+              size="sm"
+              className="w-48 shrink-0"
+            />
 
-            <select
+            <ClinicalSelect<string>
               value={eyeFilter}
-              onChange={(e) => setEyeFilter(e.target.value)}
-              className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-[#0891B2]"
-            >
-              <option value="ALL">Tất cả Mắt</option>
-              <option value="OD">Mắt Phải (OD)</option>
-              <option value="OS">Mắt Trái (OS)</option>
-            </select>
+              onChange={setEyeFilter}
+              options={BATCH_EYE_OPTIONS}
+              size="sm"
+              className="w-36 shrink-0"
+            />
 
-            <select
+            <ClinicalSelect<string>
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-[#0891B2]"
-            >
-              <option value="NEWEST">Mới nhất trước</option>
-              <option value="OLDEST">Cũ nhất trước</option>
-              <option value="RISK_DESC">Nguy cơ cao nhất</option>
-              <option value="MRN_ASC">Sắp theo MRN (A-Z)</option>
-            </select>
+              onChange={(val) => setSortBy(val as any)}
+              options={BATCH_SORT_OPTIONS}
+              size="sm"
+              className="w-44 shrink-0"
+            />
 
             <button
               onClick={() => setIsAnonymizedView(!isAnonymizedView)}
@@ -1368,13 +1403,13 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                       <td className="py-3 px-4 text-[11px] font-mono-data text-slate-600">
                         {item.aiResult ? (
                           <span>
-                            A/V: <strong>{item.aiResult.arteryVeinRatio || 0.52}</strong> &bull; DR:{' '}
-                            <strong>{item.aiResult.diabeticRetinopathyScore || 45}%</strong>
+                            A/V: <strong>{typeof item.aiResult.arteryVeinRatio === 'number' && !Number.isNaN(item.aiResult.arteryVeinRatio) ? item.aiResult.arteryVeinRatio : '—'}</strong> &bull; DR:{' '}
+                            <strong>{typeof item.aiResult.diabeticRetinopathyScore === 'number' && !Number.isNaN(item.aiResult.diabeticRetinopathyScore) ? `${item.aiResult.diabeticRetinopathyScore}%` : '—'}</strong>
                           </span>
                         ) : (
                           <span>
-                            HA: {item.systolicBp || 120}/{item.diastolicBp || 80} &bull; HbA1c:{' '}
-                            {item.hbA1c || 5.6}%
+                            HA: {item.systolicBp && item.diastolicBp ? `${item.systolicBp}/${item.diastolicBp}` : '—'} &bull; HbA1c:{' '}
+                            {item.hbA1c ? `${item.hbA1c}%` : '—'}
                           </span>
                         )}
                       </td>
@@ -1404,19 +1439,16 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
           <div className="flex items-center gap-2">
             <span className="font-medium">Hiển thị:</span>
-            <select
+            <ClinicalSelect<number>
               value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
+              onChange={(val) => {
+                setPageSize(Number(val));
                 setCurrentPage(1);
               }}
-              className="py-1 px-2.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-700 outline-none focus:border-[#0891B2]"
-            >
-              <option value={25}>25 ảnh / trang</option>
-              <option value={50}>50 ảnh / trang</option>
-              <option value={100}>100 ảnh / trang (Chuẩn FR-24)</option>
-              <option value={-1}>Tất cả ({filteredItems.length} ảnh)</option>
-            </select>
+              options={PAGE_SIZE_OPTIONS}
+              size="sm"
+              className="w-44"
+            />
             <span className="text-slate-400 font-mono-data ml-2">
               (Hiển thị{' '}
               {filteredItems.length === 0
@@ -1478,6 +1510,8 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
           )}
         </div>
       </div>
+
+      <MedicalDisclaimer variant="compact" />
 
       {/* Batch Upload Modal */}
       <BatchUploadModal

@@ -39,6 +39,27 @@ import {
   adminServicePackageApi,
   ServicePackagePayload,
 } from "../services/api";
+import { ClinicalSelect, ClinicalSelectOption } from "../components/ui/ClinicalSelect";
+
+const USER_ROLE_FILTER_OPTIONS: ClinicalSelectOption<string>[] = [
+  { value: "ALL", label: "Tất cả vai trò" },
+  { value: "ROLE_USER", label: "Bệnh nhân (ROLE_USER)" },
+  { value: "ROLE_DOCTOR", label: "Bác sĩ (ROLE_DOCTOR)" },
+  { value: "ROLE_CLINIC", label: "Phòng khám (ROLE_CLINIC)" },
+  { value: "ROLE_ADMIN", label: "Quản trị viên (ROLE_ADMIN)" },
+];
+
+const NOTIFICATION_CHANNEL_OPTIONS: ClinicalSelectOption<string>[] = [
+  { value: "IN_APP", label: "IN_APP (Thông báo hệ thống)" },
+  { value: "EMAIL", label: "EMAIL (Thư điện tử)" },
+  { value: "SMS", label: "SMS (Tin nhắn điện thoại)" },
+];
+
+const PACKAGE_SCOPE_OPTIONS: ClinicalSelectOption<string>[] = [
+  { value: "ALL", label: "Tất cả đối tượng" },
+  { value: "USER", label: "Cá nhân (USER)" },
+  { value: "CLINIC", label: "Phòng khám (CLINIC)" },
+];
 import { PatientAssignmentBoard } from "../components/PatientAssignmentBoard";
 import {
   AdminAuditWorkspace,
@@ -877,88 +898,87 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-6 rounded-2xl border border-clinical-border shadow-medical-card flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-bold text-cyan-700 uppercase tracking-widest">
+          <span className="text-xs font-bold text-brand-700 uppercase tracking-widest">
             Bảng Điều Khiển Quản Trị Hệ Thống
           </span>
-          <h1 className="text-2xl font-black text-slate-900 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-clinical-text mt-1">
             AURA Security & Administration
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Quản trị tài khoản (FR-31), Ma trận phân quyền RBAC (FR-32), Mẫu
-            thông báo & Chính sách (FR-39)
+          <p className="text-xs text-clinical-text-muted mt-0.5">
+            Quản trị tài khoản (FR-31), Ma trận phân quyền RBAC (FR-32), Mẫu thông báo & Chính sách (FR-39)
           </p>
         </div>
 
-        {/* Global Tabs */}
-        <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold">
+        {/* Global Tabs - Segmented Control */}
+        <div className="flex flex-wrap gap-1 p-1 bg-slate-100 rounded-xl border border-clinical-border text-xs">
           <button
             onClick={() => setActiveTab("users")}
-            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === "users"
-                ? "bg-white text-cyan-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-white shadow-xs text-brand-700 font-medium"
+                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
             <Users className="w-4 h-4" /> Tài Khoản (FR-31)
           </button>
           <button
             onClick={() => setActiveTab("rbac")}
-            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === "rbac"
-                ? "bg-white text-cyan-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-white shadow-xs text-brand-700 font-medium"
+                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
             <ShieldCheck className="w-4 h-4" /> Phân Quyền (FR-32)
           </button>
           <button
             onClick={() => setActiveTab("notifications")}
-            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === "notifications"
-                ? "bg-white text-cyan-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-white shadow-xs text-brand-700 font-medium"
+                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
             <Bell className="w-4 h-4" /> Thông Báo (FR-39)
           </button>
           <button
             onClick={() => setActiveTab("clinics")}
-            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === "clinics"
-                ? "bg-white text-cyan-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-white shadow-xs text-brand-700 font-medium"
+                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
             <Building2 className="w-4 h-4" /> Duyệt Phòng Khám
           </button>
           <button
             onClick={() => setActiveTab("packages")}
-            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === "packages"
-                ? "bg-white text-cyan-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-white shadow-xs text-brand-700 font-medium"
+                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
             <CreditCard className="w-4 h-4" /> Gói Dịch Vụ (FR-34)
           </button>
           <button
             onClick={() => setActiveTab("ai-config")}
-            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === "ai-config"
-                ? "bg-white text-cyan-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-white shadow-xs text-brand-700 font-medium"
+                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
             <Settings className="w-4 h-4" /> Cấu Hình AI
           </button>
           <button
             onClick={() => setActiveTab("audit")}
-            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === "audit"
-                ? "bg-white text-cyan-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-white shadow-xs text-brand-700 font-medium"
+                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
             <FileText className="w-4 h-4" /> Nhật Ký HIPAA
@@ -1012,23 +1032,17 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Filter className="w-4 h-4 text-slate-400" />
-              <select
+              <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+              <ClinicalSelect<string>
                 value={userRoleFilter}
-                onChange={(e) => {
-                  setUserRoleFilter(e.target.value);
-                }}
-                className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none"
-              >
-                <option value="ALL">Tất cả vai trò</option>
-                <option value="ROLE_USER">Bệnh nhân (ROLE_USER)</option>
-                <option value="ROLE_DOCTOR">Bác sĩ (ROLE_DOCTOR)</option>
-                <option value="ROLE_CLINIC">Phòng khám (ROLE_CLINIC)</option>
-                <option value="ROLE_ADMIN">Quản trị viên (ROLE_ADMIN)</option>
-              </select>
+                onChange={setUserRoleFilter}
+                options={USER_ROLE_FILTER_OPTIONS}
+                size="sm"
+                className="w-56"
+              />
               <button
                 onClick={loadUsers}
-                className="px-4 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl"
+                className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl h-8 shrink-0"
               >
                 Lọc
               </button>
@@ -1337,83 +1351,87 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           )}
 
           {/* Role Selector Tabs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {rbacRoles.map((r) => {
-              const isSelected = selectedRbacRole === r.roleName;
-              return (
-                <button
-                  key={r.roleName}
-                  onClick={() => setSelectedRbacRole(r.roleName)}
-                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                    isSelected
-                      ? "border-cyan-600 bg-cyan-50/50 shadow-sm"
-                      : "border-slate-200 hover:border-slate-300 bg-white"
-                  }`}
-                >
-                  <div className="font-mono font-bold text-xs text-slate-900">
-                    {r.roleName}
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
-                    {r.description}
-                  </p>
-                  <div className="mt-2 text-[10px] font-bold text-cyan-700">
-                    {(r.permissions || []).length} Quyền kích hoạt
-                  </div>
-                </button>
-              );
-            })}
+          <div className="overflow-x-auto pb-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-[320px]">
+              {rbacRoles.map((r) => {
+                const isSelected = selectedRbacRole === r.roleName;
+                return (
+                  <button
+                    key={r.roleName}
+                    onClick={() => setSelectedRbacRole(r.roleName)}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      isSelected
+                        ? "border-brand-600 bg-brand-50/50 shadow-xs"
+                        : "border-clinical-border hover:border-slate-300 bg-white"
+                    }`}
+                  >
+                    <div className="font-mono font-bold text-xs text-slate-900">
+                      {r.roleName}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                      {r.description}
+                    </p>
+                    <div className="mt-2 text-[10px] font-bold text-brand-700">
+                      {(r.permissions || []).length} Quyền kích hoạt
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Permissions Matrix */}
           <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-800">
+            <h3 className="text-sm font-bold text-clinical-text">
               Danh Mục Quyền Hạn Cho Vai Trò:{" "}
-              <span className="font-mono text-cyan-700 font-extrabold">
+              <span className="font-mono text-brand-700 font-bold">
                 {selectedRbacRole}
               </span>
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {permissionCatalog.map((perm) => {
-                const currentRoleObj = rbacRoles.find(
-                  (r) => r.roleName === selectedRbacRole,
-                );
-                const isChecked = (currentRoleObj?.permissions || []).includes(
-                  perm.code,
-                );
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-[280px]">
+                {permissionCatalog.map((perm) => {
+                  const currentRoleObj = rbacRoles.find(
+                    (r) => r.roleName === selectedRbacRole,
+                  );
+                  const isChecked = (currentRoleObj?.permissions || []).includes(
+                    perm.code,
+                  );
 
-                return (
-                  <div
-                    key={perm.code}
-                    onClick={() => handleTogglePermission(perm.code)}
-                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                      isChecked
-                        ? "border-teal-400 bg-teal-50/30"
-                        : "border-slate-200 bg-white"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => handleTogglePermission(perm.code)}
-                      className="mt-1 w-4 h-4 text-cyan-700 rounded-md border-slate-300"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900 text-xs">
-                          {perm.name}
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-400 px-2 py-0.5 rounded-md bg-slate-100">
-                          {perm.group}
-                        </span>
-                      </div>
-                      <div className="font-mono text-[10px] text-slate-500 mt-0.5">
-                        {perm.code}
+                  return (
+                    <div
+                      key={perm.code}
+                      onClick={() => handleTogglePermission(perm.code)}
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
+                        isChecked
+                          ? "border-brand-400 bg-brand-50/40 shadow-xs"
+                          : "border-clinical-border bg-white hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleTogglePermission(perm.code)}
+                        className="mt-0.5 w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-900 text-xs">
+                            {perm.name}
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 shrink-0">
+                            {perm.group}
+                          </span>
+                        </div>
+                        <div className="font-mono text-[10px] text-clinical-text-muted mt-0.5">
+                          {perm.code}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -1733,23 +1751,18 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    Kênh thông báo
-                  </label>
-                  <select
+                  <ClinicalSelect<string>
+                    label="Kênh thông báo"
                     value={templateForm.channel}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       setTemplateForm({
                         ...templateForm,
-                        channel: e.target.value,
+                        channel: val,
                       })
                     }
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-800"
-                  >
-                    <option value="IN_APP">IN_APP (Thông báo hệ thống)</option>
-                    <option value="EMAIL">EMAIL (Thư điện tử)</option>
-                    <option value="SMS">SMS (Tin nhắn điện thoại)</option>
-                  </select>
+                    options={NOTIFICATION_CHANNEL_OPTIONS}
+                    size="sm"
+                  />
                 </div>
               </div>
 
@@ -1974,15 +1987,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-cyan-600 focus:bg-white transition-all"
               />
             </div>
-            <select
+            <ClinicalSelect<string>
               value={packageFilterScope}
-              onChange={(e) => setPackageFilterScope(e.target.value as any)}
-              className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-cyan-600"
-            >
-              <option value="ALL">Tất cả đối tượng</option>
-              <option value="USER">Cá nhân (USER)</option>
-              <option value="CLINIC">Phòng khám (CLINIC)</option>
-            </select>
+              onChange={(val) => setPackageFilterScope(val as any)}
+              options={PACKAGE_SCOPE_OPTIONS}
+              size="sm"
+              className="w-48 shrink-0"
+            />
           </div>
 
           {/* Table */}

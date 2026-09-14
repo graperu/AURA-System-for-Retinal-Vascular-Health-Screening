@@ -309,6 +309,21 @@ class BillingServiceUnitTest {
     }
 
     @Test
+    @DisplayName("Throws ServicePackageNotFoundException when servicePackageId does not exist")
+    void purchase_ServicePackageNotFound_ThrowsException() {
+      when(userRepository.findById(individualUserId)).thenReturn(Optional.of(individualUser));
+      when(servicePackageService.findOrThrow(999L))
+          .thenThrow(new com.aura.billing.exception.ServicePackageNotFoundException(999L));
+
+      assertThatThrownBy(() -> billingService.purchaseOrRenew(individualUserId, 999L))
+          .isInstanceOf(com.aura.billing.exception.ServicePackageNotFoundException.class)
+          .isInstanceOf(com.aura.common.exception.ResourceNotFoundException.class);
+
+      verify(paymentTransactionRepository, never()).save(any());
+      verify(paymentGateway, never()).charge(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("Throws PackageInactiveException when service package is inactive")
     void purchase_PackageInactive_ThrowsException() {
       individualPackage.setActive(false);

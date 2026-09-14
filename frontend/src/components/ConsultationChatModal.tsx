@@ -4,6 +4,7 @@ import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { chatApi } from '../services/api';
 import { stompClient } from '../services/websocketService';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ChatMessage {
   id: string;
@@ -37,10 +38,11 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
   partnerUserId,
   currentUserId,
 }) => {
+  const { t, isVi } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
 
-  const resolvedDoctorName = partnerName || doctorName || 'Bác sĩ chuyên khoa';
+  const resolvedDoctorName = partnerName || doctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Specialist Doctor');
 
   // 1. Fetch real chat history from DB on open
   useEffect(() => {
@@ -55,7 +57,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
             sender: item.senderId === currentUserId ? (currentUserRole === 'doctor' ? 'doctor' : 'patient') : (currentUserRole === 'doctor' ? 'patient' : 'doctor'),
             senderName: item.senderId === currentUserId ? (currentUserRole === 'doctor' ? resolvedDoctorName : patientName) : (currentUserRole === 'doctor' ? patientName : resolvedDoctorName),
             text: item.messageText,
-            timestamp: item.createdAt ? new Date(item.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
+            timestamp: item.createdAt ? new Date(item.createdAt).toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }) : '',
           }));
           setMessages(mapped);
         }
@@ -80,7 +82,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
             sender: currentUserRole === 'doctor' ? 'patient' : 'doctor',
             senderName: currentUserRole === 'doctor' ? patientName : resolvedDoctorName,
             text: msg.messageText,
-            timestamp: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
           };
           setMessages((prev) => {
             if (prev.some((m) => m.id === incoming.id)) return prev;
@@ -93,21 +95,21 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
         stompClient.unsubscribe(topic);
       };
     }
-  }, [isOpen, partnerUserId, currentUserId, currentUserRole, resolvedDoctorName, patientName]);
+  }, [isOpen, partnerUserId, currentUserId, currentUserRole, resolvedDoctorName, patientName, isVi]);
 
   const partnerTitle =
     currentUserRole === 'doctor'
-      ? `Bệnh nhân: ${patientName} (${patientMrn})`
+      ? `${isVi ? 'Bệnh nhân' : 'Patient'}: ${patientName} (${patientMrn})`
       : partnerUserId
-        ? `${resolvedDoctorName} (Bác sĩ chuyên khoa)`
-        : 'Chưa có bác sĩ phụ trách';
+        ? `${resolvedDoctorName} (${isVi ? 'Bác sĩ chuyên khoa' : 'Specialist Doctor'})`
+        : (isVi ? 'Tư Vấn Chuyên Môn Trực Tuyến' : 'Online Clinical Consultation');
 
   const partnerRoleDesc =
     currentUserRole === 'doctor'
-      ? 'Hồ sơ khám đáy mắt định kỳ'
+      ? (partnerUserId ? (isVi ? 'Hồ sơ khám đáy mắt định kỳ' : 'Periodic fundus examination file') : (isVi ? 'Chưa liên kết tài khoản trực tuyến' : 'No online account linked'))
       : partnerUserId
-        ? 'Bác sĩ phụ trách lâm sàng'
-        : 'Đang chờ phân công bác sĩ chuyên khoa';
+        ? (isVi ? 'Bác sĩ phụ trách lâm sàng' : 'Assigned clinical physician')
+        : (isVi ? 'Chờ phân công Bác sĩ chuyên khoa phụ trách' : 'Awaiting specialist physician assignment');
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -121,7 +123,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
       sender: currentUserRole === 'doctor' ? 'doctor' : 'patient',
       senderName: currentUserRole === 'doctor' ? resolvedDoctorName : patientName,
       text: textToSend,
-      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
     };
     setMessages((prev) => [...prev, optimisticMsg]);
 
@@ -136,15 +138,15 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
   };
 
   const quickRepliesDoctor = [
-    'Kết quả chẩn đoán đã được ký duyệt.',
-    'Bác nhớ đo huyết áp mỗi sáng và uống thuốc đều đặn.',
-    'Hình ảnh đáy mắt cho thấy vi tuần hoàn ổn định sau điều trị.',
+    isVi ? 'Kết quả chẩn đoán đã được ký duyệt.' : 'Diagnostic results have been clinically approved.',
+    isVi ? 'Bác nhớ đo huyết áp mỗi sáng và uống thuốc đều đặn.' : 'Please monitor blood pressure daily and take medications regularly.',
+    isVi ? 'Hình ảnh đáy mắt cho thấy vi tuần hoàn ổn định sau điều trị.' : 'Fundus imaging indicates stable microcirculation post-treatment.',
   ];
 
   const quickRepliesPatient = [
-    'Dạ bác sĩ cho tôi hỏi lịch tái khám cụ thể ạ.',
-    'Tôi đã tải được báo cáo kết quả PDF rồi ạ.',
-    'Cảm ơn bác sĩ đã tư vấn chi tiết.',
+    isVi ? 'Dạ bác sĩ cho tôi hỏi lịch tái khám cụ thể ạ.' : 'Doctor, could you advise on my follow-up schedule?',
+    isVi ? 'Tôi đã tải được báo cáo kết quả PDF rồi ạ.' : 'I have successfully downloaded the PDF report.',
+    isVi ? 'Cảm ơn bác sĩ đã tư vấn chi tiết.' : 'Thank you doctor for the detailed consultation.',
   ];
 
   const activeQuickReplies = currentUserRole === 'doctor' ? quickRepliesDoctor : quickRepliesPatient;
@@ -166,23 +168,43 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
         {/* Medical Safety Disclaimer */}
         <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-          <span>Kênh trao đổi chuyên môn y khoa thời gian thực (WebSocket). Không sử dụng cho các trường hợp cấp cứu khẩn cấp.</span>
+          <span>{isVi ? 'Kênh trao đổi chuyên môn y khoa thời gian thực (WebSocket). Không sử dụng cho các trường hợp cấp cứu khẩn cấp.' : 'Real-time clinical consultation channel (WebSocket). Do not use for acute medical emergencies.'}</span>
         </div>
 
         {!partnerUserId ? (
-          <div className="py-10 px-6 text-center space-y-4 bg-slate-50/70 rounded-xl border border-clinical-border">
+          <div className="py-8 px-6 text-center space-y-4 bg-slate-50/70 rounded-xl border border-clinical-border">
             <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
               <AlertCircle className="w-6 h-6" />
             </div>
-            <div className="space-y-1.5 max-w-md mx-auto">
-              <h4 className="text-sm font-bold text-slate-900">Chưa có Bác sĩ phụ trách</h4>
+            <div className="space-y-2 max-w-md mx-auto">
+              <h4 className="text-sm font-bold text-slate-900">
+                {currentUserRole === 'doctor'
+                  ? (isVi ? 'Bệnh nhân chưa liên kết tài khoản trực tuyến' : 'Patient has not linked online account')
+                  : (isVi ? 'Chưa có Bác sĩ chuyên khoa phụ trách' : 'No assigned specialist physician')}
+              </h4>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Hồ sơ của bạn hiện đang chờ Admin hoặc Phòng khám phân công Bác sĩ phụ trách. Vui lòng quay lại sau.
+                {currentUserRole === 'doctor'
+                  ? (isVi
+                      ? `Hồ sơ bệnh nhân ${patientName} (${patientMrn}) chưa có tài khoản trực tuyến liên kết trong hệ thống AURA, do đó kênh trao đổi tư vấn thời gian thực chưa khả dụng. Bác sĩ vui lòng trao đổi trực tiếp qua số điện thoại hoặc ghi chú kết luận lâm sàng trên bàn chẩn đoán CDS.`
+                      : `Patient record ${patientName} (${patientMrn}) does not have an active online account linked in AURA. Real-time consultation is currently unavailable. Please contact via phone or leave clinical notes on the CDS dashboard.`)
+                  : (isVi
+                      ? 'Hồ sơ sàng lọc đáy mắt của bạn đang trong danh sách chờ tiếp nhận. Cơ sở y tế hoặc Quản trị viên đang tiến hành phân công Bác sĩ chuyên khoa phụ trách thẩm định kết quả và tư vấn lâm sàng cho bạn.'
+                      : 'Your retinal screening record is pending review. The clinic or system administrator is assigning a specialist physician to evaluate your results and provide clinical guidance.')}
               </p>
+              {currentUserRole !== 'doctor' && (
+                <div className="p-2.5 rounded-lg bg-blue-50/60 border border-blue-100 text-[11px] text-blue-900 leading-relaxed text-left space-y-1">
+                  <p className="font-semibold">{isVi ? 'Hướng dẫn dành cho người bệnh:' : 'Instructions for patients:'}</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-blue-800">
+                    <li>{isVi ? 'Sau khi Bác sĩ tiếp nhận hồ sơ, cửa sổ tư vấn 1-1 sẽ tự động kích hoạt.' : 'Once a physician accepts the case, the 1-on-1 consultation window will activate automatically.'}</li>
+                    <li>{isVi ? 'Bạn có thể xem trước bản đồ nhiệt XAI và báo cáo sơ bộ tại cổng bệnh nhân.' : 'You can review preliminary XAI heatmaps and reports in the patient portal in the meantime.'}</li>
+                    <li>{isVi ? 'Nếu có dấu hiệu giảm thị lực đột ngột hoặc đau nhức mắt, hãy đến ngay cơ sở y tế gần nhất.' : 'If experiencing sudden vision loss or severe ocular pain, visit the nearest emergency room immediately.'}</li>
+                  </ul>
+                </div>
+              )}
             </div>
             <div className="pt-2">
               <Button variant="outline" size="sm" onClick={onClose}>
-                Đóng cửa sổ
+                {isVi ? 'Đã hiểu & Đóng' : 'Understood & Close'}
               </Button>
             </div>
           </div>
@@ -192,7 +214,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
             <div className="space-y-3 max-h-[360px] min-h-[220px] overflow-y-auto p-2 bg-slate-50/50 rounded-xl border border-clinical-border">
               {messages.length === 0 ? (
                 <div className="text-center py-10 text-xs text-slate-400">
-                  Chưa có tin nhắn nào trong cuộc hội thoại này. Hãy gửi tin nhắn đầu tiên.
+                  {t('patient.chat.emptyChat', isVi ? 'Chưa có tin nhắn nào trong cuộc hội thoại này. Hãy gửi tin nhắn đầu tiên.' : 'No messages in this conversation yet. Send the first message.')}
                 </div>
               ) : (
                 messages.map((msg) => {
@@ -236,7 +258,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
 
             {/* Quick Responses */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-semibold text-clinical-text-muted">Gợi ý nhanh:</span>
+              <span className="text-[11px] font-semibold text-clinical-text-muted">{isVi ? 'Gợi ý nhanh:' : 'Quick replies:'}</span>
               {activeQuickReplies.map((reply, idx) => (
                 <button
                   key={idx}
@@ -255,7 +277,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Nhập nội dung tư vấn chuyên môn..."
+                placeholder={t('patient.chat.placeholder', isVi ? 'Nhập nội dung tư vấn chuyên môn...' : 'Enter your question or symptoms for the doctor...')}
                 className="flex-1 h-10 px-3.5 text-xs rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
               <Button
@@ -265,7 +287,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
                 disabled={!inputMessage.trim()}
                 icon={<Send className="w-4 h-4" />}
               >
-                Gửi
+                {t('patient.chat.sendButton', isVi ? 'Gửi' : 'Send')}
               </Button>
             </form>
           </>

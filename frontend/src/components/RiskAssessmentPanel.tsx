@@ -138,28 +138,28 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
             <span className="text-[11px] text-clinical-text-muted block">Tỷ lệ Động-Tĩnh mạch (AVR)</span>
             <span className="text-sm font-bold font-mono-data text-clinical-text">
-              {result.annotatedMap.arteryVeinRatio}
+              {result.annotatedMap.arteryVeinRatio ? result.annotatedMap.arteryVeinRatio.toFixed(2) : '0.00'}
             </span>
             <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn: ≥ 0.67</span>
           </div>
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
             <span className="text-[11px] text-clinical-text-muted block">Mật độ vi mạch (Density)</span>
             <span className="text-sm font-bold font-mono-data text-clinical-text">
-              {result.annotatedMap.vesselDensityPercentage}%
+              {result.annotatedMap.vesselDensityPercentage ? result.annotatedMap.vesselDensityPercentage.toFixed(1) : '0.0'}%
             </span>
             <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn: 15.5 - 19.0%</span>
           </div>
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
             <span className="text-[11px] text-clinical-text-muted block">Độ uốn lượn (Tortuosity)</span>
             <span className="text-sm font-bold font-mono-data text-clinical-text">
-              {result.annotatedMap.tortuosityIndex}
+              {result.annotatedMap.tortuosityIndex ? result.annotatedMap.tortuosityIndex.toFixed(2) : '0.00'}
             </span>
             <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn: &lt; 1.25</span>
           </div>
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
             <span className="text-[11px] text-clinical-text-muted block">Tỷ lệ Cup/Disc (CDR)</span>
             <span className="text-sm font-bold font-mono-data text-clinical-text">
-              {result.annotatedMap.opticCupToDiscRatio}
+              {result.annotatedMap.opticCupToDiscRatio ? result.annotatedMap.opticCupToDiscRatio.toFixed(2) : '0.00'}
             </span>
             <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn: &lt; 0.50</span>
           </div>

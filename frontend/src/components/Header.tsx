@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { UserSession } from '../types/auth';
 import { notificationApi, getAccessToken } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageSwitcher } from './ui/LanguageSwitcher';
 
 interface HeaderProps {
   currentUser: UserSession;
@@ -35,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   onOpenMenu,
 }) => {
+  const { t, language } = useLanguage();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -145,7 +148,7 @@ export const Header: React.FC<HeaderProps> = ({
               </p>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-[11px] text-brand-700 font-semibold">
-                  Thông báo mới
+                  {t('header.newNotification', 'Thông báo mới')}
                 </span>
                 <button
                   onClick={() => {
@@ -154,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
                   }}
                   className="text-[11px] font-semibold text-brand-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
                 >
-                  Đã hiểu
+                  {t('header.gotIt', 'Đã hiểu')}
                 </button>
               </div>
             </div>
@@ -187,7 +190,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <p className="truncate text-xs text-clinical-text-muted">
-              Sàng lọc vi mạch võng mạc & tim mạch
+              {t('header.tagline', 'Sàng lọc vi mạch võng mạc & tim mạch')}
             </p>
           </div>
         </div>
@@ -196,8 +199,11 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-3">
           <div className="hidden items-center gap-1.5 rounded-full bg-brand-50 border border-brand-100 px-3.5 py-1.5 text-xs font-bold text-brand-700 xl:flex">
             <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-            Chuẩn bảo mật HIPAA
+            {t('header.hipaaStandard', 'Chuẩn bảo mật HIPAA')}
           </div>
+
+          {/* Language Switcher */}
+          <LanguageSwitcher />
 
           {/* Notifications Dropdown */}
           <div className="relative">
@@ -205,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={() => setIsNotifOpen(!isNotifOpen)}
               className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl text-clinical-text-muted hover:bg-brand-50 hover:text-brand-700 border border-clinical-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-              aria-label="Thông báo"
+              aria-label={t('common.notifications', 'Thông báo')}
             >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
@@ -220,7 +226,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="flex items-center justify-between border-b border-clinical-border bg-brand-50 px-4 py-3">
                   <span className="font-bold text-xs text-clinical-text flex items-center gap-1.5">
                     <Bell className="h-4 w-4 text-brand-700" />
-                    Trung Tâm Thông Báo
+                    {t('header.notificationCenter', 'Trung Tâm Thông Báo')}
                   </span>
                   <div className="flex items-center gap-2">
                     {unreadCount > 0 && (
@@ -228,7 +234,7 @@ export const Header: React.FC<HeaderProps> = ({
                         onClick={handleMarkAllAsRead}
                         className="text-[11px] font-bold text-brand-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
                       >
-                        Đọc tất cả
+                        {t('header.markAllAsRead', 'Đọc tất cả')}
                       </button>
                     )}
                     <button
@@ -243,7 +249,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
                   {notifications.length === 0 ? (
                     <div className="p-6 text-center text-xs text-clinical-text-muted">
-                      Không có thông báo mới nào.
+                      {t('header.noNotifications', 'Không có thông báo mới nào.')}
                     </div>
                   ) : (
                     notifications.map((n) => (
@@ -261,7 +267,7 @@ export const Header: React.FC<HeaderProps> = ({
                                 {n.title}
                               </h5>
                               <span className="text-[10px] text-clinical-text-muted shrink-0">
-                                {new Date(n.createdAt || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(n.createdAt || Date.now()).toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             <p className="text-xs text-clinical-text-muted mt-0.5 leading-snug line-clamp-2">
@@ -295,15 +301,15 @@ export const Header: React.FC<HeaderProps> = ({
                 {currentUser.name || 'Người dùng'}
               </div>
               <div className="text-[11px] font-medium text-brand-700">
-                {roleLabels[currentUser.role] || currentUser.role}
+                {t(`roles.${currentUser.role}`, roleLabels[currentUser.role] || currentUser.role)}
               </div>
             </div>
 
             <button
               onClick={onLogout}
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-clinical-text-muted hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-100 transition-colors ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-              title="Đăng xuất"
-              aria-label="Đăng xuất"
+              title={t('header.logout', 'Đăng xuất')}
+              aria-label={t('header.logout', 'Đăng xuất')}
             >
               <LogOut className="h-4 w-4" />
             </button>

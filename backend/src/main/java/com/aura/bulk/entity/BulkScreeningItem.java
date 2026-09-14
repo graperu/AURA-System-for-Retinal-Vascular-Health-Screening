@@ -74,6 +74,12 @@ public class BulkScreeningItem {
   @Column(name = "findings", columnDefinition = "TEXT")
   private String findings;
 
+  @Column(name = "error_message", columnDefinition = "TEXT")
+  private String errorMessage;
+
+  @Column(name = "processed_at")
+  private Instant processedAt;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -263,6 +269,22 @@ public class BulkScreeningItem {
 
   public void setFindings(String findings) {
     this.findings = findings;
+  }
+
+  public String getErrorMessage() {
+    return errorMessage;
+  }
+
+  public void setErrorMessage(String errorMessage) {
+    this.errorMessage = errorMessage;
+  }
+
+  public Instant getProcessedAt() {
+    return processedAt;
+  }
+
+  public void setProcessedAt(Instant processedAt) {
+    this.processedAt = processedAt;
   }
 
   public Instant getCreatedAt() {

@@ -15,6 +15,7 @@ import { AIRiskResult, PatientProfile } from '../../types/cds';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { Button } from '../../components/ui/Button';
+import { useLanguage } from '../../context/LanguageContext';
 
 export interface PatientDashboardViewProps {
   patient: PatientProfile;
@@ -35,6 +36,8 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
   onOpenChatModal,
   onOpenReportModal,
 }) => {
+  const { t, isVi } = useLanguage();
+
   return (
     <div className="space-y-6">
       {/* 1. Primary Clinical Grid: 65% Main Screening Status + 35% Care & Account Panel */}
@@ -45,16 +48,16 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-4">
               <div>
                 <span className="text-[11px] font-bold text-[#0891B2] uppercase tracking-wider block">
-                  Ca Sàng Lọc Gần Nhất
+                  {isVi ? 'Ca Sàng Lọc Gần Nhất' : 'Latest Screening Scan'}
                 </span>
                 <h2 className="text-xl font-bold text-slate-900 mt-0.5">
-                  Kết Quả Đánh Giá Vi Mạch Đáy Mắt
+                  {t('patient.results.summaryTitle', isVi ? 'Kết Quả Đánh Giá Vi Mạch Đáy Mắt' : 'Retinal Microvascular Assessment Summary')}
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
                   <Clock className="w-3.5 h-3.5" />
                   {patient.lastExamDate
-                    ? `Ngày thực hiện: ${patient.lastExamDate}`
-                    : 'Chưa thực hiện ca sàng lọc nào'}
+                    ? `${isVi ? 'Ngày thực hiện' : 'Date performed'}: ${patient.lastExamDate}`
+                    : (isVi ? 'Chưa thực hiện ca sàng lọc nào' : 'No screening performed yet')}
                 </p>
               </div>
 
@@ -69,7 +72,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
                     <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                      <Heart className="w-3.5 h-3.5 text-red-500" /> Tim mạch
+                      <Heart className="w-3.5 h-3.5 text-red-500" /> {isVi ? 'Tim mạch' : 'Cardiovascular'}
                     </span>
                     <div className="text-xl font-extrabold text-slate-900 font-mono-data">
                       {latestResult.cardiovascularRisk.score}%
@@ -81,7 +84,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
 
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
                     <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                      <Eye className="w-3.5 h-3.5 text-[#0891B2]" /> Võng mạc ĐTĐ
+                      <Eye className="w-3.5 h-3.5 text-[#0891B2]" /> {isVi ? 'Võng mạc ĐTĐ' : 'Diabetic Retinopathy'}
                     </span>
                     <div className="text-xl font-extrabold text-slate-900 font-mono-data">
                       {latestResult.diabeticRetinopathyRisk.score}%
@@ -93,13 +96,13 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
 
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
                     <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                      <Activity className="w-3.5 h-3.5 text-amber-500" /> Đột quỵ 3 năm
+                      <Activity className="w-3.5 h-3.5 text-amber-500" /> {isVi ? 'Đột quỵ 3 năm' : '3-Year Stroke Risk'}
                     </span>
                     <div className="text-xl font-extrabold text-slate-900 font-mono-data">
                       {latestResult.cardiovascularRisk.threeYearStrokeRiskPercent}%
                     </div>
                     <span className="text-[11px] text-slate-600 font-medium block truncate">
-                      Ước tính mô hình
+                      {isVi ? 'Ước tính mô hình' : 'Model estimate'}
                     </span>
                   </div>
                 </div>
@@ -110,14 +113,14 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                        Bác sĩ phụ trách: {patient.assignedDoctor || latestResult.doctorName || 'Đang chờ phân công bác sĩ'}
+                        {t('patient.chat.assignedDoctor', isVi ? 'Bác sĩ phụ trách' : 'Assigned doctor')}: {patient.assignedDoctor || latestResult.doctorName || (isVi ? 'Đang chờ phân công bác sĩ' : 'Awaiting doctor assignment')}
                       </span>
                       <span className="text-[11px] font-semibold text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
-                        Đã thẩm định bởi BS
+                        {isVi ? 'Đã thẩm định bởi BS' : 'Doctor Reviewed'}
                       </span>
                     </div>
                     <p className="text-xs text-emerald-950">
-                      {latestResult.doctorNotes || latestResult.findings || 'Chỉ số vi mạch võng mạc đã được bác sĩ chuyên khoa thẩm định và xác nhận.'}
+                      {latestResult.doctorNotes || latestResult.findings || (isVi ? 'Chỉ số vi mạch võng mạc đã được bác sĩ chuyên khoa thẩm định và xác nhận.' : 'Retinal microvascular biomarkers have been verified and confirmed by specialist.')}
                     </p>
                   </div>
                 ) : (
@@ -125,14 +128,14 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
                         <Clock className="w-4 h-4 text-amber-600" />
-                        Bác sĩ phụ trách: {patient.assignedDoctor || latestResult.doctorName || 'Đang chờ phân công bác sĩ'}
+                        {t('patient.chat.assignedDoctor', isVi ? 'Bác sĩ phụ trách' : 'Assigned doctor')}: {patient.assignedDoctor || latestResult.doctorName || (isVi ? 'Đang chờ phân công bác sĩ' : 'Awaiting doctor assignment')}
                       </span>
                       <span className="text-[11px] font-semibold text-amber-800 bg-white px-2 py-0.5 rounded-md border border-amber-200">
-                        Chờ bác sĩ thẩm định
+                        {isVi ? 'Chờ bác sĩ thẩm định' : 'Pending Doctor Review'}
                       </span>
                     </div>
                     <p className="text-xs text-amber-950">
-                      {latestResult.findings || latestResult.recommendations || 'Kết quả phân tích sơ bộ từ AI. Đang chờ bác sĩ chuyên khoa kiểm tra và thẩm định lâm sàng.'}
+                      {latestResult.findings || latestResult.recommendations || (isVi ? 'Kết quả phân tích sơ bộ từ AI. Đang chờ bác sĩ chuyên khoa kiểm tra và thẩm định lâm sàng.' : 'Preliminary AI analysis. Pending specialist review and clinical verification.')}
                     </p>
                   </div>
                 )}
@@ -143,9 +146,11 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                   <UploadCloud className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-slate-800">Chưa có kết quả khám sàng lọc</h3>
+                  <h3 className="text-sm font-bold text-slate-800">{isVi ? 'Chưa có kết quả khám sàng lọc' : 'No screening results yet'}</h3>
                   <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                    Bạn chưa thực hiện ca sàng lọc nào. Vui lòng bấm &quot;Phân tích ảnh mới&quot; bên dưới để tải ảnh chụp đáy mắt và nhận đánh giá nguy cơ vi mạch ban đầu từ AI.
+                    {isVi
+                      ? 'Bạn chưa thực hiện ca sàng lọc nào. Vui lòng bấm "Phân tích ảnh mới" bên dưới để tải ảnh chụp đáy mắt và nhận đánh giá nguy cơ vi mạch ban đầu từ AI.'
+                      : 'You have not performed any screenings yet. Please click "Upload new scan" below to upload fundus images and receive initial microvascular risk assessment from AI.'}
                   </p>
                 </div>
               </div>
@@ -159,7 +164,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                 onClick={() => onNavigate('upload-scan')}
                 icon={<UploadCloud className="w-4 h-4" />}
               >
-                Phân tích ảnh mới
+                {t('patient.dashboard.quickActions.uploadScan', isVi ? 'Phân tích ảnh mới' : 'Upload new scan')}
               </Button>
 
               {latestResult && (
@@ -170,7 +175,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                     onClick={() => onNavigate('cds-viewer')}
                     icon={<Eye className="w-4 h-4" />}
                   >
-                    Xem XAI & Grad-CAM
+                    {isVi ? 'Xem XAI & Grad-CAM' : 'View XAI & Grad-CAM'}
                   </Button>
                   <Button
                     variant="outline"
@@ -178,7 +183,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                     onClick={onOpenReportModal}
                     icon={<FileText className="w-4 h-4" />}
                   >
-                    Phiếu khám PDF
+                    {t('patient.results.print', isVi ? 'Phiếu khám PDF' : 'Print report')}
                   </Button>
                 </div>
               )}
@@ -193,14 +198,16 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Zap className="w-4 h-4 text-amber-500" />
-                Hạn Mức Sàng Lọc
+                {t('patient.credit.currentQuota', isVi ? 'Hạn Mức Sàng Lọc' : 'Screening Credits')}
               </span>
               <span className="text-lg font-extrabold font-mono-data text-[#0891B2]">
-                {userCredits} lượt
+                {userCredits} {isVi ? 'lượt' : 'credits'}
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Mỗi lượt cho phép phân tích toàn diện 2 mắt (OD/OS) kèm báo cáo Grad-CAM.
+              {isVi
+                ? 'Mỗi lượt cho phép phân tích toàn diện 2 mắt (OD/OS) kèm báo cáo Grad-CAM.'
+                : 'Each credit allows comprehensive bilateral (OD/OS) analysis with Grad-CAM report.'}
             </p>
             <Button
               variant="secondary"
@@ -208,7 +215,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
               className="w-full"
               onClick={onOpenCreditModal}
             >
-              Nạp thêm lượt khám
+              {t('patient.credit.buyNow', isVi ? 'Nạp thêm lượt khám' : 'Buy now')}
             </Button>
           </Card>
 
@@ -219,14 +226,16 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                 <MessageSquare className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-900">Bác Sĩ Tư Vấn</h4>
+                <h4 className="text-xs font-bold text-slate-900">{t('patient.chat.assignedDoctor', isVi ? 'Bác Sĩ Tư Vấn' : 'Assigned doctor')}</h4>
                 <p className="text-[11px] text-slate-500">
-                  {patient.assignedDoctor || 'Đang chờ phân công bác sĩ'}
+                  {patient.assignedDoctor || (isVi ? 'Đang chờ phân công bác sĩ' : 'Awaiting doctor assignment')}
                 </p>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-snug">
-              Kênh trao đổi chuyên môn trực tuyến để giải đáp các chỉ số và phác đồ điều trị.
+              {isVi
+                ? 'Kênh trao đổi chuyên môn trực tuyến để giải đáp các chỉ số và phác đồ điều trị.'
+                : 'Online clinical consultation channel for biomarker inquiries and care guidance.'}
             </p>
             <Button
               variant="outline"
@@ -234,7 +243,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
               className="w-full"
               onClick={onOpenChatModal}
             >
-              Mở phòng chat tư vấn
+              {t('patient.dashboard.quickActions.doctorChat', isVi ? 'Mở phòng chat tư vấn' : 'Chat with doctor')}
             </Button>
           </Card>
         </div>
@@ -251,11 +260,13 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0891B2] transition-colors flex items-center justify-between">
-              Tải Ảnh Khám Mới
+              {t('patient.dashboard.quickActions.uploadScan', isVi ? 'Tải Ảnh Khám Mới' : 'Upload new scan')}
               <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
             </h3>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              Tải lên ảnh chụp đáy mắt (Fundus hoặc OCT) để nhận diện vi tổn thương mạch máu.
+              {isVi
+                ? 'Tải lên ảnh chụp đáy mắt (Fundus hoặc OCT) để nhận diện vi tổn thương mạch máu.'
+                : 'Upload retinal images (Fundus or OCT) to detect microvascular lesions.'}
             </p>
           </div>
         </div>
@@ -269,11 +280,13 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0891B2] transition-colors flex items-center justify-between">
-              Xem Bản Đồ Nhiệt Grad-CAM
+              {isVi ? 'Xem Bản Đồ Nhiệt Grad-CAM' : 'View Grad-CAM Heatmap'}
               <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
             </h3>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              Trực quan hóa vùng chú ý của mạng nơ-ron AI trên vi mạch mắt.
+              {isVi
+                ? 'Trực quan hóa vùng chú ý của mạng nơ-ron AI trên vi mạch mắt.'
+                : 'Visualize neural network attention regions on retinal microvasculature.'}
             </p>
           </div>
         </div>
@@ -287,11 +300,13 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0891B2] transition-colors flex items-center justify-between">
-              Tư Vấn Với Bác Sĩ
+              {t('patient.dashboard.quickActions.doctorChat', isVi ? 'Tư Vấn Với Bác Sĩ' : 'Chat with doctor')}
               <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
             </h3>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              Trao đổi chuyên môn trực tiếp với Bác sĩ phụ trách về các khuyến nghị sức khỏe.
+              {isVi
+                ? 'Trao đổi chuyên môn trực tiếp với Bác sĩ phụ trách về các khuyến nghị sức khỏe.'
+                : 'Directly consult with assigned physician regarding clinical recommendations.'}
             </p>
           </div>
         </div>

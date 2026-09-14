@@ -143,10 +143,10 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           ['Nguy co dot quy 3 nam', `${odData.cardiovascularRisk.threeYearStrokeRiskPercent}%`, `${osData.cardiovascularRisk.threeYearStrokeRiskPercent}%`, '< 10%', ''],
           ['Giai doan tang huyet ap', odData.cardiovascularRisk.hypertensionStage, osData.cardiovascularRisk.hypertensionStage, 'Binh thuong', ''],
           ['Nguy co benh vong mac tieu duong', `${odData.diabeticRetinopathyRisk.score}%`, `${osData.diabeticRetinopathyRisk.score}%`, '< 30%', ''],
-          ['Ty le A/V Ratio', odData.annotatedMap.arteryVeinRatio.toString(), osData.annotatedMap.arteryVeinRatio.toString(), '>= 0.67', `OD: ${evaluateAvRatio(odData.annotatedMap.arteryVeinRatio).text} | OS: ${evaluateAvRatio(osData.annotatedMap.arteryVeinRatio).text}`],
-          ['Mat do vi mach (Vessel Density)', `${odData.annotatedMap.vesselDensityPercentage}%`, `${osData.annotatedMap.vesselDensityPercentage}%`, '15.5% - 19.0%', `OD: ${evaluateVesselDensity(odData.annotatedMap.vesselDensityPercentage).text} | OS: ${evaluateVesselDensity(osData.annotatedMap.vesselDensityPercentage).text}`],
-          ['Do uon luon (Tortuosity)', odData.annotatedMap.tortuosityIndex.toString(), osData.annotatedMap.tortuosityIndex.toString(), '< 1.25', `OD: ${evaluateTortuosity(odData.annotatedMap.tortuosityIndex).text} | OS: ${evaluateTortuosity(osData.annotatedMap.tortuosityIndex).text}`],
-          ['Ty le Cup/Disc (CDR)', odData.annotatedMap.opticCupToDiscRatio.toString(), osData.annotatedMap.opticCupToDiscRatio.toString(), '< 0.50', `OD: ${evaluateVcdr(odData.annotatedMap.opticCupToDiscRatio).text} | OS: ${evaluateVcdr(osData.annotatedMap.opticCupToDiscRatio).text}`],
+          ['Ty le A/V Ratio', (odData.annotatedMap?.arteryVeinRatio ?? 0).toString(), (osData.annotatedMap?.arteryVeinRatio ?? 0).toString(), '>= 0.67', `OD: ${evaluateAvRatio(odData.annotatedMap?.arteryVeinRatio ?? 0).text} | OS: ${evaluateAvRatio(osData.annotatedMap?.arteryVeinRatio ?? 0).text}`],
+          ['Mat do vi mach (Vessel Density)', `${odData.annotatedMap?.vesselDensityPercentage ?? 0}%`, `${osData.annotatedMap?.vesselDensityPercentage ?? 0}%`, '15.5% - 19.0%', `OD: ${evaluateVesselDensity(odData.annotatedMap?.vesselDensityPercentage ?? 0).text} | OS: ${evaluateVesselDensity(osData.annotatedMap?.vesselDensityPercentage ?? 0).text}`],
+          ['Do uon luon (Tortuosity)', (odData.annotatedMap?.tortuosityIndex ?? 0).toString(), (osData.annotatedMap?.tortuosityIndex ?? 0).toString(), '< 1.25', `OD: ${evaluateTortuosity(odData.annotatedMap?.tortuosityIndex ?? 0).text} | OS: ${evaluateTortuosity(osData.annotatedMap?.tortuosityIndex ?? 0).text}`],
+          ['Ty le Cup/Disc (CDR)', (odData.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), (osData.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), '< 0.50', `OD: ${evaluateVcdr(odData.annotatedMap?.opticCupToDiscRatio ?? 0).text} | OS: ${evaluateVcdr(osData.annotatedMap?.opticCupToDiscRatio ?? 0).text}`],
           ['Ma chan doan ICD-10', icdCodes.join('; ') || 'Chua ghi nhan', '', '', ''],
           ['Ket luan bac si (Doctor Notes)', sanitizeCsvCell(doctorNotesValue || odData.doctorNotes || osData.doctorNotes || ''), '', '', ''],
           ['Phat hien lam sang (Findings)', sanitizeCsvCell(findingsValue || odData.findings || osData.findings || ''), '', '', ''],
@@ -172,10 +172,10 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           ['Nguy co dot quy 3 nam', `${result.cardiovascularRisk.threeYearStrokeRiskPercent}%`, '< 10%', ''],
           ['Giai doan tang huyet ap', result.cardiovascularRisk.hypertensionStage, 'Binh thuong', ''],
           ['Nguy co benh vong mac tieu duong', `${result.diabeticRetinopathyRisk.score}% (${result.diabeticRetinopathyRisk.etdrsGrade})`, '< 30%', ''],
-          ['Ty le A/V Ratio', result.annotatedMap.arteryVeinRatio.toString(), '>= 0.67', evaluateAvRatio(result.annotatedMap.arteryVeinRatio).text],
-          ['Mat do mach mau', `${result.annotatedMap.vesselDensityPercentage}%`, '15.5% - 19.0%', evaluateVesselDensity(result.annotatedMap.vesselDensityPercentage).text],
-          ['Do uon luon Tortuosity', result.annotatedMap.tortuosityIndex.toString(), '< 1.25', evaluateTortuosity(result.annotatedMap.tortuosityIndex).text],
-          ['Ty le Cup/Disc (CDR)', result.annotatedMap.opticCupToDiscRatio.toString(), '< 0.50', evaluateVcdr(result.annotatedMap.opticCupToDiscRatio).text],
+          ['Ty le A/V Ratio', (result.annotatedMap?.arteryVeinRatio ?? 0).toString(), '>= 0.67', evaluateAvRatio(result.annotatedMap?.arteryVeinRatio ?? 0).text],
+          ['Mat do mach mau', `${result.annotatedMap?.vesselDensityPercentage ?? 0}%`, '15.5% - 19.0%', evaluateVesselDensity(result.annotatedMap?.vesselDensityPercentage ?? 0).text],
+          ['Do uon luon Tortuosity', (result.annotatedMap?.tortuosityIndex ?? 0).toString(), '< 1.25', evaluateTortuosity(result.annotatedMap?.tortuosityIndex ?? 0).text],
+          ['Ty le Cup/Disc (CDR)', (result.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), '< 0.50', evaluateVcdr(result.annotatedMap?.opticCupToDiscRatio ?? 0).text],
           ['Ma chan doan ICD-10', icdCodes.join('; ') || 'Chua ghi nhan', '', ''],
           ['Ket luan bac si (Doctor Notes)', sanitizeCsvCell(doctorNotesValue), '', ''],
           ['Phat hien lam sang (Findings)', sanitizeCsvCell(findingsValue), '', ''],
@@ -201,7 +201,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-2 sm:p-4 backdrop-blur-md overflow-hidden print:p-0 print:bg-white animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-2 sm:p-4 backdrop-blur-md overflow-hidden print:p-0 print:bg-white animate-fade-in"
     >
       {/* Floating Global Close Button */}
       <button
@@ -216,7 +216,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
       {/* Modal Dialog */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-5xl h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden print:h-auto print:border-none print:shadow-none"
+        className="relative w-full max-w-5xl h-[92vh] flex flex-col rounded-2xl bg-white shadow-medical-modal border border-slate-200 overflow-hidden print:h-auto print:border-none print:shadow-none animate-modal-enter"
       >
         {/* 1. Top Header Controls */}
         <div className="flex-shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-3.5 print:hidden z-20 shadow-xs">
@@ -321,13 +321,15 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             <div>
               <span className="text-slate-500 block">Tuổi / Giới tính:</span>
               <strong className="text-slate-900">
-                {patient.age != null ? `${patient.age} tuổi` : 'Chưa rõ tuổi'} • {patient.gender === 'Male' ? 'Nam' : patient.gender === 'Female' ? 'Nữ' : 'Khác'}
+                {patient.age != null ? `${patient.age} tuổi` : 'Chưa cập nhật'} • {patient.gender === 'Male' ? 'Nam' : patient.gender === 'Female' ? 'Nữ' : 'Chưa cập nhật'}
               </strong>
             </div>
             <div>
               <span className="text-slate-500 block">Huyết áp / HbA1c:</span>
               <strong className="text-slate-900 font-mono-data">
-                {patient.systolicBp != null ? `${patient.systolicBp}/${patient.diastolicBp} mmHg` : 'Chưa đo'} • {patient.hba1c != null ? `${patient.hba1c}%` : 'Chưa đo'}
+                {patient.systolicBp != null && patient.diastolicBp != null
+                  ? `${patient.systolicBp}/${patient.diastolicBp} mmHg`
+                  : 'Chưa cập nhật'} • {patient.hba1c != null ? `${patient.hba1c}%` : 'Chưa cập nhật'}
               </strong>
             </div>
           </div>
@@ -379,11 +381,24 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                           alt="Ảnh nền OD"
                           className="h-full w-full object-cover absolute inset-0"
                         />
-                        <img
-                          src={odData.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.png'}
-                          alt="Heatmap OD"
-                          className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
-                        />
+                        {odData.annotatedMap?.heatmapUrl && odData.annotatedMap.heatmapUrl !== '/assets/images/fundus_heatmap.png' ? (
+                          <img
+                            src={odData.annotatedMap.heatmapUrl}
+                            alt="Heatmap OD"
+                            className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
+                          />
+                        ) : (
+                          <>
+                            <div className="absolute top-2 left-2 z-10 bg-slate-900/90 text-amber-300 text-[9px] font-medium px-2 py-0.5 rounded border border-amber-500/40">
+                              Chưa có bản đồ nhiệt Grad-CAM
+                            </div>
+                            <img
+                              src={odData.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.png'}
+                              alt="Heatmap OD"
+                              className="hidden"
+                            />
+                          </>
+                        )}
                       </div>
                       <p className="mt-1.5 text-[10px] font-semibold text-cyan-200">Heatmap AI (OD)</p>
                     </div>
@@ -420,11 +435,24 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                           alt="Ảnh nền OS"
                           className="h-full w-full object-cover absolute inset-0"
                         />
-                        <img
-                          src={osData.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.png'}
-                          alt="Heatmap OS"
-                          className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
-                        />
+                        {osData.annotatedMap?.heatmapUrl && osData.annotatedMap.heatmapUrl !== '/assets/images/fundus_heatmap.png' ? (
+                          <img
+                            src={osData.annotatedMap.heatmapUrl}
+                            alt="Heatmap OS"
+                            className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
+                          />
+                        ) : (
+                          <>
+                            <div className="absolute top-2 left-2 z-10 bg-slate-900/90 text-amber-300 text-[9px] font-medium px-2 py-0.5 rounded border border-amber-500/40">
+                              Chưa có bản đồ nhiệt Grad-CAM
+                            </div>
+                            <img
+                              src={osData.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.png'}
+                              alt="Heatmap OS"
+                              className="hidden"
+                            />
+                          </>
+                        )}
                       </div>
                       <p className="mt-1.5 text-[10px] font-semibold text-teal-200">Heatmap AI (OS)</p>
                     </div>
@@ -452,11 +480,24 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                       alt="Ảnh nền"
                       className="h-full w-full object-cover absolute inset-0"
                     />
-                    <img
-                      src={result.annotatedMap.heatmapUrl || '/assets/images/fundus_heatmap.png'}
-                      alt="Bản đồ nhiệt Grad-CAM"
-                      className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
-                    />
+                    {result.annotatedMap?.heatmapUrl && result.annotatedMap.heatmapUrl !== '/assets/images/fundus_heatmap.png' ? (
+                      <img
+                        src={result.annotatedMap.heatmapUrl}
+                        alt="Bản đồ nhiệt Grad-CAM"
+                        className="h-full w-full object-cover absolute inset-0 mix-blend-screen opacity-85"
+                      />
+                    ) : (
+                      <>
+                        <div className="absolute top-2 left-2 z-10 bg-slate-900/90 text-amber-300 text-[9px] font-medium px-2 py-0.5 rounded border border-amber-500/40">
+                          Chưa có bản đồ nhiệt Grad-CAM
+                        </div>
+                        <img
+                          src={result.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.png'}
+                          alt="Bản đồ nhiệt Grad-CAM"
+                          className="hidden"
+                        />
+                      </>
+                    )}
                   </div>
                   <p className="mt-2 text-[11px] font-semibold text-cyan-200">Bản đồ Nhiệt Grad-CAM (Vùng Chú Ý Bất Thường)</p>
                 </div>
@@ -471,54 +512,118 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
               2. Đánh Giá Nguy Cơ Lâm Sàng Từ Mô Hình AI
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4 space-y-1">
-                <div className="flex items-center justify-between text-xs font-bold text-rose-900">
-                  <span>Nguy Cơ Tim Mạch (3 Năm)</span>
-                  <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] text-rose-800 border border-rose-300">
-                    {Math.max(odData.cardiovascularRisk.score, osData.cardiovascularRisk.score) >= 75 ? 'Cao' : 'Trung bình'}
-                  </span>
-                </div>
-                <div className="text-2xl font-extrabold font-mono-data text-rose-600">
-                  {Math.max(odData.cardiovascularRisk.score, osData.cardiovascularRisk.score)}%
-                </div>
-                <p className="text-[11px] text-slate-600 leading-snug">
-                  {hasDualData
-                    ? `OD: ${odData.cardiovascularRisk.score}% • OS: ${osData.cardiovascularRisk.score}% (Điểm cao nhất giữa 2 mắt).`
-                    : 'Tỷ lệ A/V hẹp, có nguy cơ xơ cứng mạch máu hệ thống.'}
-                </p>
-              </div>
+              {/* CVD Card */}
+              {(() => {
+                const cvdScore = Math.max(odData.cardiovascularRisk.score, osData.cardiovascularRisk.score);
+                const cvdLevel = cvdScore >= 80 ? 'Nguy kịch' : cvdScore >= 65 ? 'Cao' : cvdScore >= 40 ? 'Trung bình' : 'Thấp';
+                const cvdBadgeStyle =
+                  cvdScore >= 80
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
+                    : cvdScore >= 65
+                    ? 'bg-orange-100 text-orange-800 border-orange-300'
+                    : cvdScore >= 40
+                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                const cvdDesc = hasDualData
+                  ? `OD: ${odData.cardiovascularRisk.score}% • OS: ${osData.cardiovascularRisk.score}% (Điểm cao nhất giữa 2 mắt).`
+                  : cvdScore >= 65
+                  ? 'Tỷ lệ A/V hẹp rõ rệt, nguy cơ xơ cứng mạch máu và biến cố mạch vành cao.'
+                  : cvdScore >= 40
+                  ? 'Co thắt nhẹ vi mạch hoặc thay đổi vi tuần hoàn võng mạc, cần theo dõi định kỳ.'
+                  : 'Hệ vi mạch võng mạc bình thường, nguy cơ biến cố tim mạch thấp.';
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-1">
-                <div className="flex items-center justify-between text-xs font-bold text-amber-900">
-                  <span>Võng Mạc Đái Tháo Đường</span>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800 border border-amber-300">
-                    {Math.max(odData.diabeticRetinopathyRisk.score, osData.diabeticRetinopathyRisk.score) >= 60 ? 'Cao' : 'Trung bình'}
-                  </span>
-                </div>
-                <div className="text-2xl font-extrabold font-mono-data text-amber-600">
-                  {Math.max(odData.diabeticRetinopathyRisk.score, osData.diabeticRetinopathyRisk.score)}%
-                </div>
-                <p className="text-[11px] text-slate-600 leading-snug">
-                  {hasDualData
-                    ? `OD: ${odData.diabeticRetinopathyRisk.score}% • OS: ${osData.diabeticRetinopathyRisk.score}%`
-                    : 'Vi phình mạch rải rác cực sau theo phân tích AI.'}
-                </p>
-              </div>
+                return (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4 space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-rose-900">
+                      <span>Nguy Cơ Tim Mạch (3 Năm)</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${cvdBadgeStyle}`}>
+                        {cvdLevel}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-extrabold font-mono-data text-rose-600">
+                      {cvdScore}%
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-snug">
+                      {cvdDesc}
+                    </p>
+                  </div>
+                );
+              })()}
 
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-1">
-                <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
-                  <span>Nguy Cơ Tăng Nhãn Áp (Glaucoma)</span>
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800 border border-emerald-300">
-                    Thấp
-                  </span>
-                </div>
-                <div className="text-2xl font-extrabold font-mono-data text-emerald-600">
-                  {Math.max(odData.glaucomaRisk.score, osData.glaucomaRisk.score)}%
-                </div>
-                <p className="text-[11px] text-slate-600 leading-snug">
-                  Tỷ lệ Cup/Disc trong giới hạn an toàn bình thường.
-                </p>
-              </div>
+              {/* DR Card */}
+              {(() => {
+                const drScore = Math.max(odData.diabeticRetinopathyRisk.score, osData.diabeticRetinopathyRisk.score);
+                const drLevel = drScore >= 80 ? 'Nguy kịch' : drScore >= 65 ? 'Cao' : drScore >= 40 ? 'Trung bình' : 'Thấp';
+                const drBadgeStyle =
+                  drScore >= 80
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
+                    : drScore >= 65
+                    ? 'bg-orange-100 text-orange-800 border-orange-300'
+                    : drScore >= 40
+                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                const drDesc = hasDualData
+                  ? `OD: ${odData.diabeticRetinopathyRisk.score}% • OS: ${osData.diabeticRetinopathyRisk.score}%`
+                  : drScore >= 60
+                  ? 'Phát hiện tổn thương vi mạch, xuất huyết hoặc xuất tiết võng mạc rõ rệt.'
+                  : drScore >= 40
+                  ? 'Phát hiện vi phình mạch rải rác cực sau theo phân tích AURA AI.'
+                  : 'Chưa phát hiện tổn thương vi mạch đái tháo đường hoặc phù hoàng điểm.';
+
+                return (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-amber-900">
+                      <span>Võng Mạc Đái Tháo Đường</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${drBadgeStyle}`}>
+                        {drLevel}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-extrabold font-mono-data text-amber-600">
+                      {drScore}%
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-snug">
+                      {drDesc}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Glaucoma Card */}
+              {(() => {
+                const glaucomaScore = Math.max(odData.glaucomaRisk.score, osData.glaucomaRisk.score);
+                const glaucomaLevel = glaucomaScore >= 80 ? 'Nguy kịch' : glaucomaScore >= 65 ? 'Cao' : glaucomaScore >= 40 ? 'Trung bình' : 'Thấp';
+                const glaucomaBadgeStyle =
+                  glaucomaScore >= 80
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
+                    : glaucomaScore >= 65
+                    ? 'bg-orange-100 text-orange-800 border-orange-300'
+                    : glaucomaScore >= 40
+                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                const glaucomaDesc =
+                  glaucomaScore >= 65
+                    ? 'Lõm gai mở rộng bất thường, nguy cơ cao tổn hại sợi thần kinh thị giác.'
+                    : glaucomaScore >= 40
+                    ? 'Lõm gai mở rộng sinh lý hoặc nghi ngờ sớm, cần theo dõi nhãn áp.'
+                    : 'Tỷ lệ Cup/Disc trong giới hạn an toàn bình thường.';
+
+                return (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
+                      <span>Nguy Cơ Tăng Nhãn Áp (Glaucoma)</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${glaucomaBadgeStyle}`}>
+                        {glaucomaLevel}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-extrabold font-mono-data text-emerald-600">
+                      {glaucomaScore}%
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-snug">
+                      {glaucomaDesc}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -547,7 +652,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   <tr>
-                    <td className="p-2.5 font-medium">Tỷ lệ Động/Tĩnh Mạch (A/V Ratio)</td>
+                    <td className="p-2.5 font-medium">Tỷ lệ động-tĩnh mạch (A/V)</td>
                     {hasDualData ? (
                       <>
                         <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData.annotatedMap.arteryVeinRatio}</td>

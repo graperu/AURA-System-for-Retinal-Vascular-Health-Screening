@@ -56,6 +56,20 @@ public class GeminiRetinalAiService {
           2. Hoàng điểm (Macula): có phản xạ trung tâm tốt không, có xuất tiết hay phù hoàng điểm không.
           3. Cây mạch máu võng mạc (Vascular Arcade): đánh giá tỷ lệ Động mạch / Tĩnh mạch (A/V Ratio chuẩn 2:3 hay ~0.67), độ uốn lượn, có hẹp lòng mạch hay dấu bắt chéo Gunn/Salus không.
           4. Tổn thương vi mạch: rà soát vi phình mạch (microaneurysms), xuất huyết chấm/vệt, xuất tiết cứng (hard exudates).
+          5. Bản đồ tọa độ tổn thương vi mạch (detectedAnomalies):
+             - Trích xuất mảng các tổn thương phát hiện được kèm tọa độ:
+               "detectedAnomalies": [
+                 {
+                   "id": "ANO-01",
+                   "type": "Microaneurysm",
+                   "coordinates": { "x": 62.4, "y": 41.8, "width": 24, "height": 24 },
+                   "confidence": 0.92,
+                   "description": "Vi phình mạch nhỏ tại cung mạch thái dương trên."
+                 }
+               ]
+             - Quy định rõ 5 loại tổn thương lâm sàng (type): "Microaneurysm", "Hemorrhage", "Hard_Exudate", "AV_Nipping", "Focal_Narrowing".
+             - Tọa độ coordinates x, y tính theo phần trăm (%) từ 0 đến 100 theo chiều ngang và dọc của ảnh võng mạc; width, height là kích thước ước tính.
+             - Nếu mắt hoàn toàn bình thường, BẮT BUỘC trả về: "detectedAnomalies": []
           
           QUY TẮC CHẤM ĐIỂM NGUY CƠ VI MẠCH (0 - 100):
           - 0 - 39 (LOW): Đáy mắt bình thường, vi mạch thanh mảnh, gai thị hồng hào, không có tổn thương. Điểm: 15 - 35/100.
@@ -84,6 +98,7 @@ public class GeminiRetinalAiService {
                 "clinicalNote": "Không phát hiện vi phình mạch hoặc xuất huyết võng mạc, vùng hoàng điểm phẳng và sáng."
               }
             ],
+            "detectedAnomalies": [],
             "biomarkers": {
               "avRatio": 0.66,
               "vesselDensityPercent": 17.8,

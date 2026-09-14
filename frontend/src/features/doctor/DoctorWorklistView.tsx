@@ -16,6 +16,7 @@ import { DataTable, Column } from '../../components/ui/DataTable';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { Button } from '../../components/ui/Button';
 import { ClinicalSelect, ClinicalSelectOption } from '../../components/ui/ClinicalSelect';
+import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
 
 type RiskFilterType = 'ALL' | 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
 type ReviewFilterType = 'ALL' | 'PENDING' | 'REVIEWED';
@@ -407,6 +408,8 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
         loading={loading}
         emptyMessage="Không tìm thấy bệnh nhân nào phù hợp với bộ lọc."
       />
+
+      <MedicalDisclaimer variant="compact" />
     </div>
   );
 };

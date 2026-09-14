@@ -137,6 +137,14 @@ public class Screening {
   @Column(name = "recommendations", columnDefinition = "TEXT")
   private String recommendations;
 
+  @JsonProperty("detectedAnomalies")
+  @Column(name = "detected_anomalies", columnDefinition = "TEXT")
+  private String detectedAnomalies;
+
+  @JsonProperty("vesselMaskUrl")
+  @Column(name = "vessel_mask_url", columnDefinition = "TEXT")
+  private String vesselMaskUrl;
+
   @JsonProperty("doctorNotes")
   @Column(name = "doctor_notes", columnDefinition = "TEXT")
   private String doctorNotes;
@@ -428,6 +436,23 @@ public class Screening {
   public void setRecommendations(String recommendations) {
     this.recommendations = recommendations;
   }
+
+  public String getDetectedAnomalies() {
+    return detectedAnomalies;
+  }
+
+  public void setDetectedAnomalies(String detectedAnomalies) {
+    this.detectedAnomalies = detectedAnomalies;
+  }
+
+  public String getVesselMaskUrl() {
+    return vesselMaskUrl;
+  }
+
+  public void setVesselMaskUrl(String vesselMaskUrl) {
+    this.vesselMaskUrl = vesselMaskUrl;
+  }
+
   public String getDoctorNotes() {
     return doctorNotes;
   }

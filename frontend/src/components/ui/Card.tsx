@@ -18,7 +18,7 @@ export const Card: React.FC<CardProps> = ({
     default: 'bg-clinical-surface border border-clinical-border shadow-medical-card',
     subtle: 'bg-clinical-surface-subtle border border-clinical-border-subtle',
     bordered: 'bg-clinical-surface border border-clinical-border shadow-medical-sm',
-    interactive: 'bg-clinical-surface border border-clinical-border shadow-medical-card hover:border-brand-600 hover:shadow-medical-md cursor-pointer group',
+    interactive: 'bg-clinical-surface border border-clinical-border shadow-medical-card hover:border-brand-600 hover:shadow-medical-md hover:-translate-y-0.5 cursor-pointer group',
     hero: 'bg-gradient-to-r from-brand-900 to-slate-900 text-white border border-slate-800 shadow-medical-md',
   }[variant];
 

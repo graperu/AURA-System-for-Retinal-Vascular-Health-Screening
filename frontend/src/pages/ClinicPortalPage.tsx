@@ -9,13 +9,43 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { PageHeader } from '../components/ui/PageHeader';
 import { LoadingState } from '../components/ui/StateFeedback';
+import { MedicalDisclaimer } from '../components/ui/MedicalDisclaimer';
 import { useAuth } from '../context/AuthContext';
+import { ClinicalSelect, ClinicalSelectOption } from '../components/ui/ClinicalSelect';
 
-const STORAGE_KEY = 'AURA_CLINIC_BATCH_JOB';
+export const getClinicBatchStorageKey = (userId?: string | null): string => {
+  return userId ? `AURA_CLINIC_BATCH_JOB_${userId}` : 'AURA_CLINIC_BATCH_JOB_ANONYMOUS';
+};
 
-const getInitialBatchJob = (defaultClinicId = 'CLINIC', defaultClinicName = 'Phòng khám chuyên khoa'): ClinicBatchJob => {
+export const createEmptyBatchJob = (defaultClinicId = 'CLINIC', defaultClinicName = 'Phòng khám chuyên khoa'): ClinicBatchJob => ({
+  batchId: 'CHƯA_TẢI_ĐỢT_NÀO',
+  clinicId: defaultClinicId,
+  clinicName: defaultClinicName,
+  totalImages: 0,
+  processedCount: 0,
+  failedCount: 0,
+  status: 'COMPLETED',
+  createdAt: new Date().toISOString(),
+  estimatedTimeRemainingSec: 0,
+  items: [],
+});
+
+export const loadBatchJobForClinic = (userId?: string | null, defaultClinicName = 'Phòng khám chuyên khoa'): ClinicBatchJob => {
+  const defaultClinicId = userId || 'CLINIC';
+
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    localStorage.removeItem('AURA_CLINIC_BATCH_JOB');
+  } catch {
+    // Bỏ qua lỗi
+  }
+
+  if (!userId) {
+    return createEmptyBatchJob(defaultClinicId, defaultClinicName);
+  }
+
+  try {
+    const key = getClinicBatchStorageKey(userId);
+    const saved = localStorage.getItem(key);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
@@ -30,18 +60,7 @@ const getInitialBatchJob = (defaultClinicId = 'CLINIC', defaultClinicName = 'Ph�
     console.error('Lỗi nạp dữ liệu đợt khám đã lưu:', e);
   }
 
-  return {
-    batchId: 'CHƯA_TẢI_ĐỢT_NÀO',
-    clinicId: defaultClinicId,
-    clinicName: defaultClinicName,
-    totalImages: 0,
-    processedCount: 0,
-    failedCount: 0,
-    status: 'COMPLETED',
-    createdAt: new Date().toISOString(),
-    estimatedTimeRemainingSec: 0,
-    items: [],
-  };
+  return createEmptyBatchJob(defaultClinicId, defaultClinicName);
 };
 
 const ClinicProfileSection: React.FC = () => {
@@ -316,21 +335,20 @@ const ClinicDoctorsSection: React.FC = () => {
         </div>
         <form onSubmit={handleAssignPatient} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div>
-            <label className="block text-slate-600 font-semibold mb-1">Chọn Bác Sĩ</label>
-            <select
+            <ClinicalSelect<string>
+              label="Chọn Bác Sĩ"
               value={assignDoctorId}
-              onChange={(e) => setAssignDoctorId(e.target.value)}
-              className="w-full h-9 px-3 border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:border-[#0891B2]"
-            >
-              {members.map((m) => {
+              onChange={setAssignDoctorId}
+              options={members.map((m) => {
                 const docId = m.doctorId || m.userId;
-                return (
-                  <option key={m.id} value={docId}>
-                    {m.doctorName || m.fullName || m.name || m.doctorEmail || m.email}
-                  </option>
-                );
+                return {
+                  value: docId,
+                  label: m.doctorName || m.fullName || m.name || m.doctorEmail || m.email,
+                  sublabel: m.doctorEmail || m.email,
+                };
               })}
-            </select>
+              size="sm"
+            />
           </div>
           <div>
             <label className="block text-slate-600 font-semibold mb-1">Mã / ID Bệnh Nhân</label>
@@ -359,28 +377,31 @@ export const ClinicPortalPage: React.FC<{ activeView?: string }> = ({ activeView
   const clinicId = currentUser?.id || 'CLINIC';
   const clinicName = currentUser?.name || currentUser?.email || 'Phòng khám chuyên khoa';
 
-  const [batchJob, setBatchJob] = useState<ClinicBatchJob>(() => getInitialBatchJob(clinicId, clinicName));
+  const [batchJob, setBatchJob] = useState<ClinicBatchJob>(() => loadBatchJobForClinic(currentUser?.id, clinicName));
 
   useEffect(() => {
-    if (currentUser) {
-      setBatchJob((prev) => ({
-        ...prev,
-        clinicId: (!prev.clinicId || prev.clinicId === 'CLN-CHO-RAY-01' || prev.clinicId === 'CLINIC')
-          ? (currentUser.id || 'CLINIC')
-          : prev.clinicId,
-        clinicName: (!prev.clinicName || prev.clinicName.includes('Chợ Rẫy') || prev.clinicName === 'Phòng khám chuyên khoa')
-          ? (currentUser.name || currentUser.email || 'Phòng khám chuyên khoa')
-          : prev.clinicName,
-      }));
+    try {
+      localStorage.removeItem('AURA_CLINIC_BATCH_JOB');
+    } catch {
+      // Bỏ qua lỗi
     }
-  }, [currentUser]);
+
+    if (currentUser?.id) {
+      setBatchJob(loadBatchJobForClinic(currentUser.id, clinicName));
+    } else {
+      setBatchJob(createEmptyBatchJob('CLINIC', 'Phòng khám chuyên khoa'));
+    }
+  }, [currentUser?.id, clinicName]);
 
   const handleUpdateBatchJob = (updated: ClinicBatchJob) => {
     setBatchJob(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error('Lỗi lưu đợt khám:', e);
+    if (currentUser?.id) {
+      try {
+        const storageKey = getClinicBatchStorageKey(currentUser.id);
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Lỗi lưu đợt khám:', e);
+      }
     }
   };
 
@@ -409,13 +430,18 @@ export const ClinicPortalPage: React.FC<{ activeView?: string }> = ({ activeView
         <ClinicCreditPackageSection
           batchJob={batchJob}
           onRefreshBatch={() => {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-              try {
-                setBatchJob(JSON.parse(saved));
-              } catch (e) {
-                console.error(e);
+            if (currentUser?.id) {
+              const storageKey = getClinicBatchStorageKey(currentUser.id);
+              const saved = localStorage.getItem(storageKey);
+              if (saved) {
+                try {
+                  setBatchJob(JSON.parse(saved));
+                } catch (e) {
+                  console.error(e);
+                }
               }
+            } else {
+              setBatchJob(createEmptyBatchJob('CLINIC', 'Phòng khám chuyên khoa'));
             }
           }}
         />
@@ -424,6 +450,8 @@ export const ClinicPortalPage: React.FC<{ activeView?: string }> = ({ activeView
       {activeView === 'campaign-analytics' && (
         <ClinicCampaignAnalytics />
       )}
+
+      <MedicalDisclaimer variant="compact" />
     </div>
   );
 };

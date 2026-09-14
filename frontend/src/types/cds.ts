@@ -1,6 +1,6 @@
 export type UserRole = 'patient' | 'doctor' | 'clinic' | 'admin';
 
-export type RiskLevel = 'Low' | 'Moderate' | 'High' | 'Severe';
+export type RiskLevel = 'Low' | 'Moderate' | 'High' | 'Critical' | 'Severe';
 
 export interface LabDocument {
   id: string;

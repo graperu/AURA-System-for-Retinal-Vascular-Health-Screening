@@ -63,7 +63,7 @@ public class PatientProfile {
   private String lastExamDate;
 
   @Column(name = "assigned_doctor", length = 150)
-  private String assignedDoctor = "BS. CKII Nguyễn Thị Thanh";
+  private String assignedDoctor;
 
   @Column(name = "risk_score")
   private Integer riskScore = 25;

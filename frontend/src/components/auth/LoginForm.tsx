@@ -120,10 +120,10 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
           type="button"
           onClick={handleGoogleAuth}
           disabled={Boolean(socialLoading) || submitting}
-          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:opacity-50"
+          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 focus-visible:border-brand-600 disabled:opacity-50"
         >
           {socialLoading === 'google' ? (
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
           ) : (
             <>
               <img src={googleLogo || '/assets/sso/google.png'} alt="Google" className="h-5 w-5 object-contain shrink-0" />
@@ -136,10 +136,10 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
           type="button"
           onClick={handleMagicLink}
           disabled={Boolean(socialLoading) || submitting || magicLinkSent}
-          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:opacity-50"
+          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 focus-visible:border-brand-600 disabled:opacity-50"
         >
           {socialLoading === 'magiclink' ? (
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
           ) : (
             <>
               <Mail className="h-5 w-5 text-slate-500 shrink-0" />
@@ -175,7 +175,7 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
             onChange={e => setEmail(e.target.value)}
             aria-invalid={Boolean(errors.email)}
             aria-describedby={errors.email ? 'login-email-error' : undefined}
-            className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:ring-4 ${errors.email ? 'border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-600 focus:ring-blue-100'}`}
+            className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-slate-900 transition focus:outline-none focus:ring-2 ${errors.email ? 'border-red-500 focus:border-red-600 focus:ring-red-500/20' : 'border-slate-300 focus:border-brand-600 focus:ring-brand-500/20'}`}
           />
         </div>
         {errors.email && <p id="login-email-error" className="mt-1.5 text-xs text-red-600" role="alert">{errors.email}</p>}
@@ -195,7 +195,7 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
       <button
         type="submit"
         disabled={submitting || Boolean(socialLoading)}
-        className="flex h-[52px] w-full items-center justify-center rounded-xl bg-blue-600 px-5 text-base font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-65"
+        className="flex h-[52px] w-full items-center justify-center rounded-xl bg-brand-600 px-5 text-base font-semibold text-white shadow-sm transition hover:bg-brand-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-65"
       >
         {submitting ? (
           <><Loader2 className="h-5 w-5 animate-spin" />Đang đăng nhập…</>

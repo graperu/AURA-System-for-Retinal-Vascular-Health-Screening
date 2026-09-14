@@ -120,6 +120,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    // Dọn dẹp dữ liệu đợt khám phòng khám trong localStorage khi đăng xuất để bảo mật trên máy dùng chung
+    if (user?.id) {
+      try {
+        localStorage.removeItem(`AURA_CLINIC_BATCH_JOB_${user.id}`);
+      } catch {
+        // Bỏ qua lỗi truy cập storage
+      }
+    }
+    try {
+      localStorage.removeItem('AURA_CLINIC_BATCH_JOB');
+      localStorage.removeItem('AURA_CLINIC_BATCH_JOB_ANONYMOUS');
+    } catch {
+      // Bỏ qua lỗi truy cập storage
+    }
+
     await apiFetch('/api/v1/auth/logout', { method: 'POST' });
     setAccessToken(null);
     setUser(null);

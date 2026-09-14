@@ -510,7 +510,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
           <div className="grid grid-cols-2 gap-3">
             {/* A/V Ratio */}
             <div className="p-3.5 rounded-xl bg-slate-50/80 border border-clinical-border space-y-1">
-              <span className="text-[11px] text-clinical-text-secondary font-medium block">Tỷ lệ A/V Ratio</span>
+              <span className="text-[11px] text-clinical-text-secondary font-medium block">Tỷ lệ động-tĩnh mạch (A/V)</span>
               <div className="text-2xl font-bold text-clinical-text font-mono-data text-right mt-1">
                 {biomarkerAverages.avgAvRatio}
               </div>

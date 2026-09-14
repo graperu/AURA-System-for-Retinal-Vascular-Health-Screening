@@ -5,6 +5,13 @@ import { doctorPatientApi, screeningApi } from '../services/api';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { FormField } from '../components/ui/FormField';
+import { ClinicalSelect, ClinicalSelectOption } from '../components/ui/ClinicalSelect';
+import { MedicalDisclaimer } from '../components/ui/MedicalDisclaimer';
+
+const GENDER_OPTIONS: ClinicalSelectOption<string>[] = [
+  { value: 'Male', label: 'Nam' },
+  { value: 'Female', label: 'Nữ' },
+];
 
 interface DoctorPatientListPageProps {
   onSelectPatientForCDS?: (patient: PatientProfile) => void;
@@ -142,16 +149,15 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
               />
             </FormField>
 
-            <FormField label="Giới tính">
-              <select
+            <div>
+              <ClinicalSelect<string>
+                label="Giới tính"
                 value={form.gender}
-                onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-[#0891B2]"
-              >
-                <option value="Male">Nam</option>
-                <option value="Female">Nữ</option>
-              </select>
-            </FormField>
+                onChange={(val) => setForm({ ...form, gender: val })}
+                options={GENDER_OPTIONS}
+                size="sm"
+              />
+            </div>
 
             <FormField label="Số điện thoại">
               <input
@@ -212,6 +218,8 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
           </div>
         </form>
       </Modal>
+
+      <MedicalDisclaimer variant="compact" />
     </div>
   );
 };

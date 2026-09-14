@@ -6,6 +6,7 @@ import com.aura.screening.entity.ReviewDecision;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.entity.ScreeningStatus;
 import com.aura.screening.repository.ScreeningRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ public class ScreeningService {
   private final com.aura.user.repository.UserRepository userRepository;
   private final GeminiRetinalAiService geminiAiService;
   private final com.aura.billing.service.BillingService billingService;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Value("${aura.signature.secret:AURA_REVIEW_SIGNATURE_SECRET_2026}")
   private String signatureSecret = "AURA_REVIEW_SIGNATURE_SECRET_2026";
@@ -94,6 +96,7 @@ public class ScreeningService {
     Screening screening = new Screening(patientId, request.imageUrl());
     screening.setEyePosition(eye);
     screening.setScanType(scanType);
+    screening.setDetectedAnomalies("[]");
     if (request.fileName() != null) screening.setFileName(request.fileName());
     if (request.fileSize() != null) screening.setFileSize(request.fileSize());
     if (request.mimeType() != null) screening.setMimeType(request.mimeType());
@@ -133,6 +136,7 @@ public class ScreeningService {
     Screening screening = new Screening(patientId, imageUrl);
     screening.setEyePosition("OD");
     screening.setScanType("Fundus");
+    screening.setDetectedAnomalies("[]");
 
     if (billingService != null && screening.getClinicId() == null) {
       boolean deducted = billingService.deductCredit(patientId);
@@ -340,6 +344,42 @@ public class ScreeningService {
           screening.setHeatmapBase64(heatmapBase64);
         }
 
+        // --- Retinal vascular anomalies localization (detectedAnomalies) ---
+        Object anomaliesObj = body.get("detectedAnomalies");
+        if (anomaliesObj != null) {
+          try {
+            if (anomaliesObj instanceof String anomaliesStr) {
+              String trimmed = anomaliesStr.trim();
+              if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                screening.setDetectedAnomalies(trimmed);
+              } else {
+                screening.setDetectedAnomalies("[]");
+              }
+            } else if (anomaliesObj instanceof List<?> list) {
+              screening.setDetectedAnomalies(objectMapper.writeValueAsString(list));
+            } else {
+              screening.setDetectedAnomalies(objectMapper.writeValueAsString(anomaliesObj));
+            }
+          } catch (Exception ex) {
+            log.warn("Không thể serialize detectedAnomalies: {}", ex.getMessage());
+            screening.setDetectedAnomalies("[]");
+          }
+        } else {
+          screening.setDetectedAnomalies("[]");
+        }
+
+        // --- Retinal vessel segmentation mask (vesselMaskUrl / vesselMaskBase64) ---
+        Object maskObj = body.get("vesselMaskUrl");
+        if (maskObj == null) {
+          maskObj = body.get("vesselMaskBase64");
+        }
+        if (maskObj != null) {
+          String maskStr = maskObj.toString().trim();
+          if (!maskStr.isBlank()) {
+            screening.setVesselMaskUrl(maskStr);
+          }
+        }
+
         screening.setRiskScore(score);
         screening.setRiskLevel(calculatedRisk);
         screening.setAiRiskLevel(calculatedRisk);
@@ -355,6 +395,7 @@ public class ScreeningService {
         screening.setAiRiskLevel(null);
         screening.setRiskScore(null);
         screening.setConfidence(null);
+        screening.setDetectedAnomalies("[]");
         screening.setFindings("Dịch vụ AI trả về kết quả không hợp lệ. Ảnh chụp đã được lưu trữ an toàn.");
       }
     } catch (Exception e) {
@@ -364,6 +405,7 @@ public class ScreeningService {
       screening.setAiRiskLevel(null);
       screening.setRiskScore(null);
       screening.setConfidence(null);
+      screening.setDetectedAnomalies("[]");
       screening.setFindings("Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
     }
   }

@@ -36,6 +36,14 @@
   --darkroom-border: #1E293B;
   --darkroom-accent: #38BDF8;
   --darkroom-text: #F8FAFC;
+
+  /* AURA Clinical Motion System Variables */
+  --motion-duration-micro: 150ms;
+  --motion-duration-dropdown: 180ms;
+  --motion-duration-modal: 240ms;
+  --motion-duration-page: 320ms;
+  --motion-ease-clinical: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
 
 body {
@@ -393,3 +401,125 @@ html,
   .auth-container { height: auto; min-height: 540px; margin-block: 12px; }
   .auth-form-panel { overflow: visible; }
 }
+
+/* ==========================================================================
+   AURA CLINICAL MOTION SYSTEM & INTERACTION UTILITIES
+   ========================================================================== */
+
+/* Custom ultra-thin scrollbar for clinical dropdown menus */
+.clinical-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+.clinical-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.clinical-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.clinical-scrollbar::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+.clinical-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Darkroom mode scrollbar */
+.darkroom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+.darkroom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.darkroom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.darkroom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+.darkroom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Shimmer loading skeleton effect */
+.clinical-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(241, 245, 249, 0.8) 0%,
+    rgba(226, 232, 240, 0.9) 50%,
+    rgba(241, 245, 249, 0.8) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.2s infinite linear;
+}
+
+/* Interactive Card Elevation */
+.clinical-card-interactive {
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clinical-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px -4px rgba(7, 13, 45, 0.1);
+  border-color: #99F6E4;
+}
+
+/* Interactive Button Micro-Scale */
+.clinical-btn-interactive {
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clinical-btn-interactive:hover:not(:disabled) {
+  transform: translateY(-0.5px);
+}
+.clinical-btn-interactive:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+/* Accessible focus ring helpers */
+.clinical-focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px rgba(8, 145, 178, 0.35);
+}
+
+.darkroom-focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 2px #0B132B, 0 0 0 4px rgba(56, 189, 248, 0.5);
+}
+
+/* Page Transition Wrapper */
+.page-transition-enter {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Table Row Smooth Interaction */
+.clinical-table-row {
+  transition: background-color 150ms ease-out, transform 150ms ease-out;
+}
+.clinical-table-row:hover {
+  background-color: rgba(248, 250, 252, 0.9);
+}
+
+/* Upload Dropzone Interactive Motion */
+.clinical-dropzone {
+  transition: border-color 200ms ease-out, background-color 200ms ease-out, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clinical-dropzone:hover {
+  border-color: #0891B2;
+  transform: translateY(-1px);
+}
+
+/* Smooth Tab Transition */
+.clinical-tab-item {
+  transition: color 150ms ease-out, background-color 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+/* Subtle Pulsing for status indicators */
+.clinical-pulse-dot {
+  animation: pulseSubtle 3s ease-in-out infinite;
+}
+
+

@@ -7,6 +7,7 @@ import com.aura.common.response.ApiResponse;
 import com.aura.common.response.ErrorCode;
 import com.aura.screening.dto.CreateScreeningRequest;
 import com.aura.screening.dto.ReviewScreeningRequest;
+import com.aura.screening.dto.ScreeningResponse;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.service.ScreeningService;
 import jakarta.validation.Valid;
@@ -31,14 +32,14 @@ public class ScreeningController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  public ApiResponse<Screening> createScreening(
+  public ApiResponse<ScreeningResponse> createScreening(
       @AuthenticationPrincipal AuraUserPrincipal principal,
       @Valid @RequestBody CreateScreeningRequest request) {
     if (principal == null) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để thực hiện tạo ca sàng lọc");
     }
     Screening screening = screeningService.createScreening(principal.id(), request);
-    return ApiResponse.success("Tạo ca sàng lọc và phân tích AI thành công", screening);
+    return ApiResponse.success("Tạo ca sàng lọc và phân tích AI thành công", ScreeningResponse.fromEntity(screening));
   }
 
   @GetMapping
@@ -92,11 +93,17 @@ public class ScreeningController {
 
   @GetMapping("/{id}")
   @PreAuthorize("@patientAccessService.canAccessScreening(principal, #id)")
-  public ApiResponse<Screening> getScreeningById(
+  public ApiResponse<ScreeningResponse> getScreening(
       @PathVariable UUID id,
       @AuthenticationPrincipal AuraUserPrincipal principal) {
     Screening screening = screeningService.getScreeningById(id);
-    return ApiResponse.success("Lấy chi tiết ca sàng lọc thành công", screening);
+    return ApiResponse.success("Lấy chi tiết ca sàng lọc thành công", ScreeningResponse.fromEntity(screening));
+  }
+
+  public ApiResponse<ScreeningResponse> getScreeningById(
+      UUID id,
+      AuraUserPrincipal principal) {
+    return getScreening(id, principal);
   }
 
   @PostMapping("/{id}/review")

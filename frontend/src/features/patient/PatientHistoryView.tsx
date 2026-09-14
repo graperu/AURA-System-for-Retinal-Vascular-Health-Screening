@@ -17,6 +17,9 @@ import { DataTable, Column } from '../../components/ui/DataTable';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { EyeBadge } from '../../components/ui/EyeBadge';
 import { ScanTypeBadge } from '../../components/ui/ScanTypeBadge';
+import { ClinicalSelect, ClinicalSelectOption } from '../../components/ui/ClinicalSelect';
+import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
+import { useLanguage } from '../../context/LanguageContext';
 
 export interface PatientHistoryItem {
   id: string;
@@ -46,6 +49,10 @@ export interface PatientHistoryViewProps {
   onRefresh?: () => void;
 }
 
+type EyeFilterType = 'ALL' | 'OD' | 'OS' | 'BOTH';
+type RiskFilterType = 'ALL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
+type SortByType = 'NEWEST' | 'OLDEST' | 'SCORE_DESC' | 'SCORE_ASC';
+
 export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
   screenings,
   loading = false,
@@ -53,6 +60,39 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
   onOpenReportModal,
   onRefresh,
 }) => {
+  const { t, isVi } = useLanguage();
+
+  const eyeFilterOptions = useMemo<ClinicalSelectOption<EyeFilterType>[]>(
+    () => [
+      { value: 'ALL', label: isVi ? 'Tất cả mắt' : 'All eyes' },
+      { value: 'OD', label: isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)' },
+      { value: 'OS', label: isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)' },
+      { value: 'BOTH', label: isVi ? 'Cả hai mắt' : 'Both eyes' },
+    ],
+    [isVi]
+  );
+
+  const riskFilterOptions = useMemo<ClinicalSelectOption<RiskFilterType>[]>(
+    () => [
+      { value: 'ALL', label: isVi ? 'Tất cả mức độ' : 'All levels' },
+      { value: 'LOW', label: isVi ? 'Nguy cơ Thấp' : 'Low Risk', riskLevel: 'low' },
+      { value: 'MODERATE', label: isVi ? 'Nguy cơ Trung bình' : 'Moderate Risk', riskLevel: 'moderate' },
+      { value: 'HIGH', label: isVi ? 'Nguy cơ Cao' : 'High Risk', riskLevel: 'high' },
+      { value: 'CRITICAL', label: isVi ? 'Nguy kịch' : 'Critical Risk', riskLevel: 'critical' },
+    ],
+    [isVi]
+  );
+
+  const sortOptions = useMemo<ClinicalSelectOption<SortByType>[]>(
+    () => [
+      { value: 'NEWEST', label: isVi ? 'Mới nhất trước' : 'Newest first' },
+      { value: 'OLDEST', label: isVi ? 'Cũ nhất trước' : 'Oldest first' },
+      { value: 'SCORE_DESC', label: isVi ? 'Điểm nguy cơ cao nhất' : 'Highest risk score' },
+      { value: 'SCORE_ASC', label: isVi ? 'Điểm nguy cơ thấp nhất' : 'Lowest risk score' },
+    ],
+    [isVi]
+  );
+
   const [searchTerm, setSearchTerm] = useState('');
   const [eyeFilter, setEyeFilter] = useState<'ALL' | 'OD' | 'OS' | 'BOTH'>('ALL');
   const [riskFilter, setRiskFilter] = useState<'ALL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'>('ALL');
@@ -65,9 +105,13 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       setIsRefreshing(true);
       try {
         await onRefresh();
-        setActionNotice(`Đã làm mới danh sách (${screenings.length} ca khám)`);
+        setActionNotice(
+          isVi
+            ? `Đã làm mới danh sách (${screenings.length} ca khám)`
+            : `Refreshed screening list (${screenings.length} cases)`
+        );
       } catch {
-        setActionNotice('Đã gửi yêu cầu làm mới dữ liệu');
+        setActionNotice(isVi ? 'Đã gửi yêu cầu làm mới dữ liệu' : 'Sent data refresh request');
       } finally {
         setIsRefreshing(false);
         setTimeout(() => setActionNotice(null), 3500);
@@ -80,7 +124,11 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     setEyeFilter('ALL');
     setRiskFilter('ALL');
     setSortBy('NEWEST');
-    setActionNotice('Đã đặt lại toàn bộ bộ lọc và ô tìm kiếm về mặc định');
+    setActionNotice(
+      isVi
+        ? 'Đã đặt lại toàn bộ bộ lọc và ô tìm kiếm về mặc định'
+        : 'Reset all filters and search input to default'
+    );
     setTimeout(() => setActionNotice(null), 3500);
   };
 
@@ -148,7 +196,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 select-none">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-          Đã duyệt lâm sàng
+          {isVi ? 'Đã duyệt lâm sàng' : 'Clinically Reviewed'}
         </span>
       );
     }
@@ -156,7 +204,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200/80 select-none">
           <Clock className="w-3 h-3 text-cyan-600" />
-          Đã phân tích AI
+          {isVi ? 'Đã phân tích AI' : 'AI Analyzed'}
         </span>
       );
     }
@@ -164,14 +212,14 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200/80 select-none">
           <XCircle className="w-3 h-3 text-rose-600" />
-          Thất bại
+          {isVi ? 'Thất bại' : 'Failed'}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 select-none">
         <AlertCircle className="w-3 h-3 text-amber-600" />
-        Đang xử lý
+        {isVi ? 'Đang xử lý' : 'Processing'}
       </span>
     );
   };
@@ -179,7 +227,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
   const columns: Column<PatientHistoryItem>[] = [
     // Cột 1: Ngày & Giờ khám
     {
-      header: 'Ngày & Giờ Khám',
+      header: t('patient.history.columns.date', isVi ? 'Ngày & Giờ Khám' : 'Date & Time'),
       accessor: (row) => {
         const dateObj = row.createdAt ? new Date(row.createdAt) : new Date();
         const isValidDate = !isNaN(dateObj.getTime());
@@ -187,16 +235,16 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
           <div className="space-y-0.5">
             <span className="font-semibold text-slate-800 font-mono-data block text-xs">
               {isValidDate
-                ? dateObj.toLocaleDateString('vi-VN', {
+                ? dateObj.toLocaleDateString(isVi ? 'vi-VN' : 'en-US', {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric',
                   })
-                : 'Chưa có ngày'}
+                : (isVi ? 'Chưa có ngày' : 'No date')}
             </span>
             <span className="text-[11px] text-slate-400 block font-mono-data">
               {isValidDate
-                ? dateObj.toLocaleTimeString('vi-VN', {
+                ? dateObj.toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', {
                     hour: '2-digit',
                     minute: '2-digit',
                   })
@@ -208,22 +256,22 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     },
     // Cột 2: Mắt khám
     {
-      header: 'Mắt Khám',
+      header: t('patient.history.columns.eye', isVi ? 'Mắt Khám' : 'Eye'),
       accessor: (row) => <EyeBadge position={row.eyePosition} />,
     },
     // Cột 3: Loại ảnh
     {
-      header: 'Loại Ảnh Chụp',
+      header: t('patient.history.columns.modality', isVi ? 'Loại Ảnh Chụp' : 'Modality'),
       accessor: (row) => <ScanTypeBadge scanType={row.scanType} />,
     },
     // Cột 4: Mức độ rủi ro
     {
-      header: 'Mức Độ Nguy Cơ',
+      header: t('patient.history.columns.riskLevel', isVi ? 'Mức Độ Nguy Cơ' : 'Risk Level'),
       accessor: (row) => <RiskBadge level={row.riskLevel} size="sm" />,
     },
     // Cột 5: Điểm rủi ro
     {
-      header: 'Điểm Rủi Ro',
+      header: isVi ? 'Điểm Rủi Ro' : 'Risk Score',
       accessor: (row) => {
         const score = typeof row.riskScore === 'number' ? row.riskScore : 0;
         return (
@@ -239,12 +287,12 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     },
     // Cột 6: Trạng thái ca khám
     {
-      header: 'Trạng Thái Ca Khám',
+      header: t('patient.history.columns.status', isVi ? 'Trạng Thái Ca Khám' : 'Status'),
       accessor: (row) => renderStatusBadge(row.status, row.doctorReviewed),
     },
     // Cột 7: Thao tác
     {
-      header: 'Thao Tác',
+      header: isVi ? 'Thao Tác' : 'Action',
       align: 'right',
       accessor: (row) => (
         <div className="flex items-center justify-end gap-2">
@@ -253,10 +301,10 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
               type="button"
               onClick={() => onSelectScreening(row)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold border border-teal-200/80 transition-colors shadow-2xs cursor-pointer"
-              title="Xem bản đồ nhiệt Grad-CAM"
+              title={isVi ? 'Xem bản đồ nhiệt Grad-CAM' : 'View Grad-CAM Heatmap'}
             >
               <Eye className="w-3.5 h-3.5 text-teal-700" />
-              <span>Xem Heatmap</span>
+              <span>{isVi ? 'Xem Heatmap' : 'View Heatmap'}</span>
             </button>
           )}
           {onOpenReportModal && (
@@ -264,10 +312,10 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
               type="button"
               onClick={() => onOpenReportModal(row)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200/80 transition-colors shadow-2xs cursor-pointer"
-              title="Xuất báo cáo y khoa chuẩn PDF/CSV"
+              title={isVi ? 'Xuất báo cáo y khoa chuẩn PDF/CSV' : 'Export standard medical report PDF/CSV'}
             >
               <FileText className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Xuất Báo Cáo</span>
+              <span>{isVi ? 'Xuất Báo Cáo' : 'Export Report'}</span>
             </button>
           )}
         </div>
@@ -283,14 +331,14 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
           {/* Trường 1: Tìm kiếm */}
           <div className="sm:col-span-2 lg:col-span-5 space-y-1.5">
             <label className="block text-xs font-semibold text-slate-700">
-              Tìm kiếm ca khám
+              {isVi ? 'Tìm kiếm ca khám' : 'Search screenings'}
             </label>
             <div className="relative">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Tìm mã khám, bác sĩ, ghi chú..."
+                placeholder={isVi ? 'Tìm mã khám, bác sĩ, ghi chú...' : 'Search by scan ID, doctor, notes...'}
                 className="w-full h-10 pl-9 pr-8 text-xs rounded-xl border border-slate-200/90 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium"
               />
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -299,7 +347,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
                   type="button"
                   onClick={() => setSearchTerm('')}
                   className="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600"
-                  title="Xóa tìm kiếm"
+                  title={isVi ? 'Xóa tìm kiếm' : 'Clear search'}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -309,43 +357,24 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
 
           {/* Trường 2: Mắt khám */}
           <div className="lg:col-span-2 space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">
-              Mắt khám
-            </label>
-            <div className="relative">
-              <select
-                value={eyeFilter}
-                onChange={(e) => setEyeFilter(e.target.value as any)}
-                className="w-full h-10 px-3 pr-8 text-xs font-semibold rounded-xl border border-slate-200/90 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all appearance-none cursor-pointer"
-              >
-                <option value="ALL">Tất cả mắt</option>
-                <option value="OD">Mắt Phải (OD)</option>
-                <option value="OS">Mắt Trái (OS)</option>
-                <option value="BOTH">Cả hai mắt</option>
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
-            </div>
+            <ClinicalSelect<EyeFilterType>
+              label={isVi ? 'Mắt khám' : 'Eye position'}
+              value={eyeFilter}
+              onChange={setEyeFilter}
+              options={eyeFilterOptions}
+              size="md"
+            />
           </div>
 
           {/* Trường 3: Mức nguy cơ */}
           <div className="lg:col-span-2 space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">
-              Mức nguy cơ
-            </label>
-            <div className="relative">
-              <select
-                value={riskFilter}
-                onChange={(e) => setRiskFilter(e.target.value as any)}
-                className="w-full h-10 px-3 pr-8 text-xs font-semibold rounded-xl border border-slate-200/90 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all appearance-none cursor-pointer"
-              >
-                <option value="ALL">Tất cả mức độ</option>
-                <option value="LOW">Nguy cơ Thấp</option>
-                <option value="MODERATE">Nguy cơ Trung bình</option>
-                <option value="HIGH">Nguy cơ Cao</option>
-                <option value="CRITICAL">Nguy kịch</option>
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
-            </div>
+            <ClinicalSelect<RiskFilterType>
+              label={isVi ? 'Mức nguy cơ' : 'Risk level'}
+              value={riskFilter}
+              onChange={setRiskFilter}
+              options={riskFilterOptions}
+              size="md"
+            />
           </div>
 
           {/* Nút hành động */}
@@ -355,10 +384,10 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
                 type="button"
                 onClick={handleRefreshClick}
                 className="flex-1 h-10 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                title="Làm mới danh sách"
+                title={isVi ? 'Làm mới danh sách' : 'Refresh list'}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || loading ? 'animate-spin' : ''}`} />
-                <span>Làm mới</span>
+                <span>{isVi ? 'Làm mới' : 'Refresh'}</span>
               </button>
             )}
 
@@ -366,10 +395,10 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
               type="button"
               onClick={handleReset}
               className="h-10 px-3.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-all flex items-center justify-center gap-1 cursor-pointer"
-              title="Đặt lại bộ lọc"
+              title={isVi ? 'Đặt lại bộ lọc' : 'Reset filters'}
             >
               <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span>Đặt lại</span>
+              <span>{isVi ? 'Đặt lại' : 'Reset'}</span>
             </button>
           </div>
         </div>
@@ -396,7 +425,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2.5">
           <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            Lịch sử khám sàng lọc
+            {isVi ? 'Lịch sử khám sàng lọc' : 'Retinal screening history'}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200/80">
             ({filteredData.length})
@@ -404,20 +433,17 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 shrink-0 font-medium">Sắp xếp:</span>
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="h-9 pl-3 pr-8 text-xs font-semibold rounded-xl border border-slate-200/90 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 appearance-none cursor-pointer shadow-2xs"
-            >
-              <option value="NEWEST">Mới nhất trước</option>
-              <option value="OLDEST">Cũ nhất trước</option>
-              <option value="SCORE_DESC">Điểm nguy cơ cao nhất</option>
-              <option value="SCORE_ASC">Điểm nguy cơ thấp nhất</option>
-            </select>
-            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
-          </div>
+          <span className="text-xs text-slate-500 shrink-0 font-medium">
+            {isVi ? 'Sắp xếp:' : 'Sort by:'}
+          </span>
+          <ClinicalSelect<SortByType>
+            value={sortBy}
+            onChange={setSortBy}
+            options={sortOptions}
+            size="sm"
+            className="w-52"
+            align="right"
+          />
         </div>
       </div>
 
@@ -427,8 +453,10 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
         data={filteredData}
         keyExtractor={(item) => item.id}
         loading={loading}
-        emptyMessage="Chưa có ca khám sàng lọc nào phù hợp với bộ lọc."
+        emptyMessage={isVi ? 'Chưa có ca khám sàng lọc nào phù hợp với bộ lọc.' : 'No screening records found matching current filters.'}
       />
+
+      <MedicalDisclaimer variant="compact" />
     </div>
   );
 };

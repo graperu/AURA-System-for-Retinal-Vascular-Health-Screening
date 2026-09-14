@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, GripVertical, Loader2, Stethoscope, UserRound, Users } from 'lucide-react';
 import { assignmentApi } from '../services/api';
+import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
 
 interface Doctor {
   id: string;
@@ -89,6 +90,15 @@ export const PatientAssignmentBoard: React.FC = () => {
     </div>
   );
 
+  const doctorOptions: ClinicalSelectOption<string>[] = useMemo(() => [
+    { value: '', label: 'Chọn bác sĩ phụ trách' },
+    ...board.doctors.map((doctor) => ({
+      value: doctor.id,
+      label: doctor.fullName || doctor.email,
+      sublabel: doctor.fullName ? doctor.email : undefined,
+    }))
+  ], [board.doctors]);
+
   if (busy && board.doctors.length === 0) {
     return <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-600"><Loader2 className="h-5 w-5 animate-spin" /> Đang tải bảng phân công...</div>;
   }
@@ -101,11 +111,15 @@ export const PatientAssignmentBoard: React.FC = () => {
             <h2 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Users className="h-5 w-5 text-brand-700" /> Điều phối bệnh nhân cho bác sĩ</h2>
             <p className="mt-1 text-xs text-slate-500">Kéo thẻ bệnh nhân sang bác sĩ hoặc chọn nhiều bệnh nhân để phân công hàng loạt.</p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <select value={targetDoctorId} onChange={(event) => setTargetDoctorId(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs">
-              <option value="">Chọn bác sĩ phụ trách</option>
-              {board.doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.fullName || doctor.email}</option>)}
-            </select>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <ClinicalSelect<string>
+              value={targetDoctorId}
+              onChange={setTargetDoctorId}
+              options={doctorOptions}
+              size="sm"
+              placeholder="Chọn bác sĩ phụ trách"
+              className="w-full sm:w-60"
+            />
             <button type="button" disabled={busy || !targetDoctorId || selected.length === 0} onClick={() => void assign(targetDoctorId, selected)}
               className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 active:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50">
               Phân công {selected.length > 0 ? `${selected.length} bệnh nhân` : 'đã chọn'}

@@ -44,6 +44,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
+import { useLanguage } from "../context/LanguageContext";
 
 interface PatientPortalPageProps {
   user: UserSession;
@@ -56,8 +57,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   activeView = "dashboard",
   onNavigate = () => undefined,
 }) => {
+  const { t, isVi } = useLanguage();
   const [patient, setPatient] = useState<PatientProfile>({
-    fullName: user.name || "Bệnh nhân",
+    fullName: user.name || (isVi ? "Bệnh nhân" : "Patient"),
     mrn: user.mrn || "",
     gender: "Other",
     age: null,
@@ -141,7 +143,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         setPatient({
           id: profileRes.data.id,
           userId: profileRes.data.userId,
-          fullName: profileRes.data.fullName || user.name || "Bệnh nhân",
+          fullName: profileRes.data.fullName || user.name || (isVi ? "Bệnh nhân" : "Patient"),
           mrn: profileRes.data.mrn || user.mrn || "",
           gender: profileRes.data.gender || "Other",
           dateOfBirth: profileRes.data.dateOfBirth,
@@ -181,11 +183,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     : "patient",
                 text: message.messageText,
                 time: message.createdAt
-                  ? new Date(message.createdAt).toLocaleTimeString("vi-VN", {
+                  ? new Date(message.createdAt).toLocaleTimeString(isVi ? "vi-VN" : "en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })
-                  : "Không có thời gian",
+                  : (isVi ? "Không có thời gian" : "No timestamp"),
               })),
             );
           }
@@ -214,7 +216,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             item.riskScore ?? item.overallVascularRiskScore ?? ((cvdScore + drScore) / 2)
           );
           const computedLevel =
-            score >= 80 ? "Critical" : score >= 65 ? "High" : score >= 45 ? "Moderate" : "Low";
+            score >= 80 ? "Critical" : score >= 65 ? "High" : score >= 40 ? "Moderate" : "Low";
 
           return {
             id: item.id,
@@ -226,7 +228,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             riskLevel: item.riskLevel || computedLevel,
             status: item.status || "ANALYZED",
             doctorReviewed: item.status === "REVIEWED",
-            doctorName: item.doctorName || (item.doctorId ? "Bác sĩ phụ trách" : undefined),
+            doctorName: item.doctorName || (item.doctorId ? (isVi ? "Bác sĩ phụ trách" : "Assigned Doctor") : undefined),
             doctorNotes: item.doctorNotes || item.notes,
             digitalSignature: item.digitalSignature,
             signedAt: item.signedAt,
@@ -341,7 +343,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     if (userCredits <= 0) {
       setIsCreditModalOpen(true);
       setAnalysisErrorMsg(
-        "Tài khoản của bạn hiện có 0 lượt khám. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để bắt đầu phân tích AI."
+        isVi
+          ? "Tài khoản của bạn hiện có 0 lượt khám. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để bắt đầu phân tích AI."
+          : "Your account has 0 screening credits remaining. Please recharge credits via QR transfer to begin AI analysis."
       );
       return;
     }
@@ -364,7 +368,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         throw new Error(
           (res.data?.status === "FAILED" && res.data?.findings)
             ? res.data.findings
-            : (res.message || "Dịch vụ AI chưa sẵn sàng. Không tạo kết quả giả.")
+            : (res.message || (isVi ? "Dịch vụ AI chưa sẵn sàng. Không tạo kết quả giả." : "AI service is unavailable. No simulated results generated."))
         );
       }
 
@@ -392,7 +396,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       const errMsg =
         err instanceof Error
           ? err.message
-          : "Không thể kết nối đến máy chủ phân tích. Vui lòng thử lại.";
+          : (isVi ? "Không thể kết nối đến máy chủ phân tích. Vui lòng thử lại." : "Could not connect to analysis server. Please try again.");
       failProgress(errMsg);
       setAnalysisErrorMsg(errMsg);
     }
@@ -408,7 +412,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       id: `m_${Date.now()}`,
       sender: "patient",
       text: textToSend,
-      time: new Date().toLocaleTimeString("vi-VN", {
+      time: new Date().toLocaleTimeString(isVi ? "vi-VN" : "en-US", {
         hour: "2-digit",
         minute: "2-digit",
       }),
@@ -420,7 +424,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         prev.filter((message) => message.id !== optimisticMsg.id),
       );
       setAnalysisErrorMsg(
-        "Chưa có bác sĩ được phân công nên không thể gửi tin nhắn.",
+        isVi ? "Chưa có bác sĩ được phân công nên không thể gửi tin nhắn." : "No assigned doctor. Cannot send message."
       );
       return;
     }
@@ -429,7 +433,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       setChatMessages((prev) =>
         prev.filter((message) => message.id !== optimisticMsg.id),
       );
-      setAnalysisErrorMsg(response.message || "Không thể gửi tin nhắn.");
+      setAnalysisErrorMsg(response.message || (isVi ? "Không thể gửi tin nhắn." : "Could not send message."));
     }
   };
 
@@ -441,7 +445,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       return (
         <span className="font-bold text-rose-600 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
-          Có {trueDetail ? `(${trueDetail})` : ""}
+          {isVi ? 'Có' : 'Yes'} {trueDetail ? `(${trueDetail})` : ""}
         </span>
       );
     }
@@ -449,14 +453,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       return (
         <span className="font-semibold text-emerald-600 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-          Không
+          {isVi ? 'Không' : 'No'}
         </span>
       );
     }
     return (
       <span className="font-medium text-slate-400 italic flex items-center gap-1">
         <span className="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block"></span>
-        Chưa khai báo
+        {isVi ? 'Chưa khai báo' : 'Unspecified'}
       </span>
     );
   };
@@ -472,15 +476,16 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           <div className="flex-1 space-y-1">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-slate-900">
-                Thông Báo AI Sẵn Sàng (FR-9)
+                {isVi ? "Thông Báo AI Sẵn Sàng (FR-9)" : "AI Analysis Ready (FR-9)"}
               </h4>
               <span className="text-[10px] text-emerald-600 font-mono-data font-semibold">
-                Vừa xong
+                {isVi ? "Vừa xong" : "Just now"}
               </span>
             </div>
             <p className="text-xs text-slate-600 leading-snug">
-              Ảnh võng mạc của bạn đã được phân tích hoàn tất! Điểm rủi ro tổng
-              hợp:{" "}
+              {isVi
+                ? `Ảnh võng mạc của bạn đã được phân tích hoàn tất! Điểm rủi ro tổng hợp: `
+                : `Your retinal scan analysis is complete! Overall vascular risk score: `}
               <strong className="text-slate-900 font-bold font-mono-data">
                 {analysisResult.overallVascularRiskScore}/100
               </strong>
@@ -503,7 +508,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           </div>
           <div className="flex-1 space-y-1">
             <h4 className="text-xs font-bold text-slate-900">
-              Không Thể Phân Tích Ảnh
+              {isVi ? "Không Thể Phân Tích Ảnh" : "Unable to Analyze Scan"}
             </h4>
             <p className="text-xs text-slate-600 leading-snug">
               {analysisErrorMsg}
@@ -533,24 +538,24 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 {patient.fullName}
               </h1>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-clinical-text-secondary font-semibold font-mono-data border border-clinical-border">
-                {patient.mrn || "Chưa có MRN"}
+                {patient.mrn || (isVi ? "Chưa có MRN" : "No MRN")}
               </span>
             </div>
             <p className="text-xs text-clinical-text-muted mt-1.5 flex flex-wrap items-center gap-3">
               <span>
-                Bác sĩ phụ trách:{" "}
+                {t('patient.chat.assignedDoctor', isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}:{" "}
                 <strong className="text-clinical-text-secondary font-semibold">
-                  {patient.assignedDoctor || "Đang chờ phân công bác sĩ"}
+                  {patient.assignedDoctor || (isVi ? "Đang chờ phân công bác sĩ" : "Awaiting doctor assignment")}
                 </strong>
               </span>
               <span>
-                Lần khám gần nhất:{" "}
+                {isVi ? "Lần khám gần nhất" : "Last exam"}:{" "}
                 <strong className="text-clinical-text-secondary font-semibold font-mono-data">
-                  {patient.lastExamDate || "Chưa có lần khám"}
+                  {patient.lastExamDate || (isVi ? "Chưa có lần khám" : "No previous exam")}
                 </strong>
               </span>
               <span className="flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Khám Định Kỳ Võng Mạc
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> {isVi ? "Khám Định Kỳ Võng Mạc" : "Periodic Retinal Screening"}
               </span>
             </p>
           </div>
@@ -560,15 +565,15 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         <div className="z-10 flex flex-wrap items-center gap-2.5">
           <button
             onClick={handleUploadNewScanClick}
-            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
+            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
           >
-            <UploadCloud className="w-4 h-4" /> Tải Ảnh Khám Mới
+            <UploadCloud className="w-4 h-4" /> {t('patient.dashboard.quickActions.uploadScan', isVi ? "Tải Ảnh Khám Mới" : "Upload new scan")}
           </button>
           <button
             onClick={() => setIsProfileModalOpen(true)}
-            className="px-4 py-2.5 bg-clinical-surface-subtle hover:bg-slate-100 text-clinical-text-secondary font-bold rounded-xl text-xs border border-clinical-border transition-all flex items-center gap-1.5"
+            className="px-4 py-2.5 bg-clinical-surface-subtle hover:bg-slate-100 text-clinical-text-secondary font-bold rounded-xl text-xs border border-clinical-border transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <UserCog className="w-4 h-4" /> Hồ Sơ Y Tế
+            <UserCog className="w-4 h-4" /> {t('navigation.medicalProfile', isVi ? "Hồ Sơ Y Tế" : "Medical Profile")}
           </button>
         </div>
       </div>
@@ -618,18 +623,20 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <div>
               <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Eye className="w-5 h-5 text-[#0891B2]" />
-                Bản Đồ Soi Vùng Tổn Thương Võng Mạc
+                {isVi ? "Bản Đồ Soi Vùng Tổn Thương Võng Mạc" : "Retinal Vascular Lesion Inspection Map"}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Kéo thanh trượt để so sánh ảnh chụp gốc với các vùng màu AI phát hiện bất thường.
+                {isVi
+                  ? "Kéo thanh trượt để so sánh ảnh chụp gốc với các vùng màu AI phát hiện bất thường."
+                  : "Adjust the slider to compare the original fundus scan with AI anomaly heatmap."}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsReportModalOpen(true)}
-                className="px-3.5 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+                className="px-3.5 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <Download className="w-4 h-4" /> Xuất Báo Cáo
+                <Download className="w-4 h-4" /> {t('patient.history.exportReport', isVi ? "Xuất Báo Cáo" : "Export Report")}
               </button>
             </div>
           </div>
@@ -640,8 +647,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 analysisResult={analysisResult}
                 selectedEye={
                   analysisResult.eyePosition === "Left_OS" || analysisResult.eyePosition === "OS"
-                    ? "OS (Mắt Trái)"
-                    : "OD (Mắt Phải)"
+                    ? (isVi ? "OS (Mắt Trái)" : "OS (Left Eye)")
+                    : (isVi ? "OD (Mắt Phải)" : "OD (Right Eye)")
                 }
               />
               <ClinicalRiskSummaryCard
@@ -658,7 +665,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             </div>
           ) : (
             <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
-              Chưa có kết quả phân tích thật. Hãy tải ảnh võng mạc để bắt đầu.
+              {isVi ? "Chưa có kết quả phân tích thật. Hãy tải ảnh võng mạc để bắt đầu." : "No active screening results. Please upload a retinal scan to begin."}
             </div>
           )}
         </div>
@@ -673,23 +680,23 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <div className="bg-white p-12 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center justify-center space-y-3">
               <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
               <p className="text-sm font-bold text-slate-700">
-                Đang tải hồ sơ y tế...
+                {isVi ? "Đang tải hồ sơ y tế..." : "Loading medical profile..."}
               </p>
               <p className="text-xs text-slate-400">
-                Vui lòng chờ trong giây lát
+                {isVi ? "Vui lòng chờ trong giây lát" : "Please wait a moment"}
               </p>
             </div>
           ) : isProfileError ? (
             <div className="bg-white p-8 rounded-2xl border border-red-200 shadow-xs flex flex-col items-center justify-center space-y-3">
               <AlertTriangle className="w-8 h-8 text-red-500" />
               <p className="text-sm font-bold text-slate-800">
-                Không thể tải hồ sơ y tế từ máy chủ.
+                {isVi ? "Không thể tải hồ sơ y tế từ máy chủ." : "Could not load medical profile from server."}
               </p>
               <button
                 onClick={fetchProfileData}
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5" /> Thử lại
+                <RefreshCw className="w-3.5 h-3.5" /> {t('common.retry', isVi ? "Thử lại" : "Retry")}
               </button>
             </div>
           ) : (
@@ -701,74 +708,74 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-slate-900">
-                      Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân
+                      {isVi ? "Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân" : "Medical Profile & Clinical History"}
                     </h2>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                       <span>
-                        Mã bệnh nhân:{" "}
+                        {isVi ? "Mã bệnh nhân" : "Patient ID"}:{" "}
                         <strong className="text-teal-700 font-mono-data">
-                          {patient.mrn || "Chưa có MRN"}
+                          {patient.mrn || (isVi ? "Chưa có MRN" : "No MRN")}
                         </strong>
                       </span>
                       <span className="text-slate-400 font-mono-data">
                         •{" "}
                         {patient.updatedAt
-                          ? `Cập nhật lần cuối: ${new Date(patient.updatedAt).toLocaleString("vi-VN")}`
-                          : "Chưa có cập nhật"}
+                          ? `${isVi ? "Cập nhật lần cuối" : "Last updated"}: ${new Date(patient.updatedAt).toLocaleString(isVi ? "vi-VN" : "en-US")}`
+                          : (isVi ? "Chưa có cập nhật" : "Not updated")}
                       </span>
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsProfileModalOpen(true)}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
-                  <UserCog className="w-4 h-4" /> Chỉnh Sửa Thông Tin
+                  <UserCog className="w-4 h-4" /> {isVi ? "Chỉnh Sửa Thông Tin" : "Edit Profile"}
                 </button>
               </div>
 
               {/* Profile Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-500 block mb-1">Họ và tên:</span>
+                  <span className="text-slate-500 block mb-1">{isVi ? "Họ và tên:" : "Full Name:"}</span>
                   <strong className="text-slate-900 text-sm">
                     {patient.fullName}
                   </strong>
                   <span className="text-[11px] text-slate-500 block mt-0.5 font-mono-data">
                     {patient.dateOfBirth
-                      ? `NS: ${patient.dateOfBirth}`
-                      : "Chưa cập nhật ngày sinh"}
+                      ? `${isVi ? "NS" : "DOB"}: ${patient.dateOfBirth}`
+                      : (isVi ? "Chưa cập nhật ngày sinh" : "DOB not updated")}
                   </span>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-slate-500 block mb-1">
-                    Tuổi & Giới tính:
+                    {isVi ? "Tuổi & Giới tính:" : "Age & Gender:"}
                   </span>
                   <strong className="text-slate-900 text-sm">
                     {patient.age != null
-                      ? `${patient.age} tuổi`
-                      : "Chưa cập nhật"}{" "}
+                      ? `${patient.age} ${isVi ? "tuổi" : "yrs"}`
+                      : (isVi ? "Chưa cập nhật" : "Not updated")}{" "}
                     •{" "}
                     {patient.gender === "Male"
-                      ? "Nam"
+                      ? (isVi ? "Nam" : "Male")
                       : patient.gender === "Female"
-                        ? "Nữ"
-                        : "Khác"}
+                        ? (isVi ? "Nữ" : "Female")
+                        : (isVi ? "Khác" : "Other")}
                   </strong>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-slate-500 block mb-1">
-                    Nhóm máu & SĐT:
+                    {isVi ? "Nhóm máu & SĐT:" : "Blood Type & Phone:"}
                   </span>
                   <strong className="text-slate-900 text-sm">
-                    {patient.bloodType || "Chưa cập nhật"} •{" "}
-                    {patient.phoneNumber || "Chưa cập nhật"}
+                    {patient.bloodType || (isVi ? "Chưa cập nhật" : "Not updated")} •{" "}
+                    {patient.phoneNumber || (isVi ? "Chưa cập nhật" : "Not updated")}
                   </strong>
                   <span
                     className="text-[11px] text-slate-500 block mt-0.5 truncate"
-                    title={patient.address || "Chưa cập nhật"}
+                    title={patient.address || (isVi ? "Chưa cập nhật" : "Not updated")}
                   >
-                    Đ/C: {patient.address || "Chưa cập nhật"}
+                    {isVi ? "Đ/C" : "Addr"}: {patient.address || (isVi ? "Chưa cập nhật" : "Not updated")}
                   </span>
                 </div>
               </div>
@@ -776,13 +783,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               {/* Clinical Vitals */}
               <div className="p-5 bg-teal-50/50 rounded-2xl border border-teal-100 space-y-4">
                 <h3 className="text-xs font-bold text-teal-900 uppercase tracking-wider flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-teal-700" /> Chỉ Số Sinh
-                  Hiệu & Lâm Sàng Gần Nhất
+                  <Activity className="w-4 h-4 text-teal-700" /> {isVi ? "Chỉ Số Sinh Hiệu & Lâm Sàng Gần Nhất" : "Latest Vital Signs & Clinical Biomarkers"}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
                     <span className="text-slate-500 block text-xs">
-                      Huyết áp (Systolic/Diastolic)
+                      {isVi ? "Huyết áp (Systolic/Diastolic)" : "Blood Pressure (Systolic/Diastolic)"}
                     </span>
                     {patient.systolicBp != null &&
                     patient.diastolicBp != null ? (
@@ -791,23 +797,23 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                           {patient.systolicBp}/{patient.diastolicBp}
                         </span>
                         <span className="text-[11px] text-slate-500 block mt-0.5">
-                          mmHg (Chỉ số đo gần nhất)
+                          {isVi ? "mmHg (Chỉ số đo gần nhất)" : "mmHg (Latest measurement)"}
                         </span>
                       </>
                     ) : (
                       <>
                         <span className="text-base font-bold text-slate-400 block mt-1">
-                          Chưa đo
+                          {isVi ? "Chưa đo" : "Unmeasured"}
                         </span>
                         <span className="text-[11px] text-slate-400 block mt-0.5">
-                          Vui lòng cập nhật khi có kết quả đo
+                          {isVi ? "Vui lòng cập nhật khi có kết quả đo" : "Please update when measured"}
                         </span>
                       </>
                     )}
                   </div>
                   <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
                     <span className="text-slate-500 block text-xs">
-                      Chỉ số HbA1c
+                      {isVi ? "Chỉ số HbA1c" : "HbA1c Index"}
                     </span>
                     {patient.hba1c != null ? (
                       <>
@@ -815,29 +821,29 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                           {patient.hba1c}%
                         </span>
                         <span className="text-[11px] text-slate-500 block mt-0.5">
-                          Đường huyết trung bình 3 tháng
+                          {isVi ? "Đường huyết trung bình 3 tháng" : "3-month average blood glucose"}
                         </span>
                       </>
                     ) : (
                       <>
                         <span className="text-base font-bold text-slate-400 block mt-1">
-                          Chưa đo
+                          {isVi ? "Chưa đo" : "Unmeasured"}
                         </span>
                         <span className="text-[11px] text-slate-400 block mt-0.5">
-                          Chưa có dữ liệu xét nghiệm máu
+                          {isVi ? "Chưa có dữ liệu xét nghiệm máu" : "No lab blood test data"}
                         </span>
                       </>
                     )}
                   </div>
                   <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
                     <span className="text-slate-500 block text-xs">
-                      Bác sĩ phụ trách
+                      {t('patient.chat.assignedDoctor', isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}
                     </span>
                     <span className="text-sm font-bold text-slate-800 line-clamp-1 mt-1">
-                      {patient.assignedDoctor || "Chưa được phân công"}
+                      {patient.assignedDoctor || (isVi ? "Chưa được phân công" : "Unassigned")}
                     </span>
                     <span className="text-[11px] text-slate-500 block mt-0.5">
-                      Chỉ định bởi bệnh viện
+                      {isVi ? "Chỉ định bởi bệnh viện" : "Hospital assigned"}
                     </span>
                   </div>
                 </div>
@@ -846,42 +852,41 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               {/* Medical Conditions */}
               <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-red-500" /> Tiền Sử Bệnh Lý Mạn
-                  Tính
+                  <Heart className="w-4 h-4 text-red-500" /> {isVi ? "Tiền Sử Bệnh Lý Mạn Tính" : "Chronic Medical Conditions"}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>Đái tháo đường:</span>
+                    <span>{isVi ? "Đái tháo đường:" : "Diabetes Mellitus:"}</span>
                     {renderConditionStatus(
                       patient.hasDiabetes,
                       patient.diabetesType
-                        ? `${patient.diabetesType}${patient.diabetesDurationYears ? ` - ${patient.diabetesDurationYears} năm` : ""}`
+                        ? `${patient.diabetesType}${patient.diabetesDurationYears ? ` - ${patient.diabetesDurationYears} ${isVi ? "năm" : "yrs"}` : ""}`
                         : undefined,
                     )}
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>Tăng huyết áp:</span>
+                    <span>{isVi ? "Tăng huyết áp:" : "Hypertension:"}</span>
                     {renderConditionStatus(patient.hasHypertension)}
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>Hút thuốc lá:</span>
+                    <span>{isVi ? "Hút thuốc lá:" : "Tobacco smoking:"}</span>
                     {renderConditionStatus(patient.historyOfSmoking)}
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>Bệnh tim mạch:</span>
+                    <span>{isVi ? "Bệnh tim mạch:" : "Cardiovascular disease:"}</span>
                     {renderConditionStatus(patient.historyOfHeartDisease)}
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>Tiền sử đột quỵ:</span>
+                    <span>{isVi ? "Tiền sử đột quỵ:" : "History of stroke:"}</span>
                     {renderConditionStatus(patient.historyOfStroke)}
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>Dị ứng:</span>
+                    <span>{isVi ? "Dị ứng:" : "Allergies:"}</span>
                     <strong
                       className="text-slate-800 truncate max-w-[120px]"
-                      title={patient.allergies || "Chưa khai báo"}
+                      title={patient.allergies || (isVi ? "Chưa khai báo" : "Unspecified")}
                     >
-                      {patient.allergies || "Chưa khai báo"}
+                      {patient.allergies || (isVi ? "Chưa khai báo" : "Unspecified")}
                     </strong>
                   </div>
                 </div>
@@ -891,20 +896,20 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
                   <span className="text-slate-500 font-semibold block">
-                    Thuốc đang điều trị:
+                    {isVi ? "Thuốc đang điều trị:" : "Current medications:"}
                   </span>
                   <p className="text-slate-800">
-                    {patient.currentMedications || "Chưa khai báo"}
+                    {patient.currentMedications || (isVi ? "Chưa khai báo" : "Unspecified")}
                   </p>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
                   <span className="text-slate-500 font-semibold block">
-                    Người liên hệ khẩn cấp:
+                    {isVi ? "Người liên hệ khẩn cấp:" : "Emergency contact:"}
                   </span>
                   <p className="text-slate-800">
                     {patient.emergencyContactName
-                      ? `${patient.emergencyContactName} (${patient.emergencyContactPhone || "Chưa cập nhật SĐT"})`
-                      : "Chưa khai báo"}
+                      ? `${patient.emergencyContactName} (${patient.emergencyContactPhone || (isVi ? "Chưa cập nhật SĐT" : "No phone")})`
+                      : (isVi ? "Chưa khai báo" : "Unspecified")}
                   </p>
                 </div>
               </div>
@@ -941,14 +946,15 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <div className="max-w-md mx-auto space-y-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold tracking-wide">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  Đang chờ tiếp nhận
+                  {isVi ? "Đang chờ tiếp nhận" : "Awaiting assignment"}
                 </span>
                 <h3 className="text-lg font-bold text-slate-900">
-                  Chưa Được Chỉ Định Bác Sĩ Phụ Trách
+                  {isVi ? "Chưa Được Chỉ Định Bác Sĩ Phụ Trách" : "No Assigned Specialist Doctor Yet"}
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Hồ sơ sức khỏe của bạn hiện đang chờ Ban Quản trị hoặc Phòng khám phân công Bác sĩ chuyên khoa Mắt & Tim mạch phụ trách. 
-                  Sau khi có Bác sĩ được chỉ định, cổng tư vấn trực tiếp sẽ tự động được kích hoạt tại đây.
+                  {isVi
+                    ? "Hồ sơ sức khỏe của bạn hiện đang chờ Ban Quản trị hoặc Phòng khám phân công Bác sĩ chuyên khoa Mắt & Tim mạch phụ trách. Sau khi có Bác sĩ được chỉ định, cổng tư vấn trực tiếp sẽ tự động được kích hoạt tại đây."
+                    : "Your clinical profile is awaiting physician assignment by the clinic or system administration. Once assigned, direct consultation will activate here automatically."}
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
@@ -956,14 +962,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   onClick={() => setIsProfileModalOpen(true)}
                   className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
                 >
-                  <UserCog className="w-4 h-4" /> Kiểm Tra Hồ Sơ Y Tế
+                  <UserCog className="w-4 h-4" /> {isVi ? "Kiểm Tra Hồ Sơ Y Tế" : "Check Medical Profile"}
                 </button>
                 <button
                   onClick={fetchProfileData}
                   disabled={isProfileLoading}
                   className="px-4 py-2.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
-                  <RefreshCw className={`w-4 h-4 ${isProfileLoading ? "animate-spin" : ""}`} /> Cập Nhật Trạng Thái
+                  <RefreshCw className={`w-4 h-4 ${isProfileLoading ? "animate-spin" : ""}`} /> {isVi ? "Cập Nhật Trạng Thái" : "Refresh Status"}
                 </button>
               </div>
             </div>
@@ -980,15 +986,15 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold">
-                      {patient.assignedDoctor || "Bác sĩ phụ trách"}
+                      {patient.assignedDoctor || (isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}
                     </h3>
                     <p className="text-[11px] text-cyan-200">
-                      Khoa Mắt & Tim Mạch Lâm Sàng • Trực Tuyến
+                      {isVi ? "Khoa Mắt & Tim Mạch Lâm Sàng • Trực Tuyến" : "Ophthalmology & Cardiology • Online"}
                     </p>
                   </div>
                 </div>
                 <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-300 font-mono-data">
-                  Hồ sơ: {patient.mrn || "Chưa có MRN"}
+                  {isVi ? "Hồ sơ" : "MRN"}: {patient.mrn || (isVi ? "Chưa có MRN" : "No MRN")}
                 </span>
               </div>
 
@@ -997,7 +1003,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 {chatMessages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
                     <MessageSquare className="w-8 h-8 text-slate-300" />
-                    <p className="text-xs">Chưa có tin nhắn nào. Hãy gửi tin nhắn để bắt đầu trao đổi với Bác sĩ.</p>
+                    <p className="text-xs">{t('patient.chat.emptyChat', isVi ? "Chưa có tin nhắn nào. Hãy gửi tin nhắn để bắt đầu trao đổi với Bác sĩ." : "No messages yet. Send a message to start communicating with your doctor.")}</p>
                   </div>
                 ) : (
                   chatMessages.map((msg) => (
@@ -1031,14 +1037,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   type="text"
                   value={newChatText}
                   onChange={(e) => setNewChatText(e.target.value)}
-                  placeholder="Nhập tin nhắn trao đổi với Bác sĩ..."
+                  placeholder={t('patient.chat.placeholder', isVi ? "Nhập tin nhắn trao đổi với Bác sĩ..." : "Type a consultation message for the doctor...")}
                   className="flex-1 px-4 py-2.5 text-xs bg-slate-100 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0891B2] outline-none"
                 />
                 <button
                   type="submit"
                   className="px-4 py-2.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Send className="w-3.5 h-3.5" /> Gửi
+                  <Send className="w-3.5 h-3.5" /> {t('patient.chat.sendButton', isVi ? "Gửi" : "Send")}
                 </button>
               </form>
             </div>
@@ -1060,19 +1066,20 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">
-                    Quản Lý Gói Dịch Vụ & Lượt Phân Tích (FR-11, FR-12)
+                    {isVi ? "Quản Lý Gói Dịch Vụ & Lượt Phân Tích (FR-11, FR-12)" : "Service Packages & Credit Management (FR-11, FR-12)"}
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Theo dõi số lượt phân tích thị giác AI, gói cước kích hoạt
-                    và lịch sử thanh toán qua cổng VNPay / MoMo.
+                    {isVi
+                      ? "Theo dõi số lượt phân tích thị giác AI, gói cước kích hoạt và lịch sử thanh toán qua cổng VNPay / MoMo."
+                      : "Track AI vision screening quota, active packages and payment history via VNPay / MoMo."}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsCreditModalOpen(true)}
-                className="px-5 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all"
+                className="px-5 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer"
               >
-                <CreditCard className="w-4 h-4" /> Mua Hoặc Gia Hạn Gói
+                <CreditCard className="w-4 h-4" /> {isVi ? "Mua Hoặc Gia Hạn Gói" : "Purchase or Renew Package"}
               </button>
             </div>
 
@@ -1080,37 +1087,37 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-50 to-teal-50 border border-teal-200/80">
                 <span className="text-xs font-bold text-cyan-900 uppercase tracking-wider">
-                  Tổng Lượt Phân Tích Khả Dụng
+                  {isVi ? "Tổng Lượt Phân Tích Khả Dụng" : "Total Available Credits"}
                 </span>
                 <div className="mt-2 text-3xl font-extrabold text-teal-700 font-mono-data">
                   {userCredits}{" "}
                   <span className="text-sm font-semibold text-slate-600">
-                    Lượt
+                    {isVi ? "Lượt" : "Credits"}
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Áp dụng cho mọi phân tích ảnh võng mạc OD/OS
+                  {isVi ? "Áp dụng cho mọi phân tích ảnh võng mạc OD/OS" : "Applicable for all bilateral OD/OS retinal scans"}
                 </p>
               </div>
 
               <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Gói Đang Hoạt Động
+                  {isVi ? "Gói Đang Hoạt Động" : "Active Subscriptions"}
                 </span>
                 <div className="mt-2 text-2xl font-extrabold text-slate-800 font-mono-data">
                   {subscriptions.filter((s) => s.status === "ACTIVE").length}{" "}
                   <span className="text-sm font-semibold text-slate-500">
-                    Gói
+                    {isVi ? "Gói" : "Packages"}
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-emerald-600 font-semibold">
-                  Tự động cộng dồn khi gia hạn
+                  {isVi ? "Tự động cộng dồn khi gia hạn" : "Automatically accumulates on renewal"}
                 </p>
               </div>
 
               <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Cổng Thanh Toán Hỗ Trợ
+                  {isVi ? "Cổng Thanh Toán Hỗ Trợ" : "Supported Payment Gateways"}
                 </span>
                 <div className="mt-2 flex items-center gap-2">
                   <span className="px-2.5 py-1 bg-blue-50 text-[#005BAA] rounded-lg text-xs font-bold border border-blue-200">
@@ -1121,7 +1128,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] text-slate-500">
-                  Tự động kích hoạt ngay sau thanh toán
+                  {isVi ? "Tự động kích hoạt ngay sau thanh toán" : "Instantly activated upon payment"}
                 </p>
               </div>
             </div>
@@ -1129,17 +1136,16 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             {/* Active Subscriptions Sub-table */}
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-500" /> Danh Sách Gói Thuê
-                Bao Đã Mua
+                <Zap className="w-4 h-4 text-amber-500" /> {isVi ? "Danh Sách Gói Thuê Bao Đã Mua" : "Purchased Subscription Packages"}
               </h3>
               <div className="overflow-hidden rounded-2xl border border-slate-200">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                     <tr>
-                      <th className="p-3.5">Tên Gói</th>
-                      <th className="p-3.5">Số Lượt Còn Lại</th>
-                      <th className="p-3.5">Hạn Sử Dụng</th>
-                      <th className="p-3.5">Trạng Thái</th>
+                      <th className="p-3.5">{isVi ? "Tên Gói" : "Package Name"}</th>
+                      <th className="p-3.5">{isVi ? "Số Lượt Còn Lại" : "Remaining Credits"}</th>
+                      <th className="p-3.5">{isVi ? "Hạn Sử Dụng" : "Expiration Date"}</th>
+                      <th className="p-3.5">{isVi ? "Trạng Thái" : "Status"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
@@ -1149,8 +1155,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                           colSpan={4}
                           className="p-6 text-center text-slate-400"
                         >
-                          Chưa đăng ký gói dịch vụ nào. Hãy nhấn Mua Thêm Gói để
-                          nạp lượt phân tích.
+                          {isVi
+                            ? "Chưa đăng ký gói dịch vụ nào. Hãy nhấn Mua Thêm Gói để nạp lượt phân tích."
+                            : "No active subscription packages. Click Purchase Package to recharge screening credits."}
                         </td>
                       </tr>
                     ) : (
@@ -1160,12 +1167,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                             {sub.servicePackageName}
                           </td>
                           <td className="p-3.5 font-mono text-teal-700 font-extrabold text-sm">
-                            {sub.remainingCredits} lượt
+                            {sub.remainingCredits} {isVi ? "lượt" : "credits"}
                           </td>
                           <td className="p-3.5 font-mono text-slate-500">
                             {sub.expiresAt
                               ? new Date(sub.expiresAt).toLocaleDateString(
-                                  "vi-VN",
+                                  isVi ? "vi-VN" : "en-US",
                                 )
                               : "--"}
                           </td>
@@ -1178,7 +1185,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                               }`}
                             >
                               {sub.status === "ACTIVE"
-                                ? "ĐANG DÙNG"
+                                ? (isVi ? "ĐANG DÙNG" : "ACTIVE")
                                 : sub.status}
                             </span>
                           </td>
@@ -1194,14 +1201,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <History className="w-4 h-4 text-cyan-700" /> Lịch Sử Thanh
-                  Toán & Giao Dịch Hóa Đơn (FR-12)
+                  <History className="w-4 h-4 text-cyan-700" /> {isVi ? "Lịch Sử Thanh Toán & Giao Dịch Hóa Đơn (FR-12)" : "Payment & Billing Transaction History (FR-12)"}
                 </h3>
                 <button
                   onClick={loadBillingData}
-                  className="text-xs text-cyan-700 hover:underline flex items-center gap-1 font-bold"
+                  className="text-xs text-cyan-700 hover:underline flex items-center gap-1 font-bold cursor-pointer"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> Làm mới
+                  <RefreshCw className="w-3.5 h-3.5" /> {t('common.actions.refresh', isVi ? "Làm mới" : "Refresh")}
                 </button>
               </div>
 
@@ -1209,12 +1215,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                     <tr>
-                      <th className="p-3.5">Mã Giao Dịch</th>
-                      <th className="p-3.5">Thời Gian</th>
-                      <th className="p-3.5">Gói Dịch Vụ</th>
-                      <th className="p-3.5">Cổng</th>
-                      <th className="p-3.5">Số Tiền</th>
-                      <th className="p-3.5">Trạng Thái</th>
+                      <th className="p-3.5">{isVi ? "Mã Giao Dịch" : "Transaction Ref"}</th>
+                      <th className="p-3.5">{isVi ? "Thời Gian" : "Date & Time"}</th>
+                      <th className="p-3.5">{isVi ? "Gói Dịch Vụ" : "Service Package"}</th>
+                      <th className="p-3.5">{isVi ? "Cổng" : "Gateway"}</th>
+                      <th className="p-3.5">{isVi ? "Số Tiền" : "Amount"}</th>
+                      <th className="p-3.5">{isVi ? "Trạng Thái" : "Status"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
@@ -1224,7 +1230,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                           colSpan={6}
                           className="p-6 text-center text-slate-400"
                         >
-                          Chưa có lịch sử giao dịch thanh toán nào.
+                          {isVi ? "Chưa có lịch sử giao dịch thanh toán nào." : "No payment transaction history yet."}
                         </td>
                       </tr>
                     ) : (
@@ -1235,7 +1241,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                           </td>
                           <td className="p-3.5 font-mono text-slate-500">
                             {item.createdAt
-                              ? new Date(item.createdAt).toLocaleString("vi-VN")
+                              ? new Date(item.createdAt).toLocaleString(isVi ? "vi-VN" : "en-US")
                               : "--"}
                           </td>
                           <td className="p-3.5 font-bold text-slate-900">
@@ -1247,7 +1253,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                             </span>
                           </td>
                           <td className="p-3.5 font-mono font-extrabold text-slate-900">
-                            {Number(item.amount).toLocaleString("vi-VN")} đ
+                            {Number(item.amount).toLocaleString(isVi ? "vi-VN" : "en-US")} {isVi ? "đ" : "VND"}
                           </td>
                           <td className="p-3.5">
                             <span
@@ -1258,7 +1264,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                               }`}
                             >
                               {item.status === "SUCCEEDED"
-                                ? "THÀNH CÔNG"
+                                ? (isVi ? "THÀNH CÔNG" : "SUCCEEDED")
                                 : item.status}
                             </span>
                           </td>

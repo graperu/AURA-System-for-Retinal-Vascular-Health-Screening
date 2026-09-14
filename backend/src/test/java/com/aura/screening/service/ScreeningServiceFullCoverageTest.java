@@ -104,10 +104,10 @@ class ScreeningServiceFullCoverageTest {
 
     verify(userNotificationService).sendNotificationToUser(
         eq(patientId),
-        eq("Kết quả phân tích AI đã sẵn sàng"),
+        eq("Ảnh võng mạc đã hoàn tất phân tích sơ bộ"),
         anyString(),
         eq("AI_READY"),
-        eq("WARNING"), // RiskLevel.HIGH -> WARNING
+        eq("INFO"),
         eq("/cds-viewer")
     );
   }
@@ -161,10 +161,10 @@ class ScreeningServiceFullCoverageTest {
 
     verify(userNotificationService).sendNotificationToUser(
         eq(patientId),
-        eq("Kết quả phân tích AI đã sẵn sàng"),
+        eq("Ảnh võng mạc đã hoàn tất phân tích sơ bộ"),
         anyString(),
         eq("AI_READY"),
-        eq("CRITICAL"), // CRITICAL severity
+        eq("INFO"),
         eq("/cds-viewer")
     );
   }
@@ -240,12 +240,14 @@ class ScreeningServiceFullCoverageTest {
         Map.of(
             "category", "Cardiovascular Risk",
             "confidence", 0.75,
+            "riskScore", 75,
             "riskLevel", "HIGH",
             "clinicalNote", "Hẹp tiểu động mạch vùng cận hoàng điểm"
         ),
         Map.of(
             "category", "Diabetic Retinopathy",
             "confidence", 0.35,
+            "riskScore", 35,
             "riskLevel", "LOW",
             "clinicalNote", "Không có xuất huyết"
         )
@@ -282,7 +284,7 @@ class ScreeningServiceFullCoverageTest {
     assertThat(saved.getVerticalCdr()).isEqualTo(0.36);
 
     assertThat(saved.getHeatmapBase64()).isEqualTo("data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==");
-    assertThat(saved.getFindings()).isEqualTo("Hẹp tiểu động mạch vùng cận hoàng điểm");
+    assertThat(saved.getFindings()).contains("Hẹp tiểu động mạch vùng cận hoàng điểm");
   }
 
   @Test

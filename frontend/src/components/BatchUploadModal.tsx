@@ -17,6 +17,21 @@ import {
 } from 'lucide-react';
 import { BulkUploadItemPayload } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
+
+const EYE_FILTER_OPTIONS: ClinicalSelectOption<string>[] = [
+  { value: 'ALL', label: 'Tất cả mắt (OD/OS)' },
+  { value: 'OD', label: 'Chỉ mắt phải (OD)' },
+  { value: 'OS', label: 'Chỉ mắt trái (OS)' },
+];
+
+const ITEM_EYE_OPTIONS: ClinicalSelectOption<'OD' | 'OS'>[] = [
+  { value: 'OD', label: 'Mắt Phải (OD)' },
+  { value: 'OS', label: 'Mắt Trái (OS)' },
+];
+
+export const DICOM_PLACEHOLDER_DATA_URI =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="%230f172a"/><rect x="25" y="20" width="110" height="120" rx="8" fill="%231e293b" stroke="%230891b2" stroke-width="2"/><text x="80" y="72" fill="%2338bdf8" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle">DICOM</text><text x="80" y="96" fill="%2394a3b8" font-family="sans-serif" font-size="10" font-weight="600" text-anchor="middle">Medical File</text><circle cx="80" cy="118" r="4" fill="%230891b2"/></svg>';
 
 interface BatchUploadModalProps {
   isOpen: boolean;
@@ -104,7 +119,8 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
     const newItems: StagedItem[] = fileArray.map((file, idx) => {
       const overallIndex = stagedItems.length + idx + 1;
       const parsed = parseFilename(file.name, overallIndex);
-      const preview = URL.createObjectURL(file);
+      const isDicom = /\.(dcm|dicom|tif|tiff)$/i.test(file.name);
+      const preview = isDicom ? DICOM_PLACEHOLDER_DATA_URI : URL.createObjectURL(file);
 
       return {
         id: `STAGED-${Date.now()}-${overallIndex}`,
@@ -151,7 +167,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
         id: `DEMO-ITEM-${i}`,
         fileName: `RETINA_${mrn}_${eye}_${String(i).padStart(3, '0')}.dcm`,
         fileSize: 2450000 + (i % 500000),
-        previewUrl: '/assets/images/fundus_original.png',
+        previewUrl: DICOM_PLACEHOLDER_DATA_URI,
         eye,
         mrn,
         patientName: name,
@@ -181,7 +197,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
     return new Promise((resolve) => {
       const isDicom = /\.dcm|\.dicom|\.tif|\.tiff/i.test(file.name);
       if (isDicom) {
-        resolve('/assets/images/fundus_original.png');
+        resolve(DICOM_PLACEHOLDER_DATA_URI);
         return;
       }
 
@@ -306,7 +322,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
       const itemsPayload: BulkUploadItemPayload[] = await Promise.all(
         stagedItems.map(async (item) => {
           let base64Ai = fallbackBase64;
-          let thumb = item.previewUrl || '/assets/images/fundus_original.png';
+          let thumb = item.previewUrl || (/\.dcm|\.dicom|\.tif|\.tiff/i.test(item.fileName) ? DICOM_PLACEHOLDER_DATA_URI : '/assets/images/fundus_original.png');
 
           if (item.file) {
             const [aiCompressed, generatedThumb] = await Promise.all([
@@ -378,8 +394,8 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white border border-[#CCFBF1] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
+      <div className="bg-white border border-[#CCFBF1] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-modal-enter">
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-[#134E4A] via-[#0E7490] to-[#0891B2] text-white p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -425,17 +441,16 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                Cơ Sở / Phòng Khám Phụ Trách
-              </label>
-              <select
+              <ClinicalSelect<string>
+                label="Cơ Sở / Phòng Khám Phụ Trách"
                 value={clinicId}
-                onChange={(e) => setClinicId(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:border-[#0891B2] outline-none font-medium text-slate-800"
-              >
-                <option value={currentClinicId}>{currentClinicName}</option>
-                <option value="CLINIC_SATELLITE">Điểm sàng lọc vệ tinh / Lưu động</option>
-              </select>
+                onChange={setClinicId}
+                options={[
+                  { value: currentClinicId, label: currentClinicName },
+                  { value: 'CLINIC_SATELLITE', label: 'Điểm sàng lọc vệ tinh / Lưu động' },
+                ]}
+                size="sm"
+              />
             </div>
           </div>
 
@@ -590,15 +605,13 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
               )}
 
               <div className="flex items-center gap-2">
-                <select
+                <ClinicalSelect<string>
                   value={filterEye}
-                  onChange={(e) => setFilterEye(e.target.value)}
-                  className="text-xs py-1 px-2.5 bg-white border border-slate-300 rounded-lg outline-none font-medium"
-                >
-                  <option value="ALL">Tất cả mắt (OD/OS)</option>
-                  <option value="OD">Chỉ mắt phải (OD)</option>
-                  <option value="OS">Chỉ mắt trái (OS)</option>
-                </select>
+                  onChange={setFilterEye}
+                  options={EYE_FILTER_OPTIONS}
+                  size="sm"
+                  className="w-48"
+                />
                 {stagedItems.length > 0 && (
                   <button
                     onClick={() => setStagedItems([])}
@@ -647,18 +660,13 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                           <div className="text-[11px] text-slate-400 font-mono-data">{item.mrn}</div>
                         </td>
                         <td className="py-2 px-3">
-                          <select
+                          <ClinicalSelect<'OD' | 'OS'>
                             value={item.eye}
-                            onChange={(e) => handleUpdateItemEye(item.id, e.target.value as 'OD' | 'OS')}
-                            className={`text-[11px] font-bold font-mono-data py-0.5 px-1.5 rounded border ${
-                              item.eye === 'OD'
-                                ? 'bg-cyan-50 border-cyan-200 text-[#0891B2]'
-                                : 'bg-teal-50 border-teal-200 text-teal-700'
-                            }`}
-                          >
-                            <option value="OD">Mắt Phải (OD)</option>
-                            <option value="OS">Mắt Trái (OS)</option>
-                          </select>
+                            onChange={(val) => handleUpdateItemEye(item.id, val)}
+                            options={ITEM_EYE_OPTIONS}
+                            size="sm"
+                            className="w-36"
+                          />
                         </td>
                         <td className="py-2 px-3 text-[11px] font-mono-data text-slate-600">
                           {item.systolicBp}/{item.diastolicBp} mmHg &bull; {item.hbA1c}%

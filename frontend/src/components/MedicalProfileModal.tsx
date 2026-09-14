@@ -18,6 +18,8 @@ import {
 import { PatientProfile } from '../types/cds';
 import { patientApi } from '../services/api';
 import { LabDocumentsPanel } from './LabDocumentsPanel';
+import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
+import { useLanguage } from '../context/LanguageContext';
 
 interface MedicalProfileModalProps {
   isOpen: boolean;
@@ -59,6 +61,42 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
   patient,
   onSave,
 }) => {
+  const { t, isVi } = useLanguage();
+
+  const genderOptions = useMemo<ClinicalSelectOption<'Male' | 'Female' | 'Other'>[]>(
+    () => [
+      { value: 'Male', label: isVi ? 'Nam' : 'Male' },
+      { value: 'Female', label: isVi ? 'Nữ' : 'Female' },
+      { value: 'Other', label: isVi ? 'Khác' : 'Other' },
+    ],
+    [isVi]
+  );
+
+  const bloodTypeOptions = useMemo<ClinicalSelectOption<string>[]>(
+    () => [
+      { value: '', label: isVi ? '-- Chưa cập nhật --' : '-- Not updated --' },
+      { value: 'O+', label: 'O+' },
+      { value: 'O-', label: 'O-' },
+      { value: 'A+', label: 'A+' },
+      { value: 'A-', label: 'A-' },
+      { value: 'B+', label: 'B+' },
+      { value: 'B-', label: 'B-' },
+      { value: 'AB+', label: 'AB+' },
+      { value: 'AB-', label: 'AB-' },
+    ],
+    [isVi]
+  );
+
+  const diabetesTypeOptions = useMemo<ClinicalSelectOption<string>[]>(
+    () => [
+      { value: 'Type1', label: isVi ? 'Type 1 (Phụ thuộc Insulin)' : 'Type 1 (Insulin-dependent)' },
+      { value: 'Type2', label: isVi ? 'Type 2 (Không phụ thuộc Insulin)' : 'Type 2 (Non-insulin dependent)' },
+      { value: 'Gestational', label: isVi ? 'Đái tháo đường thai kỳ' : 'Gestational diabetes' },
+      { value: 'Other', label: isVi ? 'Khác' : 'Other' },
+    ],
+    [isVi]
+  );
+
   const [formState, setFormState] = useState<FormState>({
     fullName: '',
     dateOfBirth: '',
@@ -154,34 +192,34 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
     const dia = formState.diastolicBp.trim() !== '' ? Number(formState.diastolicBp) : null;
 
     if (sys !== null && (isNaN(sys) || sys < 50 || sys > 250)) {
-      return 'Huyết áp tâm thu phải từ 50 đến 250 mmHg';
+      return isVi ? 'Huyết áp tâm thu phải từ 50 đến 250 mmHg' : 'Systolic blood pressure must be between 50 and 250 mmHg';
     }
     if (dia !== null && (isNaN(dia) || dia < 30 || dia > 180)) {
-      return 'Huyết áp tâm trương phải từ 30 đến 180 mmHg';
+      return isVi ? 'Huyết áp tâm trương phải từ 30 đến 180 mmHg' : 'Diastolic blood pressure must be between 30 and 180 mmHg';
     }
     if (sys !== null && dia !== null && sys <= dia) {
-      return 'Huyết áp tâm thu phải lớn hơn huyết áp tâm trương.';
+      return isVi ? 'Huyết áp tâm thu phải lớn hơn huyết áp tâm trương.' : 'Systolic blood pressure must be greater than diastolic.';
     }
     return null;
-  }, [formState.systolicBp, formState.diastolicBp]);
+  }, [formState.systolicBp, formState.diastolicBp, isVi]);
 
   const hba1cValidationError = useMemo(() => {
     if (formState.hba1c.trim() === '') return null;
     const val = Number(formState.hba1c);
     if (isNaN(val) || val < 2.0 || val > 20.0) {
-      return 'Chỉ số HbA1c phải từ 2.0% đến 20.0% (để trống nếu chưa đo)';
+      return isVi ? 'Chỉ số HbA1c phải từ 2.0% đến 20.0% (để trống nếu chưa đo)' : 'HbA1c must be between 2.0% and 20.0% (leave blank if not measured)';
     }
     return null;
-  }, [formState.hba1c]);
+  }, [formState.hba1c, isVi]);
 
   const ageValidationError = useMemo(() => {
     if (formState.age.trim() === '') return null;
     const val = Number(formState.age);
     if (isNaN(val) || val < 1 || val > 120) {
-      return 'Tuổi phải từ 1 đến 120';
+      return isVi ? 'Tuổi phải từ 1 đến 120' : 'Age must be between 1 and 120';
     }
     return null;
-  }, [formState.age]);
+  }, [formState.age, isVi]);
 
   const isFormValid = !bpValidationError && !hba1cValidationError && !ageValidationError && formState.fullName.trim().length > 0;
 
@@ -230,12 +268,12 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
           onClose();
         }, 1200);
       } else {
-        setErrorMessage(res.message || 'Cập nhật hồ sơ y tế không thành công');
+        setErrorMessage(res.message || (isVi ? 'Cập nhật hồ sơ y tế không thành công' : 'Medical profile update failed'));
       }
     } catch (err: any) {
       console.error('Error updating patient profile:', err);
       setErrorMessage(
-        err.response?.data?.message || err.message || 'Lỗi kết nối máy chủ. Vui lòng thử lại sau.'
+        err.response?.data?.message || err.message || (isVi ? 'Lỗi kết nối máy chủ. Vui lòng thử lại sau.' : 'Server connection error. Please try again later.')
       );
     } finally {
       setIsLoading(false);
@@ -264,7 +302,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            Chưa khai báo
+            {isVi ? 'Chưa khai báo' : 'Unspecified'}
           </button>
           <button
             type="button"
@@ -275,7 +313,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            Không
+            {isVi ? 'Không' : 'No'}
           </button>
           <button
             type="button"
@@ -286,7 +324,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            Có
+            {isVi ? 'Có' : 'Yes'}
           </button>
         </div>
       </div>
@@ -294,8 +332,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-teal-100 max-h-[90vh] overflow-y-auto space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-teal-100 max-h-[90vh] overflow-y-auto space-y-5 animate-modal-enter">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
@@ -304,13 +342,13 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân
+                {isVi ? 'Hồ Sơ Y Tế & Tiền Sử Bệnh Cá Nhân' : 'Medical Profile & Clinical History'}
               </h2>
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-mono-data">
-                <span>Mã hồ sơ: <strong className="text-teal-700">{formState.mrn || 'Chưa có MRN'}</strong></span>
+                <span>{isVi ? 'Mã hồ sơ' : 'MRN'}: <strong className="text-teal-700">{formState.mrn || (isVi ? 'Chưa có MRN' : 'No MRN')}</strong></span>
                 {formState.updatedAt && (
                   <span className="text-slate-400">
-                    • Cập nhật: {new Date(formState.updatedAt).toLocaleString('vi-VN')}
+                    • {isVi ? 'Cập nhật' : 'Updated'}: {new Date(formState.updatedAt).toLocaleString(isVi ? 'vi-VN' : 'en-US')}
                   </span>
                 )}
               </div>
@@ -335,7 +373,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <UserCheck className="w-3.5 h-3.5" /> 1. Thông Tin Cá Nhân
+            <UserCheck className="w-3.5 h-3.5" /> 1. {isVi ? 'Thông Tin Cá Nhân' : 'Personal Info'}
           </button>
           <button
             type="button"
@@ -346,7 +384,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Activity className="w-3.5 h-3.5" /> 2. Chỉ Số Sinh Hiệu
+            <Activity className="w-3.5 h-3.5" /> 2. {isVi ? 'Chỉ Số Sinh Hiệu' : 'Vital Signs'}
           </button>
           <button
             type="button"
@@ -357,7 +395,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Heart className="w-3.5 h-3.5" /> 3. Tiền Sử Bệnh Lý
+            <Heart className="w-3.5 h-3.5" /> 3. {isVi ? 'Tiền Sử Bệnh Lý' : 'Medical History'}
           </button>
           <button
             type="button"
@@ -368,7 +406,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Pill className="w-3.5 h-3.5" /> 4. Thuốc & Liên Hệ
+            <Pill className="w-3.5 h-3.5" /> 4. {isVi ? 'Thuốc & Liên Hệ' : 'Meds & Contacts'}
           </button>
           <button
             type="button"
@@ -379,7 +417,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <FileText className="w-3.5 h-3.5" /> 5. Tệp Xét Nghiệm
+            <FileText className="w-3.5 h-3.5" /> 5. {isVi ? 'Tệp Xét Nghiệm' : 'Lab Documents'}
           </button>
         </div>
 
@@ -394,8 +432,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
         {isSavedSuccess ? (
           <div className="py-8 text-center space-y-2 animate-fadeIn">
             <CheckCircle2 className="w-12 h-12 text-teal-600 mx-auto animate-bounce" />
-            <h3 className="text-base font-bold text-slate-800">Đã cập nhật hồ sơ y tế thành công!</h3>
-            <p className="text-xs text-slate-500">Dữ liệu đã được lưu trữ an toàn trong cơ sở dữ liệu bệnh viện.</p>
+            <h3 className="text-base font-bold text-slate-800">{isVi ? 'Đã cập nhật hồ sơ y tế thành công!' : 'Medical profile updated successfully!'}</h3>
+            <p className="text-xs text-slate-500">{isVi ? 'Dữ liệu đã được lưu trữ an toàn trong cơ sở dữ liệu bệnh viện.' : 'Data securely stored in hospital clinical records.'}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -404,20 +442,20 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
               <div className="space-y-3 animate-fadeIn">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Họ và tên bệnh nhân *</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">{isVi ? 'Họ và tên bệnh nhân *' : 'Patient full name *'}</label>
                     <input
                       type="text"
                       value={formState.fullName}
                       onChange={(e) => setFormState({ ...formState, fullName: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                      placeholder="Nguyễn Văn A"
+                      placeholder={isVi ? 'Nguyễn Văn A' : 'John Doe'}
                       required
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-teal-600" /> Ngày sinh
+                      <Calendar className="w-3.5 h-3.5 text-teal-600" /> {t('patient.profile.dob', isVi ? 'Ngày sinh' : 'Date of birth')}
                     </label>
                     <input
                       type="date"
@@ -430,7 +468,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Tuổi {formState.dateOfBirth ? '(Tự động tính từ ngày sinh)' : ''}
+                      {isVi ? 'Tuổi' : 'Age'} {formState.dateOfBirth ? (isVi ? '(Tự động tính từ ngày sinh)' : '(Computed from DOB)') : ''}
                     </label>
                     <input
                       type="number"
@@ -440,7 +478,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                       className={`w-full px-3 py-2 text-xs border border-slate-300 rounded-lg outline-none ${
                         formState.dateOfBirth ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : 'bg-white focus:ring-2 focus:ring-teal-500'
                       }`}
-                      placeholder="Chưa cập nhật"
+                      placeholder={isVi ? 'Chưa cập nhật' : 'Not updated'}
                       min={1}
                       max={120}
                     />
@@ -448,56 +486,44 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Giới tính</label>
-                    <select
+                    <ClinicalSelect<'Male' | 'Female' | 'Other'>
+                      label={t('patient.profile.gender', isVi ? 'Giới tính' : 'Gender')}
                       value={formState.gender}
-                      onChange={(e) => setFormState({ ...formState, gender: e.target.value as any })}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                    >
-                      <option value="Male">Nam</option>
-                      <option value="Female">Nữ</option>
-                      <option value="Other">Khác</option>
-                    </select>
+                      onChange={(val) => setFormState({ ...formState, gender: val })}
+                      options={genderOptions}
+                      size="sm"
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Số điện thoại</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">{isVi ? 'Số điện thoại' : 'Phone number'}</label>
                     <input
                       type="text"
                       value={formState.phoneNumber}
                       onChange={(e) => setFormState({ ...formState, phoneNumber: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none font-mono-data"
-                      placeholder="Chưa cập nhật"
+                      placeholder={isVi ? 'Chưa cập nhật' : 'Not updated'}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Nhóm máu</label>
-                    <select
+                    <ClinicalSelect<string>
+                      label={t('patient.profile.bloodType', isVi ? 'Nhóm máu' : 'Blood type')}
                       value={formState.bloodType}
-                      onChange={(e) => setFormState({ ...formState, bloodType: e.target.value })}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                    >
-                      <option value="">-- Chưa cập nhật --</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
-                    </select>
+                      onChange={(val) => setFormState({ ...formState, bloodType: val })}
+                      options={bloodTypeOptions}
+                      size="sm"
+                    />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Địa chỉ cư trú</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">{isVi ? 'Địa chỉ cư trú' : 'Residential address'}</label>
                     <input
                       type="text"
                       value={formState.address}
                       onChange={(e) => setFormState({ ...formState, address: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                      placeholder="Chưa cập nhật"
+                      placeholder={isVi ? 'Chưa cập nhật' : 'Not updated'}
                     />
                   </div>
                 </div>
@@ -508,11 +534,11 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
             {activeTab === 'vitals' && (
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4 animate-fadeIn">
                 <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Activity className="w-4 h-4 text-teal-600" /> Chỉ Số Sinh Hiệu & Lâm Sàng Gần Nhất
+                  <Activity className="w-4 h-4 text-teal-600" /> {isVi ? 'Chỉ Số Sinh Hiệu & Lâm Sàng Gần Nhất' : 'Latest Vital Signs & Clinical Biomarkers'}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Huyết áp tâm thu (mmHg)</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">{isVi ? 'Huyết áp tâm thu (mmHg)' : 'Systolic blood pressure (mmHg)'}</label>
                     <input
                       type="number"
                       value={formState.systolicBp}
@@ -520,14 +546,14 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                       className={`w-full px-3 py-2 text-xs border rounded-lg font-mono-data outline-none bg-white ${
                         bpValidationError ? 'border-red-400 focus:ring-2 focus:ring-red-400' : 'border-slate-300 focus:ring-2 focus:ring-teal-500'
                       }`}
-                      placeholder="Chưa đo (90 - 129)"
+                      placeholder={isVi ? 'Chưa đo (90 - 129)' : 'Unmeasured (90 - 129)'}
                       min={50}
                       max={250}
                     />
-                    <span className="text-[10px] text-slate-400">Chuẩn: 90 - 129 mmHg</span>
+                    <span className="text-[10px] text-slate-400">{isVi ? 'Chuẩn: 90 - 129 mmHg' : 'Standard: 90 - 129 mmHg'}</span>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Huyết áp tâm trương (mmHg)</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">{isVi ? 'Huyết áp tâm trương (mmHg)' : 'Diastolic blood pressure (mmHg)'}</label>
                     <input
                       type="number"
                       value={formState.diastolicBp}
@@ -535,14 +561,14 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                       className={`w-full px-3 py-2 text-xs border rounded-lg font-mono-data outline-none bg-white ${
                         bpValidationError ? 'border-red-400 focus:ring-2 focus:ring-red-400' : 'border-slate-300 focus:ring-2 focus:ring-teal-500'
                       }`}
-                      placeholder="Chưa đo (60 - 84)"
+                      placeholder={isVi ? 'Chưa đo (60 - 84)' : 'Unmeasured (60 - 84)'}
                       min={30}
                       max={180}
                     />
-                    <span className="text-[10px] text-slate-400">Chuẩn: 60 - 84 mmHg</span>
+                    <span className="text-[10px] text-slate-400">{isVi ? 'Chuẩn: 60 - 84 mmHg' : 'Standard: 60 - 84 mmHg'}</span>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Chỉ số HbA1c (%)</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">{isVi ? 'Chỉ số HbA1c (%)' : 'HbA1c index (%)'}</label>
                     <input
                       type="number"
                       step="0.1"
@@ -551,11 +577,11 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                       className={`w-full px-3 py-2 text-xs border rounded-lg font-mono-data outline-none bg-white ${
                         hba1cValidationError ? 'border-red-400 focus:ring-2 focus:ring-red-400' : 'border-slate-300 focus:ring-2 focus:ring-teal-500'
                       }`}
-                      placeholder="Chưa đo (< 5.7%)"
+                      placeholder={isVi ? 'Chưa đo (< 5.7%)' : 'Unmeasured (< 5.7%)'}
                       min={2}
                       max={20}
                     />
-                    <span className="text-[10px] text-slate-400">Chuẩn: &lt; 5.7%</span>
+                    <span className="text-[10px] text-slate-400">{isVi ? 'Chuẩn: < 5.7%' : 'Standard: < 5.7%'}</span>
                   </div>
                 </div>
 
@@ -571,14 +597,14 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 )}
 
                 <div className="pt-2 border-t border-slate-200/80">
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Bác sĩ chuyên khoa phụ trách</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">{t('patient.chat.assignedDoctor', isVi ? 'Bác sĩ chuyên khoa phụ trách' : 'Assigned specialist doctor')}</label>
                   <div className="p-2.5 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-between text-xs">
                     <span className="font-semibold text-slate-700 flex items-center gap-1.5">
                       <Stethoscope className="w-4 h-4 text-teal-600" />
-                      {formState.assignedDoctor || 'Chưa được phân công'}
+                      {formState.assignedDoctor || (isVi ? 'Chưa được phân công' : 'Unassigned')}
                     </span>
                     <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-                      Chỉ định bởi bệnh viện
+                      {isVi ? 'Chỉ định bởi bệnh viện' : 'Hospital assigned'}
                     </span>
                   </div>
                 </div>
@@ -589,8 +615,8 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
             {activeTab === 'history' && (
               <div className="space-y-3 animate-fadeIn">
                 {renderTriStateButtons(
-                  'Đái tháo đường (Tiểu đường)',
-                  'Tiền sử đường huyết cao hoặc điều trị insulin định kỳ',
+                  isVi ? 'Đái tháo đường (Tiểu đường)' : 'Diabetes Mellitus',
+                  isVi ? 'Tiền sử đường huyết cao hoặc điều trị insulin định kỳ' : 'History of hyperglycemia or regular insulin therapy',
                   formState.hasDiabetes,
                   (val) => setFormState({ ...formState, hasDiabetes: val })
                 )}
@@ -599,26 +625,22 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 {formState.hasDiabetes === true && (
                   <div className="p-3.5 bg-teal-50/50 rounded-xl border border-teal-200 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fadeIn ml-2">
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Loại Đái Tháo Đường</label>
-                      <select
+                      <ClinicalSelect<string>
+                        label={t('patient.profile.diabetesType', isVi ? 'Loại Đái Tháo Đường' : 'Diabetes Type')}
                         value={formState.diabetesType}
-                        onChange={(e) => setFormState({ ...formState, diabetesType: e.target.value })}
-                        className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-teal-500"
-                      >
-                        <option value="Type1">Type 1 (Phụ thuộc Insulin)</option>
-                        <option value="Type2">Type 2 (Không phụ thuộc Insulin)</option>
-                        <option value="Gestational">Đái tháo đường thai kỳ</option>
-                        <option value="Other">Khác</option>
-                      </select>
+                        onChange={(val) => setFormState({ ...formState, diabetesType: val })}
+                        options={diabetesTypeOptions}
+                        size="sm"
+                      />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Số năm mắc bệnh</label>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">{isVi ? 'Số năm mắc bệnh' : 'Disease duration (years)'}</label>
                       <input
                         type="number"
                         value={formState.diabetesDurationYears}
                         onChange={(e) => setFormState({ ...formState, diabetesDurationYears: e.target.value })}
                         className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-teal-500"
-                        placeholder="Số năm (ví dụ: 5)"
+                        placeholder={isVi ? 'Số năm (ví dụ: 5)' : 'Years (e.g. 5)'}
                         min={0}
                         max={80}
                       />
@@ -627,29 +649,29 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 )}
 
                 {renderTriStateButtons(
-                  'Tăng huyết áp',
-                  'Đang dùng thuốc hạ áp hoặc đo định kỳ > 130 mmHg',
+                  t('patient.profile.hypertension', isVi ? 'Tăng huyết áp' : 'Hypertension'),
+                  isVi ? 'Đang dùng thuốc hạ áp hoặc đo định kỳ > 130 mmHg' : 'Antihypertensive meds or regular BP > 130 mmHg',
                   formState.hasHypertension,
                   (val) => setFormState({ ...formState, hasHypertension: val })
                 )}
 
                 {renderTriStateButtons(
-                  'Tiền sử hút thuốc lá',
-                  'Đang hút hoặc đã từng hút thuốc lá thường xuyên',
+                  t('patient.profile.smokingStatus', isVi ? 'Tiền sử hút thuốc lá' : 'Smoking status'),
+                  isVi ? 'Đang hút hoặc đã từng hút thuốc lá thường xuyên' : 'Current or regular past tobacco smoking',
                   formState.historyOfSmoking,
                   (val) => setFormState({ ...formState, historyOfSmoking: val })
                 )}
 
                 {renderTriStateButtons(
-                  'Bệnh lý tim mạch',
-                  'Bệnh mạch vành, nhồi máu cơ tim, suy tim',
+                  isVi ? 'Bệnh lý tim mạch' : 'Cardiovascular disease',
+                  isVi ? 'Bệnh mạch vành, nhồi máu cơ tim, suy tim' : 'Coronary artery disease, myocardial infarction, heart failure',
                   formState.historyOfHeartDisease,
                   (val) => setFormState({ ...formState, historyOfHeartDisease: val })
                 )}
 
                 {renderTriStateButtons(
-                  'Tiền sử đột quỵ / Tai biến mạch máu não',
-                  'Đã từng có cơn thiếu máu não thoáng qua (TIA) hoặc đột quỵ',
+                  isVi ? 'Tiền sử đột quỵ / Tai biến mạch máu não' : 'Stroke / Cerebrovascular accident',
+                  isVi ? 'Đã từng có cơn thiếu máu não thoáng qua (TIA) hoặc đột quỵ' : 'Transient ischemic attack (TIA) or prior stroke',
                   formState.historyOfStroke,
                   (val) => setFormState({ ...formState, historyOfStroke: val })
                 )}
@@ -661,53 +683,53 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
               <div className="space-y-4 animate-fadeIn">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                    <Pill className="w-3.5 h-3.5 text-teal-600" /> Danh Mục Thuốc Đang Sử Dụng Hằng Ngày
+                    <Pill className="w-3.5 h-3.5 text-teal-600" /> {t('patient.profile.medications', isVi ? 'Danh Mục Thuốc Đang Sử Dụng Hằng Ngày' : 'Current Daily Medications')}
                   </label>
                   <textarea
                     rows={2}
                     value={formState.currentMedications}
                     onChange={(e) => setFormState({ ...formState, currentMedications: e.target.value })}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                    placeholder="Ví dụ: Metformin 500mg (1 viên/ngày), Amlodipine 5mg (1 viên/sáng)..."
+                    placeholder={isVi ? 'Ví dụ: Metformin 500mg (1 viên/ngày), Amlodipine 5mg (1 viên/sáng)...' : 'E.g., Metformin 500mg (1 tab/day), Amlodipine 5mg (1 tab/morning)...'}
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Tiền Sử Dị Ứng (Thuốc / Thức ăn / Dị nguyên)
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> {isVi ? 'Tiền Sử Dị Ứng (Thuốc / Thức ăn / Dị nguyên)' : 'Allergy History (Drugs / Food / Allergens)'}
                   </label>
                   <input
                     type="text"
                     value={formState.allergies}
                     onChange={(e) => setFormState({ ...formState, allergies: e.target.value })}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                    placeholder="Ví dụ: Penicillin, Aspirin hoặc Không có dị ứng..."
+                    placeholder={isVi ? 'Ví dụ: Penicillin, Aspirin hoặc Không có dị ứng...' : 'E.g., Penicillin, Aspirin or No known allergies...'}
                   />
                 </div>
 
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
                   <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <PhoneCall className="w-3.5 h-3.5 text-red-500" /> Thông Tin Người Thân Liên Hệ Khẩn Cấp
+                    <PhoneCall className="w-3.5 h-3.5 text-red-500" /> {isVi ? 'Thông Tin Người Thân Liên Hệ Khẩn Cấp' : 'Emergency Contact Information'}
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">Họ tên người liên hệ</label>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">{isVi ? 'Họ tên người liên hệ' : 'Contact full name'}</label>
                       <input
                         type="text"
                         value={formState.emergencyContactName}
                         onChange={(e) => setFormState({ ...formState, emergencyContactName: e.target.value })}
                         className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                        placeholder="Chưa khai báo"
+                        placeholder={isVi ? 'Chưa khai báo' : 'Unspecified'}
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">Số điện thoại khẩn cấp</label>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">{isVi ? 'Số điện thoại khẩn cấp' : 'Emergency phone number'}</label>
                       <input
                         type="text"
                         value={formState.emergencyContactPhone}
                         onChange={(e) => setFormState({ ...formState, emergencyContactPhone: e.target.value })}
                         className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white font-mono-data"
-                        placeholder="Chưa khai báo"
+                        placeholder={isVi ? 'Chưa khai báo' : 'Unspecified'}
                       />
                     </div>
                   </div>
@@ -722,7 +744,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
             {/* Bottom Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-100">
               <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-teal-600" /> Dữ liệu y tế được bảo vệ và chỉ sử dụng cho mục đích chăm sóc sức khỏe.
+                <ShieldCheck className="w-3.5 h-3.5 text-teal-600" /> {isVi ? 'Dữ liệu y tế được bảo vệ và chỉ sử dụng cho mục đích chăm sóc sức khỏe.' : 'Medical data protected and used strictly for clinical care.'}
               </span>
               <div className="flex gap-2">
                 <button
@@ -731,7 +753,7 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                   className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
                   disabled={isLoading}
                 >
-                  Hủy
+                  {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
                 </button>
                 <button
                   type="submit"
@@ -740,11 +762,11 @@ export const MedicalProfileModal: React.FC<MedicalProfileModalProps> = ({
                 >
                   {isLoading ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang lưu...
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> {isVi ? 'Đang lưu...' : 'Saving...'}
                     </>
                   ) : (
                     <>
-                      <Save className="w-3.5 h-3.5" /> Lưu Thay Đổi
+                      <Save className="w-3.5 h-3.5" /> {t('patient.profile.saveProfile', isVi ? 'Lưu Thay Đổi' : 'Save Changes')}
                     </>
                   )}
                 </button>

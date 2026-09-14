@@ -176,9 +176,9 @@ public class BatchJobQueue {
                 severeAnomalies += ai.detectedAnomaliesCount();
 
                 String level = ai.cardiovascularRiskLevel();
-                if (score >= 85 || "Critical".equalsIgnoreCase(level) || "Severe".equalsIgnoreCase(level)) {
+                if (score >= 80 || "Critical".equalsIgnoreCase(level) || "Severe".equalsIgnoreCase(level)) {
                     critical++;
-                } else if (score >= 70 || "High".equalsIgnoreCase(level)) {
+                } else if (score >= 65 || "High".equalsIgnoreCase(level)) {
                     high++;
                 } else if (score >= 40 || "Moderate".equalsIgnoreCase(level)) {
                     moderate++;
@@ -242,12 +242,12 @@ public class BatchJobQueue {
                 int anomalies = ai.detectedAnomaliesCount();
                 String level = ai.cardiovascularRiskLevel();
 
-                boolean isCritical = score >= 85
+                boolean isCritical = score >= 80
                         || "Critical".equalsIgnoreCase(level)
                         || "Severe".equalsIgnoreCase(level)
                         || stroke >= 25.0;
 
-                boolean isHigh = !isCritical && (score >= 70
+                boolean isHigh = !isCritical && (score >= 65
                         || "High".equalsIgnoreCase(level)
                         || stroke >= 18.0
                         || anomalies >= 2);

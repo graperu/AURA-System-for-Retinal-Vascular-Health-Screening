@@ -34,7 +34,7 @@ export function DataTable<T>({
                 key={idx}
                 className={`py-3.5 px-4 ${
                   col.align === 'right'
-                    ? 'text-right font-mono-data'
+                    ? 'text-right'
                     : col.align === 'center'
                     ? 'text-center'
                     : 'text-left'
@@ -63,8 +63,8 @@ export function DataTable<T>({
               <tr
                 key={keyExtractor(row, rIdx)}
                 onClick={() => onRowClick?.(row)}
-                className={`transition-colors ${
-                  onRowClick ? 'cursor-pointer hover:bg-brand-50/60' : 'hover:bg-slate-50/50'
+                className={`transition-colors duration-150 ease-out ${
+                  onRowClick ? 'cursor-pointer hover:bg-brand-50/60 active:bg-brand-100/50' : 'hover:bg-slate-50/70'
                 }`}
               >
                 {columns.map((col, cIdx) => (
@@ -72,7 +72,7 @@ export function DataTable<T>({
                     key={cIdx}
                     className={`py-3.5 px-4 ${
                       col.align === 'right'
-                        ? 'text-right font-mono-data'
+                        ? 'text-right'
                         : col.align === 'center'
                         ? 'text-center'
                         : 'text-left'

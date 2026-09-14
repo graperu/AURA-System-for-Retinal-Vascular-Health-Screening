@@ -107,23 +107,25 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   const validateFile = (file: File): boolean => {
     if (file.size > MAX_FILE_SIZE_BYTES) {
       setUploadError(
-        `Tệp "${file.name}" vượt quá dung lượng tối đa cho phép (15MB). Dung lượng hiện tại: ${(
+        `${file.name} ${t('uploader.fileSizeError', isVi ? 'vượt quá dung lượng tối đa cho phép (15MB)' : 'exceeds maximum allowed size (15MB)')}. (${(
           file.size /
           (1024 * 1024)
-        ).toFixed(2)} MB.`
+        ).toFixed(2)} MB)`
       );
       return false;
     }
 
     if (file.size === 0) {
-      setUploadError(`Tệp "${file.name}" rỗng (0 bytes). Vui lòng chọn tệp ảnh chụp võng mạc hợp lệ.`);
+      setUploadError(
+        `${file.name}: ${t('uploader.fileEmptyError', isVi ? 'Tệp rỗng (0 bytes). Vui lòng chọn tệp ảnh hợp lệ.' : 'File is empty (0 bytes). Please select a valid fundus image.')}`
+      );
       return false;
     }
 
     const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       setUploadError(
-        `Định dạng tệp "${ext}" không được hỗ trợ. Vui lòng tải lên tệp DICOM (.dcm), PNG (.png), JPEG (.jpg, .jpeg) hoặc TIFF (.tif).`
+        `${ext}: ${t('uploader.fileFormatError', isVi ? 'Định dạng tệp không được hỗ trợ. Vui lòng tải lên tệp DICOM (.dcm), PNG (.png), JPEG (.jpg, .jpeg) hoặc TIFF (.tif).' : 'Unsupported file format. Please upload DICOM (.dcm), PNG (.png), JPEG (.jpg, .jpeg) or TIFF (.tif).')}`
       );
       return false;
     }
@@ -290,11 +292,19 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     const hasOS = Boolean(osFile || osPreviewUrl);
 
     if (eyeMode === 'Right_OD' && !hasOD) {
-      setUploadError('Vui lòng chọn tệp ảnh chụp võng mạc cho Mắt Phải (OD) trước khi bắt đầu phân tích AI.');
+      setUploadError(
+        isVi
+          ? 'Vui lòng chọn tệp ảnh chụp võng mạc cho Mắt Phải (OD) trước khi bắt đầu phân tích AI.'
+          : 'Please select a retinal scan image for Right Eye (OD) before starting AI analysis.'
+      );
       return;
     }
     if (eyeMode === 'Left_OS' && !hasOS) {
-      setUploadError('Vui lòng chọn tệp ảnh chụp võng mạc cho Mắt Trái (OS) trước khi bắt đầu phân tích AI.');
+      setUploadError(
+        isVi
+          ? 'Vui lòng chọn tệp ảnh chụp võng mạc cho Mắt Trái (OS) trước khi bắt đầu phân tích AI.'
+          : 'Please select a retinal scan image for Left Eye (OS) before starting AI analysis.'
+      );
       return;
     }
 
@@ -667,7 +677,9 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
           {userCredits !== undefined ? (
             <div className="flex items-center gap-2 text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
-              <span className="text-slate-500">Số lượt khám khả dụng:</span>
+              <span className="text-slate-500">
+                {t('uploader.availableQuota', isVi ? 'Lượt khám khả dụng:' : 'Available screening quota:')}
+              </span>
               <span
                 className={`font-black font-mono-data px-2 py-0.5 rounded-md border text-xs ${
                   userCredits > 0
@@ -675,7 +687,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                     : 'bg-rose-50 text-rose-700 border-rose-200'
                 }`}
               >
-                {userCredits} lượt
+                {userCredits} {t('uploader.quotaUnit', isVi ? 'lượt' : 'credits')}
               </span>
               {userCredits <= 0 && onOpenCreditModal && (
                 <button
@@ -684,7 +696,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                   className="text-xs font-bold text-teal-700 hover:text-teal-800 hover:underline flex items-center gap-1 ml-1 cursor-pointer"
                 >
                   <Zap className="w-3.5 h-3.5 fill-teal-600 text-teal-600" />
-                  <span>Nạp thêm</span>
+                  <span>{t('uploader.topUp', isVi ? 'Nạp thêm' : 'Top up')}</span>
                 </button>
               )}
             </div>

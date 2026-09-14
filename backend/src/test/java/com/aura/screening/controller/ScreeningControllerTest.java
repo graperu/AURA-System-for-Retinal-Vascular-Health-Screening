@@ -14,6 +14,7 @@ import com.aura.common.response.ApiResponse;
 import com.aura.common.response.ErrorCode;
 import com.aura.screening.dto.CreateScreeningRequest;
 import com.aura.screening.dto.ReviewScreeningRequest;
+import com.aura.screening.dto.ScreeningResponse;
 import com.aura.screening.entity.ReviewDecision;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.service.ScreeningService;
@@ -69,10 +70,11 @@ class ScreeningControllerTest {
 
     when(screeningService.createScreening(eq(patientId), eq(req))).thenReturn(screening);
 
-    ApiResponse<Screening> response = controller.createScreening(patientPrincipal, req);
+    ApiResponse<ScreeningResponse> response = controller.createScreening(patientPrincipal, req);
 
     assertNotNull(response);
-    assertEquals(screening, response.data());
+    assertEquals(screening.getPatientId(), response.data().patientId());
+    assertEquals(screening.getImageUrl(), response.data().imageUrl());
   }
 
   @Test
@@ -217,11 +219,11 @@ class ScreeningControllerTest {
     ReflectionTestUtils.setField(screening, "id", screeningId);
     when(screeningService.getScreeningById(screeningId)).thenReturn(screening);
 
-    ApiResponse<Screening> response = controller.getScreeningById(screeningId, patientPrincipal);
+    ApiResponse<ScreeningResponse> response = controller.getScreeningById(screeningId, patientPrincipal);
 
     assertNotNull(response);
-    assertEquals(screening, response.data());
-    assertEquals(screeningId, response.data().getId());
+    assertEquals(screeningId, response.data().id());
+    assertEquals(patientId, response.data().patientId());
   }
 
   @Test
@@ -289,5 +291,62 @@ class ScreeningControllerTest {
 
     assertNotNull(response);
     assertEquals(1, response.data().size());
+  }
+
+  @Test
+  @DisplayName("RBAC: Khi principal.roles() là null -> hasRole trả về false, fallback về quyền cá nhân của chính mình")
+  void getScreenings_whenPrincipalRolesNull_fallbackToOwnHistory() {
+    AuraUserPrincipal nullRolePrincipal = new AuraUserPrincipal(patientId, "norole@aura.test", "pass", true, null);
+    Screening s = new Screening(patientId, "img_self");
+    when(screeningService.getScreeningsForPatient(patientId)).thenReturn(List.of(s));
+
+    // Case 1: patientId == null
+    ApiResponse<List<Screening>> res1 = controller.getScreenings(null, nullRolePrincipal);
+    assertNotNull(res1.data());
+    assertEquals(1, res1.data().size());
+
+    // Case 2: getScreenings(principal) overload
+    ApiResponse<List<Screening>> res2 = controller.getScreenings(nullRolePrincipal);
+    assertNotNull(res2.data());
+    assertEquals(1, res2.data().size());
+
+    // Case 3: patientId != null && patientId == principal.id()
+    ApiResponse<List<Screening>> res3 = controller.getScreenings(patientId, nullRolePrincipal);
+    assertNotNull(res3.data());
+    assertEquals(1, res3.data().size());
+
+    // Case 4: patientId != null && patientId != principal.id() -> ném AuthException ACCESS_DENIED
+    UUID otherId = UUID.randomUUID();
+    AuthException ex = assertThrows(AuthException.class, () -> controller.getScreenings(otherId, nullRolePrincipal));
+    assertEquals(ErrorCode.ACCESS_DENIED, ex.code());
+    assertTrue(ex.getMessage().contains("Không có quyền truy cập lịch sử sàng lọc của bệnh nhân khác"));
+  }
+
+  @Test
+  @DisplayName("RBAC: createScreening và getScreening khi principal.roles() là null")
+  void createAndGetScreening_whenPrincipalRolesNull_succeeds() {
+    AuraUserPrincipal nullRolePrincipal = new AuraUserPrincipal(patientId, "norole@aura.test", "pass", true, null);
+
+    CreateScreeningRequest req = new CreateScreeningRequest(
+        "data:image/png;base64,sample", "OD", "FUNDUS", "eye.png", 1024L, "image/png", null, null, null, null
+    );
+    Screening screening = new Screening(patientId, req.imageUrl());
+    when(screeningService.createScreening(eq(patientId), eq(req))).thenReturn(screening);
+
+    ApiResponse<ScreeningResponse> res = controller.createScreening(nullRolePrincipal, req);
+    assertNotNull(res);
+    assertEquals(patientId, res.data().patientId());
+
+    UUID screeningId = UUID.randomUUID();
+    ReflectionTestUtils.setField(screening, "id", screeningId);
+    when(screeningService.getScreeningById(screeningId)).thenReturn(screening);
+
+    ApiResponse<ScreeningResponse> detailRes = controller.getScreening(screeningId, nullRolePrincipal);
+    assertNotNull(detailRes);
+    assertEquals(screeningId, detailRes.data().id());
+
+    ApiResponse<ScreeningResponse> detailRes2 = controller.getScreeningById(screeningId, nullRolePrincipal);
+    assertNotNull(detailRes2);
+    assertEquals(screeningId, detailRes2.data().id());
   }
 }

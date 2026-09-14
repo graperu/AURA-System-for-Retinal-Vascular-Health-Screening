@@ -13,12 +13,18 @@ import static org.mockito.Mockito.when;
 
 import com.aura.bulk.dto.AiInferenceResultDto;
 import com.aura.bulk.dto.PatientAnonymizedDto;
+import com.aura.bulk.entity.BulkScreeningBatch;
+import com.aura.bulk.entity.BulkScreeningItem;
 import com.aura.bulk.queue.BatchItemTask;
 import com.aura.bulk.queue.BatchJobQueue;
+import com.aura.bulk.repository.BulkScreeningBatchRepository;
+import com.aura.bulk.repository.BulkScreeningItemRepository;
 import com.aura.bulk.service.AiServiceClient;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,11 +44,17 @@ class BulkProcessingWorkerTest {
   @Mock
   private AiServiceClient aiServiceClient;
 
+  @Mock
+  private BulkScreeningItemRepository itemRepository;
+
+  @Mock
+  private BulkScreeningBatchRepository batchRepository;
+
   private BulkProcessingWorker worker;
 
   @BeforeEach
   void setUp() {
-    worker = new BulkProcessingWorker(jobQueue, aiServiceClient);
+    worker = new BulkProcessingWorker(jobQueue, aiServiceClient, itemRepository, batchRepository);
   }
 
   @AfterEach
@@ -62,7 +74,7 @@ class BulkProcessingWorkerTest {
   }
 
   @Test
-  @DisplayName("processQueueLoop xử lý thành công 1 task, cập nhật PROCESSING và COMPLETED, sau đó thoát khi gặp InterruptedException")
+  @DisplayName("processQueueLoop xử lý thành công 1 task, cập nhật PROCESSING, COMPLETED và đồng bộ database")
   void processQueueLoop_successPath() throws Exception {
     PatientAnonymizedDto patient = new PatientAnonymizedDto(
         "ps-99", "MRN-ANON-99", 52, "Male", 135, 88, 6.4, true, false, Instant.now()
@@ -94,15 +106,35 @@ class BulkProcessingWorkerTest {
     when(aiServiceClient.executeFundusAnalysis("ps-99", "OD", "base64-data"))
         .thenReturn(aiResult);
 
+    UUID batchUuid = UUID.randomUUID();
+    BulkScreeningBatch batch = new BulkScreeningBatch("batch-01", UUID.randomUUID(), 1);
+    ReflectionTestUtils.setField(batch, "id", batchUuid);
+
+    BulkScreeningItem item = new BulkScreeningItem(batchUuid, "item-01", "scan_od.png", "OD", "ps-99");
+
+    when(batchRepository.findByBatchCode("batch-01")).thenReturn(Optional.of(batch));
+    when(itemRepository.findByBatchIdAndItemCode(batchUuid, "item-01")).thenReturn(Optional.of(item));
+
     invokeProcessQueueLoop(worker);
 
     verify(jobQueue).updateItemProgress("batch-01", "item-01", "PROCESSING", 0, null);
     verify(aiServiceClient).executeFundusAnalysis("ps-99", "OD", "base64-data");
     verify(jobQueue).updateItemProgress(eq("batch-01"), eq("item-01"), eq("COMPLETED"), anyLong(), eq(aiResult));
+
+    // Verify DB sync
+    verify(itemRepository).save(item);
+    assertThat(item.getStatus()).isEqualTo("COMPLETED");
+    assertThat(item.getRiskScore()).isEqualTo(78);
+    assertThat(item.getRiskLevel()).isEqualTo("HIGH");
+    assertThat(item.getProcessedAt()).isNotNull();
+
+    verify(batchRepository).save(batch);
+    assertThat(batch.getProcessedCount()).isEqualTo(1);
+    assertThat(batch.getStatus()).isEqualTo("COMPLETED");
   }
 
   @Test
-  @DisplayName("processQueueLoop khi AI microservice ném ngoại lệ -> bắt lỗi an toàn và tiếp tục vòng lặp cho đến khi bị ngắt luồng")
+  @DisplayName("processQueueLoop khi AI microservice ném ngoại lệ -> cập nhật FAILED trong queue và database")
   void processQueueLoop_whenAiServiceThrowsException_handlesGracefully() throws Exception {
     PatientAnonymizedDto patient = new PatientAnonymizedDto(
         "ps-err", "MRN-ERR", 60, "Female", 140, 90, 7.0, false, true, Instant.now()
@@ -116,10 +148,30 @@ class BulkProcessingWorkerTest {
     when(aiServiceClient.executeFundusAnalysis(anyString(), anyString(), anyString()))
         .thenThrow(new RuntimeException("PyTorch service connection timeout"));
 
+    UUID batchUuid = UUID.randomUUID();
+    BulkScreeningBatch batch = new BulkScreeningBatch("batch-err", UUID.randomUUID(), 1);
+    ReflectionTestUtils.setField(batch, "id", batchUuid);
+
+    BulkScreeningItem item = new BulkScreeningItem(batchUuid, "item-err", "scan_os.png", "OS", "ps-err");
+
+    when(batchRepository.findByBatchCode("batch-err")).thenReturn(Optional.of(batch));
+    when(itemRepository.findByBatchIdAndItemCode(batchUuid, "item-err")).thenReturn(Optional.of(item));
+
     invokeProcessQueueLoop(worker);
 
     verify(jobQueue).updateItemProgress("batch-err", "item-err", "PROCESSING", 0, null);
     verify(jobQueue, never()).updateItemProgress(eq("batch-err"), eq("item-err"), eq("COMPLETED"), anyLong(), any());
+    verify(jobQueue).updateItemProgress("batch-err", "item-err", "FAILED", 0, null);
+
+    // Verify DB sync on failure
+    verify(itemRepository).save(item);
+    assertThat(item.getStatus()).isEqualTo("FAILED");
+    assertThat(item.getErrorMessage()).contains("PyTorch service connection timeout");
+    assertThat(item.getProcessedAt()).isNotNull();
+
+    verify(batchRepository).save(batch);
+    assertThat(batch.getFailedCount()).isEqualTo(1);
+    assertThat(batch.getStatus()).isEqualTo("COMPLETED");
   }
 
   @Test

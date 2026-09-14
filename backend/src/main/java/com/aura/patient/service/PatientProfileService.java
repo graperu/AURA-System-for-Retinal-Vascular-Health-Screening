@@ -64,7 +64,7 @@ public class PatientProfileService {
 
   // --- FR-18 Worklist & Filter methods ---
 
-  @Transactional
+  @Transactional(readOnly = true)
   public Page<PatientProfileDto> searchPatients(
       String search,
       String riskLevel,
@@ -76,7 +76,22 @@ public class PatientProfileService {
       String doctorName,
       String reviewStatus,
       Pageable pageable) {
-    syncFromMedicalProfilesAndAssignments();
+    return searchPatients(search, riskLevel, minScore, maxScore, hasDiabetes, hasHypertension, historyOfSmoking, doctorName, reviewStatus, null, pageable);
+  }
+
+  @Transactional(readOnly = true)
+  public Page<PatientProfileDto> searchPatients(
+      String search,
+      String riskLevel,
+      Integer minScore,
+      Integer maxScore,
+      Boolean hasDiabetes,
+      Boolean hasHypertension,
+      Boolean historyOfSmoking,
+      String doctorName,
+      String reviewStatus,
+      List<UUID> allowedPatientIds,
+      Pageable pageable) {
     Specification<PatientProfile> spec = PatientSpecification.filterPatients(
         search,
         riskLevel,
@@ -86,7 +101,8 @@ public class PatientProfileService {
         hasHypertension,
         historyOfSmoking,
         doctorName,
-        reviewStatus);
+        reviewStatus,
+        allowedPatientIds);
     return patientRepository.findAll(spec, pageable).map(PatientProfileDto::from);
   }
 

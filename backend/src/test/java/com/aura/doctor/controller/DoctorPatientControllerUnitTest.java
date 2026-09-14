@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.aura.auth.exception.AuthException;
@@ -116,13 +117,9 @@ class DoctorPatientControllerUnitTest {
     }
 
     @Test
-    @DisplayName("Không truyền tham số: Bác sĩ chưa có phân công -> Fallback về danh sách bệnh nhân mặc định")
-    void getPatients_whenNoAssignedPatients_fallsBackToDefaultSearch() {
+    @DisplayName("Không truyền tham số: Bác sĩ chưa có phân công -> Trả về danh sách rỗng, không fallback toàn viện (SEC-F04)")
+    void getPatients_whenNoAssignedPatients_returnsEmptyPageWithoutFallback() {
       when(assignmentService.getAssignedPatients(eq(doctorId))).thenReturn(Collections.emptyList());
-      Page<PatientProfileDto> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 100), 0);
-      when(profileService.searchPatients(
-          eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), any(Pageable.class)))
-          .thenReturn(emptyPage);
 
       ApiResponse<?> response = controller.getPatients(
           null, null, null, null, null, null, null, null, null,
@@ -130,9 +127,9 @@ class DoctorPatientControllerUnitTest {
       );
 
       assertThat(response).isNotNull();
-      assertThat(response.message()).isEqualTo("Lấy danh sách bệnh nhân thành công");
-      verify(profileService).searchPatients(
-          eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), any(Pageable.class));
+      assertThat(response.message()).isEqualTo("Lấy danh sách bệnh nhân được phân công thành công");
+      assertThat(response.data()).isEqualTo(List.of());
+      verifyNoInteractions(profileService);
     }
 
     @Test

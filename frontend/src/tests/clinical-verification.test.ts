@@ -479,6 +479,53 @@ runTest('FR-7.6: mapScreeningToAIRiskResult tuân thủ an toàn y khoa, không 
   assert.deepStrictEqual(mapped.icd10Codes, ['H35.0', 'I10']);
 });
 
+runTest('FR-7.9: Parse an toàn detectedAnomalies từ chuỗi JSON string trong database hoặc mảng thật', () => {
+  // Trường hợp 1: detectedAnomalies là JSON string hợp lệ từ backend PostgreSQL TEXT column
+  const screeningWithJsonString = {
+    id: 'SCR-DB-JSON-01',
+    cardiovascularRiskScore: 65,
+    diabeticRetinopathyRiskScore: 70,
+    detectedAnomalies: JSON.stringify([
+      {
+        id: 'ano-01',
+        type: 'Microaneurysm',
+        confidence: 0.92,
+        coordinates: { x: 45, y: 52, width: 26, height: 26 },
+        description: 'Vi phình mạch khu trú nhánh thái dương trên',
+      },
+    ]),
+  };
+  const mapped1 = mapScreeningToAIRiskResult(screeningWithJsonString, '/fallback.png');
+  assert.strictEqual(mapped1.annotatedMap.detectedAnomalies.length, 1);
+  assert.strictEqual(mapped1.annotatedMap.detectedAnomalies[0].type, 'Microaneurysm');
+  assert.strictEqual(mapped1.annotatedMap.detectedAnomalies[0].coordinates.x, 45);
+
+  // Trường hợp 2: detectedAnomalies là mảng JSON thật
+  const screeningWithArray = {
+    id: 'SCR-DB-ARR-02',
+    detectedAnomalies: [
+      {
+        id: 'ano-02',
+        type: 'Hemorrhage',
+        confidence: 0.88,
+        coordinates: { x: 60, y: 40, width: 28, height: 28 },
+        description: 'Xuất huyết võng mạc nông',
+      },
+    ],
+  };
+  const mapped2 = mapScreeningToAIRiskResult(screeningWithArray, '/fallback.png');
+  assert.strictEqual(mapped2.annotatedMap.detectedAnomalies.length, 1);
+  assert.strictEqual(mapped2.annotatedMap.detectedAnomalies[0].type, 'Hemorrhage');
+
+  // Trường hợp 3: detectedAnomalies là chuỗi JSON không hợp lệ (hỏng) - fail safe không làm sập
+  const screeningWithCorruptedJson = {
+    id: 'SCR-DB-BAD-03',
+    detectedAnomalies: '{ corrupted json string ...',
+  };
+  const mapped3 = mapScreeningToAIRiskResult(screeningWithCorruptedJson, '/fallback.png');
+  assert.deepStrictEqual(mapped3.annotatedMap.detectedAnomalies, []);
+});
+
 runTest('FR-7.7: Báo cáo đối chiếu song song 2 mắt (Dual Eye OD & OS) và xuất CSV', () => {
   const patient: PatientProfile = {
     fullName: 'Hoàng Văn Minh',

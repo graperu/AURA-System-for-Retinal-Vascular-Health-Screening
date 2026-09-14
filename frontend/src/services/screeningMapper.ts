@@ -84,13 +84,31 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
     screening.riskScore ?? screening.overallVascularRiskScore ?? ((cvdScore + drScore) / 2)
   );
 
-  // Xóa bỏ hoàn toàn hàm sinh tọa độ tổn thương giả lập generateAnomaliesFromMetrics.
-  // Lấy detectedAnomalies thật nếu có, nếu không thì trả về mảng rỗng [].
-  const detectedAnomalies: VesselAnomalyRegion[] = Array.isArray(screening.detectedAnomalies)
-    ? screening.detectedAnomalies
-    : Array.isArray(screening.annotatedMap?.detectedAnomalies)
-    ? screening.annotatedMap.detectedAnomalies
-    : [];
+  // Parse an toàn trường detectedAnomalies từ chuỗi JSON string hoặc mảng thật
+  let detectedAnomalies: VesselAnomalyRegion[] = [];
+  if (typeof (screening as any).detectedAnomalies === 'string' && (screening as any).detectedAnomalies.trim().length > 2) {
+    try {
+      const parsed = JSON.parse((screening as any).detectedAnomalies);
+      if (Array.isArray(parsed)) {
+        detectedAnomalies = parsed;
+      }
+    } catch (e) {
+      console.warn('Lỗi phân tích detectedAnomalies:', e);
+    }
+  } else if (Array.isArray((screening as any).detectedAnomalies)) {
+    detectedAnomalies = (screening as any).detectedAnomalies;
+  } else if (typeof (screening as any).annotatedMap?.detectedAnomalies === 'string' && (screening as any).annotatedMap.detectedAnomalies.trim().length > 2) {
+    try {
+      const parsed = JSON.parse((screening as any).annotatedMap.detectedAnomalies);
+      if (Array.isArray(parsed)) {
+        detectedAnomalies = parsed;
+      }
+    } catch (e) {
+      console.warn('Lỗi phân tích annotatedMap.detectedAnomalies:', e);
+    }
+  } else if (Array.isArray((screening as any).annotatedMap?.detectedAnomalies)) {
+    detectedAnomalies = (screening as any).annotatedMap.detectedAnomalies;
+  }
 
   const parsedIcd10 = parseIcd10Codes(screening.icd10Codes);
 
@@ -127,7 +145,7 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
         drScore,
         screening.diabeticRetinopathyRiskLevel
       ),
-      macularEdemaPresent: drScore >= 50,
+      macularEdemaPresent: Boolean((screening as any).macularEdemaPresent ?? false),
     },
     glaucomaRisk: {
       level: toFrontendRiskLevel(screening.glaucomaRiskLevel),
@@ -135,6 +153,7 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
     },
     annotatedMap: {
       heatmapUrl: screening.heatmapBase64 || screening.annotatedMap?.heatmapUrl || undefined,
+      vesselMaskUrl: screening.vesselMaskUrl || screening.annotatedMap?.vesselMaskUrl || undefined,
       arteryVeinRatio: screening.avRatio ?? screening.annotatedMap?.arteryVeinRatio ?? 0,
       vesselDensityPercentage: screening.vesselDensityPercent ?? screening.annotatedMap?.vesselDensityPercentage ?? 0,
       tortuosityIndex: screening.tortuosityIndex ?? screening.annotatedMap?.tortuosityIndex ?? 0,

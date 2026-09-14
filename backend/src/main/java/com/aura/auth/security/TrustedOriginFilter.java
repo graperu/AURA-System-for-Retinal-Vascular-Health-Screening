@@ -34,7 +34,7 @@ public class TrustedOriginFilter extends OncePerRequestFilter {
     
     boolean isAllowed = allowed.contains("*") || (origin != null && allowed.contains(origin));
     if (!isAllowed) {
-      boolean isLocal = origin != null && (origin.contains("localhost") || origin.contains("127.0.0.1"));
+      boolean isLocal = isLocalOrigin(origin);
       if (!isLocal) {
         s.setStatus(403);
         s.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -45,6 +45,19 @@ public class TrustedOriginFilter extends OncePerRequestFilter {
       }
     }
     c.doFilter(r, s);
+  }
+
+  private boolean isLocalOrigin(String origin) {
+    if (origin == null || origin.isBlank()) {
+      return false;
+    }
+    try {
+      URI u = URI.create(origin);
+      String host = u.getHost();
+      return host != null && ("localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host));
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
   }
 
   private String originFromReferer(String value) {

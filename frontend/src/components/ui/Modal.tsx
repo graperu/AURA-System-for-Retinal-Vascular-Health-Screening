@@ -48,9 +48,9 @@ export const Modal: React.FC<ModalProps> = ({
   }[maxWidth];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div
-        className={`w-full ${maxWidthClasses} bg-white rounded-xl shadow-clinical-modal border border-clinical-border flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-150`}
+        className={`w-full ${maxWidthClasses} bg-white rounded-2xl shadow-medical-modal border border-clinical-border flex flex-col max-h-[92vh] overflow-hidden animate-modal-enter`}
         role="dialog"
         aria-modal="true"
       >
