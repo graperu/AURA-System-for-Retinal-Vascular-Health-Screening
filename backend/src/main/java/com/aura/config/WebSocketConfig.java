@@ -87,13 +87,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
           if (destination != null && destination.startsWith("/topic/chat.")) {
             String targetUserId = destination.substring("/topic/chat.".length());
             Object userObj = accessor.getUser();
-            if (userObj instanceof UsernamePasswordAuthenticationToken auth
-                && auth.getPrincipal() instanceof AuraUserPrincipal principal) {
-              boolean isAdmin = principal.roles() != null && principal.roles().contains("ADMIN");
-              if (!isAdmin && !principal.id().toString().equalsIgnoreCase(targetUserId)) {
-                log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
-                throw new AccessDeniedException("Unauthorized subscription to private chat channel");
-              }
+            if (!(userObj instanceof UsernamePasswordAuthenticationToken auth
+                && auth.getPrincipal() instanceof AuraUserPrincipal principal)) {
+              log.warn("Unauthenticated subscription attempt to {}", destination);
+              throw new AccessDeniedException("Yêu cầu đăng nhập để đăng ký kênh tin nhắn tư vấn");
+            }
+            boolean isAdmin = principal.roles() != null && principal.roles().contains("ADMIN");
+            if (!isAdmin && !principal.id().toString().equalsIgnoreCase(targetUserId)) {
+              log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
+              throw new AccessDeniedException("Unauthorized subscription to private chat channel");
             }
           }
         }

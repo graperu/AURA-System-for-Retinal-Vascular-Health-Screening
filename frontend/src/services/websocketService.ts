@@ -104,12 +104,13 @@ export class StompChatClient {
   }
 
   public subscribe(topic: string, callback: (message: any) => void) {
+    const isNew = !this.subscriptions.has(topic) || this.subscriptions.get(topic)!.size === 0;
     if (!this.subscriptions.has(topic)) {
       this.subscriptions.set(topic, new Set());
     }
     this.subscriptions.get(topic)!.add(callback);
 
-    if (this.isConnected) {
+    if (this.isConnected && isNew) {
       this.sendSubscribe(topic);
     }
   }

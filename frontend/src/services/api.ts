@@ -62,11 +62,13 @@ const request = async <T>(
   } else {
     // Tự động chuẩn hóa phản hồi từ các endpoint chưa bọc ApiResponse
     if (typeof body === "object" && body !== null && body.success === undefined) {
-      body = {
-        success: true,
-        data: body,
-        ...body,
-      };
+      body = Array.isArray(body)
+        ? { success: true, data: body }
+        : {
+            success: true,
+            data: body,
+            ...body,
+          };
     }
   }
   return { response, body };
