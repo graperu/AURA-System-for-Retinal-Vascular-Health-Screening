@@ -215,10 +215,30 @@ public class ScreeningService {
         if (predictions != null) {
           for (Map prediction : predictions) {
             String category = String.valueOf(prediction.get("category"));
-            Number predConfidence = (Number) prediction.get("confidence");
-            int predScore = predConfidence != null ? (int) Math.round(predConfidence.doubleValue() * 100) : 0;
             String predRiskLevel = String.valueOf(prediction.get("riskLevel"));
             String clinicalNote = (String) prediction.get("clinicalNote");
+
+            // ĐÚNG CHUẨN Y KHOA: Lấy riskScore của bệnh lý đó (0-100),
+            // TUYỆT ĐỐI KHÔNG LẤY confidence * 100 vì confidence là độ tự tin thống kê!
+            Number predScoreNum = (Number) prediction.get("riskScore");
+            if (predScoreNum == null) {
+              predScoreNum = (Number) prediction.get("score");
+            }
+            int predScore;
+            if (predScoreNum != null) {
+              predScore = predScoreNum.intValue();
+            } else {
+              // Suy ra điểm số phù hợp với mức rủi ro
+              if ("CRITICAL".equalsIgnoreCase(predRiskLevel) || "SEVERE".equalsIgnoreCase(predRiskLevel)) {
+                predScore = Math.max(score, 85);
+              } else if ("HIGH".equalsIgnoreCase(predRiskLevel)) {
+                predScore = Math.max(score, 70);
+              } else if ("MODERATE".equalsIgnoreCase(predRiskLevel) || "MEDIUM".equalsIgnoreCase(predRiskLevel)) {
+                predScore = 48;
+              } else {
+                predScore = 18;
+              }
+            }
 
             if (category.contains("Cardiovascular") || category.contains("Hypertensive")) {
               screening.setCardiovascularRiskScore(predScore);

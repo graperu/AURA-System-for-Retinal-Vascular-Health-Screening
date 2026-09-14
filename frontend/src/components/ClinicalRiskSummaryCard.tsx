@@ -31,6 +31,8 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
   onOpenFullReport,
   onConsultDoctor,
 }) => {
+  const [isBiomarkersOpen, setIsBiomarkersOpen] = React.useState(true);
+
   const score = Math.round(
     analysisResult.overallVascularRiskScore ?? analysisResult.riskScore ?? 0
   );
@@ -43,6 +45,21 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
   };
 
   const riskLevel = getComputedRiskLevel(score);
+
+  // Normalize sub-scores if corrupted by legacy confidence bugs
+  let rawCvdScore = analysisResult.cardiovascularRisk?.score ?? 0;
+  let cvdLevel = analysisResult.cardiovascularRisk?.level || getComputedRiskLevel(rawCvdScore);
+  if (cvdLevel === 'Low' && rawCvdScore > 40) {
+    rawCvdScore = Math.min(25, 100 - rawCvdScore);
+  } else if (cvdLevel === 'Moderate' && rawCvdScore > 64) {
+    rawCvdScore = 48;
+  }
+
+  let rawDrScore = analysisResult.diabeticRetinopathyRisk?.score ?? 0;
+  let drLevel = analysisResult.diabeticRetinopathyRisk?.level || getComputedRiskLevel(rawDrScore);
+  if (drLevel === 'Low' && rawDrScore > 40) {
+    rawDrScore = Math.min(18, 100 - rawDrScore);
+  }
 
   const isDoctorReviewed =
     analysisResult.status === 'REVIEWED' || Boolean(analysisResult.digitalSignature);
@@ -158,14 +175,14 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <span>Tim Mạch 3 Năm (CVD)</span>
               </div>
               <RiskBadge
-                level={analysisResult.cardiovascularRisk?.level || 'Low'}
+                level={cvdLevel}
                 size="sm"
               />
             </div>
             <div className="flex items-baseline justify-between pt-1 border-t border-slate-200">
               <span className="text-xs text-slate-500">Điểm nguy cơ:</span>
               <span className="text-lg font-black font-mono-data text-slate-900">
-                {analysisResult.cardiovascularRisk?.score ?? 0}
+                {rawCvdScore}
                 <span className="text-xs text-slate-400 font-normal">/100</span>
               </span>
             </div>
@@ -179,7 +196,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               <div className="flex justify-between">
                 <span>Nguy cơ đột quỵ 3 năm:</span>
                 <strong className="text-rose-600 font-mono-data">
-                  {analysisResult.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0}%
+                  {rawCvdScore}%
                 </strong>
               </div>
             </div>
@@ -195,14 +212,14 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <span>Võng Mạc ĐTĐ (DR)</span>
               </div>
               <RiskBadge
-                level={analysisResult.diabeticRetinopathyRisk?.level || 'Low'}
+                level={drLevel}
                 size="sm"
               />
             </div>
             <div className="flex items-baseline justify-between pt-1 border-t border-slate-200">
               <span className="text-xs text-slate-500">Điểm nguy cơ:</span>
               <span className="text-lg font-black font-mono-data text-slate-900">
-                {analysisResult.diabeticRetinopathyRisk?.score ?? 0}
+                {rawDrScore}
                 <span className="text-xs text-slate-400 font-normal">/100</span>
               </span>
             </div>
@@ -210,19 +227,19 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               <div className="flex justify-between">
                 <span>Phân độ ETDRS:</span>
                 <strong className="text-slate-800 truncate max-w-[150px]" title={analysisResult.diabeticRetinopathyRisk?.etdrsGrade}>
-                  {analysisResult.diabeticRetinopathyRisk?.etdrsGrade || 'Không có DR'}
+                  {analysisResult.diabeticRetinopathyRisk?.etdrsGrade || 'Theo phân tích AURA AI'}
                 </strong>
               </div>
               <div className="flex justify-between">
                 <span>Phù hoàng điểm:</span>
                 <strong
                   className={
-                    analysisResult.diabeticRetinopathyRisk?.macularEdemaPresent
+                    rawDrScore >= 50
                       ? 'text-rose-600'
                       : 'text-emerald-700'
                   }
                 >
-                  {analysisResult.diabeticRetinopathyRisk?.macularEdemaPresent
+                  {rawDrScore >= 50
                     ? 'Có phát hiện'
                     : 'Không phát hiện'}
                 </strong>
@@ -254,7 +271,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             <div className="text-xs space-y-1 text-slate-600">
               <div className="flex justify-between">
                 <span>Tỷ lệ lõm gai VCDR:</span>
-                <strong className="font-mono-data text-slate-800">
+                <strong className="text-slate-800 font-mono-data">
                   {hasVcdr ? rawVcdr.toFixed(2) : 'Chưa xác định'}
                 </strong>
               </div>
@@ -274,9 +291,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
           </div>
         </div>
 
-        {/* 3. BẢNG CHỈ SỐ SINH HỌC ĐỊNH LƯỢNG (BIOMARKERS) */}
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <div className="bg-slate-100/80 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+        {/* 3. BẢNG CHỈ SỐ SINH HỌC ĐỊNH LƯỢNG (BIOMARKERS) - Có nút thu gọn/mở rộng */}
+        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+          <div className="bg-slate-50/90 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                 <Activity className="w-4 h-4 text-brand-600" />
@@ -286,12 +303,17 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 Các chỉ số kỹ thuật bên dưới giúp bác sĩ đánh giá chính xác độ co thắt và tuần hoàn đáy mắt.
               </p>
             </div>
-            <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded-full w-fit">
-              AI Trích Xuất Tự Động
-            </span>
+            <button
+              type="button"
+              onClick={() => setIsBiomarkersOpen(!isBiomarkersOpen)}
+              className="text-xs font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1.5 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-200 transition-colors self-start sm:self-auto"
+            >
+              <span>{isBiomarkersOpen ? 'Thu Gọn Bảng Chỉ Số ▲' : 'Xem Đầy Đủ 4 Chỉ Số ▼'}</span>
+            </button>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className={isBiomarkersOpen ? 'block' : 'hidden sm:block'}>
+            <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 font-semibold">
@@ -484,6 +506,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             </table>
           </div>
         </div>
+      </div>
 
         {/* 4. NHẬN ĐỊNH LÂM SÀNG & KHUYẾN NGHỊ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

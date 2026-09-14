@@ -60,12 +60,14 @@ public class GeminiRetinalAiService {
             "predictions": [
               {
                 "category": "Cardiovascular Risk",
+                "riskScore": 55,
                 "confidence": 0.88,
                 "riskLevel": "MODERATE",
                 "clinicalNote": "Động mạch võng mạc co hẹp nhẹ vùng cận gai thị, tỷ lệ A/V 0.61"
               },
               {
                 "category": "Diabetic Retinopathy",
+                "riskScore": 20,
                 "confidence": 0.93,
                 "riskLevel": "LOW",
                 "clinicalNote": "Chưa ghi nhận xuất tiết cứng hoặc vi phình mạch hoàng điểm"
