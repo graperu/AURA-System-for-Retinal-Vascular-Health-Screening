@@ -1,6 +1,7 @@
 import React from 'react';
 import { Loader2, AlertCircle, Inbox } from 'lucide-react';
 import { Button } from './Button';
+import { useLanguage } from '../../context/LanguageContext';
 
 export interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -41,13 +42,16 @@ export interface LoadingStateProps {
 }
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
-  message = 'Đang tải dữ liệu lâm sàng...',
+  message,
   className = '',
 }) => {
+  const { t, isVi } = useLanguage();
+  const displayMessage = message !== undefined ? message : t('common.loading', isVi ? 'Đang tải dữ liệu lâm sàng...' : 'Loading clinical data...');
+
   return (
     <div className={`flex flex-col items-center justify-center p-12 text-center ${className}`}>
       <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-3" />
-      <p className="text-sm font-medium text-clinical-text-secondary">{message}</p>
+      <p className="text-sm font-medium text-clinical-text-secondary">{displayMessage}</p>
     </div>
   );
 };
@@ -60,21 +64,24 @@ export interface ErrorStateProps {
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({
-  title = 'Đã xảy ra lỗi',
+  title,
   message,
   onRetry,
   className = '',
 }) => {
+  const { t, isVi } = useLanguage();
+  const displayTitle = title !== undefined ? title : (isVi ? 'Đã xảy ra lỗi' : 'An error occurred');
+
   return (
     <div className={`flex flex-col items-center justify-center p-8 text-center bg-red-50/50 rounded-xl border border-red-200 ${className}`}>
       <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3 text-red-600">
         <AlertCircle className="w-6 h-6" />
       </div>
-      <h4 className="text-base font-semibold text-red-950 mb-1">{title}</h4>
+      <h4 className="text-base font-semibold text-red-950 mb-1">{displayTitle}</h4>
       <p className="text-sm text-red-700 max-w-md mb-4">{message}</p>
       {onRetry && (
         <Button variant="danger" size="sm" onClick={onRetry}>
-          Thử lại
+          {t('common.retry', isVi ? 'Thử lại' : 'Retry')}
         </Button>
       )}
     </div>

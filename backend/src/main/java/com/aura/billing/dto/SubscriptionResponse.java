@@ -14,9 +14,19 @@ public record SubscriptionResponse(
         SubscriptionStatus status) {
 
     public static SubscriptionResponse from(Subscription subscription) {
+        Long pkgId = null;
+        String pkgName = "Gói dịch vụ AURA";
+        try {
+            if (subscription.getServicePackage() != null) {
+                pkgId = subscription.getServicePackage().getId();
+                pkgName = subscription.getServicePackage().getName();
+            }
+        } catch (Exception ignored) {
+            // Lazy proxy safety fallback
+        }
         return new SubscriptionResponse(
-                subscription.getServicePackage().getId(),
-                subscription.getServicePackage().getName(),
+                pkgId,
+                pkgName,
                 subscription.getRemainingCredits(),
                 subscription.getExpiresAt(),
                 subscription.getStatus());

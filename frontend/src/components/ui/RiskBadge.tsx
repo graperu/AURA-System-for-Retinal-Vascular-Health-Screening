@@ -1,7 +1,20 @@
 import React from 'react';
-import { ShieldCheck, AlertTriangle, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, AlertCircle, HelpCircle, Info } from 'lucide-react';
 
-export type RiskLevelType = 'Low' | 'Moderate' | 'High' | 'Critical' | 'Severe' | 'Normal' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' | 'SEVERE';
+export type RiskLevelType =
+  | 'Low'
+  | 'Moderate'
+  | 'High'
+  | 'Critical'
+  | 'Severe'
+  | 'Normal'
+  | 'Unverified'
+  | 'LOW'
+  | 'MODERATE'
+  | 'HIGH'
+  | 'CRITICAL'
+  | 'SEVERE'
+  | 'UNVERIFIED';
 
 export interface RiskBadgeProps {
   level?: string | null;
@@ -43,15 +56,23 @@ export const RiskBadge: React.FC<RiskBadgeProps> = ({
       case 'CRITICAL':
       case 'SEVERE':
         return {
-          label: 'Nguy cơ Nghiêm trọng',
+          label: 'Nguy kịch',
           classes: 'bg-red-50 text-red-800 border-red-200 font-bold',
           icon: <AlertTriangle className="w-3.5 h-3.5 text-red-600" />,
         };
+      case 'UNVERIFIED':
+      case 'INCONCLUSIVE':
+      case 'REQUIRES_RETEST':
+        return {
+          label: 'Cần thẩm định lại',
+          classes: 'bg-slate-50 text-slate-700 border-slate-200',
+          icon: <HelpCircle className="w-3.5 h-3.5 text-slate-500" />,
+        };
       default:
         return {
-          label: level || 'Không xác định',
+          label: level || 'Cần thẩm định lại',
           classes: 'bg-slate-50 text-slate-700 border-slate-200',
-          icon: <Info className="w-3.5 h-3.5 text-slate-500" />,
+          icon: <HelpCircle className="w-3.5 h-3.5 text-slate-500" />,
         };
     }
   })();

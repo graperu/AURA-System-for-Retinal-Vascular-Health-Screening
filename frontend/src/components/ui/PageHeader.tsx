@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export interface PageHeaderProps {
   title: string;
@@ -13,8 +14,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   badge,
   actions,
 }) => {
+  const { isVi } = useLanguage();
+
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-clinical-border">
+    <header
+      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-clinical-border"
+      aria-label={isVi ? "Tiêu đề trang" : "Page header"}
+    >
       <div>
         <div className="flex items-center gap-3">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-clinical-text">
@@ -29,6 +35,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         )}
       </div>
       {actions && <div className="flex items-center gap-2.5 flex-wrap">{actions}</div>}
-    </div>
+    </header>
   );
 };

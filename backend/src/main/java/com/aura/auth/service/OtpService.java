@@ -60,14 +60,8 @@ public class OtpService {
 
     otpStorage.put(email, new OtpData(otp, now, expiresAt, 0));
 
-    // 1. Log to console / docker logs for immediate inspection
-    log.info("\n=======================================================\n"
-        + "🔑 [AURA OTP SERVICE] MÃ XÁC THỰC EMAIL:\n"
-        + "📧 Email: {}\n"
-        + "👤 Người nhận: {}\n"
-        + "🔢 Mã OTP (Hiệu lực 5 phút): {}\n"
-        + "=======================================================",
-        email, (fullName != null ? fullName : "Người dùng AURA"), otp);
+    // 1. Log audit notification without exposing raw OTP or full PII
+    log.info("Mã xác thực OTP đã được tạo và gửi tới: {}", maskEmail(email));
 
     // 2. Dispatch real email via SMTP if configured
     if (mailSender != null && senderEmail != null && !senderEmail.isBlank()) {
@@ -82,9 +76,9 @@ public class OtpService {
             + "Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.\n\n"
             + "Trân trọng,\nĐội ngũ Hệ thống AURA");
         mailSender.send(message);
-        log.info("Đã gửi email OTP thực tế thành công tới: {}", email);
+        log.info("Đã gửi email OTP thực tế thành công tới: {}", maskEmail(email));
       } catch (Exception e) {
-        log.warn("Không thể gửi email OTP qua SMTP server: {}. Mã OTP vẫn hiển thị trong logs hệ thống.", e.getMessage());
+        log.warn("Không thể gửi email OTP qua SMTP server: {}", e.getMessage());
       }
     }
 
@@ -121,5 +115,18 @@ public class OtpService {
     // OTP verified successfully -> invalidate it
     otpStorage.remove(email);
     return true;
+  }
+
+  private String maskEmail(String email) {
+    if (email == null || !email.contains("@")) {
+      return "***";
+    }
+    int atIndex = email.indexOf('@');
+    String namePart = email.substring(0, atIndex);
+    String domainPart = email.substring(atIndex);
+    if (namePart.length() <= 1) {
+      return "*..." + domainPart;
+    }
+    return namePart.charAt(0) + "***" + domainPart;
   }
 }

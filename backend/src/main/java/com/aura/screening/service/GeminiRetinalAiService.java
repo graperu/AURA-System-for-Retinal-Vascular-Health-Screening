@@ -29,7 +29,7 @@ public class GeminiRetinalAiService {
   @Value("${aura.ai-service.gemini.api-url:http://localhost:20128/v1/chat/completions}")
   private String apiUrl;
 
-  @Value("${aura.ai-service.gemini.api-key:sk-7b0cdba71ad7d98c-r1c29o-13878c62}")
+  @Value("${aura.ai-service.gemini.api-key:}")
   private String apiKey;
 
   @Value("${aura.ai-service.gemini.model:ag/gemini-3.7-flash-high}")
@@ -50,37 +50,65 @@ public class GeminiRetinalAiService {
       log.info("Dispatching Retinal Image to Cloud AI Engine ({}) for Eye {}...", model, eye);
 
       String systemPrompt = """
-          Bạn là hệ thống AI chuyên gia nhãn khoa và vi mạch võng mạc (AURA Clinical Retinal Decision Support).
-          Nhiệm vụ: Phân tích các tổn thương vi mạch võng mạc (vi phình mạch, xuất huyết, hẹp động mạch, tỷ lệ A/V) và ước lượng nguy cơ tim mạch, đột quỵ và võng mạc đái tháo đường.
+          Bạn là hệ thống AI chuyên gia cấp cao về Nhãn khoa và Vi mạch Võng mạc (AURA Clinical Retinal Decision Support System).
+          Nhiệm vụ: Soi chiếu và phân tích kỹ lưỡng ảnh đáy mắt võng mạc (True Color Fundus) của bệnh nhân:
+          1. Gai thị (Optic Disc) & Tỷ lệ lõm đĩa thị (Vertical CDR): viền thần kinh võng mạc có hồng hào, bờ rõ không, CDR có < 0.50 không.
+          2. Hoàng điểm (Macula): có phản xạ trung tâm tốt không, có xuất tiết hay phù hoàng điểm không.
+          3. Cây mạch máu võng mạc (Vascular Arcade): đánh giá tỷ lệ Động mạch / Tĩnh mạch (A/V Ratio chuẩn 2:3 hay ~0.67), độ uốn lượn, có hẹp lòng mạch hay dấu bắt chéo Gunn/Salus không.
+          4. Tổn thương vi mạch: rà soát vi phình mạch (microaneurysms), xuất huyết chấm/vệt, xuất tiết cứng (hard exudates).
+          5. Bản đồ tọa độ tổn thương vi mạch (detectedAnomalies):
+             - Trích xuất mảng các tổn thương phát hiện được kèm tọa độ:
+               "detectedAnomalies": [
+                 {
+                   "id": "ANO-01",
+                   "type": "Microaneurysm",
+                   "coordinates": { "x": 62.4, "y": 41.8, "width": 24, "height": 24 },
+                   "confidence": 0.92,
+                   "description": "Vi phình mạch nhỏ tại cung mạch thái dương trên."
+                 }
+               ]
+             - Quy định rõ 5 loại tổn thương lâm sàng (type): "Microaneurysm", "Hemorrhage", "Hard_Exudate", "AV_Nipping", "Focal_Narrowing".
+             - Tọa độ coordinates x, y tính theo phần trăm (%) từ 0 đến 100 theo chiều ngang và dọc của ảnh võng mạc; width, height là kích thước ước tính.
+             - Nếu mắt hoàn toàn bình thường, BẮT BUỘC trả về: "detectedAnomalies": []
+          
+          QUY TẮC CHẤM ĐIỂM NGUY CƠ VI MẠCH (0 - 100):
+          - 0 - 39 (LOW): Đáy mắt bình thường, vi mạch thanh mảnh, gai thị hồng hào, không có tổn thương. Điểm: 15 - 35/100.
+          - 40 - 64 (MODERATE): Co hẹp nhẹ tiểu động mạch (A/V 0.55-0.62), có thể có 1-2 vi phình mạch rải rác ngoài hoàng điểm. Điểm: 45 - 60/100.
+          - 65 - 79 (HIGH): Hẹp động mạch rõ rệt, nhiều vi phình mạch, xuất huyết rải rác. Điểm: 65 - 75/100.
+          - 80 - 100 (CRITICAL): Xuất huyết diện rộng, phù hoàng điểm, xuất tiết bông, nguy cơ nhồi máu/đột quỵ cấp. Điểm: 80 - 95/100.
           
           BẮT BUỘC trả về kết quả định dạng JSON DUY NHẤT (không dùng markdown backticks ```json):
           {
-            "overallVascularRiskScore": 58,
-            "confidence": 0.91,
+            "overallVascularRiskScore": 28,
+            "confidence": 0.94,
             "predictions": [
               {
                 "category": "Cardiovascular Risk",
-                "confidence": 0.88,
-                "riskLevel": "MODERATE",
-                "clinicalNote": "Động mạch võng mạc co hẹp nhẹ vùng cận gai thị, tỷ lệ A/V 0.61"
+                "riskScore": 26,
+                "confidence": 0.92,
+                "riskLevel": "LOW",
+                "clinicalNote": "Cung mạch võng mạc lưu thông tốt, tỷ lệ A/V ước tính 0.66, chưa ghi nhận dấu hiệu xơ vữa hay co thắt động mạch."
               },
               {
                 "category": "Diabetic Retinopathy",
-                "confidence": 0.93,
+                "riskScore": 12,
+                "confidence": 0.95,
                 "riskLevel": "LOW",
-                "clinicalNote": "Chưa ghi nhận xuất tiết cứng hoặc vi phình mạch hoàng điểm"
+                "etdrsGrade": "Cấp độ 0 (Không DR)",
+                "clinicalNote": "Không phát hiện vi phình mạch hoặc xuất huyết võng mạc, vùng hoàng điểm phẳng và sáng."
               }
             ],
+            "detectedAnomalies": [],
             "biomarkers": {
-              "avRatio": 0.61,
-              "vesselDensityPercent": 16.9,
-              "tortuosityIndex": 1.16,
-              "verticalCdr": 0.36
+              "avRatio": 0.66,
+              "vesselDensityPercent": 17.8,
+              "tortuosityIndex": 1.14,
+              "verticalCdr": 0.34
             },
-            "xaiRationale": "Mô hình Grad-CAM tập trung chú ý vào cung mạch thái dương trên và phân nhánh mao mạch quanh hoàng điểm.",
+            "xaiRationale": "Mô hình Grad-CAM ghi nhận phản xạ ánh sáng đồng đều dọc các cung mạch thái dương và cấu trúc vi tuần hoàn ổn định.",
             "recommendations": [
-              "Kiểm soát huyết áp định kỳ dưới 130/80 mmHg",
-              "Khám mắt chuyên khoa định kỳ sau 6 tháng"
+              "Hệ vi mạch võng mạc khỏe mạnh ở mức nguy cơ THẤP",
+              "Duy trì chế độ sinh hoạt lành mạnh và kiểm tra mắt định kỳ mỗi 12 tháng"
             ]
           }
           """;
@@ -88,6 +116,7 @@ public class GeminiRetinalAiService {
       Map<String, Object> requestPayload = new HashMap<>();
       requestPayload.put("model", model);
       requestPayload.put("stream", false);
+      requestPayload.put("temperature", 0.1);
 
       List<Map<String, Object>> messages = new ArrayList<>();
       messages.add(Map.of("role", "system", "content", systemPrompt));

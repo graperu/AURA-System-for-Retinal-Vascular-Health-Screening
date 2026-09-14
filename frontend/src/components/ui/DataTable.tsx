@@ -25,14 +25,14 @@ export function DataTable<T>({
   onRowClick,
 }: DataTableProps<T>) {
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-medical-card">
+    <div className="w-full overflow-x-auto rounded-2xl border border-clinical-border bg-clinical-surface shadow-medical-card">
       <table className="w-full text-xs text-left border-collapse">
-        <thead className="bg-[#F8FAFC] border-b border-slate-200 text-slate-700 font-bold">
+        <thead className="bg-clinical-surface-subtle border-b border-clinical-border text-clinical-text-secondary font-bold">
           <tr>
             {columns.map((col, idx) => (
               <th
                 key={idx}
-                className={`p-4 ${
+                className={`py-3.5 px-4 ${
                   col.align === 'right'
                     ? 'text-right'
                     : col.align === 'center'
@@ -48,13 +48,13 @@ export function DataTable<T>({
         <tbody className="divide-y divide-slate-100">
           {loading ? (
             <tr>
-              <td colSpan={columns.length} className="p-8 text-center text-slate-500">
+              <td colSpan={columns.length} className="p-8 text-center text-clinical-text-muted">
                 Đang tải dữ liệu...
               </td>
             </tr>
           ) : data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="p-8 text-center text-slate-400">
+              <td colSpan={columns.length} className="p-8 text-center text-clinical-text-muted">
                 {emptyMessage}
               </td>
             </tr>
@@ -63,14 +63,14 @@ export function DataTable<T>({
               <tr
                 key={keyExtractor(row, rIdx)}
                 onClick={() => onRowClick?.(row)}
-                className={`transition-colors ${
-                  onRowClick ? 'cursor-pointer hover:bg-[#F0FDFA]/60' : 'hover:bg-slate-50/50'
+                className={`transition-colors duration-150 ease-out ${
+                  onRowClick ? 'cursor-pointer hover:bg-brand-50/60 active:bg-brand-100/50' : 'hover:bg-slate-50/70'
                 }`}
               >
                 {columns.map((col, cIdx) => (
                   <td
                     key={cIdx}
-                    className={`p-4 ${
+                    className={`py-3.5 px-4 ${
                       col.align === 'right'
                         ? 'text-right'
                         : col.align === 'center'

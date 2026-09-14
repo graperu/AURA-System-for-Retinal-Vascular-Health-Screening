@@ -18,8 +18,34 @@ public class PatientSpecification {
       Boolean historyOfSmoking,
       String doctorName,
       String reviewStatus) {
+    return filterPatients(
+        search, riskLevel, minScore, maxScore, hasDiabetes, hasHypertension, historyOfSmoking, doctorName, reviewStatus, null);
+  }
+
+  public static Specification<PatientProfile> filterPatients(
+      String search,
+      String riskLevel,
+      Integer minScore,
+      Integer maxScore,
+      Boolean hasDiabetes,
+      Boolean hasHypertension,
+      Boolean historyOfSmoking,
+      String doctorName,
+      String reviewStatus,
+      java.util.List<java.util.UUID> allowedPatientIds) {
     return (root, query, cb) -> {
       List<Predicate> predicates = new ArrayList<>();
+
+      if (allowedPatientIds != null) {
+        if (allowedPatientIds.isEmpty()) {
+          predicates.add(cb.disjunction());
+        } else {
+          predicates.add(cb.or(
+              root.get("userId").in(allowedPatientIds),
+              root.get("id").in(allowedPatientIds)
+          ));
+        }
+      }
 
       if (search != null && !search.isBlank()) {
         String pattern = "%" + search.trim().toLowerCase() + "%";

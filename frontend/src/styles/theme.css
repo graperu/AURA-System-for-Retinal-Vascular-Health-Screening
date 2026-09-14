@@ -7,12 +7,43 @@
   --color-on-primary: #FFFFFF;
   --color-secondary: #22D3EE;
   --color-accent: #16A34A;
-  --color-background: #F0FDFA;
-  --color-foreground: #134E4A;
+  --color-background: #F4F7FC;
+  --color-foreground: #0F172A;
   --color-muted: #E8F1F6;
-  --color-border: #CCFBF1;
+  --color-border: #E2E8F0;
   --color-destructive: #DC2626;
   --color-ring: #0891B2;
+
+  /* Clinical Surface & Text Tokens */
+  --clinical-bg: #F4F7FC;
+  --clinical-surface: #FFFFFF;
+  --clinical-surface-subtle: #F8FAFC;
+  --clinical-surface-strong: #E8F1F6;
+  --clinical-border: #E2E8F0;
+  --clinical-border-subtle: #F1F5F9;
+  --clinical-border-strong: #CBD5E1;
+  --clinical-text: #0F172A;
+  --clinical-text-secondary: #334155;
+  --clinical-text-muted: #64748B;
+
+  /* Clinical Typography */
+  --font-mono: 'Fira Code', monospace;
+
+  /* Dark Room Ophthalmology Inspection Mode */
+  --darkroom-bg: #030712;
+  --darkroom-surface: #0B132B;
+  --darkroom-card: #0F172A;
+  --darkroom-border: #1E293B;
+  --darkroom-accent: #38BDF8;
+  --darkroom-text: #F8FAFC;
+
+  /* AURA Clinical Motion System Variables */
+  --motion-duration-micro: 150ms;
+  --motion-duration-dropdown: 180ms;
+  --motion-duration-modal: 240ms;
+  --motion-duration-page: 320ms;
+  --motion-ease-clinical: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
 
 body {
@@ -66,7 +97,8 @@ a[href] {
 }
 
 .font-mono-data {
-  font-family: 'Fira Code', monospace;
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Custom scrollbars for data-dense clinical tables */
@@ -75,7 +107,7 @@ a[href] {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F0FDFA;
+  background: #F4F7FC;
 }
 ::-webkit-scrollbar-thumb {
   background: #99F6E4;
@@ -99,7 +131,7 @@ html,
 #root {
   min-height: 100vh;
   min-height: 100dvh;
-  background: #24376f;
+  background: var(--color-background);
 }
 
 .auth-page {
@@ -108,7 +140,7 @@ html,
   min-height: 100vh;
   min-height: 100svh;
   min-height: 100dvh;
-  background: linear-gradient(135deg, #24376f 0%, #344a88 52%, #202f65 100%);
+  background: radial-gradient(circle at 20% 20%, #0c2340 0%, #07172d 60%, #040d1a 100%);
   padding: max(clamp(20px, 2.5vw, 40px), env(safe-area-inset-top)) max(clamp(20px, 2.5vw, 40px), env(safe-area-inset-right)) max(clamp(20px, 2.5vw, 40px), env(safe-area-inset-bottom)) max(clamp(20px, 2.5vw, 40px), env(safe-area-inset-left));
   display: grid;
   place-items: center;
@@ -126,6 +158,8 @@ html,
   grid-template-columns: minmax(0, 1fr) minmax(440px, .95fr);
   border-radius: clamp(24px, 2.2vw, 34px);
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 60px -15px rgba(3, 7, 18, 0.6);
 }
 
 .auth-hero {
@@ -135,6 +169,7 @@ html,
   min-width: 0;
   min-height: 0;
   padding: clamp(8px, 1.2vw, 16px) clamp(26px, 3vw, 40px) clamp(24px, 3vw, 40px);
+  background: linear-gradient(145deg, #0e7490 0%, #0891b2 45%, #0f172a 100%);
 }
 
 .auth-hero::before {
@@ -144,7 +179,7 @@ html,
   inset: 18% 5% 8%;
   border-radius: 50%;
   pointer-events: none;
-  background: radial-gradient(circle, rgba(186, 220, 255, .24) 0%, rgba(126, 178, 255, .1) 38%, transparent 70%);
+  background: radial-gradient(circle, rgba(153, 246, 228, .2) 0%, rgba(8, 145, 178, .1) 38%, transparent 70%);
 }
 .auth-hero::after {
   content: '';
@@ -154,7 +189,7 @@ html,
   bottom: 10%;
   width: 58%;
   height: 48%;
-  border: 1px solid rgba(225, 239, 255, .1);
+  border: 1px solid rgba(204, 251, 241, .15);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -213,7 +248,7 @@ html,
   width: clamp(260px, 66%, 340px);
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
-  color: rgba(231, 242, 255, .18);
+  color: rgba(204, 251, 241, .25);
   pointer-events: none;
 }
 .retina-orbit svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; }
@@ -229,7 +264,7 @@ html,
   padding: 6px 11px;
   border: 1px solid rgba(255,255,255,.24);
   border-radius: 999px;
-  background: rgba(255,255,255,.13);
+  background: rgba(15, 23, 42, .45);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -249,13 +284,14 @@ html,
   align-items: flex-start;
   gap: 7px;
   border-radius: 11px;
-  background: rgba(25, 58, 150, .38);
+  background: rgba(15, 23, 42, .55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 8px 11px;
-  color: rgba(239, 246, 255, .94);
+  color: rgba(240, 253, 250, .95);
   font-size: 11px;
   line-height: 1.4;
 }
-.auth-hero-warning svg { width: 15px; height: 15px; margin-top: 1px; flex: none; }
+.auth-hero-warning svg { width: 15px; height: 15px; margin-top: 1px; flex: none; color: #5EEAD4; }
 
 .doctor-artwork__back,
 .doctor-artwork__front {
@@ -276,6 +312,7 @@ html,
   align-items: center;
   padding: clamp(16px, 2.5vw, 32px);
   overflow-y: auto;
+  background-color: var(--clinical-bg);
 }
 
 .auth-form-card {
@@ -283,58 +320,13 @@ html,
   margin: auto;
 }
 
-.auth-pink-shape {
-  right: clamp(-410px, -22vw, -180px);
-  top: clamp(-300px, -27vh, -140px);
-  width: clamp(680px, 76vw, 1260px);
-  height: clamp(880px, 126vh, 1480px);
-  background: linear-gradient(155deg, #ff79a7 0%, #f85b91 46%, #ed477e 100%);
-  border-radius: 58% 0 0 48%;
-  transform: rotate(5deg);
-  box-shadow: 0 30px 80px rgba(244, 63, 114, 0.2);
-}
-
 .auth-page::before {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 35% 48%, rgba(126, 160, 255, .16), transparent 34%), linear-gradient(135deg, rgba(13, 28, 77, .2), transparent 48%);
-}
-
-.auth-dots {
-  width: 190px;
-  height: 190px;
-  opacity: .18;
-  background-image: radial-gradient(circle, #b8c8ff 2px, transparent 2.5px);
-  background-size: 15px 15px;
-}
-.auth-dots-top { left: 1.5%; top: 3%; }
-.auth-dots-bottom { right: 5%; bottom: 2%; }
-.auth-dots-left-bottom {
-  left: 5%;
-  bottom: 6%;
-  width: 120px;
-  height: 105px;
-  opacity: .1;
-  transform: rotate(8deg);
-}
-.auth-dots-right-top {
-  right: 3.5%;
-  top: 7%;
-  width: 130px;
-  height: 115px;
-  opacity: .13;
-  background-image: radial-gradient(circle, #fff 2px, transparent 2.5px);
-}
-.auth-dots-right-middle {
-  right: 1.5%;
-  top: 43%;
-  width: 92px;
-  height: 145px;
-  opacity: .08;
-  background-image: radial-gradient(circle, #fff 1.6px, transparent 2.2px);
-  background-size: 14px 14px;
+  background: radial-gradient(circle at 25% 30%, rgba(8, 145, 178, 0.16), transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(20, 184, 166, 0.12), transparent 50%);
 }
 
 @media (min-width: 1024px) and (max-width: 1279px) {
@@ -358,7 +350,6 @@ html,
   .retina-orbit { width: 250px; }
   .auth-feature-pill--retina { display: none; }
   .auth-form-panel { padding: 30px 20px; overflow: visible; }
-  .auth-pink-shape { width: clamp(220px, 44vw, 360px); height: clamp(260px, 52vw, 430px); opacity: .72; }
 }
 
 @media (max-width: 1023px) and (min-width: 901px) {
@@ -379,20 +370,13 @@ html,
   .auth-form-panel { padding: 20px 12px; }
   .auth-form-card { padding: 20px 16px; border-radius: 18px; }
   .auth-form-card input { font-size: 16px; }
-  .auth-pink-shape { width: 720px; height: 850px; right: -570px; top: -300px; opacity: .48; }
-  .auth-dots-bottom { display: none; }
-  .auth-dots-left-bottom,
-  .auth-dots-right-middle { display: none; }
 }
 
 @media (max-width: 480px) {
   .auth-page { padding: 10px; }
-  .auth-hero { min-height: 235px; }
-  .auth-artwork-stage { display: none; }
   .auth-hero { min-height: 150px; }
+  .auth-artwork-stage { display: none; }
   .auth-hero-warning { margin-top: auto; width: 100%; font-size: 10px; }
-  .auth-dots { display: none; }
-  .auth-pink-shape { display: none; }
 }
 
 @media (max-height: 760px) and (min-width: 901px) {
@@ -417,3 +401,125 @@ html,
   .auth-container { height: auto; min-height: 540px; margin-block: 12px; }
   .auth-form-panel { overflow: visible; }
 }
+
+/* ==========================================================================
+   AURA CLINICAL MOTION SYSTEM & INTERACTION UTILITIES
+   ========================================================================== */
+
+/* Custom ultra-thin scrollbar for clinical dropdown menus */
+.clinical-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+.clinical-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.clinical-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.clinical-scrollbar::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+.clinical-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Darkroom mode scrollbar */
+.darkroom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+.darkroom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.darkroom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.darkroom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+.darkroom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Shimmer loading skeleton effect */
+.clinical-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(241, 245, 249, 0.8) 0%,
+    rgba(226, 232, 240, 0.9) 50%,
+    rgba(241, 245, 249, 0.8) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.2s infinite linear;
+}
+
+/* Interactive Card Elevation */
+.clinical-card-interactive {
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clinical-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px -4px rgba(7, 13, 45, 0.1);
+  border-color: #99F6E4;
+}
+
+/* Interactive Button Micro-Scale */
+.clinical-btn-interactive {
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clinical-btn-interactive:hover:not(:disabled) {
+  transform: translateY(-0.5px);
+}
+.clinical-btn-interactive:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+/* Accessible focus ring helpers */
+.clinical-focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px rgba(8, 145, 178, 0.35);
+}
+
+.darkroom-focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 2px #0B132B, 0 0 0 4px rgba(56, 189, 248, 0.5);
+}
+
+/* Page Transition Wrapper */
+.page-transition-enter {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Table Row Smooth Interaction */
+.clinical-table-row {
+  transition: background-color 150ms ease-out, transform 150ms ease-out;
+}
+.clinical-table-row:hover {
+  background-color: rgba(248, 250, 252, 0.9);
+}
+
+/* Upload Dropzone Interactive Motion */
+.clinical-dropzone {
+  transition: border-color 200ms ease-out, background-color 200ms ease-out, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clinical-dropzone:hover {
+  border-color: #0891B2;
+  transform: translateY(-1px);
+}
+
+/* Smooth Tab Transition */
+.clinical-tab-item {
+  transition: color 150ms ease-out, background-color 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+/* Subtle Pulsing for status indicators */
+.clinical-pulse-dot {
+  animation: pulseSubtle 3s ease-in-out infinite;
+}
+
+

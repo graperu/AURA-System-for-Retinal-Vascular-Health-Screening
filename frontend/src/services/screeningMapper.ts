@@ -7,10 +7,12 @@ import { AIRiskResult, RiskLevel, VesselAnomalyRegion } from '../types/cds';
 export const toFrontendRiskLevel = (level?: string | null): RiskLevel => {
   switch ((level || '').toUpperCase()) {
     case 'CRITICAL':
+    case 'SEVERE':
       return 'Severe';
     case 'HIGH':
       return 'High';
     case 'MODERATE':
+    case 'MEDIUM':
       return 'Moderate';
     default:
       return 'Low';
@@ -18,67 +20,114 @@ export const toFrontendRiskLevel = (level?: string | null): RiskLevel => {
 };
 
 /**
- * Tạo danh sách tọa độ tổn thương giải phẫu dựa trên chỉ số thực tế
+ * Chuẩn hóa và bóc tách danh mục mã ICD-10 từ chuỗi hoặc mảng lưu trong database.
+ * Hỗ trợ cả mảng JSON, chuỗi phân cách bởi dấu phẩy, dấu chấm phẩy hoặc xuống dòng.
  */
-const generateAnomaliesFromMetrics = (screening: any, cvdScore: number, drScore: number): VesselAnomalyRegion[] => {
-  const anomalies: VesselAnomalyRegion[] = [];
-  const avRatio = screening.avRatio ?? 0.65;
-  const vesselDensity = screening.vesselDensityPercent ?? 18.0;
-
-  if (avRatio < 0.65 || cvdScore >= 35) {
-    anomalies.push({
-      id: 'ANO-AV-1',
-      type: 'AV_Nipping',
-      coordinates: { x: 38, y: 44, width: 28, height: 28 },
-      confidence: 0.92,
-      description: `Bắt chéo động-tĩnh mạch cận cung mạch thái dương (A/V: ${avRatio.toFixed(2)})`,
-    });
+export const parseIcd10Codes = (raw: any): string[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((c) => String(c).trim()).filter(Boolean);
   }
-
-  if (drScore >= 30 || vesselDensity < 17.0) {
-    anomalies.push({
-      id: 'ANO-MA-2',
-      type: 'Microaneurysm',
-      coordinates: { x: 58, y: 36, width: 22, height: 22 },
-      confidence: 0.89,
-      description: 'Vùng nghi ngờ vi phình mạch mao mạch cực sau cận hoàng điểm',
-    });
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((c) => String(c).trim()).filter(Boolean);
+        }
+      } catch {
+        // Fallback sang phân tách bằng ký tự ngăn cách
+      }
+    }
+    return trimmed.split(/[\n,;]+/).map((c) => c.trim()).filter(Boolean);
   }
+  return [];
+};
 
-  if (cvdScore >= 60 || drScore >= 60) {
-    anomalies.push({
-      id: 'ANO-HEM-3',
-      type: 'Hemorrhage',
-      coordinates: { x: 64, y: 56, width: 32, height: 32 },
-      confidence: 0.87,
-      description: 'Vùng chú ý vi xuất huyết cung mạch thái dương dưới',
-    });
+export const computeEtdrsGrade = (grade?: string | null, score?: number, level?: string | null): string => {
+  if (grade && !grade.toLowerCase().includes('theo phân tích') && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr')) {
+    return grade;
   }
+  const s = score ?? 0;
+  const l = (level || '').toUpperCase();
+  if (s >= 80 || l.includes('CRITICAL') || l.includes('SEVERE')) {
+    return 'Cấp độ 4 (PDR - Tăng sinh)';
+  }
+  if (s >= 65 || l.includes('HIGH')) {
+    return 'Cấp độ 3 (NPDR nặng - Tiền tăng sinh)';
+  }
+  if (s >= 40 || l.includes('MODERATE') || l.includes('MEDIUM')) {
+    return 'Cấp độ 2 (NPDR trung bình)';
+  }
+  if (s >= 25) {
+    return 'Cấp độ 1 (NPDR nhẹ - Vi phình mạch)';
+  }
+  return 'Cấp độ 0 (Không DR)';
+};
 
-  return anomalies;
+/**
+ * Parse an toàn danh sách tổn thương vi mạch từ chuỗi JSON hoặc mảng đối tượng
+ */
+export const parseAnomaliesSafely = (raw: any): VesselAnomalyRegion[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string' && raw.trim().length > 2) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+      console.warn('Lỗi phân tích detectedAnomalies:', e);
+    }
+  }
+  return [];
 };
 
 /**
  * Chuyển đổi bản ghi Screening thật từ backend (Spring Boot + AURA AI Core thật)
  * sang định dạng AIRiskResult mà RiskAssessmentPanel / InteractiveCDSViewer /
- * MedicalReportModal đang dùng để hiển thị (FR-3, FR-4, FR-5).
+ * MedicalReportModal đang dùng để hiển thị (FR-3, FR-4, FR-5, FR-6, FR-7).
  */
 export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: string): AIRiskResult => {
   const cvdScore = screening.cardiovascularRiskScore ?? 0;
   const drScore = screening.diabeticRetinopathyRiskScore ?? 0;
   const strokeScore = screening.strokeRiskScore ?? cvdScore;
+
+  // Sửa dứt điểm công thức tính điểm:
+  // Lấy screening.riskScore ?? screening.overallVascularRiskScore ?? Math.round((cvdScore + drScore) / 2).
+  // TUYỆT ĐỐI KHÔNG dùng confidence * 100!
   const overallScore = Math.round(
-    screening.confidence != null ? screening.confidence * 100 : (cvdScore + drScore) / 2
+    screening.riskScore ?? screening.overallVascularRiskScore ?? ((cvdScore + drScore) / 2)
   );
 
-  const detectedAnomalies = generateAnomaliesFromMetrics(screening, cvdScore, drScore);
+  // Parse an toàn trường detectedAnomalies từ chuỗi JSON string hoặc mảng thật
+  const detectedAnomalies: VesselAnomalyRegion[] =
+    parseAnomaliesSafely((screening as any).detectedAnomalies).length > 0
+      ? parseAnomaliesSafely((screening as any).detectedAnomalies)
+      : parseAnomaliesSafely((screening as any).annotatedMap?.detectedAnomalies);
+
+  const parsedIcd10 = parseIcd10Codes(screening.icd10Codes);
 
   return {
     analysisId: screening.id,
     imageUrl: screening.imageUrl || fallbackImageUrl,
-    status: 'COMPLETED',
-    executionTimeMs: 0,
+    status: screening.status || 'COMPLETED',
+    executionTimeMs: screening.executionTimeMs ?? 0,
     overallVascularRiskScore: overallScore,
+    riskScore: screening.riskScore ?? overallScore,
+    eyePosition: screening.eyePosition || screening.eye || 'OD',
+    scanType: screening.scanType || 'Fundus_Macula',
+    icd10Codes: parsedIcd10,
+    doctorNotes: screening.doctorNotes || screening.notes || undefined,
+    digitalSignature: screening.digitalSignature || undefined,
+    signedAt: screening.signedAt || undefined,
+    createdAt: screening.createdAt || undefined,
+    doctorName: screening.doctorName || undefined,
+    doctorId: screening.doctorId || undefined,
+    patientId: screening.patientId || undefined,
+    findings: screening.findings || undefined,
+    recommendations: screening.recommendations || undefined,
     cardiovascularRisk: {
       level: toFrontendRiskLevel(screening.cardiovascularRiskLevel),
       score: cvdScore,
@@ -88,19 +137,24 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
     diabeticRetinopathyRisk: {
       level: toFrontendRiskLevel(screening.diabeticRetinopathyRiskLevel),
       score: drScore,
-      etdrsGrade: 'Theo phân tích AURA AI',
-      macularEdemaPresent: drScore >= 50,
+      etdrsGrade: computeEtdrsGrade(
+        screening.etdrsGrade,
+        drScore,
+        screening.diabeticRetinopathyRiskLevel
+      ),
+      macularEdemaPresent: Boolean((screening as any).macularEdemaPresent ?? false),
     },
     glaucomaRisk: {
-      level: 'Low',
-      score: 0,
+      level: toFrontendRiskLevel(screening.glaucomaRiskLevel),
+      score: screening.glaucomaRiskScore ?? 0,
     },
     annotatedMap: {
-      heatmapUrl: screening.heatmapBase64 || undefined,
-      arteryVeinRatio: screening.avRatio ?? 0,
-      vesselDensityPercentage: screening.vesselDensityPercent ?? 0,
-      tortuosityIndex: screening.tortuosityIndex ?? 0,
-      opticCupToDiscRatio: screening.verticalCdr ?? 0,
+      heatmapUrl: screening.heatmapBase64 || screening.annotatedMap?.heatmapUrl || undefined,
+      vesselMaskUrl: screening.vesselMaskUrl || screening.annotatedMap?.vesselMaskUrl || undefined,
+      arteryVeinRatio: screening.avRatio ?? screening.annotatedMap?.arteryVeinRatio ?? 0,
+      vesselDensityPercentage: screening.vesselDensityPercent ?? screening.annotatedMap?.vesselDensityPercentage ?? 0,
+      tortuosityIndex: screening.tortuosityIndex ?? screening.annotatedMap?.tortuosityIndex ?? 0,
+      opticCupToDiscRatio: screening.verticalCdr ?? screening.annotatedMap?.opticCupToDiscRatio ?? 0,
       detectedAnomalies,
     },
     xaiExplainability: [

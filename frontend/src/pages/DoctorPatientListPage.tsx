@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DoctorWorklistView } from '../features/doctor/DoctorWorklistView';
 import { PatientProfile } from '../types/cds';
-import { doctorPatientApi, screeningApi } from '../services/api';
+import { doctorPatientApi } from '../services/api';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { FormField } from '../components/ui/FormField';
+import { ClinicalSelect, ClinicalSelectOption } from '../components/ui/ClinicalSelect';
+import { MedicalDisclaimer } from '../components/ui/MedicalDisclaimer';
+import { useLanguage } from '../context/LanguageContext';
 
 interface DoctorPatientListPageProps {
   onSelectPatientForCDS?: (patient: PatientProfile) => void;
@@ -15,10 +18,19 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
   onSelectPatientForCDS,
   onNavigate,
 }) => {
+  const { t } = useLanguage();
   const [patients, setPatients] = useState<PatientProfile[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const genderOptions = useMemo<ClinicalSelectOption<string>[]>(
+    () => [
+      { value: 'Male', label: t('common.gender.male', 'Nam') },
+      { value: 'Female', label: t('common.gender.female', 'Nữ') },
+    ],
+    [t]
+  );
 
   const [form, setForm] = useState({
     fullName: '',
@@ -37,8 +49,16 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
     setLoading(true);
     try {
       const res = await doctorPatientApi.getPatients({ size: 100 });
-      if (res.success && res.data && Array.isArray(res.data.items)) {
-        setPatients(res.data.items);
+      if (res.success && res.data) {
+        let items: PatientProfile[] = [];
+        if (Array.isArray(res.data)) {
+          items = res.data;
+        } else if (Array.isArray((res.data as any).items)) {
+          items = (res.data as any).items;
+        } else if (Array.isArray((res.data as any).content)) {
+          items = (res.data as any).content;
+        }
+        setPatients(items);
       } else {
         setPatients([]);
       }
@@ -97,12 +117,12 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
         isOpen={isNewPatientModalOpen}
         onClose={() => setIsNewPatientModalOpen(false)}
         maxWidth="lg"
-        title="Tiếp Nhận Bệnh Nhân Mới"
-        description="Nhập thông tin hành chính và sinh hiệu cơ bản"
+        title={t('doctor.newPatientModal.title', 'Tiếp Nhận Bệnh Nhân Mới')}
+        description={t('doctor.newPatientModal.description', 'Nhập thông tin hành chính và sinh hiệu cơ bản')}
       >
         <form onSubmit={handleCreatePatient} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FormField label="Họ và tên" required>
+            <FormField label={t('doctor.newPatientModal.fullName', 'Họ và tên')} required>
               <input
                 type="text"
                 required
@@ -113,7 +133,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
               />
             </FormField>
 
-            <FormField label="Mã hồ sơ MRN" required>
+            <FormField label={t('doctor.newPatientModal.mrn', 'Mã hồ sơ MRN')} required>
               <input
                 type="text"
                 required
@@ -125,7 +145,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <FormField label="Tuổi">
+            <FormField label={t('doctor.newPatientModal.age', 'Tuổi')}>
               <input
                 type="number"
                 value={form.age}
@@ -134,18 +154,17 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
               />
             </FormField>
 
-            <FormField label="Giới tính">
-              <select
+            <div>
+              <ClinicalSelect<string>
+                label={t('doctor.newPatientModal.gender', 'Giới tính')}
                 value={form.gender}
-                onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-[#0891B2]"
-              >
-                <option value="Male">Nam</option>
-                <option value="Female">Nữ</option>
-              </select>
-            </FormField>
+                onChange={(val) => setForm({ ...form, gender: val })}
+                options={genderOptions}
+                size="sm"
+              />
+            </div>
 
-            <FormField label="Số điện thoại">
+            <FormField label={t('doctor.newPatientModal.phone', 'Số điện thoại')}>
               <input
                 type="tel"
                 value={form.phone}
@@ -157,7 +176,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
           </div>
 
           <div className="grid grid-cols-3 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <FormField label="HA Tâm thu">
+            <FormField label={t('doctor.newPatientModal.systolicBp', 'HA Tâm thu')}>
               <input
                 type="number"
                 value={form.systolicBp}
@@ -165,7 +184,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data"
               />
             </FormField>
-            <FormField label="HA Tâm trương">
+            <FormField label={t('doctor.newPatientModal.diastolicBp', 'HA Tâm trương')}>
               <input
                 type="number"
                 value={form.diastolicBp}
@@ -173,7 +192,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data"
               />
             </FormField>
-            <FormField label="HbA1c (%)">
+            <FormField label={t('doctor.newPatientModal.hba1c', 'HbA1c (%)')}>
               <input
                 type="number"
                 step="0.1"
@@ -191,7 +210,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
               size="sm"
               onClick={() => setIsNewPatientModalOpen(false)}
             >
-              Hủy
+              {t('doctor.newPatientModal.cancel', 'Hủy')}
             </Button>
             <Button
               type="submit"
@@ -199,11 +218,13 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
               size="sm"
               loading={submitting}
             >
-              Lưu Hồ Sơ
+              {t('doctor.newPatientModal.save', 'Lưu Hồ Sơ')}
             </Button>
           </div>
         </form>
       </Modal>
+
+      <MedicalDisclaimer variant="compact" />
     </div>
   );
 };

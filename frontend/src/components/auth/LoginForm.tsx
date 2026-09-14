@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Loader2, Mail } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { PasswordInput } from './PasswordInput';
 import googleLogo from '../../assets/sso/google.png';
 import { isFirebaseConfigured, signInWithGoogleFirebase, sendMagicLinkFirebase } from '../../config/firebase';
@@ -14,6 +15,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
   const { login, loginWithSocial } = useAuth();
+  const { t, isVi } = useLanguage();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -26,14 +28,14 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
     if (submitting || socialLoading) return;
     const cleanEmail = email.trim();
     const next: Record<string, string> = {};
-    if (!cleanEmail) next.email = 'Vui lòng nhập địa chỉ email.';
-    else if (!emailPattern.test(cleanEmail)) next.email = 'Email không đúng định dạng.';
-    if (!password) next.password = 'Vui lòng nhập mật khẩu.';
+    if (!cleanEmail) next.email = t('auth.loginForm.errorMessages.emailRequired', isVi ? 'Vui lòng nhập địa chỉ email.' : 'Email address is required.');
+    else if (!emailPattern.test(cleanEmail)) next.email = isVi ? 'Email không đúng định dạng.' : 'Invalid email format.';
+    if (!password) next.password = t('auth.loginForm.errorMessages.passwordRequired', isVi ? 'Vui lòng nhập mật khẩu.' : 'Password is required.');
     if (Object.keys(next).length) { setErrors(next); return; }
     setSubmitting(true);
     setErrors({});
     const result = await login(cleanEmail, password);
-    if (!result.success) setErrors({ form: result.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.' });
+    if (!result.success) setErrors({ form: result.message || t('auth.loginForm.errorMessages.invalidCredentials', isVi ? 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.' : 'Login failed. Please check your credentials.') });
     setSubmitting(false);
   };
 
@@ -54,12 +56,12 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
           picture,
         });
         if (!result.success) {
-          setErrors({ form: result.message || 'Đăng nhập Google qua Firebase thất bại.' });
+          setErrors({ form: result.message || (isVi ? 'Đăng nhập Google qua Firebase thất bại.' : 'Firebase Google sign-in failed.') });
         }
         return;
       } catch (err: any) {
         if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-          setErrors({ form: err.message || 'Lỗi xác thực Firebase Google.' });
+          setErrors({ form: err.message || (isVi ? 'Lỗi xác thực Firebase Google.' : 'Firebase Google authentication error.') });
         }
         return;
       } finally {
@@ -67,18 +69,18 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
       }
     }
 
-    setErrors({ form: 'Đăng nhập Google chưa được cấu hình. Vui lòng đăng nhập bằng email hoặc liên hệ quản trị viên.' });
+    setErrors({ form: isVi ? 'Đăng nhập Google chưa được cấu hình. Vui lòng đăng nhập bằng email hoặc liên hệ quản trị viên.' : 'Google sign-in is not configured. Please sign in with email or contact your administrator.' });
     setSocialLoading(null);
   };
 
   const handleMagicLink = async () => {
     const cleanEmail = email.trim();
     if (!cleanEmail) {
-      setErrors({ email: 'Vui lòng nhập địa chỉ email để gửi link.' });
+      setErrors({ email: isVi ? 'Vui lòng nhập địa chỉ email để gửi link.' : 'Please enter your email address to send sign-in link.' });
       return;
     }
     if (!emailPattern.test(cleanEmail)) {
-      setErrors({ email: 'Email không đúng định dạng.' });
+      setErrors({ email: isVi ? 'Email không đúng định dạng.' : 'Invalid email format.' });
       return;
     }
     
@@ -94,14 +96,14 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
         };
         await sendMagicLinkFirebase(cleanEmail, actionCodeSettings);
         setMagicLinkSent(true);
-        setErrors({ form: 'Đã gửi liên kết đăng nhập. Vui lòng kiểm tra email của bạn.' }); // Using form error to show success message simply, or could add a success state.
+        setErrors({ form: t('auth.loginForm.magicLinkSent', isVi ? 'Đã gửi liên kết đăng nhập. Vui lòng kiểm tra email của bạn.' : 'Sign-in link sent. Please check your email inbox.') });
       } catch (err: any) {
-        setErrors({ form: err.message || 'Lỗi gửi liên kết đăng nhập.' });
+        setErrors({ form: err.message || (isVi ? 'Lỗi gửi liên kết đăng nhập.' : 'Error sending sign-in link.') });
       } finally {
         setSocialLoading(null);
       }
     } else {
-      setErrors({ form: 'Đăng nhập Firebase chưa được cấu hình.' });
+      setErrors({ form: isVi ? 'Đăng nhập Firebase chưa được cấu hình.' : 'Firebase authentication is not configured.' });
       setSocialLoading(null);
     }
   };
@@ -120,14 +122,14 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
           type="button"
           onClick={handleGoogleAuth}
           disabled={Boolean(socialLoading) || submitting}
-          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:opacity-50"
+          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 focus-visible:border-brand-600 disabled:opacity-50"
         >
           {socialLoading === 'google' ? (
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
           ) : (
             <>
               <img src={googleLogo || '/assets/sso/google.png'} alt="Google" className="h-5 w-5 object-contain shrink-0" />
-              <span>Đăng nhập bằng Google</span>
+              <span>{t('auth.loginForm.signInWithGoogle', isVi ? 'Đăng nhập bằng Google' : 'Sign in with Google')}</span>
             </>
           )}
         </button>
@@ -136,14 +138,14 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
           type="button"
           onClick={handleMagicLink}
           disabled={Boolean(socialLoading) || submitting || magicLinkSent}
-          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:opacity-50"
+          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 focus-visible:border-brand-600 disabled:opacity-50"
         >
           {socialLoading === 'magiclink' ? (
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
           ) : (
             <>
               <Mail className="h-5 w-5 text-slate-500 shrink-0" />
-              <span>{magicLinkSent ? 'Đã gửi Magic Link' : 'Đăng nhập qua Link Email'}</span>
+              <span>{magicLinkSent ? (isVi ? 'Đã gửi Magic Link' : 'Magic Link Sent') : t('auth.loginForm.signInWithMagicLink', isVi ? 'Đăng nhập qua Link Email' : 'Sign in via Email Link')}</span>
             </>
           )}
         </button>
@@ -155,14 +157,14 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
           <div className="w-full border-t border-slate-200" />
         </div>
         <div className="relative flex justify-center text-xs font-medium">
-          <span className="bg-white px-3 text-slate-400">Hoặc</span>
+          <span className="bg-white px-3 text-slate-400">{t('auth.loginForm.orDivider', isVi ? 'Hoặc' : 'Or')}</span>
         </div>
       </div>
 
       {/* Email Input */}
       <div>
         <label htmlFor="login-email" className="mb-2 block text-sm font-medium text-slate-700">
-          Email tài khoản
+          {t('auth.loginForm.accountEmailLabel', isVi ? 'Email tài khoản' : 'Account email')}
         </label>
         <div className="relative">
           <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -175,7 +177,7 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
             onChange={e => setEmail(e.target.value)}
             aria-invalid={Boolean(errors.email)}
             aria-describedby={errors.email ? 'login-email-error' : undefined}
-            className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:ring-4 ${errors.email ? 'border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-600 focus:ring-blue-100'}`}
+            className={`h-[52px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-slate-900 transition focus:outline-none focus:ring-2 ${errors.email ? 'border-red-500 focus:border-red-600 focus:ring-red-500/20' : 'border-slate-300 focus:border-brand-600 focus:ring-brand-500/20'}`}
           />
         </div>
         {errors.email && <p id="login-email-error" className="mt-1.5 text-xs text-red-600" role="alert">{errors.email}</p>}
@@ -184,7 +186,7 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
       {/* Password Input */}
       <PasswordInput
         id="login-password"
-        label="Mật khẩu"
+        label={t('auth.loginForm.password', isVi ? 'Mật khẩu' : 'Password')}
         value={password}
         onChange={e => setPassword(e.target.value)}
         autoComplete="current-password"
@@ -195,12 +197,12 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
       <button
         type="submit"
         disabled={submitting || Boolean(socialLoading)}
-        className="flex h-[52px] w-full items-center justify-center rounded-xl bg-blue-600 px-5 text-base font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-65"
+        className="flex h-[52px] w-full items-center justify-center rounded-xl bg-brand-600 px-5 text-base font-semibold text-white shadow-sm transition hover:bg-brand-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-65"
       >
         {submitting ? (
-          <><Loader2 className="h-5 w-5 animate-spin" />Đang đăng nhập…</>
+          <><Loader2 className="h-5 w-5 animate-spin mr-2" />{t('auth.loginForm.loggingIn', isVi ? 'Đang đăng nhập…' : 'Signing in...')}</>
         ) : (
-          'Đăng nhập'
+          t('auth.loginForm.loginButton', isVi ? 'Đăng nhập' : 'Sign In')
         )}
       </button>
 

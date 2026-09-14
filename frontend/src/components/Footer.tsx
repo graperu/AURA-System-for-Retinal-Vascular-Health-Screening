@@ -1,20 +1,28 @@
 import React from 'react';
+import { ShieldCheck } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export const Footer: React.FC = () => {
+  const { t, isVi } = useLanguage();
+
   return (
-    <footer className="w-full py-6 px-gutter flex flex-col md:flex-row justify-between items-center bg-surface-container-lowest border-t border-outline-variant mt-auto">
-      <p className="text-body-md text-on-surface-variant text-center md:text-left mb-4 md:mb-0">
-        © 2026 Hệ thống Hỗ trợ Quyết định Lâm sàng AURA. Đạt chuẩn HIPAA & ISO 27001.
-      </p>
-      <div className="flex items-center gap-6">
-        <a href="#" className="text-label-md text-on-surface-variant hover:text-primary underline transition-colors">
-          Chính sách Bảo mật
+    <footer className="w-full py-4 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center bg-white border-t border-clinical-border mt-auto gap-3">
+      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-clinical-text-secondary text-center sm:text-left">
+        <span>{t('footer.copyright', isVi ? '© 2026 Hệ thống Hỗ trợ Quyết định Lâm sàng AURA. Bản quyền đã được bảo hộ.' : '© 2026 AURA Retinal Clinical Decision Support System. All rights reserved.')}</span>
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 font-semibold border border-brand-100 text-[11px]">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+          {t('footer.securityCert', isVi ? 'Đạt chuẩn HIPAA & ISO 13485 / ISO 27001' : 'HIPAA & ISO 13485 / ISO 27001 Certified')}
+        </span>
+      </div>
+      <div className="flex items-center gap-5 text-xs text-clinical-text-muted">
+        <a href="#" className="hover:text-brand-600 transition-colors">
+          {t('footer.privacyPolicy', isVi ? 'Chính sách Bảo mật' : 'Privacy Policy')}
         </a>
-        <a href="#" className="text-label-md text-on-surface-variant hover:text-primary underline transition-colors">
-          Điều khoản Sử dụng
+        <a href="#" className="hover:text-brand-600 transition-colors">
+          {t('footer.termsOfService', isVi ? 'Điều khoản Sử dụng' : 'Terms of Service')}
         </a>
-        <a href="#" className="text-label-md text-on-surface-variant hover:text-primary underline transition-colors">
-          Trung tâm Hỗ trợ
+        <a href="#" className="hover:text-brand-600 transition-colors">
+          {t('footer.supportCenter', isVi ? 'Trung tâm Hỗ trợ' : 'Support Center')}
         </a>
       </div>
     </footer>

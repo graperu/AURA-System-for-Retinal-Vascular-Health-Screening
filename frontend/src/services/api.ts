@@ -12,11 +12,11 @@ export interface ApiResponse<T = any> {
   timestamp?: string;
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(
+const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || "").replace(
   /\/$/,
   "",
 );
-let accessToken: string | null = localStorage.getItem("accessToken");
+let accessToken: string | null = typeof localStorage !== "undefined" ? localStorage.getItem("accessToken") : null;
 let refreshRequest: Promise<string | null> | null = null;
 
 export const getAccessToken = () => accessToken;
@@ -135,12 +135,25 @@ export const authApi = {
       body: JSON.stringify(payload),
     }),
 };
+
+export interface CreateScreeningPayload {
+  imageUrl: string;
+  eyePosition?: string;
+  eye?: string;
+  scanType?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+}
+
 export const screeningApi = {
-  create: (imageUrl: string) =>
-    apiFetch<any>("/api/v1/screenings", {
+  create: (payload: string | CreateScreeningPayload) => {
+    const body = typeof payload === "string" ? { imageUrl: payload } : payload;
+    return apiFetch<any>("/api/v1/screenings", {
       method: "POST",
-      body: JSON.stringify({ imageUrl }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
 
   getAll: () =>
     apiFetch<any[]>("/api/v1/screenings", {
@@ -204,14 +217,76 @@ export const notificationApi = {
   getStreamUrl: () => `${API_BASE_URL}/api/v1/notifications/stream`,
 };
 
+export interface ServicePackageResponse {
+  id: number;
+  name: string;
+  description?: string;
+  scope: "INDIVIDUAL" | "CLINIC";
+  price: number;
+  credits: number;
+  validityDays?: number;
+  active?: boolean;
+}
+
+export interface PaymentStatusResponse {
+  transactionId: number;
+  providerReference: string;
+  status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+  amount: number;
+  creditsAdded?: number;
+  paidAt?: string;
+  expiresAt?: string;
+  failureReason?: string;
+}
+
+export interface PaymentTransactionResponse {
+  id: number;
+  servicePackageId?: number;
+  servicePackageName?: string;
+  amount: number;
+  status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+  provider: string;
+  failureReason?: string;
+  createdAt?: string;
+  paidAt?: string;
+  providerReference?: string;
+  paymentUrl?: string;
+  merchantId?: string;
+  transferContent?: string;
+  qrCodeUrl?: string;
+  expiresAt?: string;
+}
+
 export const billingApi = {
+  checkout: (packageId: number, paymentMethod = "VIETQR") =>
+    apiFetch<PaymentTransactionResponse>(
+      `/api/v1/me/packages/${packageId}/checkout?paymentMethod=${paymentMethod}`,
+      {
+        method: "POST",
+      },
+    ),
+
   purchase: (packageId: number, paymentMethod = "VNPAY") =>
-    apiFetch<any>(
+    apiFetch<PaymentTransactionResponse>(
       `/api/v1/me/packages/${packageId}/purchase?paymentMethod=${paymentMethod}`,
       {
         method: "POST",
       },
     ),
+
+  purchasePackage: (packageId: number, paymentMethod = "VNPAY") =>
+    billingApi.purchase(packageId, paymentMethod),
+
+  getTransactionStatus: (transactionId: number) =>
+    apiFetch<PaymentStatusResponse>(
+      `/api/v1/me/payments/${transactionId}/status`,
+      {
+        method: "GET",
+      },
+    ),
+
+  packages: (scope: "INDIVIDUAL" | "CLINIC" = "CLINIC") =>
+    apiFetch<ServicePackageResponse[]>(`/api/v1/packages?scope=${scope}`, { method: "GET" }),
 
   mySubscriptions: () =>
     apiFetch<any[]>("/api/v1/me/subscriptions", {
@@ -219,7 +294,12 @@ export const billingApi = {
     }),
 
   myPayments: () =>
-    apiFetch<any[]>("/api/v1/me/payments", {
+    apiFetch<PaymentTransactionResponse[]>("/api/v1/me/payments", {
+      method: "GET",
+    }),
+
+  getRemainingCredits: () =>
+    apiFetch<{ remainingCredits: number }>("/api/v1/me/credits", {
       method: "GET",
     }),
 };
@@ -437,11 +517,16 @@ export const doctorApi = {
       method: "GET",
     }),
 
-  createScreeningForPatient: (patientId: string, imageUrl: string) =>
-    apiFetch<any>(`/api/v1/doctor/patients/${patientId}/screenings`, {
+  createScreeningForPatient: (
+    patientId: string,
+    payload: string | CreateScreeningPayload,
+  ) => {
+    const body = typeof payload === "string" ? { imageUrl: payload } : payload;
+    return apiFetch<any>(`/api/v1/doctor/patients/${patientId}/screenings`, {
       method: "POST",
-      body: JSON.stringify({ imageUrl }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
 
   create: (patientData: any) =>
     apiFetch<any>("/api/v1/patient/profile", {
@@ -523,6 +608,8 @@ export const bulkScreeningApi = {
 export const servicePackageApi = {
   browse: (scope: "INDIVIDUAL" | "CLINIC") =>
     apiFetch<any[]>(`/api/v1/packages?scope=${scope}`, { method: "GET" }),
+  list: (scope: "INDIVIDUAL" | "CLINIC" = "CLINIC") =>
+    apiFetch<any[]>(`/api/v1/packages?scope=${scope}`, { method: "GET" }),
 };
 
 export const clinicAnalyticsApi = {
@@ -531,7 +618,7 @@ export const clinicAnalyticsApi = {
 
   exportData: async (fileName = "aura_clinic_export.csv") => {
     const response = await fetch(
-      `${(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "")}/api/v1/clinic/analytics/export`,
+      `${(import.meta.env?.VITE_API_BASE_URL || "").replace(/\/$/, "")}/api/v1/clinic/analytics/export`,
       {
         headers: getAccessToken()
           ? { Authorization: `Bearer ${getAccessToken()}` }
@@ -605,3 +692,41 @@ export const adminClinicApi = {
       body: JSON.stringify({ decision, rejectionReason }),
     }),
 };
+
+// FR-34: Admin quản lý gói dịch vụ và mô hình billing
+export interface ServicePackagePayload {
+  name: string;
+  description?: string;
+  price: number;
+  credits: number;
+  validityDays: number;
+  scope: 'USER' | 'CLINIC';
+  active?: boolean;
+  features?: string[];
+}
+
+export const adminServicePackageApi = {
+  listAll: () => apiFetch<any[]>('/api/v1/admin/packages', { method: 'GET' }),
+  create: (payload: ServicePackagePayload) =>
+    apiFetch<any>('/api/v1/admin/packages', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...payload,
+        scope: (payload.scope as string) === 'USER' ? 'INDIVIDUAL' : payload.scope,
+      }),
+    }),
+  update: (id: number | string, payload: ServicePackagePayload) =>
+    apiFetch<any>(`/api/v1/admin/packages/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...payload,
+        scope: (payload.scope as string) === 'USER' ? 'INDIVIDUAL' : payload.scope,
+      }),
+    }),
+  setActive: (id: number | string, active: boolean) =>
+    apiFetch<any>(`/api/v1/admin/packages/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active }),
+    }),
+};
+

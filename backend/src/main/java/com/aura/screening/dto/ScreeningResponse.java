@@ -1,0 +1,104 @@
+package com.aura.screening.dto;
+
+import com.aura.screening.entity.ReviewDecision;
+import com.aura.screening.entity.RiskLevel;
+import com.aura.screening.entity.Screening;
+import com.aura.screening.entity.ScreeningStatus;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Instant;
+import java.util.UUID;
+
+public record ScreeningResponse(
+    @JsonProperty("id") UUID id,
+    @JsonProperty("patientId") UUID patientId,
+    @JsonProperty("doctorId") UUID doctorId,
+    @JsonProperty("clinicId") UUID clinicId,
+    @JsonProperty("batchId") UUID batchId,
+    @JsonProperty("imageUrl") String imageUrl,
+    @JsonProperty("status") ScreeningStatus status,
+    @JsonProperty("riskLevel") RiskLevel riskLevel,
+    @JsonProperty("aiRiskLevel") RiskLevel aiRiskLevel,
+    @JsonProperty("doctorRiskLevel") RiskLevel doctorRiskLevel,
+    @JsonProperty("confidence") Double confidence,
+    @JsonProperty("findings") String findings,
+    @JsonProperty("cardiovascularRiskScore") Integer cardiovascularRiskScore,
+    @JsonProperty("cardiovascularRiskLevel") String cardiovascularRiskLevel,
+    @JsonProperty("diabeticRetinopathyRiskScore") Integer diabeticRetinopathyRiskScore,
+    @JsonProperty("diabeticRetinopathyRiskLevel") String diabeticRetinopathyRiskLevel,
+    @JsonProperty("hypertensionRiskScore") Integer hypertensionRiskScore,
+    @JsonProperty("hypertensionRiskLevel") String hypertensionRiskLevel,
+    @JsonProperty("strokeRiskScore") Integer strokeRiskScore,
+    @JsonProperty("strokeRiskLevel") String strokeRiskLevel,
+    @JsonProperty("recommendations") String recommendations,
+    @JsonProperty("heatmapBase64") String heatmapBase64,
+    @JsonProperty("detectedAnomalies") String detectedAnomalies,
+    @JsonProperty("vesselMaskUrl") String vesselMaskUrl,
+    @JsonProperty("eyePosition") String eyePosition,
+    @JsonProperty("scanType") String scanType,
+    @JsonProperty("fileName") String fileName,
+    @JsonProperty("fileSize") Long fileSize,
+    @JsonProperty("mimeType") String mimeType,
+    @JsonProperty("riskScore") Integer riskScore,
+    @JsonProperty("avRatio") Double avRatio,
+    @JsonProperty("vesselDensity") String vesselDensity,
+    @JsonProperty("vesselDensityPercent") Double vesselDensityPercent,
+    @JsonProperty("tortuosityIndex") Double tortuosityIndex,
+    @JsonProperty("verticalCdr") Double verticalCdr,
+    @JsonProperty("reviewDecision") ReviewDecision reviewDecision,
+    @JsonProperty("doctorNotes") String doctorNotes,
+    @JsonProperty("icd10Codes") String icd10Codes,
+    @JsonProperty("digitalSignature") String digitalSignature,
+    @JsonProperty("signedAt") Instant signedAt,
+    @JsonProperty("reviewedAt") Instant reviewedAt,
+    @JsonProperty("createdAt") Instant createdAt,
+    @JsonProperty("updatedAt") Instant updatedAt
+) {
+  public static ScreeningResponse fromEntity(Screening s) {
+    if (s == null) return null;
+    return new ScreeningResponse(
+        s.getId(),
+        s.getPatientId(),
+        s.getDoctorId(),
+        s.getClinicId(),
+        s.getBatchId(),
+        s.getImageUrl(),
+        s.getStatus(),
+        s.getRiskLevel(),
+        s.getAiRiskLevel(),
+        s.getDoctorRiskLevel(),
+        s.getConfidence(),
+        s.getFindings(),
+        s.getCardiovascularRiskScore(),
+        s.getCardiovascularRiskLevel(),
+        s.getDiabeticRetinopathyRiskScore(),
+        s.getDiabeticRetinopathyRiskLevel(),
+        s.getHypertensionRiskScore(),
+        s.getHypertensionRiskLevel(),
+        s.getStrokeRiskScore(),
+        s.getStrokeRiskLevel(),
+        s.getRecommendations(),
+        s.getHeatmapBase64(),
+        s.getDetectedAnomalies(),
+        s.getVesselMaskUrl(),
+        s.getEyePosition(),
+        s.getScanType(),
+        s.getFileName(),
+        s.getFileSize(),
+        s.getMimeType(),
+        s.getRiskScore(),
+        s.getAvRatio(),
+        s.getVesselDensity(),
+        s.getVesselDensityPercent(),
+        s.getTortuosityIndex(),
+        s.getVerticalCdr(),
+        s.getReviewDecision(),
+        s.getDoctorNotes(),
+        s.getIcd10Codes(),
+        s.getDigitalSignature(),
+        s.getSignedAt(),
+        s.getReviewedAt(),
+        s.getCreatedAt(),
+        s.getUpdatedAt()
+    );
+  }
+}

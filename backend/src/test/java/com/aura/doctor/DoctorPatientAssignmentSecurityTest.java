@@ -9,6 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.aura.auth.security.JwtTokenProvider;
+import com.aura.billing.entity.Subscription;
+import com.aura.billing.entity.SubscriptionStatus;
+import com.aura.billing.repository.ServicePackageRepository;
+import com.aura.billing.repository.SubscriptionRepository;
+import java.time.LocalDateTime;
 import com.aura.doctor.entity.AssignmentStatus;
 import com.aura.doctor.entity.DoctorPatientAssignment;
 import com.aura.doctor.repository.DoctorPatientAssignmentRepository;
@@ -75,6 +80,8 @@ class DoctorPatientAssignmentSecurityTest {
   @Autowired DoctorPatientAssignmentRepository assignmentRepository;
   @Autowired PatientMedicalProfileRepository profileRepository;
   @Autowired ScreeningRepository screeningRepository;
+  @Autowired(required = false) SubscriptionRepository subscriptionRepository;
+  @Autowired(required = false) ServicePackageRepository servicePackageRepository;
 
   private User doctorA;
   private User doctorB;
@@ -96,6 +103,9 @@ class DoctorPatientAssignmentSecurityTest {
 
   @BeforeEach
   void setUp() {
+    if (subscriptionRepository != null) {
+      subscriptionRepository.deleteAll();
+    }
     assignmentRepository.deleteAll();
     screeningRepository.deleteAll();
     profileRepository.deleteAll();
@@ -114,6 +124,20 @@ class DoctorPatientAssignmentSecurityTest {
     patientA = createUser("patientA_" + System.nanoTime() + "@aura.test", "Benh Nhan A", roleUser);
     patientB = createUser("patientB_" + System.nanoTime() + "@aura.test", "Benh Nhan B", roleUser);
     patientC = createUser("patientC_" + System.nanoTime() + "@aura.test", "Benh Nhan C", roleUser);
+
+    // Seed subscription credits for patientA so screening creation succeeds
+    if (subscriptionRepository != null && servicePackageRepository != null) {
+      servicePackageRepository.findAll().stream().findFirst().ifPresent(pkg -> {
+        Subscription sub = Subscription.builder()
+            .owner(patientA)
+            .servicePackage(pkg)
+            .remainingCredits(50)
+            .expiresAt(LocalDateTime.now().plusYears(1))
+            .status(SubscriptionStatus.ACTIVE)
+            .build();
+        subscriptionRepository.save(sub);
+      });
+    }
 
     // Create Admin
     adminUser = createUser("admin_" + System.nanoTime() + "@aura.test", "Admin System", roleAdmin);

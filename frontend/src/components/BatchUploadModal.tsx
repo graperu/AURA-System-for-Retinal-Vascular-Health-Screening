@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   X,
   UploadCloud,
@@ -16,6 +16,12 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { BulkUploadItemPayload } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
+import { useLanguage } from '../context/LanguageContext';
+
+export const DICOM_PLACEHOLDER_DATA_URI =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="%230f172a"/><rect x="25" y="20" width="110" height="120" rx="8" fill="%231e293b" stroke="%230891b2" stroke-width="2"/><text x="80" y="72" fill="%2338bdf8" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle">DICOM</text><text x="80" y="96" fill="%2394a3b8" font-family="sans-serif" font-size="10" font-weight="600" text-anchor="middle">Medical File</text><circle cx="80" cy="118" r="4" fill="%230891b2"/></svg>';
 
 interface BatchUploadModalProps {
   isOpen: boolean;
@@ -52,10 +58,42 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
   onSubmitBatch,
   currentCredits,
 }) => {
-  const [campaignName, setCampaignName] = useState(
-    `Chiến dịch Tầm soát Đột quỵ & Mạch máu Võng mạc Đợt ${new Date().toLocaleDateString('vi-VN')}`
+  const { t, isVi } = useLanguage();
+  const { user: currentUser } = useAuth();
+  const currentClinicName = currentUser?.name || currentUser?.email || t('clinic.portal.defaultFacility');
+  const currentClinicId = currentUser?.id || 'CLINIC';
+
+  const eyeFilterOptions: ClinicalSelectOption<string>[] = useMemo(
+    () => [
+      { value: 'ALL', label: t('clinic.batchUploadModal.filterAllEyes') },
+      { value: 'OD', label: t('clinic.batchUploadModal.filterOd') },
+      { value: 'OS', label: t('clinic.batchUploadModal.filterOs') },
+    ],
+    [t]
   );
-  const [clinicId, setClinicId] = useState('CLN-CHO-RAY-01');
+
+  const itemEyeOptions: ClinicalSelectOption<'OD' | 'OS'>[] = useMemo(
+    () => [
+      { value: 'OD', label: t('clinic.batchUploadModal.allOdButton') },
+      { value: 'OS', label: t('clinic.batchUploadModal.allOsButton') },
+    ],
+    [t]
+  );
+
+  const clinicOptions = useMemo(
+    () => [
+      { value: currentClinicId, label: currentClinicName },
+      { value: 'CLINIC_SATELLITE', label: t('clinic.batchUploadModal.satelliteOption') },
+    ],
+    [currentClinicId, currentClinicName, t]
+  );
+
+  const [campaignName, setCampaignName] = useState(() =>
+    isVi
+      ? `Chiến dịch Tầm soát Đột quỵ & Mạch máu Võng mạc Đợt ${new Date().toLocaleDateString('vi-VN')}`
+      : `Retinal Vascular & Stroke Screening Campaign ${new Date().toLocaleDateString('en-US')}`
+  );
+  const [clinicId, setClinicId] = useState(currentClinicId);
   const [stagedItems, setStagedItems] = useState<StagedItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,7 +137,8 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
     const newItems: StagedItem[] = fileArray.map((file, idx) => {
       const overallIndex = stagedItems.length + idx + 1;
       const parsed = parseFilename(file.name, overallIndex);
-      const preview = URL.createObjectURL(file);
+      const isDicom = /\.(dcm|dicom|tif|tiff)$/i.test(file.name);
+      const preview = isDicom ? DICOM_PLACEHOLDER_DATA_URI : URL.createObjectURL(file);
 
       return {
         id: `STAGED-${Date.now()}-${overallIndex}`,
@@ -109,9 +148,9 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
         previewUrl: preview,
         eye: parsed.eye,
         mrn: parsed.mrn,
-        patientName: `Bệnh nhân ${parsed.mrn}`,
+        patientName: isVi ? `Bệnh nhân ${parsed.mrn}` : `Patient ${parsed.mrn}`,
         age: 50 + (overallIndex % 25),
-        gender: overallIndex % 2 === 0 ? 'Nữ' : 'Nam',
+        gender: isVi ? (overallIndex % 2 === 0 ? 'Nữ' : 'Nam') : (overallIndex % 2 === 0 ? 'Female' : 'Male'),
         systolicBp: 120 + (overallIndex % 35),
         diastolicBp: 75 + (overallIndex % 20),
         hbA1c: Number((5.5 + (overallIndex % 30) * 0.1).toFixed(1)),
@@ -124,20 +163,32 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
 
   // Quick 1-click clinical test batch generator (100 images)
   const handleLoadDemo100 = () => {
-    const firstNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ'];
-    const middleNames = ['Văn', 'Thị', 'Hồng', 'Minh', 'Đức', 'Thanh', 'Quang', 'Anh', 'Xuân', 'Ngọc'];
-    const lastNames = ['Tuấn', 'Lan', 'Hương', 'Hùng', 'Mai', 'Dũng', 'Hoa', 'Bình', 'Cường', 'Trang', 'Tâm', 'Vy'];
+    const firstNamesVi = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ'];
+    const middleNamesVi = ['Văn', 'Thị', 'Hồng', 'Minh', 'Đức', 'Thanh', 'Quang', 'Anh', 'Xuân', 'Ngọc'];
+    const lastNamesVi = ['Tuấn', 'Lan', 'Hương', 'Hùng', 'Mai', 'Dũng', 'Hoa', 'Bình', 'Cường', 'Trang', 'Tâm', 'Vy'];
+
+    const firstNamesEn = ['James', 'Robert', 'John', 'Michael', 'David', 'William', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Daniel', 'Matthew'];
+    const lastNamesEn = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez'];
 
     const demo100: StagedItem[] = Array.from({ length: 100 }).map((_, idx) => {
       const i = idx + 1;
-      const fn = firstNames[i % firstNames.length];
-      const mn = middleNames[i % middleNames.length];
-      const ln = lastNames[i % lastNames.length];
-      const name = `${fn} ${mn} ${ln}`;
+      let name = '';
+      let gender = '';
+      if (isVi) {
+        const fn = firstNamesVi[i % firstNamesVi.length];
+        const mn = middleNamesVi[i % middleNamesVi.length];
+        const ln = lastNamesVi[i % lastNamesVi.length];
+        name = `${fn} ${mn} ${ln}`;
+        gender = i % 3 === 0 ? 'Nam' : 'Nữ';
+      } else {
+        const fn = firstNamesEn[i % firstNamesEn.length];
+        const ln = lastNamesEn[i % lastNamesEn.length];
+        name = `${fn} ${ln}`;
+        gender = i % 3 === 0 ? 'Male' : 'Female';
+      }
       const mrn = `MRN-2026-${String(1000 + i).padStart(4, '0')}`;
       const eye: 'OD' | 'OS' = i % 2 === 1 ? 'OD' : 'OS';
       const age = 42 + (i % 38);
-      const gender = i % 3 === 0 ? 'Nam' : 'Nữ';
       const systolic = 118 + ((i * 3) % 45);
       const diastolic = 72 + ((i * 2) % 25);
       const hba1c = Number((5.3 + ((i * 7) % 40) * 0.1).toFixed(1));
@@ -146,7 +197,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
         id: `DEMO-ITEM-${i}`,
         fileName: `RETINA_${mrn}_${eye}_${String(i).padStart(3, '0')}.dcm`,
         fileSize: 2450000 + (i % 500000),
-        previewUrl: '/assets/images/fundus_original.png',
+        previewUrl: DICOM_PLACEHOLDER_DATA_URI,
         eye,
         mrn,
         patientName: name,
@@ -176,7 +227,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
     return new Promise((resolve) => {
       const isDicom = /\.dcm|\.dicom|\.tif|\.tiff/i.test(file.name);
       if (isDicom) {
-        resolve('/assets/images/fundus_original.png');
+        resolve(DICOM_PLACEHOLDER_DATA_URI);
         return;
       }
 
@@ -301,7 +352,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
       const itemsPayload: BulkUploadItemPayload[] = await Promise.all(
         stagedItems.map(async (item) => {
           let base64Ai = fallbackBase64;
-          let thumb = item.previewUrl || '/assets/images/fundus_original.png';
+          let thumb = item.previewUrl || (/\.dcm|\.dicom|\.tif|\.tiff/i.test(item.fileName) ? DICOM_PLACEHOLDER_DATA_URI : '/assets/images/fundus_original.png');
 
           if (item.file) {
             const [aiCompressed, generatedThumb] = await Promise.all([
@@ -373,8 +424,8 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white border border-[#CCFBF1] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
+      <div className="bg-white border border-[#CCFBF1] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-modal-enter">
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-[#134E4A] via-[#0E7490] to-[#0891B2] text-white p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -384,14 +435,14 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-extrabold tracking-tight">
-                  Tải Lên Lô Sàng Lọc Hàng Loạt (≥100 Ảnh Võng Mạc)
+                  {t('clinic.batchUploadModal.uploadTitle')}
                 </h2>
                 <span className="bg-cyan-400/20 text-cyan-200 text-[10px] font-mono-data uppercase px-2 py-0.5 rounded-full border border-cyan-300/30">
-                  [FR-24] Chuẩn Lâm Sàng
+                  {t('clinic.batchUploadModal.standardBadge')}
                 </span>
               </div>
               <p className="text-xs text-cyan-100 mt-0.5">
-                Tiếp nhận thư mục ảnh chụp chiến dịch, khử định danh HIPAA SHA-256 HMAC và đưa vào hàng đợi AI bất đồng bộ.
+                {t('clinic.batchUploadModal.description')}
               </p>
             </div>
           </div>
@@ -409,29 +460,24 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 border border-slate-200 rounded-2xl p-4">
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Tên Chiến Dịch Tầm Soát
+                {t('clinic.batchUploadModal.campaignNameLabel')}
               </label>
               <input
                 type="text"
                 value={campaignName}
                 onChange={(e) => setCampaignName(e.target.value)}
                 className="w-full px-3.5 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:border-[#0891B2] outline-none font-medium text-slate-800"
-                placeholder="Nhập tên chiến dịch khám..."
+                placeholder={t('clinic.batchUploadModal.campaignNamePlaceholder')}
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                Cơ Sở / Phòng Khám Phụ Trách
-              </label>
-              <select
+              <ClinicalSelect<string>
+                label={t('clinic.batchUploadModal.facilityLabel')}
                 value={clinicId}
-                onChange={(e) => setClinicId(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:border-[#0891B2] outline-none font-medium text-slate-800"
-              >
-                <option value="CLN-CHO-RAY-01">Bệnh Viện Chợ Rẫy — Trung tâm Sàng lọc Đáy mắt</option>
-                <option value="CLN-MAT-TW-02">Bệnh Viện Mắt Trung Ương — Khoa Dịch Kính Võng Mạc</option>
-                <option value="CLN-DA-KHOA-03">Trung Tâm Y Tế Dự Phòng Quận 1</option>
-              </select>
+                onChange={setClinicId}
+                options={clinicOptions}
+                size="sm"
+              />
             </div>
           </div>
 
@@ -459,10 +505,10 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                 <UploadCloud className="w-7 h-7" />
               </div>
               <h4 className="text-sm font-bold text-[#134E4A]">
-                Kéo thả Thư mục hoặc Tệp ảnh võng mạc vào đây
+                {t('clinic.batchUploadModal.dropzone')}
               </h4>
               <p className="text-xs text-slate-500 mt-1 max-w-md">
-                Hỗ trợ định dạng DICOM (.dcm), TIFF, PNG, JPG từ máy chụp võng mạc (Topcon, Canon, Funduscam).
+                {t('clinic.batchUploadModal.dropzoneHint')}
               </p>
 
               <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
@@ -479,7 +525,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                   onClick={() => fileInputRef.current?.click()}
                   className="px-4 py-2 bg-white border border-slate-300 hover:border-[#0891B2] text-slate-700 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
                 >
-                  <Layers className="w-4 h-4 text-[#0891B2]" /> Chọn Nhiều Tệp Ảnh
+                  <Layers className="w-4 h-4 text-[#0891B2]" /> {t('clinic.batchUploadModal.selectFilesButton')}
                 </button>
 
                 <input
@@ -496,7 +542,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                   onClick={() => folderInputRef.current?.click()}
                   className="px-4 py-2 bg-white border border-slate-300 hover:border-[#0891B2] text-slate-700 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
                 >
-                  <FolderUp className="w-4 h-4 text-[#0891B2]" /> Kéo Thư Mục (Folder)
+                  <FolderUp className="w-4 h-4 text-[#0891B2]" /> {t('clinic.batchUploadModal.selectFolderButton')}
                 </button>
               </div>
             </div>
@@ -506,10 +552,10 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
               <div>
                 <div className="flex items-center gap-2 text-[#134E4A] font-extrabold text-sm mb-2">
                   <Sparkles className="w-4 h-4 text-[#0891B2]" />
-                  Kiểm Thử Nhanh (Demo)
+                  {t('clinic.batchUploadModal.quickDemoTitle')}
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Tạo nhanh lô <strong>100 ảnh võng mạc chuẩn lâm sàng</strong> đầy đủ thông số (MRN, Tuổi, Giới tính, Huyết áp, HbA1c, Mắt OD/OS) để trải nghiệm hàng đợi AI ngay lập tức.
+                  {t('clinic.batchUploadModal.quickDemoDesc')}
                 </p>
               </div>
 
@@ -519,10 +565,10 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                   onClick={handleLoadDemo100}
                   className="w-full py-2.5 bg-gradient-to-r from-[#0891B2] to-[#134E4A] hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
-                  <Sparkles className="w-4 h-4" /> Nạp Nhanh 100 Ảnh Mẫu
+                  <Sparkles className="w-4 h-4" /> {t('clinic.batchUploadModal.loadDemoButton')}
                 </button>
                 <span className="text-[11px] text-slate-500 text-center block mt-1.5">
-                  Đáp ứng trọn vẹn tiêu chí kiểm thử [FR-24] ≥ 100 ảnh
+                  {t('clinic.batchUploadModal.demoStandardBadge')}
                 </span>
               </div>
             </div>
@@ -533,18 +579,18 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
             <div className="bg-slate-50 p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-[#134E4A]">
-                  Danh Sách Tiền Kiểm Tra (Pre-flight Grid):
+                  {t('clinic.batchUploadModal.preflightTitle')}
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-mono-data font-bold bg-cyan-100 text-[#0891B2]">
-                  {stagedItems.length} ảnh đã nạp
+                  {stagedItems.length} {t('clinic.batchUploadModal.scansLoaded')}
                 </span>
                 {stagedItems.length >= 100 ? (
                   <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-[11px] font-bold">
-                    <CheckCircle2 className="w-3 h-3" /> Đạt chuẩn ≥ 100 ảnh
+                    <CheckCircle2 className="w-3 h-3" /> {t('clinic.batchUploadModal.standardPassed')}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-[11px] font-bold">
-                    <AlertTriangle className="w-3 h-3" /> Yêu cầu ≥ 100 ảnh ({stagedItems.length}/100)
+                    <AlertTriangle className="w-3 h-3" /> {t('clinic.batchUploadModal.standardRequired')} ({stagedItems.length}/100)
                   </span>
                 )}
               </div>
@@ -552,55 +598,53 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
               {/* Quick Batch Actions */}
               {stagedItems.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-medium text-slate-400 mr-1">Gán nhanh:</span>
+                  <span className="text-[11px] font-medium text-slate-400 mr-1">{t('clinic.batchUploadModal.quickAssignLabel')}</span>
                   <button
                     type="button"
                     onClick={() => handleBulkAssignEye('ALL_OD')}
                     className="px-2 py-1 bg-cyan-50 hover:bg-cyan-100 text-[#0891B2] border border-cyan-200 rounded-lg text-[10px] font-bold transition-all"
                   >
-                    Tất Cả Mắt Phải (OD)
+                    {t('clinic.batchUploadModal.allOdButton')}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleBulkAssignEye('ALL_OS')}
                     className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-lg text-[10px] font-bold transition-all"
                   >
-                    Tất Cả Mắt Trái (OS)
+                    {t('clinic.batchUploadModal.allOsButton')}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleBulkAssignEye('ALTERNATE')}
                     className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-[10px] font-bold transition-all"
                   >
-                    Xen Kẽ Cặp Mắt (OD/OS)
+                    {t('clinic.batchUploadModal.alternateEyesButton')}
                   </button>
                   <button
                     type="button"
                     onClick={handleBulkApplyVitals}
                     className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-bold transition-all"
-                    title="Tự động điền huyết áp và HbA1c mẫu cho các ca chưa có thông số"
+                    title={t('clinic.batchUploadModal.fillVitalsTooltip')}
                   >
-                    Điền Sinh Hiệu Mẫu
+                    {t('clinic.batchUploadModal.fillSampleVitalsButton')}
                   </button>
                 </div>
               )}
 
               <div className="flex items-center gap-2">
-                <select
+                <ClinicalSelect<string>
                   value={filterEye}
-                  onChange={(e) => setFilterEye(e.target.value)}
-                  className="text-xs py-1 px-2.5 bg-white border border-slate-300 rounded-lg outline-none font-medium"
-                >
-                  <option value="ALL">Tất cả mắt (OD/OS)</option>
-                  <option value="OD">Chỉ mắt phải (OD)</option>
-                  <option value="OS">Chỉ mắt trái (OS)</option>
-                </select>
+                  onChange={setFilterEye}
+                  options={eyeFilterOptions}
+                  size="sm"
+                  className="w-48"
+                />
                 {stagedItems.length > 0 && (
                   <button
                     onClick={() => setStagedItems([])}
                     className="text-xs text-rose-600 hover:text-rose-700 font-bold px-2 py-1"
                   >
-                    Xóa tất cả
+                    {t('clinic.batchUploadModal.clearAllButton')}
                   </button>
                 )}
               </div>
@@ -608,20 +652,20 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
 
             {stagedItems.length === 0 ? (
               <div className="py-12 text-center text-slate-400 text-xs">
-                Chưa có ảnh nào được nạp. Hãy kéo thả thư mục ảnh hoặc bấm "Nạp Nhanh 100 Ảnh Mẫu".
+                {t('clinic.batchUploadModal.emptyStaged')}
               </div>
             ) : (
               <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 font-mono-data sticky top-0 border-b border-slate-200">
                     <tr>
-                      <th className="py-2.5 px-3">STT</th>
-                      <th className="py-2.5 px-3">Xem Trước</th>
-                      <th className="py-2.5 px-3">Tên Tệp Ảnh</th>
-                      <th className="py-2.5 px-3">Mã MRN & Bệnh Nhân</th>
-                      <th className="py-2.5 px-3">Mắt Chụp</th>
-                      <th className="py-2.5 px-3">Sinh Hiệu (HA / HbA1c)</th>
-                      <th className="py-2.5 px-3 text-right">Thao Tác</th>
+                      <th className="py-2.5 px-3">{t('clinic.batchUploadModal.colNum')}</th>
+                      <th className="py-2.5 px-3">{t('clinic.batchUploadModal.colPreview')}</th>
+                      <th className="py-2.5 px-3">{t('clinic.batchUploadModal.colFileName')}</th>
+                      <th className="py-2.5 px-3">{t('clinic.batchUploadModal.colMrnPatient')}</th>
+                      <th className="py-2.5 px-3">{t('clinic.batchUploadModal.colEyePosition')}</th>
+                      <th className="py-2.5 px-3">{t('clinic.batchUploadModal.colVitals')}</th>
+                      <th className="py-2.5 px-3 text-right">{t('clinic.batchUploadModal.colActions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -643,18 +687,13 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                           <div className="text-[11px] text-slate-400 font-mono-data">{item.mrn}</div>
                         </td>
                         <td className="py-2 px-3">
-                          <select
+                          <ClinicalSelect<'OD' | 'OS'>
                             value={item.eye}
-                            onChange={(e) => handleUpdateItemEye(item.id, e.target.value as 'OD' | 'OS')}
-                            className={`text-[11px] font-bold font-mono-data py-0.5 px-1.5 rounded border ${
-                              item.eye === 'OD'
-                                ? 'bg-cyan-50 border-cyan-200 text-[#0891B2]'
-                                : 'bg-teal-50 border-teal-200 text-teal-700'
-                            }`}
-                          >
-                            <option value="OD">Mắt Phải (OD)</option>
-                            <option value="OS">Mắt Trái (OS)</option>
-                          </select>
+                            onChange={(val) => handleUpdateItemEye(item.id, val)}
+                            options={itemEyeOptions}
+                            size="sm"
+                            className="w-36"
+                          />
                         </td>
                         <td className="py-2 px-3 text-[11px] font-mono-data text-slate-600">
                           {item.systolicBp}/{item.diastolicBp} mmHg &bull; {item.hbA1c}%
@@ -673,7 +712,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                 </table>
                 {filteredStaged.length > 50 && (
                   <div className="py-2 text-center text-slate-400 text-xs bg-slate-50 border-t border-slate-100">
-                    ... và {filteredStaged.length - 50} ảnh khác trong lô tiền kiểm tra.
+                    ... {isVi ? 'và' : 'and'} {filteredStaged.length - 50} {t('clinic.batchUploadModal.moreScansCount')}
                   </div>
                 )}
               </div>
@@ -686,11 +725,11 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5 text-slate-600">
               <CreditCard className="w-4 h-4 text-[#0891B2]" />
-              <span>Tiêu hao dự kiến: <strong>{stagedItems.length} Credits</strong></span>
+              <span>{t('clinic.batchUploadModal.estimatedConsumption')} <strong>{stagedItems.length} Credits</strong></span>
             </div>
             <span className="text-slate-300">|</span>
             <div className="text-slate-600">
-              Khả dụng: <strong className="text-emerald-700">{currentCredits.toLocaleString()}</strong> Credits
+              {t('clinic.batchUploadModal.availableBalance')} <strong className="text-emerald-700">{currentCredits.toLocaleString()}</strong> Credits
             </div>
           </div>
 
@@ -701,7 +740,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
               disabled={isSubmitting}
               className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-all"
             >
-              Hủy Bỏ
+              {t('clinic.batchUploadModal.cancelButton')}
             </button>
             <button
               type="button"
@@ -712,12 +751,12 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Đang Khử Định Danh & Đẩy Hàng Đợi...
+                  {t('clinic.batchUploadModal.deidentifyingQueuing')}
                 </>
               ) : (
                 <>
                   <UploadCloud className="w-4 h-4" />
-                  Bắt Đầu Phân Tích Lô ({stagedItems.length} Ảnh)
+                  {t('clinic.batchUploadModal.startBatchButton')} ({stagedItems.length} {isVi ? 'Ảnh' : 'Scans'})
                 </>
               )}
             </button>

@@ -22,11 +22,11 @@ public class PaymentTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "buyer_id", nullable = false)
     private User buyer;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "service_package_id", nullable = false)
     private ServicePackage servicePackage;
 
@@ -46,11 +46,34 @@ public class PaymentTransaction {
 
     private String failureReason;
 
+    @Column(name = "transfer_content")
+    private String transferContent;
+
+    @Column(name = "qr_code_url", columnDefinition = "TEXT")
+    private String qrCodeUrl;
+
+    @Column(name = "payment_url", columnDefinition = "TEXT")
+    private String paymentUrl;
+
+    @Column(name = "gateway_transaction_no")
+    private String gatewayTransactionNo;
+
+    @Column(name = "checksum")
+    private String checksum;
+
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (expiresAt == null) {
+            expiresAt = createdAt.plusMinutes(15);
+        }
     }
 }

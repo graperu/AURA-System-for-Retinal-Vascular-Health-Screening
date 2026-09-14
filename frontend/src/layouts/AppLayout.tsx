@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Header } from '../components/Header';
 import { SideNavBar } from '../components/SideNavBar';
+import { Footer } from '../components/Footer';
 import { UserSession } from '../types/auth';
 
 export interface AppLayoutProps {
@@ -21,7 +22,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F4F7FC] font-sans text-slate-900 selection:bg-[#0891B2] selection:text-white">
+    <div className="flex min-h-screen flex-col bg-clinical-bg font-sans text-clinical-text selection:bg-brand-600 selection:text-white">
       {/* Universal Clinical Header */}
       <Header
         currentUser={currentUser}
@@ -29,7 +30,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         onOpenMenu={() => setIsMobileMenuOpen(true)}
       />
 
-      <div className="mx-auto flex w-full max-w-[1680px] flex-1">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-1">
         {/* Categorized Side Navigation */}
         <SideNavBar
           currentRole={currentUser.role}
@@ -40,9 +41,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         />
 
         {/* Dynamic Role Main Viewport */}
-        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-          {children}
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div key={activeSection} className="page-transition-enter min-h-full">
+              {children}
+            </div>
+          </main>
+          <Footer />
+        </div>
       </div>
     </div>
   );

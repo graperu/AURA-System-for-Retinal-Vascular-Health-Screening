@@ -1,14 +1,18 @@
 import React from 'react';
-import { AIRiskResult, RiskLevel } from '../types/cds';
-import { Heart, Activity, BrainCircuit, ShieldCheck, Eye } from 'lucide-react';
+import { AIRiskResult } from '../types/cds';
+import { Heart, Activity, BrainCircuit, Eye } from 'lucide-react';
 import { Card } from './ui/Card';
 import { RiskBadge } from './ui/RiskBadge';
+import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
+import { useLanguage } from '../context/LanguageContext';
 
 interface RiskAssessmentPanelProps {
   result: AIRiskResult;
 }
 
 export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result }) => {
+  const { isVi } = useLanguage();
+
   const getGaugeColor = (score: number) => {
     if (score < 30) return '#16A34A';
     if (score < 60) return '#D97706';
@@ -23,14 +27,20 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
         <div>
           <h2 className="text-base sm:text-lg font-bold text-clinical-text flex items-center gap-2">
             <Activity className="w-5 h-5 text-brand-600" />
-            Đánh Giá Nguy Cơ Lâm Sàng AI (Tim Mạch • Đột Quỵ • ĐTĐ)
+            {isVi
+              ? 'Đánh Giá Nguy Cơ Lâm Sàng AI (Tim Mạch • Đột Quỵ • ĐTĐ)'
+              : 'AI Clinical Risk Assessment (Cardiovascular • Stroke • DR)'}
           </h2>
           <p className="text-xs text-clinical-text-muted mt-0.5">
-            Định lượng rủi ro Y tế dựa trên phân tích hình thái vi mạch võng mạc kết hợp thuật toán AI.
+            {isVi
+              ? 'Định lượng rủi ro Y tế dựa trên phân tích hình thái vi mạch võng mạc kết hợp thuật toán AI.'
+              : 'Quantitative medical risk based on retinal microvascular morphology combined with AI algorithms.'}
           </p>
         </div>
         <div className="bg-slate-50 px-4 py-2 rounded-xl border border-clinical-border text-right font-mono-data">
-          <span className="text-[11px] text-clinical-text-muted block font-sans">Tổng Điểm Rủi Ro:</span>
+          <span className="text-[11px] text-clinical-text-muted block font-sans">
+            {isVi ? 'Tổng Điểm Rủi Ro:' : 'Overall Risk Score:'}
+          </span>
           <span className="text-xl font-bold text-red-600">{result.overallVascularRiskScore}/100</span>
         </div>
       </div>
@@ -42,7 +52,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
               <Heart className="w-4 h-4 text-red-600" />
-              Nguy Cơ Tim Mạch
+              {isVi ? 'Nguy Cơ Tim Mạch' : 'Cardiovascular Risk'}
             </span>
             <RiskBadge level={result.cardiovascularRisk.level} size="sm" />
           </div>
@@ -52,7 +62,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
               {result.cardiovascularRisk.score}%
             </span>
             <span className="text-[11px] text-clinical-text-muted mb-0.5">
-              Tăng Huyết Áp {result.cardiovascularRisk.hypertensionStage}
+              {isVi ? `Tăng Huyết Áp ${result.cardiovascularRisk.hypertensionStage}` : `Hypertension ${result.cardiovascularRisk.hypertensionStage}`}
             </span>
           </div>
 
@@ -72,7 +82,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
               <BrainCircuit className="w-4 h-4 text-brand-600" />
-              Nguy Cơ Đột Quỵ
+              {isVi ? 'Nguy Cơ Đột Quỵ' : 'Stroke Risk'}
             </span>
             <RiskBadge level={result.cardiovascularRisk.level} size="sm" />
           </div>
@@ -82,7 +92,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
               {result.cardiovascularRisk.threeYearStrokeRiskPercent}%
             </span>
             <span className="text-[11px] text-clinical-text-muted mb-0.5">
-              Ước tính trong 3 năm
+              {isVi ? 'Ước tính trong 3 năm' : '3-year estimate'}
             </span>
           </div>
 
@@ -102,7 +112,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
               <Eye className="w-4 h-4 text-teal-600" />
-              Bệnh Võng Mạc ĐTĐ
+              {isVi ? 'Bệnh Võng Mạc ĐTĐ' : 'Diabetic Retinopathy'}
             </span>
             <RiskBadge level={result.diabeticRetinopathyRisk.level} size="sm" />
           </div>
@@ -112,7 +122,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
               {result.diabeticRetinopathyRisk.score}%
             </span>
             <span className="text-[11px] text-clinical-text-muted mb-0.5">
-              Phân độ: {result.diabeticRetinopathyRisk.etdrsGrade}
+              {isVi ? `Phân độ: ${result.diabeticRetinopathyRisk.etdrsGrade}` : `Grade: ${result.diabeticRetinopathyRisk.etdrsGrade}`}
             </span>
           </div>
 
@@ -131,39 +141,60 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
       {/* Retinal Biomarkers Data Grid */}
       <div className="space-y-3 pt-2">
         <h3 className="text-xs font-bold uppercase tracking-wider text-clinical-text-muted">
-          Thông Số Sinh Học Vi Mạch Võng Mạc (Retinal Biomarkers)
+          {isVi
+            ? 'Thông Số Sinh Học Vi Mạch Võng Mạc (Retinal Biomarkers)'
+            : 'Retinal Microvascular Biomarkers'}
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
-            <span className="text-[11px] text-clinical-text-muted block">Tỷ lệ Động-Tĩnh mạch (AVR)</span>
-            <span className="text-sm font-bold font-mono-data text-clinical-text">
-              {result.annotatedMap.arteryVeinRatio}
+            <span className="text-[11px] text-clinical-text-muted block">
+              {isVi ? 'Tỷ lệ Động-Tĩnh mạch (AVR)' : 'Arteriovenous Ratio (AVR)'}
             </span>
-            <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn: ≥ 0.67</span>
+            <span className="text-sm font-bold font-mono-data text-clinical-text">
+              {result.annotatedMap.arteryVeinRatio ? result.annotatedMap.arteryVeinRatio.toFixed(2) : '0.00'}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              {isVi ? 'Chuẩn: ≥ 0.67' : 'Ref: ≥ 0.67'}
+            </span>
           </div>
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
-            <span className="text-[11px] text-clinical-text-muted block">Mật độ vi mạch (Density)</span>
-            <span className="text-sm font-bold font-mono-data text-clinical-text">
-              {result.annotatedMap.vesselDensityPercentage}%
+            <span className="text-[11px] text-clinical-text-muted block">
+              {isVi ? 'Mật độ vi mạch (Density)' : 'Capillary Density'}
             </span>
-            <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn: 15.5 - 19.0%</span>
+            <span className="text-sm font-bold font-mono-data text-clinical-text">
+              {result.annotatedMap.vesselDensityPercentage ? result.annotatedMap.vesselDensityPercentage.toFixed(1) : '0.0'}%
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              {isVi ? 'Chuẩn: 15.5 - 19.0%' : 'Ref: 15.5 - 19.0%'}
+            </span>
           </div>
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
-            <span className="text-[11px] text-clinical-text-muted block">Độ uốn lượn (Tortuosity)</span>
-            <span className="text-sm font-bold font-mono-data text-clinical-text">
-              {result.annotatedMap.tortuosityIndex}
+            <span className="text-[11px] text-clinical-text-muted block">
+              {isVi ? 'Độ uốn lượn (Tortuosity)' : 'Vascular Tortuosity'}
             </span>
-            <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn: &lt; 1.25</span>
+            <span className="text-sm font-bold font-mono-data text-clinical-text">
+              {result.annotatedMap.tortuosityIndex ? result.annotatedMap.tortuosityIndex.toFixed(2) : '0.00'}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              {isVi ? 'Chuẩn: < 1.25' : 'Ref: < 1.25'}
+            </span>
           </div>
           <div className="p-3 bg-white rounded-lg border border-clinical-border">
-            <span className="text-[11px] text-clinical-text-muted block">Tỷ lệ Cup/Disc (CDR)</span>
-            <span className="text-sm font-bold font-mono-data text-clinical-text">
-              {result.annotatedMap.opticCupToDiscRatio}
+            <span className="text-[11px] text-clinical-text-muted block">
+              {isVi ? 'Tỷ lệ Cup/Disc (CDR)' : 'Cup-to-Disc Ratio (CDR)'}
             </span>
-            <span className="text-[10px] text-slate-500 block mt-0.5">Chuẩn: &lt; 0.50</span>
+            <span className="text-sm font-bold font-mono-data text-clinical-text">
+              {result.annotatedMap.opticCupToDiscRatio ? result.annotatedMap.opticCupToDiscRatio.toFixed(2) : '0.00'}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              {isVi ? 'Chuẩn: < 0.50' : 'Ref: < 0.50'}
+            </span>
           </div>
         </div>
       </div>
+
+      {/* Mandatory Medical Safety Disclaimer */}
+      <MedicalDisclaimer variant="compact" />
     </Card>
   );
 };

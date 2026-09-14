@@ -22,6 +22,12 @@ public class AuditLog {
   @Column(name = "user_email", length = 320)
   private String userEmail;
 
+  @Column(name = "user_role", length = 50)
+  private String userRole;
+
+  @Column(name = "module", length = 64)
+  private String module;
+
   @Column(name = "action", nullable = false, length = 64)
   private String action;
 
@@ -51,6 +57,8 @@ public class AuditLog {
   public AuditLog(
       UUID userId,
       String userEmail,
+      String userRole,
+      String module,
       String action,
       String resourceType,
       String resourceId,
@@ -60,6 +68,8 @@ public class AuditLog {
       String details) {
     this.userId = userId;
     this.userEmail = userEmail;
+    this.userRole = userRole;
+    this.module = module;
     this.action = action;
     this.resourceType = resourceType;
     this.resourceId = resourceId;
@@ -67,6 +77,19 @@ public class AuditLog {
     this.userAgent = userAgent;
     this.status = status != null ? status : "SUCCESS";
     this.details = details;
+  }
+
+  public AuditLog(
+      UUID userId,
+      String userEmail,
+      String action,
+      String resourceType,
+      String resourceId,
+      String ipAddress,
+      String userAgent,
+      String status,
+      String details) {
+    this(userId, userEmail, null, null, action, resourceType, resourceId, ipAddress, userAgent, status, details);
   }
 
   @PrePersist
@@ -86,6 +109,14 @@ public class AuditLog {
 
   public String getUserEmail() {
     return userEmail;
+  }
+
+  public String getUserRole() {
+    return userRole;
+  }
+
+  public String getModule() {
+    return module;
   }
 
   public String getAction() {

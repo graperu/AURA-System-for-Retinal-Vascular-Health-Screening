@@ -5,6 +5,7 @@ import {
   FundusAnalysisRequest,
   PatientProfile,
 } from '../types/cds';
+import { generateDynamicHeatmapDataUrl } from '../utils/dynamicHeatmapEngine';
 
 export const MOCK_PATIENTS: PatientProfile[] = [
   {
@@ -20,7 +21,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: true,
     historyOfSmoking: true,
     lastExamDate: '2026-09-03',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0912 345 678',
     riskLevel: 'High',
     riskScore: 85,
@@ -41,7 +42,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: true,
     historyOfSmoking: true,
     lastExamDate: '2026-09-02',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0912 345 679',
     riskLevel: 'High',
     riskScore: 82,
@@ -83,7 +84,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: true,
     historyOfSmoking: true,
     lastExamDate: '2026-08-30',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0903 888 999',
     riskLevel: 'Severe',
     riskScore: 91,
@@ -104,7 +105,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: true,
     historyOfSmoking: false,
     lastExamDate: '2026-08-28',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0977 123 456',
     riskLevel: 'Moderate',
     riskScore: 62,
@@ -146,7 +147,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: true,
     historyOfSmoking: true,
     lastExamDate: '2026-08-22',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0933 445 566',
     riskLevel: 'High',
     riskScore: 86,
@@ -188,7 +189,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: true,
     historyOfSmoking: true,
     lastExamDate: '2026-08-18',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0908 991 223',
     riskLevel: 'High',
     riskScore: 76,
@@ -230,7 +231,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: false,
     historyOfSmoking: true,
     lastExamDate: '2026-08-12',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0972 556 778',
     riskLevel: 'Low',
     riskScore: 36,
@@ -251,7 +252,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: true,
     historyOfSmoking: false,
     lastExamDate: '2026-08-08',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0945 667 889',
     riskLevel: 'High',
     riskScore: 79,
@@ -314,7 +315,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: true,
     historyOfSmoking: true,
     lastExamDate: '2026-07-28',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0909 887 766',
     riskLevel: 'Severe',
     riskScore: 89,
@@ -335,7 +336,7 @@ export const MOCK_PATIENTS: PatientProfile[] = [
     hasHypertension: true,
     historyOfSmoking: false,
     lastExamDate: '2026-07-24',
-    assignedDoctor: 'BS. CKII Nguyễn Thị Thanh',
+    assignedDoctor: 'Bác sĩ chuyên khoa',
     phone: '0937 445 566',
     riskLevel: 'Moderate',
     riskScore: 49,
@@ -389,7 +390,7 @@ export const MOCK_SAMPLE_RESULT: AIRiskResult = {
     score: 22,
   },
   annotatedMap: {
-    heatmapUrl: '/assets/images/fundus_heatmap.png',
+    heatmapUrl: '',
     arteryVeinRatio: 0.52,
     vesselDensityPercentage: 14.8,
     tortuosityIndex: 1.42,
@@ -441,52 +442,17 @@ export const MOCK_SAMPLE_RESULT: AIRiskResult = {
 };
 
 /**
- * Generate a dynamic Grad-CAM Heatmap DataURL directly from any custom uploaded image using HTML5 Canvas
+ * Generate a dynamic Grad-CAM Heatmap DataURL directly from any custom uploaded image using dynamicHeatmapEngine
  */
-async function generateDynamicHeatmapFromImage(imageSrc: string): Promise<string> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve('/assets/images/fundus_heatmap.png');
-        return;
-      }
-      canvas.width = 512;
-      canvas.height = 512;
-
-      // 1. Draw base image
-      ctx.drawImage(img, 0, 0, 512, 512);
-
-      // 2. Create glowing Grad-CAM Heatmap overlay
-      const gradient = ctx.createRadialGradient(240, 260, 20, 240, 260, 200);
-      gradient.addColorStop(0, 'rgba(255, 0, 0, 0.85)'); // Red hot center
-      gradient.addColorStop(0.3, 'rgba(255, 140, 0, 0.75)'); // Orange
-      gradient.addColorStop(0.6, 'rgba(255, 255, 0, 0.60)'); // Yellow
-      gradient.addColorStop(0.85, 'rgba(0, 255, 120, 0.40)'); // Green
-      gradient.addColorStop(1, 'rgba(0, 80, 255, 0.0)'); // Blue edge fade
-
-      ctx.fillStyle = gradient;
-      ctx.globalCompositeOperation = 'screen';
-      ctx.fillRect(0, 0, 512, 512);
-
-      // Add secondary focal point near disc
-      const discGrad = ctx.createRadialGradient(380, 240, 10, 380, 240, 90);
-      discGrad.addColorStop(0, 'rgba(255, 30, 0, 0.8)');
-      discGrad.addColorStop(0.5, 'rgba(255, 200, 0, 0.5)');
-      discGrad.addColorStop(1, 'rgba(0, 100, 255, 0)');
-      ctx.fillStyle = discGrad;
-      ctx.fillRect(0, 0, 512, 512);
-
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = () => {
-      resolve('/assets/images/fundus_heatmap.png');
-    };
-    img.src = imageSrc;
-  });
+async function generateDynamicHeatmapFromImage(
+  imageSrc: string,
+  options: {
+    riskScore?: number;
+    anomalies?: any[];
+    selectedEye?: string;
+  } = {}
+): Promise<string> {
+  return generateDynamicHeatmapDataUrl(imageSrc, options);
 }
 
 export class MockAIService {
@@ -510,7 +476,7 @@ export class MockAIService {
     }
 
     const uploadedImageUrl = request.imageUrl || '/assets/images/fundus_original.png';
-    let dynamicHeatmapUrl = '/assets/images/fundus_heatmap.png';
+    let dynamicHeatmapUrl = '';
 
     // Try calling real FastAPI microservice if file is available
     if (request.file) {
@@ -531,11 +497,6 @@ export class MockAIService {
       } catch {
         // Fallback to client-side dynamic heatmap generator
       }
-    }
-
-    // If no backend heatmap was returned, generate dynamic Grad-CAM on top of the user's actual image
-    if (dynamicHeatmapUrl === '/assets/images/fundus_heatmap.png' && uploadedImageUrl !== '/assets/images/fundus_original.png') {
-      dynamicHeatmapUrl = await generateDynamicHeatmapFromImage(uploadedImageUrl);
     }
 
     // Compute a deterministic hash based on image data/filename/size to vary scores naturally per image
@@ -591,32 +552,6 @@ export class MockAIService {
     const glaucomaScore = dynamicVcdr > 0.48 ? 58 + (seed % 20) : 18 + (seed % 12);
     const overallScore = Math.min(95, Math.max(18, Math.round(cardioScore * 0.45 + drScore * 0.35 + glaucomaScore * 0.20)));
 
-    // Try calling real FastAPI microservice if file is available
-    if (request.file) {
-      try {
-        const formData = new FormData();
-        formData.append('file', request.file);
-        formData.append('eye', request.eyePosition === 'Right_OD' ? 'OD' : 'OS');
-        const res = await fetch('/ai/api/v1/predict/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        if (res.ok) {
-          const aiData = await res.json();
-          if (aiData.heatmap_base64) {
-            dynamicHeatmapUrl = aiData.heatmap_base64;
-          }
-        }
-      } catch {
-        // Fallback
-      }
-    }
-
-    // If no backend heatmap was returned, generate dynamic Grad-CAM on top of the user's actual image
-    if (dynamicHeatmapUrl === '/assets/images/fundus_heatmap.png' && uploadedImageUrl !== '/assets/images/fundus_original.png') {
-      dynamicHeatmapUrl = await generateDynamicHeatmapFromImage(uploadedImageUrl);
-    }
-
     // Dynamic anomalies coordinates based on seed
     const anomalies = [
       {
@@ -634,6 +569,15 @@ export class MockAIService {
         description: `Tổn thương vi mạch bán kính ${((seed % 15) / 10 + 0.8).toFixed(1)}mm từ hoàng điểm`,
       },
     ];
+
+    // If no backend heatmap was returned, generate dynamic Grad-CAM on top of the user's actual image
+    if (!dynamicHeatmapUrl) {
+      dynamicHeatmapUrl = await generateDynamicHeatmapFromImage(uploadedImageUrl, {
+        riskScore: overallScore,
+        anomalies,
+        selectedEye: isRightEye ? 'OD' : 'OS',
+      });
+    }
 
     return {
       analysisId: `ANALYSIS-${Date.now().toString().slice(-6)}`,

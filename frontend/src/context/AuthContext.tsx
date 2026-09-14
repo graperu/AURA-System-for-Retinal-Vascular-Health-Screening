@@ -28,7 +28,7 @@ const toSession = (user: BackendUser, token: string): UserSession => {
   const titles: Record<UserRole, string> = { patient: 'Người dùng AURA', doctor: 'Bác sĩ', clinic: 'Phòng khám', admin: 'Quản trị viên' };
   let cleanName = user.fullName || user.email;
   if (cleanName && cleanName.includes('?')) {
-    cleanName = role === 'patient' ? 'Bệnh nhân Nguyễn Trọng Nam' : (role === 'doctor' ? 'BS. CKII Nguyễn Thị Thanh' : cleanName);
+    cleanName = role === 'patient' ? (user.email?.split('@')[0] || 'Bệnh nhân') : (role === 'doctor' ? 'Bác sĩ chuyên khoa' : cleanName);
   }
   return { id: user.id, email: user.email, name: cleanName, role, roleTitle: titles[role], organization: 'AURA', token };
 };
@@ -120,6 +120,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    // Dọn dẹp dữ liệu đợt khám phòng khám trong localStorage khi đăng xuất để bảo mật trên máy dùng chung
+    if (user?.id) {
+      try {
+        localStorage.removeItem(`AURA_CLINIC_BATCH_JOB_${user.id}`);
+      } catch {
+        // Bỏ qua lỗi truy cập storage
+      }
+    }
+    try {
+      localStorage.removeItem('AURA_CLINIC_BATCH_JOB');
+      localStorage.removeItem('AURA_CLINIC_BATCH_JOB_ANONYMOUS');
+    } catch {
+      // Bỏ qua lỗi truy cập storage
+    }
+
     await apiFetch('/api/v1/auth/logout', { method: 'POST' });
     setAccessToken(null);
     setUser(null);
@@ -128,8 +143,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, loginWithSocial, register, sendOtp, verifyOtpAndRegister, logout }}>{children}</AuthContext.Provider>;
 };
 
+const defaultAuthContext: AuthContextType = {
+  user: null,
+  loading: false,
+  login: async () => ({ success: false, message: 'No AuthProvider' }),
+  loginWithGoogle: async () => ({ success: false, message: 'No AuthProvider' }),
+  loginWithSocial: async () => ({ success: false, message: 'No AuthProvider' }),
+  register: async () => ({ success: false, message: 'No AuthProvider' }),
+  sendOtp: async () => ({ success: false, message: 'No AuthProvider' }),
+  verifyOtpAndRegister: async () => ({ success: false, message: 'No AuthProvider' }),
+  logout: async () => {},
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
+  return context || defaultAuthContext;
 };

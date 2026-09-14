@@ -34,63 +34,57 @@ public class AiServiceClient {
         
         long startTime = System.currentTimeMillis();
 
-        try {
-            log.info("[AI Client] Dispatching image for patient {} to Cloud Gemini 3.7 Flash High API...", pseudonymPatientId);
-
-            if (geminiAiService != null) {
-                Map<String, Object> aiResult = geminiAiService.analyzeRetinalVascular(eyePosition, anonymizedImageBase64);
-                if (aiResult != null) {
-                    Number overallScore = (Number) aiResult.get("overallVascularRiskScore");
-                    Map<String, Object> biomarkers = (Map<String, Object>) aiResult.get("biomarkers");
-
-                    double avRatio = biomarkers != null && biomarkers.get("avRatio") != null ? ((Number) biomarkers.get("avRatio")).doubleValue() : 0.62;
-                    double vesselDensity = biomarkers != null && biomarkers.get("vesselDensityPercent") != null ? ((Number) biomarkers.get("vesselDensityPercent")).doubleValue() : 17.0;
-                    double tortuosity = biomarkers != null && biomarkers.get("tortuosityIndex") != null ? ((Number) biomarkers.get("tortuosityIndex")).doubleValue() : 1.15;
-                    double cdr = biomarkers != null && biomarkers.get("verticalCdr") != null ? ((Number) biomarkers.get("verticalCdr")).doubleValue() : 0.35;
-
-                    int score = overallScore != null ? overallScore.intValue() : 50;
-                    String riskLevel = score >= 80 ? "CRITICAL" : score >= 65 ? "HIGH" : score >= 40 ? "MODERATE" : "LOW";
-
-                    return new AiInferenceResultDto(
-                            UUID.randomUUID().toString(),
-                            System.currentTimeMillis() - startTime,
-                            score,
-                            score,
-                            riskLevel,
-                            Math.max(20, score - 10),
-                            riskLevel,
-                            score * 0.4,
-                            avRatio,
-                            vesselDensity,
-                            tortuosity,
-                            cdr,
-                            "/assets/images/fundus_heatmap.png",
-                            0,
-                            List.of("Phân tích tự động từ Cloud AI Gemini 3.7 Flash High")
-                    );
-                }
-            }
-        } catch (Exception ex) {
-            log.warn("[AI Client] Cloud Gemini API inference exception: {}", ex.getMessage());
+        if (geminiAiService == null) {
+            log.error("[AI Client] Gemini Retinal AI Service is not available or offline.");
+            throw new IllegalStateException("AI Service is unavailable or offline");
         }
 
-        // Fallback default safe metric if API temporary timeout
+        log.info("[AI Client] Dispatching image for patient {} to Cloud Gemini 3.7 Flash High API...", pseudonymPatientId);
+
+        Map<String, Object> aiResult;
+        try {
+            aiResult = geminiAiService.analyzeRetinalVascular(eyePosition, anonymizedImageBase64);
+        } catch (Exception ex) {
+            log.error("[AI Client] Cloud Gemini API inference exception: {}", ex.getMessage());
+            throw new IllegalStateException("AI inference execution failed: " + ex.getMessage(), ex);
+        }
+
+        if (aiResult == null) {
+            log.error("[AI Client] Cloud Gemini API returned null or empty result for patient {}", pseudonymPatientId);
+            throw new IllegalStateException("AI engine returned null response or analysis failed");
+        }
+
+        Number overallScore = (Number) aiResult.get("overallVascularRiskScore");
+        Map<String, Object> biomarkers = (Map<String, Object>) aiResult.get("biomarkers");
+
+        double avRatio = biomarkers != null && biomarkers.get("avRatio") != null ? ((Number) biomarkers.get("avRatio")).doubleValue() : 0.62;
+        double vesselDensity = biomarkers != null && biomarkers.get("vesselDensityPercent") != null ? ((Number) biomarkers.get("vesselDensityPercent")).doubleValue() : 17.0;
+        double tortuosity = biomarkers != null && biomarkers.get("tortuosityIndex") != null ? ((Number) biomarkers.get("tortuosityIndex")).doubleValue() : 1.15;
+        double cdr = biomarkers != null && biomarkers.get("verticalCdr") != null ? ((Number) biomarkers.get("verticalCdr")).doubleValue() : 0.35;
+
+        int score = overallScore != null ? overallScore.intValue() : 50;
+        String riskLevel = score >= 80 ? "CRITICAL" : score >= 65 ? "HIGH" : score >= 40 ? "MODERATE" : "LOW";
+        String heatmap = (String) aiResult.get("heatmapBase64");
+        if (heatmap == null || heatmap.isBlank()) {
+            heatmap = null;
+        }
+
         return new AiInferenceResultDto(
                 UUID.randomUUID().toString(),
                 System.currentTimeMillis() - startTime,
-                45,
-                45,
-                "MODERATE",
-                30,
-                "LOW",
-                18.0,
-                0.62,
-                16.8,
-                1.15,
-                0.35,
-                "/assets/images/fundus_heatmap.png",
+                score,
+                score,
+                riskLevel,
+                Math.max(20, score - 10),
+                riskLevel,
+                score * 0.4,
+                avRatio,
+                vesselDensity,
+                tortuosity,
+                cdr,
+                heatmap,
                 0,
-                List.of("Phân tích an toàn mặc định")
+                List.of("Phân tích tự động từ Cloud AI Gemini 3.7 Flash High")
         );
     }
 }

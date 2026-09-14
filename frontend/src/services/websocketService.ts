@@ -9,8 +9,8 @@ export class StompChatClient {
   private reconnectTimer: any = null;
 
   constructor(endpoint = '/ws-aura-raw') {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
+    const protocol = typeof window !== 'undefined' && window.location?.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = typeof window !== 'undefined' && window.location?.host ? window.location.host : 'localhost:8080';
     this.url = `${protocol}//${host}${endpoint}`;
   }
 

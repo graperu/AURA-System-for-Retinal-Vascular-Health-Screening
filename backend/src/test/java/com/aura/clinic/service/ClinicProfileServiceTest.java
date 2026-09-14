@@ -162,4 +162,69 @@ class ClinicProfileServiceTest {
     assertThatThrownBy(() -> service.review(profileId, true, null, reviewerId))
         .isInstanceOf(ResourceNotFoundException.class);
   }
+
+  @Test
+  void getProfileByUserId_whenFound_returnsProfile() {
+    ClinicProfile profile = new ClinicProfile(clinicUser, "Phong Kham AURA", "GPHD-001", "url");
+    when(clinicProfileRepository.findByUserId(clinicUserId)).thenReturn(Optional.of(profile));
+
+    ClinicProfile result = service.getProfileByUserId(clinicUserId);
+    assertThat(result).isNotNull();
+    assertThat(result.getOrganizationName()).isEqualTo("Phong Kham AURA");
+  }
+
+  @Test
+  void updateByAdmin_whenProfileNotFound_throws() {
+    UUID profileId = UUID.randomUUID();
+    when(clinicProfileRepository.findById(profileId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> service.updateByAdmin(profileId, "Name", "GPHD", "url"))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Không tìm thấy hồ sơ phòng khám");
+  }
+
+  @Test
+  void updateByAdmin_whenValidData_updatesFieldsTrimmed() {
+    UUID profileId = UUID.randomUUID();
+    ClinicProfile profile = new ClinicProfile(clinicUser, "Old Org", "OLD-LIC", "https://old.url");
+    when(clinicProfileRepository.findById(profileId)).thenReturn(Optional.of(profile));
+    when(clinicProfileRepository.save(any(ClinicProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    ClinicProfile result = service.updateByAdmin(
+        profileId, "  New Clinic Org  ", "  NEW-LIC-123  ", "  https://new.url  ");
+
+    assertThat(result.getOrganizationName()).isEqualTo("New Clinic Org");
+    assertThat(result.getLicenseNumber()).isEqualTo("NEW-LIC-123");
+    assertThat(result.getLicenseDocumentUrl()).isEqualTo("https://new.url");
+    verify(clinicProfileRepository).save(profile);
+  }
+
+  @Test
+  void updateByAdmin_whenBlankLicenseOrUrl_setsNullAndLeavesBlankOrgUnchanged() {
+    UUID profileId = UUID.randomUUID();
+    ClinicProfile profile = new ClinicProfile(clinicUser, "Existing Org", "OLD-LIC", "https://old.url");
+    when(clinicProfileRepository.findById(profileId)).thenReturn(Optional.of(profile));
+    when(clinicProfileRepository.save(any(ClinicProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    // organizationName blank -> remains unchanged; licenseNumber blank -> sets null; licenseDocumentUrl blank -> sets null
+    ClinicProfile result = service.updateByAdmin(profileId, "   ", "   ", "   ");
+
+    assertThat(result.getOrganizationName()).isEqualTo("Existing Org");
+    assertThat(result.getLicenseNumber()).isNull();
+    assertThat(result.getLicenseDocumentUrl()).isNull();
+  }
+
+  @Test
+  void updateByAdmin_whenAllArgsNull_leavesProfileUnchanged() {
+    UUID profileId = UUID.randomUUID();
+    ClinicProfile profile = new ClinicProfile(clinicUser, "Original Org", "LIC-KEEP", "https://keep.url");
+    when(clinicProfileRepository.findById(profileId)).thenReturn(Optional.of(profile));
+    when(clinicProfileRepository.save(any(ClinicProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    ClinicProfile result = service.updateByAdmin(profileId, null, null, null);
+
+    assertThat(result.getOrganizationName()).isEqualTo("Original Org");
+    assertThat(result.getLicenseNumber()).isEqualTo("LIC-KEEP");
+    assertThat(result.getLicenseDocumentUrl()).isEqualTo("https://keep.url");
+  }
 }

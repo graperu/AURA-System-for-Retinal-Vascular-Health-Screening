@@ -90,4 +90,46 @@ class BillingControllerTest {
     assertNotNull(response.data());
     assertEquals(1, response.data().size());
   }
+
+  @Test
+  @DisplayName("FR-11: Mua gói với paymentMethod null -> fallback về VNPAY trong thông báo và gọi billingService")
+  void purchase_whenPaymentMethodNull_defaultsToVnpay() {
+    PaymentTransactionResponse tx = new PaymentTransactionResponse(
+        2L, 2L, "Gói Nâng Cao", BigDecimal.valueOf(150000), PaymentStatus.SUCCEEDED, "VNPAY", null, LocalDateTime.now(), LocalDateTime.now()
+    );
+    when(billingService.purchaseOrRenew(eq(userId), eq(2L), eq(null))).thenReturn(tx);
+
+    ResponseEntity<ApiResponse<PaymentTransactionResponse>> response = controller.purchase(2L, null, userPrincipal);
+
+    assertNotNull(response.getBody());
+    assertEquals(PaymentStatus.SUCCEEDED, response.getBody().data().status());
+    org.junit.jupiter.api.Assertions.assertTrue(response.getBody().message().contains("qua cổng VNPAY"));
+  }
+
+  @Test
+  @DisplayName("FR-11: Mua gói với paymentMethod khác null (MOMO) -> hiển thị cổng MOMO trong thông báo")
+  void purchase_whenPaymentMethodProvided_displaysCustomGatewayInMessage() {
+    PaymentTransactionResponse tx = new PaymentTransactionResponse(
+        3L, 3L, "Gói VIP", BigDecimal.valueOf(300000), PaymentStatus.SUCCEEDED, "MOMO", null, LocalDateTime.now(), LocalDateTime.now()
+    );
+    when(billingService.purchaseOrRenew(eq(userId), eq(3L), eq("MOMO"))).thenReturn(tx);
+
+    ResponseEntity<ApiResponse<PaymentTransactionResponse>> response = controller.purchase(3L, "MOMO", userPrincipal);
+
+    assertNotNull(response.getBody());
+    assertEquals(PaymentStatus.SUCCEEDED, response.getBody().data().status());
+    org.junit.jupiter.api.Assertions.assertTrue(response.getBody().message().contains("qua cổng MOMO"));
+  }
+
+  @Test
+  @DisplayName("FR-12, FR-27: Lấy số lượt phân tích khả dụng myCredits")
+  void myCredits_success() {
+    when(billingService.getRemainingCredits(eq(userId))).thenReturn(12);
+
+    ApiResponse<java.util.Map<String, Object>> response = controller.myCredits(userPrincipal);
+
+    assertNotNull(response);
+    assertEquals("Lấy số lượt phân tích khả dụng thành công", response.message());
+    assertEquals(12, response.data().get("remainingCredits"));
+  }
 }

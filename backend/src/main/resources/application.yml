@@ -3,8 +3,8 @@ spring:
     name: aura-backend
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 11MB
+      max-file-size: 20MB
+      max-request-size: 25MB
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aura_db}
     username: ${DB_USERNAME:postgres}
@@ -56,13 +56,20 @@ aura:
     gemini:
       enabled: ${GEMINI_AI_ENABLED:true}
       api-url: ${GEMINI_API_URL:http://localhost:20128/v1/chat/completions}
-      api-key: ${GEMINI_API_KEY:sk-7b0cdba71ad7d98c-r1c29o-13878c62}
+      api-key: ${GEMINI_API_KEY:}
       model: ${GEMINI_MODEL:ag/gemini-3.7-flash-high}
   anonymization:
     hmac-secret: AURA_HIPAA_NFR_JAVA_HMAC_SECRET_2026
   signature:
     secret: ${REVIEW_SIGNATURE_SECRET:AURA_REVIEW_SIGNATURE_SECRET_2026}
 payment:
+  webhook-secret: ${PAYMENT_WEBHOOK_SECRET:AURA_BILLING_WEBHOOK_SECRET_2026}
+  sandbox-mode: ${PAYMENT_SANDBOX_MODE:true}
+  vietqr:
+    bank-id: ${VIETQR_BANK_ID:MB}
+    account-no: ${VIETQR_ACCOUNT_NO:0901234567}
+    account-name: ${VIETQR_ACCOUNT_NAME:CONG TY CO PHAN CONG NGHE AURA}
+    template: ${VIETQR_TEMPLATE:compact2}
   vnpay:
     tmn-code: ${VNPAY_TMN_CODE:AURA_VNPAY_TMN_DEMO}
     hash-secret: ${VNPAY_HASH_SECRET:AURA_VNPAY_HASH_SECRET_KEY_DEMO_2026}

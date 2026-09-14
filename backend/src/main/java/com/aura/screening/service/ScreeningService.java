@@ -6,8 +6,10 @@ import com.aura.screening.entity.ReviewDecision;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.entity.ScreeningStatus;
 import com.aura.screening.repository.ScreeningRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +22,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
 
 @Service
 public class ScreeningService {
@@ -30,52 +31,191 @@ public class ScreeningService {
   private final ScreeningRepository screeningRepository;
   private final com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository;
   private final com.aura.notification.service.UserNotificationService userNotificationService;
+  private final com.aura.audit.service.AuditLogService auditLogService;
+  private final com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository;
+  private final com.aura.user.repository.UserRepository userRepository;
   private final GeminiRetinalAiService geminiAiService;
-  private final RestClient restClient;
+  private final com.aura.billing.service.BillingService billingService;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Value("${aura.signature.secret:AURA_REVIEW_SIGNATURE_SECRET_2026}")
   private String signatureSecret = "AURA_REVIEW_SIGNATURE_SECRET_2026";
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public ScreeningService(
+      ScreeningRepository screeningRepository,
+      com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      com.aura.notification.service.UserNotificationService userNotificationService,
+      com.aura.audit.service.AuditLogService auditLogService,
+      com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
+      com.aura.user.repository.UserRepository userRepository,
+      GeminiRetinalAiService geminiAiService,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+      com.aura.billing.service.BillingService billingService) {
+    this.screeningRepository = screeningRepository;
+    this.assignmentRepository = assignmentRepository;
+    this.userNotificationService = userNotificationService;
+    this.auditLogService = auditLogService;
+    this.clinicMemberRepository = clinicMemberRepository;
+    this.userRepository = userRepository;
+    this.geminiAiService = geminiAiService;
+    this.billingService = billingService;
+  }
+
+  public ScreeningService(
+      ScreeningRepository screeningRepository,
+      com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      com.aura.notification.service.UserNotificationService userNotificationService,
+      com.aura.audit.service.AuditLogService auditLogService,
+      com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
+      com.aura.user.repository.UserRepository userRepository,
+      GeminiRetinalAiService geminiAiService) {
+    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository, userRepository, geminiAiService, null);
+  }
+
+  public ScreeningService(
+      ScreeningRepository screeningRepository,
+      com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      com.aura.notification.service.UserNotificationService userNotificationService,
+      GeminiRetinalAiService geminiAiService) {
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null);
+  }
 
   public ScreeningService(
       ScreeningRepository screeningRepository,
       com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
       com.aura.notification.service.UserNotificationService userNotificationService,
       GeminiRetinalAiService geminiAiService,
-      RestClient.Builder restClientBuilder) {
-    this.screeningRepository = screeningRepository;
-    this.assignmentRepository = assignmentRepository;
-    this.userNotificationService = userNotificationService;
-    this.geminiAiService = geminiAiService;
-    this.restClient = restClientBuilder.build();
+      Object ignoredRestClient) {
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null);
   }
 
-  @Transactional
   public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request) {
     String eye = request.eyePosition() != null && !request.eyePosition().isBlank() ? request.eyePosition() : "OD";
+    String scanType = request.scanType() != null && !request.scanType().isBlank() ? request.scanType() : "Fundus";
     Screening screening = new Screening(patientId, request.imageUrl());
-    if (request.eyePosition() != null) screening.setEyePosition(request.eyePosition());
-    if (request.scanType() != null) screening.setScanType(request.scanType());
+    screening.setEyePosition(eye);
+    screening.setScanType(scanType);
+    screening.setDetectedAnomalies("[]");
     if (request.fileName() != null) screening.setFileName(request.fileName());
     if (request.fileSize() != null) screening.setFileSize(request.fileSize());
     if (request.mimeType() != null) screening.setMimeType(request.mimeType());
-    if (request.riskScore() != null) screening.setRiskScore(request.riskScore());
     if (request.avRatio() != null) screening.setAvRatio(request.avRatio());
     if (request.vesselDensity() != null) screening.setVesselDensity(request.vesselDensity());
 
+    // Gán clinicId từ request
+    if (request.clinicId() != null) {
+      screening.setClinicId(request.clinicId());
+    }
+
+    // FR-11, FR-12: Kiểm tra hạn mức và trừ lượt khám đối với bệnh nhân cá nhân
+    if (billingService != null && request.clinicId() == null) {
+      boolean deducted = billingService.deductCredit(patientId);
+      if (!deducted) {
+        int remaining = billingService.getRemainingCredits(patientId);
+        if (remaining <= 0) {
+          throw new com.aura.billing.exception.PaymentFailedException(
+              "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
+        }
+      }
+    }
+
+    // Tự động tìm bác sĩ phụ trách từ doctor_patient_assignments (nếu ca khám chưa gán bác sĩ)
+    resolveAndAssignDoctorAndClinic(screening, patientId);
+
+    // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, eye, request.imageUrl());
 
-    Screening saved = screeningRepository.save(screening);
+    Screening saved = saveScreeningRecord(screening);
     sendAiReadyNotification(saved, patientId);
+    logScreeningCreationAudit(saved, patientId);
     return saved;
   }
 
-  @Transactional
   public Screening createScreening(UUID patientId, String imageUrl) {
     Screening screening = new Screening(patientId, imageUrl);
+    screening.setEyePosition("OD");
+    screening.setScanType("Fundus");
+    screening.setDetectedAnomalies("[]");
+
+    if (billingService != null && screening.getClinicId() == null) {
+      boolean deducted = billingService.deductCredit(patientId);
+      if (!deducted) {
+        int remaining = billingService.getRemainingCredits(patientId);
+        if (remaining <= 0) {
+          throw new com.aura.billing.exception.PaymentFailedException(
+              "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
+        }
+      }
+    }
+
+    resolveAndAssignDoctorAndClinic(screening, patientId);
+
+    // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, "OD", imageUrl);
-    Screening saved = screeningRepository.save(screening);
+
+    Screening saved = saveScreeningRecord(screening);
     sendAiReadyNotification(saved, patientId);
+    logScreeningCreationAudit(saved, patientId);
     return saved;
+  }
+
+  private void resolveAndAssignDoctorAndClinic(Screening screening, UUID patientId) {
+    try {
+      if (screening.getDoctorId() == null && assignmentRepository != null) {
+        var activeAssignments = assignmentRepository.findByPatientIdAndStatus(
+            patientId, com.aura.doctor.entity.AssignmentStatus.ACTIVE);
+        if (activeAssignments != null && !activeAssignments.isEmpty()) {
+          var firstAssignment = activeAssignments.get(0);
+          if (firstAssignment.getDoctor() != null) {
+            screening.setDoctorId(firstAssignment.getDoctor().getId());
+          }
+        }
+      }
+
+      if (screening.getClinicId() == null && screening.getDoctorId() != null && clinicMemberRepository != null) {
+        var clinicMembers = clinicMemberRepository.findByDoctorId(screening.getDoctorId());
+        if (clinicMembers != null && !clinicMembers.isEmpty()) {
+          var firstMember = clinicMembers.get(0);
+          if (firstMember.getClinic() != null) {
+            screening.setClinicId(firstMember.getClinic().getId());
+          }
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Không thể tự động gán bác sĩ/phòng khám cho ca sàng lọc: {}", e.getMessage());
+    }
+  }
+
+  private void logScreeningCreationAudit(Screening saved, UUID patientId) {
+    try {
+      if (auditLogService != null) {
+        String email = null;
+        if (userRepository != null) {
+          email = userRepository.findById(patientId).map(com.aura.user.entity.User::getEmail).orElse(null);
+        }
+        auditLogService.logEvent(
+            patientId,
+            email,
+            "USER",
+            "SCREENING",
+            "SCREENING_CREATE",
+            "SCREENING",
+            saved.getId() != null ? saved.getId().toString() : null,
+            null,
+            null,
+            "SUCCESS",
+            "Tạo phiên sàng lọc võng mạc và thực thi phân tích AI thành công"
+        );
+      }
+    } catch (Exception e) {
+      log.warn("Không thể ghi audit log SCREENING_CREATE: {}", e.getMessage());
+    }
+  }
+
+  @Transactional
+  public Screening saveScreeningRecord(Screening screening) {
+    return screeningRepository.save(screening);
   }
 
   private void executeAiAnalysisAndPopulate(Screening screening, String eye, String imageUrl) {
@@ -95,6 +235,9 @@ public class ScreeningService {
           overallRisk = (Number) body.get("overallRiskScore");
         }
         if (overallRisk == null) {
+          overallRisk = (Number) body.get("riskScore");
+        }
+        if (overallRisk == null) {
           throw new IllegalStateException("AI response is missing overallVascularRiskScore");
         }
         int score = overallRisk.intValue();
@@ -110,15 +253,36 @@ public class ScreeningService {
         }
 
         String findings = null;
+        List<String> combinedNotes = new ArrayList<>();
         // --- FR-3: parse per-category risk breakdown from the AI Core's `predictions` array ---
         List<Map> predictions = (List<Map>) body.get("predictions");
         if (predictions != null) {
           for (Map prediction : predictions) {
             String category = String.valueOf(prediction.get("category"));
-            Number predConfidence = (Number) prediction.get("confidence");
-            int predScore = predConfidence != null ? (int) Math.round(predConfidence.doubleValue() * 100) : 0;
             String predRiskLevel = String.valueOf(prediction.get("riskLevel"));
             String clinicalNote = (String) prediction.get("clinicalNote");
+
+            // ĐÚNG CHUẨN Y KHOA: Lấy riskScore của bệnh lý đó (0-100),
+            // TUYỆT ĐỐI KHÔNG LẤY confidence * 100 vì confidence là độ tự tin thống kê!
+            Number predScoreNum = (Number) prediction.get("riskScore");
+            if (predScoreNum == null) {
+              predScoreNum = (Number) prediction.get("score");
+            }
+            int predScore;
+            if (predScoreNum != null) {
+              predScore = predScoreNum.intValue();
+            } else {
+              // Suy ra điểm số phù hợp với mức rủi ro
+              if ("CRITICAL".equalsIgnoreCase(predRiskLevel) || "SEVERE".equalsIgnoreCase(predRiskLevel)) {
+                predScore = Math.max(score, 85);
+              } else if ("HIGH".equalsIgnoreCase(predRiskLevel)) {
+                predScore = Math.max(score, 70);
+              } else if ("MODERATE".equalsIgnoreCase(predRiskLevel) || "MEDIUM".equalsIgnoreCase(predRiskLevel)) {
+                predScore = 48;
+              } else {
+                predScore = 18;
+              }
+            }
 
             if (category.contains("Cardiovascular") || category.contains("Hypertensive")) {
               screening.setCardiovascularRiskScore(predScore);
@@ -128,13 +292,36 @@ public class ScreeningService {
               screening.setHypertensionRiskScore(predScore);
               screening.setHypertensionRiskLevel(predRiskLevel);
               if (clinicalNote != null && !clinicalNote.isBlank()) {
-                findings = clinicalNote;
+                combinedNotes.add("• Tim mạch & Huyết áp: " + clinicalNote);
               }
             } else if (category.contains("Diabetic Retinopathy")) {
               screening.setDiabeticRetinopathyRiskScore(predScore);
               screening.setDiabeticRetinopathyRiskLevel(predRiskLevel);
+
+              String etdrs = (String) prediction.get("etdrsGrade");
+              if (etdrs == null || etdrs.isBlank()) {
+                if (predScore >= 80 || "CRITICAL".equalsIgnoreCase(predRiskLevel)) {
+                  etdrs = "Cấp độ 4 (PDR - Tăng sinh)";
+                } else if (predScore >= 65 || "HIGH".equalsIgnoreCase(predRiskLevel)) {
+                  etdrs = "Cấp độ 3 (NPDR nặng - Tiền tăng sinh)";
+                } else if (predScore >= 45 || "MODERATE".equalsIgnoreCase(predRiskLevel)) {
+                  etdrs = "Cấp độ 2 (NPDR trung bình)";
+                } else if (predScore >= 25) {
+                  etdrs = "Cấp độ 1 (NPDR nhẹ)";
+                } else {
+                  etdrs = "Cấp độ 0 (Không DR)";
+                }
+              }
+              screening.setEtdrsGrade(etdrs);
+              if (clinicalNote != null && !clinicalNote.isBlank()) {
+                combinedNotes.add("• Võng mạc ĐTĐ (" + etdrs + "): " + clinicalNote);
+              }
             }
           }
+        }
+
+        if (!combinedNotes.isEmpty()) {
+          findings = String.join("\n", combinedNotes);
         }
 
         String xai = (String) body.get("xaiRationale");
@@ -157,6 +344,42 @@ public class ScreeningService {
           screening.setHeatmapBase64(heatmapBase64);
         }
 
+        // --- Retinal vascular anomalies localization (detectedAnomalies) ---
+        Object anomaliesObj = body.get("detectedAnomalies");
+        if (anomaliesObj != null) {
+          try {
+            if (anomaliesObj instanceof String anomaliesStr) {
+              String trimmed = anomaliesStr.trim();
+              if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                screening.setDetectedAnomalies(trimmed);
+              } else {
+                screening.setDetectedAnomalies("[]");
+              }
+            } else if (anomaliesObj instanceof List<?> list) {
+              screening.setDetectedAnomalies(objectMapper.writeValueAsString(list));
+            } else {
+              screening.setDetectedAnomalies(objectMapper.writeValueAsString(anomaliesObj));
+            }
+          } catch (Exception ex) {
+            log.warn("Không thể serialize detectedAnomalies: {}", ex.getMessage());
+            screening.setDetectedAnomalies("[]");
+          }
+        } else {
+          screening.setDetectedAnomalies("[]");
+        }
+
+        // --- Retinal vessel segmentation mask (vesselMaskUrl / vesselMaskBase64) ---
+        Object maskObj = body.get("vesselMaskUrl");
+        if (maskObj == null) {
+          maskObj = body.get("vesselMaskBase64");
+        }
+        if (maskObj != null) {
+          String maskStr = maskObj.toString().trim();
+          if (!maskStr.isBlank()) {
+            screening.setVesselMaskUrl(maskStr);
+          }
+        }
+
         screening.setRiskScore(score);
         screening.setRiskLevel(calculatedRisk);
         screening.setAiRiskLevel(calculatedRisk);
@@ -170,7 +393,9 @@ public class ScreeningService {
         screening.setStatus(ScreeningStatus.FAILED);
         screening.setRiskLevel(null);
         screening.setAiRiskLevel(null);
+        screening.setRiskScore(null);
         screening.setConfidence(null);
+        screening.setDetectedAnomalies("[]");
         screening.setFindings("Dịch vụ AI trả về kết quả không hợp lệ. Ảnh chụp đã được lưu trữ an toàn.");
       }
     } catch (Exception e) {
@@ -178,7 +403,9 @@ public class ScreeningService {
       screening.setStatus(ScreeningStatus.FAILED);
       screening.setRiskLevel(null);
       screening.setAiRiskLevel(null);
+      screening.setRiskScore(null);
       screening.setConfidence(null);
+      screening.setDetectedAnomalies("[]");
       screening.setFindings("Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
     }
   }
@@ -186,15 +413,12 @@ public class ScreeningService {
   private void sendAiReadyNotification(Screening saved, UUID patientId) {
     try {
       if (saved.getStatus() == ScreeningStatus.ANALYZED) {
-        String severity = saved.getRiskLevel() == RiskLevel.CRITICAL ? "CRITICAL"
-            : (saved.getRiskLevel() == RiskLevel.HIGH ? "WARNING" : "SUCCESS");
         userNotificationService.sendNotificationToUser(
             patientId,
-            "Kết quả phân tích AI đã sẵn sàng",
-            "Ảnh võng mạc của bạn đã được phân tích. Mức độ nguy cơ vi mạch: " + saved.getRiskLevel()
-                + (saved.getConfidence() != null ? " (Độ tin cậy: " + saved.getConfidence() + ")" : "") + ".",
+            "Ảnh võng mạc đã hoàn tất phân tích sơ bộ",
+            "Ảnh võng mạc của bạn đã được phân tích sơ bộ bởi AI và đang được chuyển đến bác sĩ chuyên khoa thẩm định lâm sàng.",
             "AI_READY",
-            severity,
+            "INFO",
             "/cds-viewer"
         );
       }
@@ -339,6 +563,4 @@ public class ScreeningService {
     }
     return null;
   }
-
-  public record AiPredictRequest(String patientId, String eye, String imageBase64) {}
 }
