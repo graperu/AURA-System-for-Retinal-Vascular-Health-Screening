@@ -3,15 +3,13 @@ import {
   CheckCircle2,
   FileSignature,
   Save,
-  Clock,
   Printer,
-  Sparkles,
-  AlertTriangle,
 } from 'lucide-react';
 import { DoctorFeedback, RiskLevel } from '../types/cds';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export interface ClinicalValidationBarProps {
   analysisId: string;
@@ -31,7 +29,8 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   doctorId,
 }) => {
   const { user } = useAuth();
-  const currentDoctorName = doctorName || user?.name || 'Bác sĩ chuyên khoa';
+  const { t, isVi } = useLanguage();
+  const currentDoctorName = doctorName || user?.name || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist');
   const currentDoctorId = doctorId || user?.id || 'DOC-CURRENT';
 
   const [decision, setDecision] = useState<'APPROVED' | 'MODIFIED' | 'REJECTED'>('APPROVED');
@@ -76,10 +75,10 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
           <FileSignature className="w-5 h-5 text-brand-600" />
           <div>
             <h3 className="text-sm sm:text-base font-bold text-clinical-text">
-              Thẩm Định Lâm Sàng & Phê Duyệt Kết Quả Sàng Lọc (Doctor Sign-Off)
+              {t('doctor.validationBar.title', 'Thẩm Định Lâm Sàng & Phê Duyệt Kết Quả Sàng Lọc (Doctor Sign-Off)')}
             </h3>
             <p className="text-xs text-clinical-text-muted">
-              Bác sĩ xác nhận độ chính xác của AI hoặc điều chỉnh mức độ rủi ro theo chuyên môn.
+              {t('doctor.validationBar.subtitle', 'Bác sĩ xác nhận độ chính xác của AI hoặc điều chỉnh mức độ rủi ro theo chuyên môn.')}
             </p>
           </div>
         </div>
@@ -92,7 +91,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
             onClick={onOpenReportModal}
             icon={<Printer className="w-4 h-4" />}
           >
-            In Phiếu Kết Quả
+            {t('doctor.validationBar.printReport', 'In Phiếu Kết Quả')}
           </Button>
         )}
       </div>
@@ -100,7 +99,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       {saveSuccess && (
         <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Đã lưu kết luận lâm sàng và đồng bộ báo cáo sàng lọc thành công!</span>
+          <span>{t('doctor.validationBar.savedSuccess', 'Đã lưu kết luận lâm sàng và đồng bộ báo cáo sàng lọc thành công!')}</span>
         </div>
       )}
 
@@ -110,19 +109,19 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
         <div className="space-y-3">
           <div>
             <label className="block text-xs font-semibold text-clinical-text mb-1.5">
-              Quyết định thẩm định chuyên môn:
+              {t('doctor.validationBar.decisionLabel', 'Quyết định thẩm định chuyên môn:')}
             </label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'APPROVED', label: 'Chấp thuận AI' },
-                { id: 'MODIFIED', label: 'Hiệu chỉnh nguy cơ' },
-                { id: 'REJECTED', label: 'Bác bỏ kết quả' },
+                { id: 'APPROVED', label: t('doctor.validationBar.decisions.approve', 'Chấp thuận AI') },
+                { id: 'MODIFIED', label: t('doctor.validationBar.decisions.modify', 'Hiệu chỉnh nguy cơ') },
+                { id: 'REJECTED', label: t('doctor.validationBar.decisions.reject', 'Bác bỏ kết quả') },
               ].map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   onClick={() => setDecision(opt.id as any)}
-                  className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-colors ${
+                  className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
                     decision === opt.id
                       ? opt.id === 'APPROVED'
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
@@ -141,14 +140,16 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
           {decision === 'MODIFIED' && (
             <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3 text-xs">
               <div>
-                <span className="font-semibold text-amber-950 block mb-1">Hiệu chỉnh nguy cơ Tim mạch:</span>
+                <span className="font-semibold text-amber-950 block mb-1">
+                  {t('doctor.validationBar.adjustedCardio', 'Mức nguy cơ Tim mạch:')}
+                </span>
                 <div className="grid grid-cols-4 gap-1.5">
                   {(['Low', 'Moderate', 'High', 'Severe'] as RiskLevel[]).map((lvl) => (
                     <button
                       key={lvl}
                       type="button"
                       onClick={() => setAdjustedCardioRisk(lvl)}
-                      className={`py-1 rounded font-bold text-[11px] border transition-colors ${
+                      className={`py-1 rounded font-bold text-[11px] border transition-colors cursor-pointer ${
                         adjustedCardioRisk === lvl
                           ? 'bg-amber-600 text-white border-amber-600'
                           : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50'
@@ -161,14 +162,16 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
               </div>
 
               <div>
-                <span className="font-semibold text-amber-950 block mb-1">Hiệu chỉnh nguy cơ Võng mạc ĐTĐ:</span>
+                <span className="font-semibold text-amber-950 block mb-1">
+                  {t('doctor.validationBar.adjustedDR', 'Mức nguy cơ Võng mạc ĐTĐ:')}
+                </span>
                 <div className="grid grid-cols-4 gap-1.5">
                   {(['Low', 'Moderate', 'High', 'Severe'] as RiskLevel[]).map((lvl) => (
                     <button
                       key={lvl}
                       type="button"
                       onClick={() => setAdjustedDrRisk(lvl)}
-                      className={`py-1 rounded font-bold text-[11px] border transition-colors ${
+                      className={`py-1 rounded font-bold text-[11px] border transition-colors cursor-pointer ${
                         adjustedDrRisk === lvl
                           ? 'bg-amber-600 text-white border-amber-600'
                           : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50'
@@ -184,7 +187,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-clinical-text mb-1">
-              Mã phân loại bệnh quốc tế ICD-10 (ngăn cách bằng dấu phẩy):
+              {t('doctor.validationBar.icd10Label', 'Mã bệnh danh ICD-10 (phân tách dấu phẩy):')}
             </label>
             <input
               type="text"
@@ -200,13 +203,13 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
         <div className="space-y-3 flex flex-col justify-between">
           <div>
             <label className="block text-xs font-semibold text-clinical-text mb-1">
-              Ghi chú lâm sàng & Kết luận của Bác sĩ:
+              {t('doctor.validationBar.notesLabel', 'Ghi chú chẩn đoán lâm sàng:')}
             </label>
             <textarea
               rows={4}
               value={doctorNotes}
               onChange={(e) => setDoctorNotes(e.target.value)}
-              placeholder="Nhập chẩn đoán chuyên môn, hướng dẫn điều trị bổ sung..."
+              placeholder={isVi ? "Nhập chẩn đoán chuyên môn, hướng dẫn điều trị bổ sung..." : "Enter clinical findings, supplementary treatment guidelines..."}
               className="w-full text-xs p-3 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
@@ -220,7 +223,9 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
               onClick={handleSave}
               icon={<Save className="w-4 h-4" />}
             >
-              Lưu & Ký Duyệt Kết Quả
+              {saving || isSubmitting
+                ? t('doctor.validationBar.savingButton', 'Đang lưu và ký số...')
+                : t('doctor.validationBar.saveButton', 'Ký Số & Lưu Kết Quả Lâm Sàng')}
             </Button>
           </div>
         </div>

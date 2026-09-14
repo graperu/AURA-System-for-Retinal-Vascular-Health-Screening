@@ -68,6 +68,23 @@ export const computeEtdrsGrade = (grade?: string | null, score?: number, level?:
 };
 
 /**
+ * Parse an toàn danh sách tổn thương vi mạch từ chuỗi JSON hoặc mảng đối tượng
+ */
+export const parseAnomaliesSafely = (raw: any): VesselAnomalyRegion[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string' && raw.trim().length > 2) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+      console.warn('Lỗi phân tích detectedAnomalies:', e);
+    }
+  }
+  return [];
+};
+
+/**
  * Chuyển đổi bản ghi Screening thật từ backend (Spring Boot + AURA AI Core thật)
  * sang định dạng AIRiskResult mà RiskAssessmentPanel / InteractiveCDSViewer /
  * MedicalReportModal đang dùng để hiển thị (FR-3, FR-4, FR-5, FR-6, FR-7).
@@ -85,30 +102,10 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
   );
 
   // Parse an toàn trường detectedAnomalies từ chuỗi JSON string hoặc mảng thật
-  let detectedAnomalies: VesselAnomalyRegion[] = [];
-  if (typeof (screening as any).detectedAnomalies === 'string' && (screening as any).detectedAnomalies.trim().length > 2) {
-    try {
-      const parsed = JSON.parse((screening as any).detectedAnomalies);
-      if (Array.isArray(parsed)) {
-        detectedAnomalies = parsed;
-      }
-    } catch (e) {
-      console.warn('Lỗi phân tích detectedAnomalies:', e);
-    }
-  } else if (Array.isArray((screening as any).detectedAnomalies)) {
-    detectedAnomalies = (screening as any).detectedAnomalies;
-  } else if (typeof (screening as any).annotatedMap?.detectedAnomalies === 'string' && (screening as any).annotatedMap.detectedAnomalies.trim().length > 2) {
-    try {
-      const parsed = JSON.parse((screening as any).annotatedMap.detectedAnomalies);
-      if (Array.isArray(parsed)) {
-        detectedAnomalies = parsed;
-      }
-    } catch (e) {
-      console.warn('Lỗi phân tích annotatedMap.detectedAnomalies:', e);
-    }
-  } else if (Array.isArray((screening as any).annotatedMap?.detectedAnomalies)) {
-    detectedAnomalies = (screening as any).annotatedMap.detectedAnomalies;
-  }
+  const detectedAnomalies: VesselAnomalyRegion[] =
+    parseAnomaliesSafely((screening as any).detectedAnomalies).length > 0
+      ? parseAnomaliesSafely((screening as any).detectedAnomalies)
+      : parseAnomaliesSafely((screening as any).annotatedMap?.detectedAnomalies);
 
   const parsedIcd10 = parseIcd10Codes(screening.icd10Codes);
 

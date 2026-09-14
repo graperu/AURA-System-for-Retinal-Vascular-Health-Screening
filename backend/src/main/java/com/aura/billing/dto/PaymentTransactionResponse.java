@@ -19,7 +19,10 @@ public record PaymentTransactionResponse(
         LocalDateTime paidAt,
         String providerReference,
         String paymentUrl,
-        String merchantId) {
+        String merchantId,
+        String transferContent,
+        String qrCodeUrl,
+        LocalDateTime expiresAt) {
 
     public PaymentTransactionResponse(
             Long id,
@@ -31,7 +34,23 @@ public record PaymentTransactionResponse(
             String failureReason,
             LocalDateTime createdAt,
             LocalDateTime paidAt) {
-        this(id, servicePackageId, servicePackageName, amount, status, provider, failureReason, createdAt, paidAt, null, null, null);
+        this(id, servicePackageId, servicePackageName, amount, status, provider, failureReason, createdAt, paidAt, null, null, null, null, null, null);
+    }
+
+    public PaymentTransactionResponse(
+            Long id,
+            Long servicePackageId,
+            String servicePackageName,
+            BigDecimal amount,
+            PaymentStatus status,
+            String provider,
+            String failureReason,
+            LocalDateTime createdAt,
+            LocalDateTime paidAt,
+            String providerReference,
+            String paymentUrl,
+            String merchantId) {
+        this(id, servicePackageId, servicePackageName, amount, status, provider, failureReason, createdAt, paidAt, providerReference, paymentUrl, merchantId, null, null, null);
     }
 
     public static PaymentTransactionResponse from(PaymentTransaction transaction) {
@@ -56,15 +75,28 @@ public record PaymentTransactionResponse(
                 transaction.getCreatedAt(),
                 transaction.getPaidAt(),
                 transaction.getProviderReference(),
+                transaction.getPaymentUrl(),
                 null,
-                null);
+                transaction.getTransferContent(),
+                transaction.getQrCodeUrl(),
+                transaction.getExpiresAt());
     }
 
     public static PaymentTransactionResponse from(PaymentTransaction transaction, String paymentUrl, String merchantId) {
+        Long pkgId = null;
+        String pkgName = "Gói dịch vụ AURA";
+        try {
+            if (transaction.getServicePackage() != null) {
+                pkgId = transaction.getServicePackage().getId();
+                pkgName = transaction.getServicePackage().getName();
+            }
+        } catch (Exception ignored) {
+            // Lazy proxy safety fallback
+        }
         return new PaymentTransactionResponse(
                 transaction.getId(),
-                transaction.getServicePackage().getId(),
-                transaction.getServicePackage().getName(),
+                pkgId,
+                pkgName,
                 transaction.getAmount(),
                 transaction.getStatus(),
                 transaction.getProvider(),
@@ -72,7 +104,10 @@ public record PaymentTransactionResponse(
                 transaction.getCreatedAt(),
                 transaction.getPaidAt(),
                 transaction.getProviderReference(),
-                paymentUrl,
-                merchantId);
+                paymentUrl != null ? paymentUrl : transaction.getPaymentUrl(),
+                merchantId,
+                transaction.getTransferContent(),
+                transaction.getQrCodeUrl(),
+                transaction.getExpiresAt());
     }
 }

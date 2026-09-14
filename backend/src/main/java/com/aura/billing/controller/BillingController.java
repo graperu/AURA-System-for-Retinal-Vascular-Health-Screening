@@ -1,6 +1,7 @@
 package com.aura.billing.controller;
 
 import com.aura.auth.security.AuraUserPrincipal;
+import com.aura.billing.dto.PaymentStatusResponse;
 import com.aura.billing.dto.PaymentTransactionResponse;
 import com.aura.billing.dto.SubscriptionResponse;
 import com.aura.billing.service.BillingService;
@@ -24,14 +25,32 @@ public class BillingController {
         this.billingService = billingService;
     }
 
-    @PostMapping("/packages/{packageId}/purchase")
-    public ResponseEntity<ApiResponse<PaymentTransactionResponse>> purchase(
+    @PostMapping({"/packages/{packageId}/checkout", "/packages/{packageId}/purchase"})
+    public ResponseEntity<ApiResponse<PaymentTransactionResponse>> checkout(
             @PathVariable Long packageId,
-            @RequestParam(required=false,defaultValue = "VNPAY") String paymentMethod,
+            @RequestParam(required = false, defaultValue = "VNPAY") String paymentMethod,
             @AuthenticationPrincipal AuraUserPrincipal principal) {
-        var result = billingService.purchaseOrRenew(principal.id(), packageId,paymentMethod);
+        var result = billingService.initiateCheckout(principal.id(), packageId, paymentMethod);
+        if (result == null) {
+            result = billingService.purchaseOrRenew(principal.id(), packageId, paymentMethod);
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Mua/gia hạn gói thành công qua cổng " + (paymentMethod != null ? paymentMethod : "VNPAY"), result));
+                .body(ApiResponse.success("Khởi tạo thanh toán thành công qua cổng " + (paymentMethod != null ? paymentMethod : "VNPAY"), result));
+    }
+
+    public ResponseEntity<ApiResponse<PaymentTransactionResponse>> purchase(
+            Long packageId,
+            String paymentMethod,
+            AuraUserPrincipal principal) {
+        return checkout(packageId, paymentMethod, principal);
+    }
+
+    @GetMapping("/payments/{transactionId}/status")
+    public ApiResponse<PaymentStatusResponse> getPaymentStatus(
+            @PathVariable Long transactionId,
+            @AuthenticationPrincipal AuraUserPrincipal principal) {
+        var status = billingService.getTransactionStatus(principal.id(), transactionId);
+        return ApiResponse.success("Lấy trạng thái giao dịch thành công", status);
     }
 
     @GetMapping("/subscriptions")

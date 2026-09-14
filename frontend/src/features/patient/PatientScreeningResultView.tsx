@@ -6,6 +6,7 @@ import { RiskBadge } from '../../components/ui/RiskBadge';
 import { Button } from '../../components/ui/Button';
 import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
 import { useLanguage } from '../../context/LanguageContext';
+import { DynamicHeatmapCanvas } from '../../components/DynamicHeatmapCanvas';
 
 export interface PatientScreeningResultViewProps {
   result: AIRiskResult;
@@ -28,9 +29,13 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
 
   const displayEye = selectedEye || (isVi ? 'OD (Mắt Phải)' : 'OD (Right Eye)');
   const rawImage = result.imageUrl || '/assets/images/fundus_original.png';
-  const heatmapImg = result.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.png';
-  const isMockSampleHeatmap = !result.annotatedMap?.heatmapUrl || result.annotatedMap.heatmapUrl === '/assets/images/fundus_heatmap.png';
+  const hasCustomHeatmap = Boolean(
+    result.annotatedMap?.heatmapUrl &&
+      result.annotatedMap.heatmapUrl.trim().length > 0 &&
+      result.annotatedMap.heatmapUrl !== '/assets/images/fundus_heatmap.png'
+  );
   const anomalies = result.annotatedMap?.detectedAnomalies || [];
+  const riskScore = result.overallVascularRiskScore ?? result.riskScore ?? 35;
 
   return (
     <div className="space-y-6">
@@ -154,26 +159,23 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
 
                 {/* Heatmap Overlay */}
                 {(activeTab === 'OVERLAY' || activeTab === 'HEATMAP') &&
-                  (isMockSampleHeatmap ? (
-                    <>
-                      <div className="absolute top-3 left-3 z-10 bg-slate-900/85 backdrop-blur-xs text-amber-300 text-xs font-semibold px-2.5 py-1 rounded-md border border-amber-500/40 flex items-center gap-1.5 shadow-sm pointer-events-none">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                        <span>{isVi ? 'Chưa có bản đồ nhiệt Grad-CAM' : 'No Grad-CAM Heatmap available'}</span>
-                      </div>
-                      <img
-                        src={heatmapImg}
-                        alt="AI Attention Heatmap"
-                        className="hidden"
-                      />
-                    </>
-                  ) : (
+                  (hasCustomHeatmap ? (
                     <img
-                      src={heatmapImg}
+                      src={result.annotatedMap!.heatmapUrl}
                       alt="AI Attention Heatmap"
                       className="absolute inset-0 m-auto max-h-[380px] w-auto object-contain rounded-lg pointer-events-none cds-canvas-overlay transition-opacity duration-150"
                       style={{
                         opacity: activeTab === 'HEATMAP' ? 1.0 : heatmapOpacity,
                       }}
+                    />
+                  ) : (
+                    <DynamicHeatmapCanvas
+                      imageSrc={rawImage}
+                      riskScore={riskScore}
+                      anomalies={anomalies}
+                      selectedEye={displayEye}
+                      opacity={activeTab === 'HEATMAP' ? 1.0 : heatmapOpacity}
+                      className="absolute inset-0 m-auto max-h-[380px] w-auto object-contain rounded-lg pointer-events-none"
                     />
                   ))}
 

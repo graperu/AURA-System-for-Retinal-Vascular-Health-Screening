@@ -16,6 +16,7 @@ import {
 import { Card } from './ui/Card';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
 import { useLanguage } from '../context/LanguageContext';
+import { renderDynamicRetinalHeatmap } from '../utils/dynamicHeatmapEngine';
 
 interface InteractiveCDSViewerProps {
   analysisResult: AIRiskResult;
@@ -115,6 +116,60 @@ export const processVesselOverlayCanvas = (
   const ctx = targetCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
 
+  // Hàm tách lọc quang học Red-Free trên kênh Green (540nm) từ ảnh gốc
+  const renderRedFree = () => {
+    try {
+      ctx.drawImage(sourceImg, 0, 0, w, h);
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (luminance < 14) {
+          data[i + 3] = 0; // Vùng ngoài nhãn cầu
+          continue;
+        }
+
+        // Tín hiệu hấp thụ vi mạch trên kênh Green so với hắc mạc
+        const vesselSignal = Math.max(0, r - g * 0.82);
+
+        if (options.isDarkRoom) {
+          // Buồng tối: Fluorescein Angiography Simulator
+          // Nền tối Obsidian, vi mạch phát huỳnh quang Cyan / Teal tương phản cao không gây chói mắt
+          const intensity = Math.min(255, vesselSignal * 2.4 + g * 0.35);
+          data[i] = Math.round(intensity * 0.08);       // R tối
+          data[i + 1] = Math.round(intensity * 0.85);   // G phát huỳnh quang (Teal/Cyan)
+          data[i + 2] = Math.round(intensity * 0.95);   // B sáng
+          data[i + 3] = Math.round(Math.min(245, vesselSignal * 2.6 + 35));
+        } else {
+          // Chế độ thường (Clinical Red-Free Contrast Enhancement):
+          // Tiểu động mạch (đỏ cam) vs tiểu tĩnh mạch (xanh lam)
+          const isArtery = r > g + 20 && b < 110;
+          if (isArtery) {
+            // Tiểu động mạch đỏ cam
+            data[i] = Math.min(255, Math.round(r * 1.35));
+            data[i + 1] = Math.max(0, Math.round(g * 0.65));
+            data[i + 2] = Math.max(0, Math.round(b * 0.45));
+          } else {
+            // Tiểu tĩnh mạch xanh lam
+            data[i] = Math.max(0, Math.round(r * 0.55));
+            data[i + 1] = Math.min(255, Math.round(g * 1.15));
+            data[i + 2] = Math.min(255, Math.round(b * 1.45));
+          }
+          data[i + 3] = Math.round(Math.min(235, vesselSignal * 2.2 + 30));
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+    } catch (err) {
+      // Tránh sập nếu canvas bị tainted bởi CORS
+      console.warn('Canvas optical processing fallback:', err);
+    }
+  };
+
   // Nếu có vesselMaskUrl từ backend, ưu tiên hòa trộn từ mask này
   if (options.vesselMaskUrl) {
     const maskImg = new Image();
@@ -129,61 +184,16 @@ export const processVesselOverlayCanvas = (
         ctx.globalCompositeOperation = 'source-over';
       }
     };
+    maskImg.onerror = () => {
+      // Tự động chuyển tiếp sang thuật toán Red-Free quang học nếu ảnh mask lỗi
+      renderRedFree();
+    };
     maskImg.src = options.vesselMaskUrl;
     return;
   }
 
-  // Tách lọc quang học Red-Free trên kênh Green (540nm) từ ảnh gốc
-  try {
-    ctx.drawImage(sourceImg, 0, 0, w, h);
-    const imgData = ctx.getImageData(0, 0, w, h);
-    const data = imgData.data;
-
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-
-      const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-      if (luminance < 14) {
-        data[i + 3] = 0; // Vùng ngoài nhãn cầu
-        continue;
-      }
-
-      // Tín hiệu hấp thụ vi mạch trên kênh Green so với hắc mạc
-      const vesselSignal = Math.max(0, r - g * 0.82);
-
-      if (options.isDarkRoom) {
-        // Buồng tối: Fluorescein Angiography Simulator
-        // Nền tối Obsidian, vi mạch phát huỳnh quang Cyan / Teal tương phản cao không gây chói mắt
-        const intensity = Math.min(255, vesselSignal * 2.4 + g * 0.35);
-        data[i] = Math.round(intensity * 0.08);       // R tối
-        data[i + 1] = Math.round(intensity * 0.85);   // G phát huỳnh quang (Teal/Cyan)
-        data[i + 2] = Math.round(intensity * 0.95);   // B sáng
-        data[i + 3] = Math.round(Math.min(245, vesselSignal * 2.6 + 35));
-      } else {
-        // Chế độ thường (Clinical Red-Free Contrast Enhancement):
-        // Tiểu động mạch (đỏ cam) vs tiểu tĩnh mạch (xanh lam)
-        const isArtery = r > g + 20 && b < 110;
-        if (isArtery) {
-          // Tiểu động mạch đỏ cam
-          data[i] = Math.min(255, Math.round(r * 1.35));
-          data[i + 1] = Math.max(0, Math.round(g * 0.65));
-          data[i + 2] = Math.max(0, Math.round(b * 0.45));
-        } else {
-          // Tiểu tĩnh mạch xanh lam
-          data[i] = Math.max(0, Math.round(r * 0.55));
-          data[i + 1] = Math.min(255, Math.round(g * 1.15));
-          data[i + 2] = Math.min(255, Math.round(b * 1.45));
-        }
-        data[i + 3] = Math.round(Math.min(235, vesselSignal * 2.2 + 30));
-      }
-    }
-    ctx.putImageData(imgData, 0, 0);
-  } catch (err) {
-    // Tránh sập nếu canvas bị tainted bởi CORS
-    console.warn('Canvas optical processing fallback:', err);
-  }
+  // Mặc định tách lọc quang học Red-Free trên kênh Green (540nm) từ ảnh gốc
+  renderRedFree();
 };
 
 /**
@@ -265,7 +275,8 @@ export const renderAnatomicalHeatmap = (
     anomalies.forEach((anom) => {
       const ax = (anom.coordinates.x / 100) * w;
       const ay = (anom.coordinates.y / 100) * h;
-      const spotRadius = Math.max(w * 0.07, (anom.coordinates.width / 100) * w * 1.5);
+      const anomWidth = anom.coordinates?.width || 24;
+      const spotRadius = Math.max(w * 0.07, (anomWidth / 100) * w * 1.5);
 
       const spotGrad = ctx.createRadialGradient(ax, ay, 2, ax, ay, spotRadius);
       spotGrad.addColorStop(0, 'rgba(220, 38, 38, 0.9)');
@@ -299,7 +310,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
 
   const anomalies = analysisResult.annotatedMap?.detectedAnomalies || [];
   const rawImage = analysisResult.imageUrl || '/assets/images/fundus_original.png';
-  const heatmapImg = analysisResult.annotatedMap?.heatmapUrl || '/assets/images/fundus_heatmap.png';
+  const heatmapImg = analysisResult.annotatedMap?.heatmapUrl || '';
 
   // Kiểm tra tính hợp lệ của ảnh heatmap thực tế (khác placeholder mock rỗng)
   const hasRealHeatmap = Boolean(
@@ -320,21 +331,33 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
     });
   }, [isImageLoaded, isDarkRoom, rawImage, analysisResult.annotatedMap?.vesselMaskUrl]);
 
-  // Đồng bộ sinh phổ nhiệt giải phẫu động khi chưa có heatmap từ backend
+  // Đồng bộ sinh phổ nhiệt phân tích điểm ảnh thật động khi chưa có heatmap từ backend
   useEffect(() => {
     if (!dynamicHeatmapCanvasRef.current) return;
     if (hasRealHeatmap) return;
     if (rawImageRef.current && rawImageRef.current.naturalWidth) {
       dynamicHeatmapCanvasRef.current.width = rawImageRef.current.naturalWidth;
       dynamicHeatmapCanvasRef.current.height = rawImageRef.current.naturalHeight;
+      renderDynamicRetinalHeatmap(
+        rawImageRef.current,
+        dynamicHeatmapCanvasRef.current,
+        {
+          riskScore,
+          anomalies,
+          selectedEye,
+          opacity: 1.0,
+          isDarkRoom,
+        }
+      );
+    } else {
+      renderAnatomicalHeatmap(
+        dynamicHeatmapCanvasRef.current,
+        selectedEye,
+        riskScore,
+        anomalies
+      );
     }
-    renderAnatomicalHeatmap(
-      dynamicHeatmapCanvasRef.current,
-      selectedEye,
-      riskScore,
-      anomalies
-    );
-  }, [hasRealHeatmap, isImageLoaded, selectedEye, riskScore, anomalies]);
+  }, [hasRealHeatmap, isImageLoaded, selectedEye, riskScore, anomalies, isDarkRoom]);
 
   // Kiểm tra cache ảnh tải xong
   useEffect(() => {

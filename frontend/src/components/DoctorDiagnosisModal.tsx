@@ -1,16 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DoctorFeedback, RiskLevel } from '../types/cds';
-import { X, CheckCircle2, Edit3, XCircle, ShieldCheck, Tag, FileText, Download } from 'lucide-react';
+import { X, CheckCircle2, Edit3, XCircle, ShieldCheck, Tag, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
-
-const RISK_LEVEL_OPTIONS: ClinicalSelectOption<RiskLevel>[] = [
-  { value: 'Low', label: 'Low — Thấp', riskLevel: 'low' },
-  { value: 'Moderate', label: 'Moderate — Trung Bình', riskLevel: 'moderate' },
-  { value: 'High', label: 'High — Cao', riskLevel: 'high' },
-  { value: 'Critical', label: 'Critical — Nguy Kịch', riskLevel: 'critical' },
-];
+import { useLanguage } from '../context/LanguageContext';
 
 interface DoctorDiagnosisModalProps {
   isOpen: boolean;
@@ -40,7 +34,9 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
   onSaveFeedback,
 }) => {
   const { user } = useAuth();
-  const signerName = doctorName || user?.name || 'Bác sĩ chuyên khoa';
+  const { t, isVi } = useLanguage();
+
+  const signerName = doctorName || user?.name || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist');
   const signerId = user?.id || 'DOC-CURRENT';
 
   const normalizeRisk = (lvl?: RiskLevel): RiskLevel => (lvl === 'Severe' ? 'Critical' : (lvl || 'Moderate'));
@@ -49,18 +45,34 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
   const [adjustedDrRisk, setAdjustedDrRisk] = useState<RiskLevel>(normalizeRisk(initialDrRisk));
   const [selectedIcd10, setSelectedIcd10] = useState<string[]>(initialIcd10 || []);
   const [clinicalNotes, setClinicalNotes] = useState<string>(
-    initialNotes || 'Bác sĩ chuyên khoa đã thẩm định và xác nhận kết quả phân tích sơ bộ từ hệ thống AURA AI.'
+    initialNotes ||
+      (isVi
+        ? 'Bác sĩ chuyên khoa đã thẩm định và xác nhận kết quả phân tích sơ bộ từ hệ thống AURA AI.'
+        : 'Specialist has validated and confirmed preliminary findings from AURA AI.')
+  );
+
+  const riskLevelOptions = useMemo<ClinicalSelectOption<RiskLevel>[]>(
+    () => [
+      { value: 'Low', label: isVi ? 'Nguy cơ thấp' : 'Low Risk', riskLevel: 'low' },
+      { value: 'Moderate', label: isVi ? 'Nguy cơ trung bình' : 'Moderate Risk', riskLevel: 'moderate' },
+      { value: 'High', label: isVi ? 'Nguy cơ cao' : 'High Risk', riskLevel: 'high' },
+      { value: 'Critical', label: isVi ? 'Nguy kịch' : 'Critical Risk', riskLevel: 'critical' },
+    ],
+    [isVi]
+  );
+
+  const icd10Options = useMemo(
+    () => [
+      t('doctor.diagnosisModal.icdOptions.h350', 'H35.0 — Biến đổi mạch máu võng mạc'),
+      t('doctor.diagnosisModal.icdOptions.e113', 'E11.3 — Bệnh võng mạc đái tháo đường'),
+      t('doctor.diagnosisModal.icdOptions.i10', 'I10 — Tăng huyết áp vô căn'),
+      t('doctor.diagnosisModal.icdOptions.h401', 'H40.1 — Glaucoma góc mở nguyên phát'),
+      t('doctor.diagnosisModal.icdOptions.h353', 'H35.3 — Thoái hóa hoàng điểm tuổi già'),
+    ],
+    [t]
   );
 
   if (!isOpen) return null;
-
-  const icd10Options = [
-    'H35.0 — Biến đổi mạch máu võng mạc (Retinal vascular changes)',
-    'E11.3 — Bệnh võng mạc đái tháo đường (Diabetic retinopathy)',
-    'I10 — Tăng huyết áp vô căn (Essential hypertension)',
-    'H40.1 — Glaucoma góc mở nguyên phát (Primary open-angle glaucoma)',
-    'H35.3 — Thoái hóa hoàng điểm tuổi già (Age-related macular degeneration)',
-  ];
 
   const handleToggleIcd = (code: string) => {
     if (selectedIcd10.includes(code)) {
@@ -96,15 +108,16 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
           <div>
             <h2 className="text-base font-bold text-clinical-text flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-brand-600" />
-              Hộp Thoại Xác Nhận / Chỉnh Sửa Chẩn Đoán AI (Doctor Sign-Off)
+              {t('doctor.diagnosisModal.title', 'Thẩm định kết quả và Ký số kết luận lâm sàng')}
             </h2>
             <p className="text-xs text-clinical-text-muted mt-0.5">
-              Bệnh nhân: <strong className="text-clinical-text-secondary">{patientName}</strong> ({mrn}) | Mã phân tích: <span className="font-mono-data text-brand-700 font-semibold">{analysisId}</span>
+              {t('doctor.diagnosisModal.patientLabel', 'Bệnh nhân')}: <strong className="text-clinical-text-secondary">{patientName}</strong> ({mrn}) | {t('doctor.diagnosisModal.analysisIdLabel', 'Mã phân tích')}: <span className="font-mono-data text-brand-700 font-semibold">{analysisId}</span>
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
+            className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+            title={t('common.close', 'Đóng')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -114,46 +127,46 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
           {/* Decision Radio Bar */}
           <div>
             <label className="block text-xs font-semibold text-clinical-text uppercase tracking-wider mb-2 font-mono-data">
-              Quyết Định Lâm Sàng Của Bác Sĩ:
+              {t('doctor.diagnosisModal.decisionLabel', 'Quyết Định Lâm Sàng Của Bác Sĩ:')}
             </label>
             <div className="grid grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => setDecision('APPROVED')}
-                className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   decision === 'APPROVED'
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-500 ring-2 ring-emerald-300/60 shadow-xs'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50/50 hover:text-emerald-700 hover:border-emerald-200'
                 }`}
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Đồng Ý AI</span>
+                <span>{t('doctor.diagnosisModal.doctorDecision.approve', 'Đồng Ý AI')}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setDecision('MODIFIED')}
-                className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   decision === 'MODIFIED'
                     ? 'bg-amber-50 text-amber-900 border-amber-500 ring-2 ring-amber-300/60 shadow-xs'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-amber-50/50 hover:text-amber-800 hover:border-amber-200'
                 }`}
               >
                 <Edit3 className="w-4 h-4 text-amber-600" />
-                <span>Chỉnh Sửa</span>
+                <span>{t('doctor.diagnosisModal.doctorDecision.modify', 'Chỉnh Sửa')}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setDecision('REJECTED')}
-                className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   decision === 'REJECTED'
                     ? 'bg-red-50 text-red-900 border-red-500 ring-2 ring-red-300/60 shadow-xs'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-red-50/50 hover:text-red-800 hover:border-red-200'
                 }`}
               >
                 <XCircle className="w-4 h-4 text-red-600" />
-                <span>Bác Bỏ</span>
+                <span>{t('doctor.diagnosisModal.doctorDecision.reject', 'Bác Bỏ')}</span>
               </button>
             </div>
           </div>
@@ -163,20 +176,20 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
             <div className="p-4 bg-amber-50/60 border border-amber-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <ClinicalSelect<RiskLevel>
-                  label="Mức Nguy Cơ Tim Mạch Mới:"
+                  label={t('doctor.diagnosisModal.adjustedCardio', 'Mức nguy cơ tim mạch hiệu chỉnh')}
                   value={adjustedCardioRisk}
                   onChange={setAdjustedCardioRisk}
-                  options={RISK_LEVEL_OPTIONS}
+                  options={riskLevelOptions}
                   size="sm"
                 />
               </div>
 
               <div>
                 <ClinicalSelect<RiskLevel>
-                  label="Mức Võng Mạc Đái Tháo Đường Mới:"
+                  label={t('doctor.diagnosisModal.adjustedDR', 'Phân độ võng mạc đái tháo đường hiệu chỉnh')}
                   value={adjustedDrRisk}
                   onChange={setAdjustedDrRisk}
-                  options={RISK_LEVEL_OPTIONS}
+                  options={riskLevelOptions}
                   size="sm"
                 />
               </div>
@@ -186,7 +199,7 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
           {/* ICD-10 Selection */}
           <div>
             <label className="block text-xs font-semibold text-clinical-text uppercase tracking-wider mb-2 font-mono-data flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-brand-600" /> Mã Bệnh Lý ICD-10 Quốc Tế:
+              <Tag className="w-3.5 h-3.5 text-brand-600" /> {t('doctor.diagnosisModal.icd10Title', 'Mã Bệnh Lý ICD-10 Quốc Tế:')}
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {icd10Options.map((code) => {
@@ -196,7 +209,7 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
                     key={code}
                     type="button"
                     onClick={() => handleToggleIcd(code)}
-                    className={`px-3 py-2 rounded-xl text-xs text-left transition-all flex items-center gap-2 border ${
+                    className={`px-3 py-2 rounded-xl text-xs text-left transition-all flex items-center gap-2 border cursor-pointer ${
                       isChecked
                         ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold shadow-xs'
                         : 'bg-clinical-surface-subtle text-clinical-text-secondary border-clinical-border hover:bg-slate-100'
@@ -215,7 +228,7 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
           {/* Clinical Diagnostic Rationale */}
           <div>
             <label className="block text-xs font-semibold text-clinical-text mb-1 flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-brand-600" /> Kết Luận Lâm Sàng Của Bác Sĩ:
+              <FileText className="w-4 h-4 text-brand-600" /> {t('doctor.diagnosisModal.clinicalNotesLabel', 'Kết Luận Lâm Sàng Của Bác Sĩ:')}
             </label>
             <textarea
               rows={4}
@@ -231,22 +244,22 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-clinical-border-subtle pt-4">
             <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-clinical-text-secondary flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Chữ ký số PKI: <strong className="text-clinical-text font-semibold">{signerName}</strong></span>
+              <span>{t('doctor.diagnosisModal.pkiSignatureLabel', 'Chữ ký số PKI:')} <strong className="text-clinical-text font-semibold">{signerName}</strong></span>
             </div>
 
             <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-clinical-text-secondary font-semibold rounded-xl text-xs transition-colors"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-clinical-text-secondary font-semibold rounded-xl text-xs transition-colors cursor-pointer"
               >
-                Hủy
+                {t('doctor.diagnosisModal.cancel', 'Hủy')}
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-2 transition-all active:scale-95"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
               >
-                <CheckCircle2 className="w-4 h-4" /> Lưu & Ký Báo Cáo EMR
+                <CheckCircle2 className="w-4 h-4" /> {t('doctor.diagnosisModal.saveButton', 'Lưu và Ký duyệt hồ sơ')}
               </button>
             </div>
           </div>

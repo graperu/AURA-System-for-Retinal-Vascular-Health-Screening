@@ -51,13 +51,19 @@
 | `GET` | `/api/v1/bulk-screenings/jobs/{id}`| Clinic/Admin| Kiểm tra tiến độ và kết quả phân tích theo lô |
 | `GET` | `/api/v1/bulk-screenings/campaigns`| Clinic/Admin| Xem báo cáo tổng kết chiến dịch tầm soát (`FR-26`) |
 
-### 2.4. Phân hệ Gói cước & Thanh toán (Billing & Subscription API)
+### 2.4. Phân hệ Gói cước & Thanh toán (Billing, Payment Gateway & Webhook IPN API)
 | Method | Endpoint | Quyền hạn | Mô tả |
 |---|---|---|---|
-| `GET` | `/api/v1/service-packages` | Public | Xem danh sách các gói cước cá nhân và phòng khám |
-| `POST` | `/api/v1/billing/subscribe/{packageId}`| Authenticated| Khởi tạo giao dịch mua gói cước (`FR-11, FR-28`) |
-| `GET` | `/api/v1/billing/subscription` | Authenticated| Xem gói cước đang kích hoạt và số credit còn lại (`FR-12, FR-27`) |
-| `GET` | `/api/v1/billing/transactions` | Authenticated| Xem lịch sử các hóa đơn thanh toán |
+| `GET` | `/api/v1/packages` | Public | Xem danh sách các gói dịch vụ theo scope (`INDIVIDUAL`/`CLINIC`) |
+| `POST` | `/api/v1/me/packages/{packageId}/checkout` | Authenticated | Khởi tạo phiên thanh toán ở trạng thái `PENDING`, sinh QR VietQR/URL thanh toán (`FR-11, FR-28`) |
+| `POST` | `/api/v1/me/packages/{packageId}/purchase` | Authenticated | Khởi tạo giao dịch thanh toán (tương thích ngược với checkout) |
+| `GET` | `/api/v1/me/payments/{id}/status` | Authenticated (Chống IDOR) | Tra cứu trạng thái giao dịch phục vụ Polling thời gian thực |
+| `GET` | `/api/v1/me/subscriptions` | Authenticated | Xem các subscription và số lượt phân tích khả dụng (`FR-12, FR-27`) |
+| `GET` | `/api/v1/me/credits` | Authenticated | Xem tổng số credit phân tích khả dụng |
+| `GET` | `/api/v1/me/payments` | Authenticated | Xem lịch sử các giao dịch thanh toán đã thực hiện |
+| `GET` | `/api/v1/billing/ipn/vnpay` | Public (HMAC-SHA512) | Webhook tiếp nhận IPN từ cổng VNPay (Server-to-Server) |
+| `POST` | `/api/v1/billing/ipn/momo` | Public (HMAC-SHA256) | Webhook tiếp nhận IPN từ ví điện tử MoMo (Server-to-Server) |
+| `POST` | `/api/v1/billing/ipn/bank-transfer` | Public (HMAC-SHA256) | Webhook tiếp nhận biến động số dư VietQR Napas 24/7 |
 
 ### 2.5. Phân hệ Tư vấn Trực tuyến (In-App Chat API - FR-10, FR-20)
 | Method | Endpoint | Quyền hạn | Mô tả |

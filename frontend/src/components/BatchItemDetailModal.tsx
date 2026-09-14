@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X,
   Eye,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { ClinicBatchJobItem } from '../types/cds';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
+import { useLanguage } from '../context/LanguageContext';
 
 interface BatchItemDetailModalProps {
   item: ClinicBatchJobItem | null;
@@ -40,6 +41,7 @@ interface AnomalyItem {
 export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item, onClose }) => {
   if (!item) return null;
 
+  const { t, isVi } = useLanguage();
   const [heatmapDataUrl, setHeatmapDataUrl] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.70);
@@ -86,14 +88,14 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
         return {
           id: ano.id || `ANO-${idx}`,
           type: ano.type || 'Anomaly',
-          label: ano.label || ano.type || 'Tổn thương vi mạch',
+          label: ano.label || ano.type || (isVi ? 'Tổn thương vi mạch' : 'Microvascular lesion'),
           svgX,
           svgY,
           svgW,
           svgH,
           labelW: 130,
           confidence: ano.confidence ?? 0.9,
-          description: ano.description || 'Vùng tổn thương được phát hiện bởi mô hình CDS',
+          description: ano.description || (isVi ? 'Vùng tổn thương được phát hiện bởi mô hình CDS' : 'Lesion region detected by CDS model'),
         };
       })
     : [];
@@ -111,24 +113,30 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
     setIsGenerating(false);
   }, [realHeatmapUrl]);
 
+  const defaultRationales = useMemo(() => {
+    if (overallRisk < 40) {
+      return [
+        t('clinic.batchDetailModal.defaultRationale1'),
+        t('clinic.batchDetailModal.defaultRationale2'),
+        t('clinic.batchDetailModal.defaultRationale3'),
+      ];
+    }
+    if (overallRisk < 65) {
+      return [
+        t('clinic.batchDetailModal.defaultRationaleMod1'),
+        t('clinic.batchDetailModal.defaultRationaleMod2'),
+      ];
+    }
+    return [
+      t('clinic.batchDetailModal.defaultRationaleHigh1'),
+      t('clinic.batchDetailModal.defaultRationaleHigh2'),
+      t('clinic.batchDetailModal.defaultRationaleHigh3'),
+    ];
+  }, [overallRisk, t]);
+
   const rationales = ai?.xaiRationales && ai.xaiRationales.length > 0
     ? ai.xaiRationales
-    : overallRisk < 40
-    ? [
-        'Cung mạch võng mạc phân bố đều đặn, không thấy dấu hiệu tắc nghẽn hay co hẹp.',
-        'Chưa phát hiện dấu hiệu nén ép hay xơ cứng thành mạch máu.',
-        'Mạng lưới tưới máu mao mạch võng mạc ổn định.',
-      ]
-    : overallRisk < 65
-    ? [
-        'Dấu hiệu co thắt nhẹ vi mạch hoặc biến đổi vi tuần hoàn khu trú.',
-        'Độ uốn lượn mạch máu cần theo dõi định kỳ.',
-      ]
-    : [
-        'Suy giảm tỷ lệ A/V ratio (co hẹp tiểu động mạch võng mạc khu trú)',
-        'Dấu hiệu nén vách tĩnh mạch tại điểm bắt chéo động-tĩnh mạch (Gunn sign)',
-        'Độ uốn lượn mạch máu tăng do biến đổi áp lực lưu lượng vi tuần hoàn',
-      ];
+    : defaultRationales;
 
   const riskBadgeClass =
     overallRisk >= 75
@@ -136,6 +144,12 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
       : overallRisk >= 50
       ? 'bg-amber-50 text-amber-700 border-amber-200'
       : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+  const riskTierLabel = overallRisk >= 75
+    ? (isVi ? 'Cao' : 'High')
+    : overallRisk >= 50
+    ? (isVi ? 'Trung Bình' : 'Moderate')
+    : (isVi ? 'Thấp' : 'Low');
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -160,11 +174,11 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
   const getAnatomyZone = (x: number, y: number) => {
     const distDisc = Math.hypot(x - discX, y - discY);
     const distMacula = Math.hypot(x - maculaX, y - maculaY);
-    if (distDisc < 60) return 'Khu vực Gai Thị (Optic Disc)';
-    if (distMacula < 70) return 'Khu vực Hoàng Điểm (Macula / FAZ)';
-    if (y < 220) return 'Cung mạch thái dương trên (Superior Arcade)';
-    if (y > 300) return 'Cung mạch thái dương dưới (Inferior Arcade)';
-    return 'Võng mạc cực sau (Posterior Pole)';
+    if (distDisc < 60) return t('clinic.batchDetailModal.zoneDisc');
+    if (distMacula < 70) return t('clinic.batchDetailModal.zoneMacula');
+    if (y < 220) return t('clinic.batchDetailModal.zoneSuperiorArcade');
+    if (y > 300) return t('clinic.batchDetailModal.zoneInferiorArcade');
+    return t('clinic.batchDetailModal.zonePosteriorPole');
   };
 
   return (
@@ -183,13 +197,13 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   {item.mrn}
                 </span>
                 <span className="text-[11px] font-mono-data bg-cyan-900/40 text-cyan-200 px-2.5 py-0.5 rounded-full border border-cyan-400/30">
-                  {item.eye === 'OD' ? 'Mắt Phải (OD)' : 'Mắt Trái (OS)'}
+                  {item.eye === 'OD' ? t('eyeLaterality.rightEye') : t('eyeLaterality.leftEye')}
                 </span>
               </div>
               <p className="text-xs text-cyan-100 flex items-center gap-2 mt-0.5">
-                <span>Khử định danh HIPAA: <strong className="font-mono-data">{item.pseudonymId || 'ANO-PAT-DEID'}</strong></span>
+                <span>{t('clinic.batchDetailModal.deidHipaa')} <strong className="font-mono-data">{item.pseudonymId || 'ANO-PAT-DEID'}</strong></span>
                 <span>&bull;</span>
-                <span>Tệp: <strong className="font-mono-data">{item.fileName}</strong></span>
+                <span>{t('clinic.batchDetailModal.fileLabel')} <strong className="font-mono-data">{item.fileName}</strong></span>
               </p>
             </div>
           </div>
@@ -206,47 +220,47 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
           {/* Top Triage & Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
             <div className={`p-3.5 rounded-2xl border ${riskBadgeClass} flex flex-col justify-between`}>
-              <span className="text-[11px] font-bold uppercase tracking-wider">Nguy Cơ Mạch Máu Chung</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider">{t('clinic.batchDetailModal.overallVascularRisk')}</span>
               <div className="flex items-baseline gap-1 my-1">
                 <span className="text-2xl font-extrabold font-mono-data">{overallRisk}%</span>
                 <span className="text-xs font-semibold">
-                  {overallRisk >= 75 ? 'Cao (High)' : overallRisk >= 50 ? 'Trung Bình' : 'Thấp (Low)'}
+                  {riskTierLabel}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-500">Mô hình AURA Multimodal Vision CDS</span>
+              <span className="text-[10px] text-slate-500">{t('clinic.batchDetailModal.modelName')}</span>
             </div>
 
             <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col justify-between">
               <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 text-rose-500" /> Nguy Cơ Tim Mạch
+                <Heart className="w-3.5 h-3.5 text-rose-500" /> {t('clinic.batchDetailModal.cardiovascularRisk')}
               </span>
               <div className="flex items-baseline gap-1 my-1">
                 <span className="text-xl font-extrabold font-mono-data text-slate-800">{cardioScore}%</span>
-                <span className="text-xs text-slate-500">SCORE2-AI</span>
+                <span className="text-xs text-slate-500">{t('clinic.batchDetailModal.score2Ai')}</span>
               </div>
-              <span className="text-[10px] text-slate-500">Hẹp lòng mạch vi tuần hoàn</span>
+              <span className="text-[10px] text-slate-500">{t('clinic.batchDetailModal.arteriolarNarrowing')}</span>
             </div>
 
             <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col justify-between">
               <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-amber-500" /> Võng Mạc ĐTĐ (DR)
+                <Activity className="w-3.5 h-3.5 text-amber-500" /> {t('clinic.batchDetailModal.drRisk')}
               </span>
               <div className="flex items-baseline gap-1 my-1">
                 <span className="text-xl font-extrabold font-mono-data text-slate-800">{drScore}%</span>
-                <span className="text-xs text-slate-500">ICDR Giai đoạn 2</span>
+                <span className="text-xs text-slate-500">{t('clinic.batchDetailModal.icdrGrade')}</span>
               </div>
-              <span className="text-[10px] text-slate-500">Vi phình & xuất huyết nhỏ</span>
+              <span className="text-[10px] text-slate-500">{t('clinic.batchDetailModal.microaneurysms')}</span>
             </div>
 
             <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col justify-between">
               <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 text-orange-500" /> Đột Quỵ 3 Năm
+                <AlertTriangle className="w-3.5 h-3.5 text-orange-500" /> {t('clinic.batchDetailModal.threeYearStroke')}
               </span>
               <div className="flex items-baseline gap-1 my-1">
                 <span className="text-xl font-extrabold font-mono-data text-slate-800">{strokeRisk}%</span>
-                <span className="text-xs text-slate-500">Dự báo đột quỵ</span>
+                <span className="text-xs text-slate-500">{t('clinic.batchDetailModal.strokeProjection')}</span>
               </div>
-              <span className="text-[10px] text-slate-500">Áp lực thành mạch & Gunn sign</span>
+              <span className="text-[10px] text-slate-500">{t('clinic.batchDetailModal.gunnSign')}</span>
             </div>
           </div>
 
@@ -255,7 +269,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
             <div className="flex items-center gap-3">
               <span className="font-bold text-[#134E4A] flex items-center gap-1.5">
                 <Sliders className="w-4 h-4 text-[#0891B2]" />
-                Độ mờ AI Heatmap:
+                {t('clinic.batchDetailModal.heatmapOpacityLabel')}
               </span>
               <input
                 type="range"
@@ -276,7 +290,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               <button
                 onClick={() => setZoomLevel((z) => Math.max(0.8, Number((z - 0.2).toFixed(1))))}
                 className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors"
-                title="Thu nhỏ"
+                title={t('clinic.batchDetailModal.zoomOutTitle')}
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
@@ -286,14 +300,14 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               <button
                 onClick={() => setZoomLevel((z) => Math.min(2.0, Number((z + 0.2).toFixed(1))))}
                 className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors"
-                title="Phóng to"
+                title={t('clinic.batchDetailModal.zoomInTitle')}
               >
                 <ZoomIn className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setZoomLevel(1.0)}
                 className="p-1 text-slate-400 hover:text-slate-700 transition-colors ml-1 border-l border-slate-200 pl-1"
-                title="Đặt lại zoom"
+                title={t('clinic.batchDetailModal.resetZoomTitle')}
               >
                 <RotateCcw className="w-3 h-3" />
               </button>
@@ -309,7 +323,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                     : 'bg-white text-slate-600 border-slate-300'
                 }`}
               >
-                Hộp Tổn Thương (ROI)
+                {t('clinic.batchDetailModal.lesionBoxesRoi')}
               </button>
 
               <button
@@ -321,7 +335,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                     : 'bg-white text-slate-600 border-slate-300'
                 }`}
               >
-                Mốc Giải Phẫu
+                {t('clinic.batchDetailModal.anatomyMarkers')}
               </button>
 
               <div className="inline-flex bg-slate-200 p-0.5 rounded-lg">
@@ -334,7 +348,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Xem Song Song
+                  {t('clinic.batchDetailModal.sideBySideView')}
                 </button>
                 <button
                   type="button"
@@ -345,7 +359,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Chồng Lớp Trực Tiếp
+                  {t('clinic.batchDetailModal.directOverlayView')}
                 </button>
               </div>
 
@@ -353,9 +367,9 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 type="button"
                 onClick={handleDownloadHeatmap}
                 className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg text-slate-700 text-xs font-bold flex items-center gap-1 transition-all"
-                title="Tải ảnh bản đồ nhiệt AI của ca này"
+                title={t('clinic.batchDetailModal.downloadPng')}
               >
-                <Download className="w-3.5 h-3.5 text-[#0891B2]" /> Tải PNG
+                <Download className="w-3.5 h-3.5 text-[#0891B2]" /> {t('clinic.batchDetailModal.downloadPng')}
               </button>
             </div>
           </div>
@@ -367,9 +381,9 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 relative group flex flex-col items-center justify-center p-3 shadow-2xl">
                 <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1">
                   <span className="font-bold flex items-center gap-1.5 text-cyan-300">
-                    <Eye className="w-3.5 h-3.5" /> Ảnh Võng Mạc Gốc (Native Upload)
+                    <Eye className="w-3.5 h-3.5" /> {t('clinic.batchDetailModal.nativeFundusTitle')}
                   </span>
-                  <span className="text-[10px] font-mono-data text-slate-400">512 &times; 512 px</span>
+                  <span className="text-[10px] font-mono-data text-slate-400">{t('clinic.batchDetailModal.nativeResolution')}</span>
                 </div>
 
                 <div
@@ -416,7 +430,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
 
                 <div className="w-full flex items-center justify-between text-[10px] font-mono-data text-slate-400 mt-2 px-2">
                   <span>{item.eye} &bull; Native View</span>
-                  <span>Định dạng: {item.fileName.endsWith('.dcm') ? 'DICOM' : 'High-Res Color'}</span>
+                  <span>{t('clinic.batchDetailModal.formatLabel')} {item.fileName.endsWith('.dcm') ? 'DICOM' : 'High-Res Color'}</span>
                 </div>
               </div>
 
@@ -424,15 +438,15 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               <div className="border border-cyan-800/80 rounded-2xl overflow-hidden bg-slate-950 relative group flex flex-col items-center justify-center p-3 shadow-2xl ring-1 ring-cyan-500/20">
                 <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1">
                   <span className="font-bold flex items-center gap-1.5 text-cyan-300">
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> Bản Đồ Nhiệt Grad-CAM & Vùng Tổn Thương
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> {t('clinic.batchDetailModal.heatmapLesionTitle')}
                   </span>
                   <span className="text-[10px] font-semibold flex items-center gap-1">
                     {heatmapDataUrl ? (
                       <span className="text-emerald-400 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Bản đồ nhiệt Grad-CAM
+                        <CheckCircle2 className="w-3 h-3" /> {t('clinic.batchDetailModal.heatmapAvailable')}
                       </span>
                     ) : (
-                      <span className="text-amber-400">Chưa có bản đồ nhiệt</span>
+                      <span className="text-amber-400">{t('clinic.batchDetailModal.noHeatmap')}</span>
                     )}
                   </span>
                 </div>
@@ -461,7 +475,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   ) : (
                     <div className="absolute top-3 left-3 z-10 bg-slate-900/85 backdrop-blur-xs text-amber-300 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-amber-500/40 flex items-center gap-1.5 shadow-sm pointer-events-none">
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Chưa có bản đồ nhiệt Grad-CAM</span>
+                      <span>{t('clinic.batchDetailModal.noHeatmapWarning')}</span>
                     </div>
                   )}
 
@@ -533,7 +547,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                           fontWeight="bold"
                           fontFamily="monospace"
                         >
-                          Gai Thị
+                          {isVi ? 'Gai Thị' : 'Optic Disc'}
                         </text>
 
                         <circle
@@ -564,7 +578,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                           fontWeight="bold"
                           fontFamily="monospace"
                         >
-                          Hoàng Điểm
+                          {isVi ? 'Hoàng Điểm' : 'Macula'}
                         </text>
                       </g>
                     )}
@@ -656,7 +670,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   <span>
                     {mousePos.active
                       ? `HUD: X: ${mousePos.x} | Y: ${mousePos.y} &bull; ${getAnatomyZone(mousePos.x, mousePos.y)}`
-                      : 'Rê chuột để soi tọa độ & phân tầng vi mạch'}
+                      : t('clinic.batchDetailModal.hudHoverHint')}
                   </span>
                   <span className="text-amber-300">Grad-CAM Overlay</span>
                 </div>
@@ -667,10 +681,10 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
             <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 p-4 shadow-2xl flex flex-col items-center justify-center">
               <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1">
                 <span className="font-bold flex items-center gap-1.5 text-cyan-300">
-                  <Layers className="w-4 h-4" /> Chế Độ Chồng Lớp AI Trên Ảnh Võng Mạc Bệnh Nhân (Direct Overlay)
+                  <Layers className="w-4 h-4" /> {t('clinic.batchDetailModal.directOverlayTitle')}
                 </span>
                 <span className="text-[11px] text-slate-400">
-                  Kéo thanh trượt Opacity phía trên để so sánh ảnh gốc và quang phổ nhiệt
+                  {t('clinic.batchDetailModal.directOverlaySubtitle')}
                 </span>
               </div>
 
@@ -695,7 +709,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 ) : (
                   <div className="absolute top-3 left-3 z-10 bg-slate-900/85 backdrop-blur-xs text-amber-300 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-amber-500/40 flex items-center gap-1.5 shadow-sm pointer-events-none">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Chưa có bản đồ nhiệt Grad-CAM</span>
+                    <span>{t('clinic.batchDetailModal.noHeatmapWarning')}</span>
                   </div>
                 )}
                 {/* SVG ROI in overlay mode */}
@@ -753,12 +767,12 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-xs font-bold text-[#134E4A] uppercase tracking-wider font-mono-data flex items-center gap-1.5">
                 <Target className="w-4 h-4 text-[#0891B2]" />
-                Các Vùng Bất Thường Phát Hiện Bởi AI (Detected ROI Anomalies):
+                {t('clinic.batchDetailModal.detectedAnomaliesTitle')}
               </h4>
               <span className="text-[11px] text-slate-500">
                 {anomalies.length > 0
-                  ? 'Rê hoặc bấm thẻ để làm nổi bật vị trí trên võng mạc'
-                  : 'Không phát hiện tổn thương khu trú'}
+                  ? t('clinic.batchDetailModal.detectedAnomaliesHint')
+                  : t('clinic.batchDetailModal.noFocalLesions')}
               </span>
             </div>
 
@@ -792,7 +806,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
             ) : (
               <div className="p-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 text-xs text-slate-500 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Không phát hiện tổn thương vi phình mạch hoặc xuất huyết khu trú trên ảnh này.</span>
+                <span>{t('clinic.batchDetailModal.noLesionsDesc')}</span>
               </div>
             )}
           </div>
@@ -801,28 +815,28 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
             <h4 className="text-xs font-bold text-[#134E4A] uppercase tracking-wider flex items-center gap-1.5">
               <Layers className="w-4 h-4 text-[#0891B2]" />
-              Chỉ số sinh học vi mạch võng mạc
+              {t('clinic.batchDetailModal.biomarkersTitle')}
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">Tỷ lệ động-tĩnh mạch (A/V)</span>
+                <span className="text-[10px] text-slate-500 block">{t('clinic.batchDetailModal.avrLabel')}</span>
                 <span className="text-base font-bold font-mono-data text-slate-800">{avRatio}</span>
-                <span className="text-[9px] text-amber-600 block mt-0.5">Chuẩn bình thường: ~0.67</span>
+                <span className="text-[9px] text-amber-600 block mt-0.5">{t('clinic.batchDetailModal.avrNormal')}</span>
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">Độ ngoằn ngoèo mạch máu</span>
+                <span className="text-[10px] text-slate-500 block">{t('clinic.batchDetailModal.tortuosityLabel')}</span>
                 <span className="text-base font-bold font-mono-data text-slate-800">{tortuosity}</span>
-                <span className="text-[9px] text-slate-500 block mt-0.5">Tăng áp lực vi mạch</span>
+                <span className="text-[9px] text-slate-500 block mt-0.5">{t('clinic.batchDetailModal.tortuosityDesc')}</span>
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">Mật độ vi mạch</span>
+                <span className="text-[10px] text-slate-500 block">{t('clinic.batchDetailModal.vesselDensityLabel')}</span>
                 <span className="text-base font-bold font-mono-data text-slate-800">{vesselDensity}%</span>
-                <span className="text-[9px] text-slate-500 block mt-0.5">Vascular Density</span>
+                <span className="text-[9px] text-slate-500 block mt-0.5">{t('clinic.batchDetailModal.vesselDensityDesc')}</span>
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">Tỷ lệ lõm đĩa thị (C/D)</span>
+                <span className="text-[10px] text-slate-500 block">{t('clinic.batchDetailModal.cdrLabel')}</span>
                 <span className="text-base font-bold font-mono-data text-slate-800">{opticCdr}</span>
-                <span className="text-[9px] text-emerald-600 block mt-0.5">Trong giới hạn an toàn</span>
+                <span className="text-[9px] text-emerald-600 block mt-0.5">{t('clinic.batchDetailModal.cdrNormal')}</span>
               </div>
             </div>
           </div>
@@ -831,7 +845,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
           <div className="border border-cyan-100 bg-[#F0FDFA]/50 rounded-2xl p-4 space-y-1.5">
             <h4 className="text-xs font-bold text-[#134E4A] flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-[#0891B2]" />
-              Bằng Chứng & Luận Cứ Chẩn Đoán AI (XAI Clinical Rationales)
+              {t('clinic.batchDetailModal.rationalesTitle')}
             </h4>
             <ul className="space-y-1 text-xs text-slate-700">
               {rationales.map((rat, i) => (
@@ -851,13 +865,13 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           <div className="text-xs text-slate-500 flex items-center gap-2">
             <Clock className="w-4 h-4 text-slate-400" />
-            <span>Thời gian AI xử lý: <strong>{item.durationMs || 1420} ms</strong></span>
+            <span>{t('clinic.batchDetailModal.processingDuration')} <strong>{item.durationMs || 1420} ms</strong></span>
           </div>
           <button
             onClick={onClose}
             className="px-6 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
           >
-            Đóng
+            {t('clinic.batchDetailModal.closeButton')}
           </button>
         </div>
       </div>

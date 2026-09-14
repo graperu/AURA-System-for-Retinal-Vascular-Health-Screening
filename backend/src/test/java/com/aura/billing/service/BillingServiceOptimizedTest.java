@@ -129,7 +129,7 @@ class BillingServiceOptimizedTest {
   }
 
   @Test
-  @DisplayName("purchaseOrRenew: Quá trình thanh toán thành công với cổng VNPAY mặc định")
+  @DisplayName("purchaseOrRenew: Quá trình thanh toán khởi tạo PENDING với cổng VNPAY mặc định")
   void testPurchaseOrRenewSuccess() {
     when(userRepository.findById(ownerId)).thenReturn(Optional.of(ownerUser));
     when(servicePackageService.findOrThrow(100L)).thenReturn(servicePackage);
@@ -145,9 +145,6 @@ class BillingServiceOptimizedTest {
           return t;
         });
 
-    when(subscriptionRepository.findByOwnerIdAndServicePackageId(ownerId, 100L))
-        .thenReturn(Optional.empty());
-
     PaymentGateway.GatewayResult successResult =
         new PaymentGateway.GatewayResult(true, "VNPAY_GATEWAY", "TXN_REF_123", null, "http://pay.vnpay/123", "TMN_01");
     when(paymentGateway.charge(ownerUser.getEmail(), servicePackage.getPrice(), "VNPAY"))
@@ -156,11 +153,12 @@ class BillingServiceOptimizedTest {
     var response = billingService.purchaseOrRenew(ownerId, 100L); // Overload không truyền paymentMethod
 
     assertThat(response).isNotNull();
-    assertThat(response.status()).isEqualTo(PaymentStatus.SUCCEEDED);
+    assertThat(response.status()).isEqualTo(PaymentStatus.PENDING);
     assertThat(response.provider()).isEqualTo("VNPAY_GATEWAY");
 
-    verify(userNotificationService).sendNotificationToUser(
+    verify(userNotificationService, never()).sendNotificationToUser(
         any(), any(), any(), any(), any(), any());
+    verify(subscriptionRepository, never()).save(any());
   }
 
   @Test
@@ -418,35 +416,32 @@ class BillingServiceOptimizedTest {
   }
 
   @Test
-  @DisplayName("purchaseOrRenew: Thông báo thất bại không làm gián đoạn giao dịch")
+  @DisplayName("processPaymentSuccess: Thông báo thất bại không làm gián đoạn giao dịch")
   void testPurchaseOrRenewNotificationExceptionIgnoredGracefully() {
-    when(userRepository.findById(ownerId)).thenReturn(Optional.of(ownerUser));
-    when(servicePackageService.findOrThrow(100L)).thenReturn(servicePackage);
+    PaymentTransaction txn = PaymentTransaction.builder()
+        .id(111L)
+        .buyer(ownerUser)
+        .servicePackage(servicePackage)
+        .amount(servicePackage.getPrice())
+        .status(PaymentStatus.PENDING)
+        .provider("VNPAY")
+        .providerReference("REF111")
+        .build();
 
-    Role userRole = createRole(RoleName.USER);
-    when(userRoleRepository.findAllByUserId(ownerId))
-        .thenReturn(List.of(new UserRole(ownerUser, userRole)));
-
+    when(paymentTransactionRepository.findByProviderReference("REF111"))
+        .thenReturn(Optional.of(txn));
     when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
-        .thenAnswer(i -> {
-          PaymentTransaction t = i.getArgument(0);
-          ReflectionTestUtils.setField(t, "id", 111L);
-          return t;
-        });
+        .thenAnswer(i -> i.getArgument(0));
 
     when(subscriptionRepository.findByOwnerIdAndServicePackageId(ownerId, 100L))
         .thenReturn(Optional.empty());
 
-    PaymentGateway.GatewayResult successResult =
-        new PaymentGateway.GatewayResult(true, "VNPAY", "REF111", null, "https://pay.vn", "MID");
-    when(paymentGateway.charge(ownerUser.getEmail(), servicePackage.getPrice(), "VNPAY"))
-        .thenReturn(successResult);
-
     org.mockito.Mockito.doThrow(new RuntimeException("Notification server unreachable"))
         .when(userNotificationService).sendNotificationToUser(any(), any(), any(), any(), any(), any());
 
-    var response = billingService.purchaseOrRenew(ownerId, 100L, "VNPAY");
-    assertThat(response).isNotNull();
-    assertThat(response.status()).isEqualTo(PaymentStatus.SUCCEEDED);
+    var result = billingService.processPaymentSuccess("REF111", "GATEWAY-TXN-111", servicePackage.getPrice());
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+    verify(subscriptionRepository).save(any());
   }
 }

@@ -26,6 +26,7 @@ import { Button } from './ui/Button';
 import { CreditPurchaseModal, CreditPackage } from './CreditPurchaseModal';
 import { billingApi, servicePackageApi, clinicAnalyticsApi } from '../services/api';
 import { ClinicBatchJob } from '../types/cds';
+import { useLanguage } from '../context/LanguageContext';
 
 export interface ClinicCreditPackageSectionProps {
   batchJob?: ClinicBatchJob;
@@ -43,12 +44,12 @@ interface SubscriptionItem {
 interface PaymentItem {
   id: number;
   servicePackageId?: number;
-  servicePackageName: string;
+  servicePackageName?: string;
   amount: number;
   status: 'SUCCEEDED' | 'SUCCESS' | 'PENDING' | 'FAILED' | 'CANCELLED' | string;
   provider: string;
   failureReason?: string | null;
-  createdAt: string;
+  createdAt?: string;
   paidAt?: string | null;
   providerReference?: string;
 }
@@ -68,6 +69,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
   batchJob,
   onRefreshBatch,
 }) => {
+  const { t, isVi } = useLanguage();
   const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [packages, setPackages] = useState<ClinicPackageItem[]>([]);
@@ -88,57 +90,57 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
     () => [
       {
         id: 101,
-        name: 'Gói Cơ Sở Sàng Lọc (Clinic Starter)',
-        description: 'Dành cho phòng khám đa khoa, chuyên khoa mắt triển khai tầm soát quy mô ban đầu.',
+        name: t('clinic.creditPackage.pkgStarterName'),
+        description: t('clinic.creditPackage.pkgStarterDesc'),
         scansCount: 500,
         priceVnd: 5000000,
         validityDays: 90,
         features: [
-          '500 lượt phân tích ảnh vi mạch võng mạc AI',
-          'Đánh giá 4 cấp độ nguy cơ (Low, Moderate, High, Critical)',
-          'Bản đồ nhiệt Grad-CAM & tính toán tỷ lệ vi mạch A/V',
-          'Báo cáo chẩn đoán tóm tắt PDF chuẩn Bộ Y Tế',
-          'Hỗ trợ tối đa 2 tài khoản bác sĩ tiếp nhận phân tích',
-          'Hỗ trợ kỹ thuật qua email trong giờ hành chính',
+          isVi ? '500 lượt phân tích ảnh vi mạch võng mạc AI' : '500 AI retinal microvascular evaluations',
+          isVi ? 'Đánh giá 4 cấp độ nguy cơ (Thấp, Trung bình, Cao, Nguy kịch)' : '4 clinical risk tier classifications (Low, Moderate, High, Critical)',
+          isVi ? 'Bản đồ nhiệt Grad-CAM & tính toán tỷ lệ vi mạch A/V' : 'Grad-CAM heatmap attention & arteriovenous ratio quantification',
+          isVi ? 'Báo cáo chẩn đoán tóm tắt PDF chuẩn Bộ Y Tế' : 'Standard PDF summary report compliant with health authority guidelines',
+          isVi ? 'Hỗ trợ tối đa 2 tài khoản bác sĩ tiếp nhận phân tích' : 'Up to 2 doctor seats for clinical review',
+          isVi ? 'Hỗ trợ kỹ thuật qua email trong giờ hành chính' : 'Standard business hours email support',
         ],
       },
       {
         id: 102,
-        name: 'Gói Chiến Dịch Lâm Sàng (Clinic Campaign)',
-        description: 'Lựa chọn tối ưu cho các chiến dịch khám cộng đồng, khám sức khỏe doanh nghiệp lớn.',
+        name: t('clinic.creditPackage.pkgCampaignName'),
+        description: t('clinic.creditPackage.pkgCampaignDesc'),
         scansCount: 2000,
         priceVnd: 18000000,
         validityDays: 180,
         isPopular: true,
         features: [
-          '2.000 lượt phân tích ảnh võng mạc tốc độ cao',
-          'Tự động xử lý đợt hàng loạt (Bulk Batch Upload) tệp ZIP & DICOM',
-          'Báo cáo dịch tễ học & thống kê phân tầng nguy cơ toàn chiến dịch',
-          'Phân công bệnh nhân tự động cho đội ngũ bác sĩ chuyên khoa',
-          'Xuất dữ liệu báo cáo chuyên sâu định dạng CSV/Excel',
-          'Không giới hạn số lượng tài khoản bác sĩ trực thuộc',
-          'Tiết kiệm 10% chi phí so với gói cơ sở',
+          isVi ? '2.000 lượt phân tích ảnh võng mạc tốc độ cao' : '2,000 high-throughput retinal scan evaluations',
+          isVi ? 'Tự động xử lý đợt hàng loạt tệp ZIP & DICOM' : 'Automated bulk batch processing for ZIP & DICOM folders',
+          isVi ? 'Báo cáo dịch tễ học & thống kê phân tầng nguy cơ toàn chiến dịch' : 'Epidemiological reporting & campaign-wide risk stratification',
+          isVi ? 'Phân công bệnh nhân tự động cho đội ngũ bác sĩ chuyên khoa' : 'Automated patient assignment to specialist physicians',
+          isVi ? 'Xuất dữ liệu báo cáo chuyên sâu định dạng CSV/Excel' : 'In-depth clinical data export in CSV/Excel formats',
+          isVi ? 'Không giới hạn số lượng tài khoản bác sĩ trực thuộc' : 'Unlimited affiliated physician accounts',
+          isVi ? 'Tiết kiệm 10% chi phí so với gói cơ sở' : '10% cost savings compared to starter tier',
         ],
       },
       {
         id: 103,
-        name: 'Gói Quy Mô Lớn / Bệnh Viện (Hospital Enterprise)',
-        description: 'Giải pháp toàn diện cho bệnh viện mắt, trung tâm chẩn đoán hình ảnh và hệ thống chuỗi.',
+        name: t('clinic.creditPackage.pkgHospitalName'),
+        description: t('clinic.creditPackage.pkgHospitalDesc'),
         scansCount: 5000,
         priceVnd: 40000000,
         validityDays: 365,
         features: [
-          '5.000 lượt phân tích ảnh võng mạc với băng thông ưu tiên cao nhất',
-          'Cổng tích hợp API chuyên biệt với hệ thống PACS / HIS / EMR',
-          'Báo cáo dịch tễ học và giám sát xu hướng thời gian thực',
-          'Ký số kết luận y khoa với chứng thư số bảo mật cao',
-          'Hỗ trợ kỹ thuật chuyên biệt 24/7 & chuyên viên lâm sàng đào tạo',
-          'Tùy biến mẫu báo cáo thương hiệu riêng của cơ sở y tế',
-          'Tiết kiệm 20% chi phí phân tích vi mạch',
+          isVi ? '5.000 lượt phân tích ảnh võng mạc với băng thông ưu tiên cao nhất' : '5,000 retinal scan evaluations with highest bandwidth priority',
+          isVi ? 'Cổng tích hợp API chuyên biệt với hệ thống PACS / HIS / EMR' : 'Dedicated API integration for PACS / HIS / EMR hospital systems',
+          isVi ? 'Báo cáo dịch tễ học và giám sát xu hướng thời gian thực' : 'Real-time epidemiological surveillance & trend analytics',
+          isVi ? 'Ký số kết luận y khoa với chứng thư số bảo mật cao' : 'Digital signing of clinical conclusions with high-assurance certificates',
+          isVi ? 'Hỗ trợ kỹ thuật chuyên biệt 24/7 & chuyên viên lâm sàng đào tạo' : '24/7 dedicated technical support & clinical staff onboarding',
+          isVi ? 'Tùy biến mẫu báo cáo thương hiệu riêng của cơ sở y tế' : 'Custom branded medical reporting templates',
+          isVi ? 'Tiết kiệm 20% chi phí phân tích vi mạch' : '20% cost savings on microvascular evaluations',
         ],
       },
     ],
-    []
+    [t, isVi]
   );
 
   // Nạp toàn bộ dữ liệu từ Backend API
@@ -282,7 +284,9 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
   const handlePurchaseSuccess = (added: number) => {
     setActionMessage({
       type: 'success',
-      text: `Gia hạn thành công! Tài khoản phòng khám đã được cộng thêm +${added.toLocaleString('vi-VN')} lượt khám sàng lọc.`,
+      text: isVi
+        ? `Gia hạn thành công! Tài khoản phòng khám đã được cộng thêm +${added.toLocaleString('vi-VN')} lượt khám sàng lọc.`
+        : `Renewal successful! Your clinic account has been credited with +${added.toLocaleString('en-US')} screening scans.`,
     });
     setTimeout(() => setActionMessage(null), 8000);
     fetchAllData(true);
@@ -294,7 +298,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
     if (!isoString) return '--';
     try {
       const d = new Date(isoString);
-      return d.toLocaleDateString('vi-VN', {
+      return d.toLocaleDateString(isVi ? 'vi-VN' : 'en-US', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -308,7 +312,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
     if (!isoString) return '--';
     try {
       const d = new Date(isoString);
-      return d.toLocaleString('vi-VN', {
+      return d.toLocaleString(isVi ? 'vi-VN' : 'en-US', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -324,7 +328,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
     return (
       <div className="p-12 text-center space-y-3">
         <RefreshCw className="w-8 h-8 text-[#0891B2] animate-spin mx-auto" />
-        <p className="text-sm font-semibold text-slate-600">Đang tải dữ liệu hạn mức và gói cước phòng khám...</p>
+        <p className="text-sm font-semibold text-slate-600">{t('clinic.creditPackage.loading')}</p>
       </div>
     );
   }
@@ -360,12 +364,11 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
           <div className="flex-1 text-xs">
             <h4 className="font-bold text-amber-900 text-sm">
               {remainingCredits === 0
-                ? 'Cơ sở đã hết lượt khám sàng lọc khả dụng'
-                : `Hạn mức khám sắp cạn kiệt (Chỉ còn ${remainingCredits} lượt)`}
+                ? t('clinic.creditPackage.quotaDepletedTitle')
+                : `${t('clinic.creditPackage.quotaLowTitle')} (${isVi ? `Chỉ còn ${remainingCredits} lượt` : `Only ${remainingCredits} remaining`})`}
             </h4>
             <p className="text-amber-800 mt-1 leading-relaxed">
-              Chiến dịch sàng lọc hàng loạt có thể bị tạm dừng nếu số lượng ảnh tải lên vượt quá số dư lượt khám còn lại.
-              Vui lòng gia hạn hoặc mua thêm gói dịch vụ để đảm bảo hoạt động liên tục.
+              {t('clinic.creditPackage.quotaWarningDesc')}
             </p>
           </div>
           <Button
@@ -374,7 +377,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
             onClick={() => handleOpenPurchase()}
             className="bg-amber-600 hover:bg-amber-700 text-white border-none shrink-0"
           >
-            Nạp Thêm Lượt Ngay
+            {t('clinic.creditPackage.topUpNow')}
           </Button>
         </div>
       )}
@@ -390,10 +393,10 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                Thống Kê Hạn Mức & Dung Lượng Khám Cơ Sở (FR-27)
+                {t('clinic.creditPackage.title')}
               </h2>
               <p className="text-xs text-slate-500">
-                Theo dõi số dư lượt phân tích AI, đợt quét hiện tại và trạng thái hợp đồng dịch vụ.
+                {t('clinic.creditPackage.subtitle')}
               </p>
             </div>
           </div>
@@ -403,10 +406,10 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
               onClick={() => fetchAllData(true)}
               disabled={refreshing}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition disabled:opacity-50"
-              title="Làm mới dữ liệu từ máy chủ"
+              title={t('clinic.creditPackage.refresh')}
             >
               <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>{refreshing ? 'Đang cập nhật...' : 'Làm mới'}</span>
+              <span>{refreshing ? t('clinic.creditPackage.refreshing') : t('clinic.creditPackage.refresh')}</span>
             </button>
 
             <Button
@@ -415,7 +418,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
               icon={<Zap className="w-4 h-4" />}
               onClick={() => handleOpenPurchase()}
             >
-              Gia Hạn / Mua Gói
+              {t('clinic.creditPackage.renewBuyButton')}
             </Button>
           </div>
         </div>
@@ -425,27 +428,27 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
           {/* Card 1: Số lượt khám khả dụng */}
           <div className="p-4 rounded-2xl bg-gradient-to-br from-white to-slate-50 border border-slate-200 shadow-xs relative overflow-hidden">
             <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-              <span>Lượt Khám Khả Dụng</span>
+              <span>{t('clinic.creditPackage.availableCredits')}</span>
               <CreditCard className="w-4 h-4 text-[#0891B2]" />
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-extrabold font-mono-data text-[#0891B2]">
-                {remainingCredits.toLocaleString('vi-VN')}
+                {remainingCredits.toLocaleString(isVi ? 'vi-VN' : 'en-US')}
               </span>
-              <span className="text-xs font-semibold text-slate-500">lượt</span>
+              <span className="text-xs font-semibold text-slate-500">{t('clinic.creditPackage.scansUnit')}</span>
             </div>
             <div className="mt-2 flex items-center gap-1.5 text-[11px]">
               {remainingCredits > 50 ? (
                 <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Hạn mức dồi dào
+                  <CheckCircle2 className="w-3 h-3" /> {t('clinic.creditPackage.statusAbundant')}
                 </span>
               ) : remainingCredits > 0 ? (
                 <span className="text-amber-700 font-semibold flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> Cần sớm nạp thêm
+                  <AlertTriangle className="w-3 h-3" /> {t('clinic.creditPackage.statusLow')}
                 </span>
               ) : (
                 <span className="text-red-700 font-semibold flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> Đã hết hạn mức
+                  <AlertCircle className="w-3 h-3" /> {t('clinic.creditPackage.statusDepleted')}
                 </span>
               )}
             </div>
@@ -454,34 +457,34 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
           {/* Card 2: Đã phân tích trong chiến dịch */}
           <div className="p-4 rounded-2xl bg-gradient-to-br from-white to-slate-50 border border-slate-200 shadow-xs">
             <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-              <span>Đã Quét Trong Đợt</span>
+              <span>{t('clinic.creditPackage.scannedInBatch')}</span>
               <Layers className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-extrabold font-mono-data text-slate-900">
-                {scannedInBatch.toLocaleString('vi-VN')}
+                {scannedInBatch.toLocaleString(isVi ? 'vi-VN' : 'en-US')}
               </span>
               <span className="text-xs font-semibold text-slate-500">
-                / {batchJob?.totalImages || scannedInBatch} ảnh
+                / {batchJob?.totalImages || scannedInBatch} {isVi ? 'ảnh' : 'scans'}
               </span>
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
-              Tổng toàn chiến dịch: <strong className="text-slate-700">{totalScannedCampaign} ảnh</strong>
+              {t('clinic.creditPackage.totalCampaignScanned')} <strong className="text-slate-700">{totalScannedCampaign} {isVi ? 'ảnh' : 'scans'}</strong>
             </p>
           </div>
 
           {/* Card 3: Gói cước đang kích hoạt */}
           <div className="p-4 rounded-2xl bg-gradient-to-br from-white to-slate-50 border border-slate-200 shadow-xs">
             <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-              <span>Gói Đang Hoạt Động</span>
+              <span>{t('clinic.creditPackage.activePackage')}</span>
               <Building2 className="w-4 h-4 text-indigo-600" />
             </div>
             <div className="mt-3">
               <div
                 className="font-bold text-slate-900 text-sm truncate"
-                title={activeSubscription?.servicePackageName || 'Chưa có gói kích hoạt'}
+                title={activeSubscription?.servicePackageName || t('clinic.creditPackage.noActivePackage')}
               >
-                {activeSubscription?.servicePackageName || 'Chưa kích hoạt gói'}
+                {activeSubscription?.servicePackageName || t('clinic.creditPackage.noActivePackage')}
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <span
@@ -491,7 +494,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                       : 'bg-slate-100 text-slate-600 border border-slate-200'
                   }`}
                 >
-                  {activeSubscription?.status === 'ACTIVE' ? 'ĐANG KÍCH HOẠT' : 'CHƯA ĐĂNG KÝ'}
+                  {activeSubscription?.status === 'ACTIVE' ? t('clinic.creditPackage.statusActive') : t('clinic.creditPackage.statusUnregistered')}
                 </span>
               </div>
             </div>
@@ -500,16 +503,16 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
           {/* Card 4: Thời hạn hiệu lực */}
           <div className="p-4 rounded-2xl bg-gradient-to-br from-white to-slate-50 border border-slate-200 shadow-xs">
             <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-              <span>Thời Hạn Hiệu Lực</span>
+              <span>{t('clinic.creditPackage.validityPeriod')}</span>
               <Calendar className="w-4 h-4 text-amber-600" />
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-xl font-extrabold font-mono-data text-slate-900">
-                {activeSubscription?.expiresAt ? formatDate(activeSubscription.expiresAt) : 'Vô thời hạn'}
+                {activeSubscription?.expiresAt ? formatDate(activeSubscription.expiresAt) : t('clinic.creditPackage.indefinite')}
               </span>
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
-              {activeSubscription?.expiresAt ? 'Tự động gia hạn khi mua gói' : 'Áp dụng cho gói đang dùng'}
+              {activeSubscription?.expiresAt ? t('clinic.creditPackage.autoRenewNotice') : t('clinic.creditPackage.currentPlanNotice')}
             </p>
           </div>
         </div>
@@ -519,14 +522,14 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
             <div className="font-bold text-slate-800 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#0891B2]" />
-              <span>Tiến Độ Tiêu Hao Hạn Mức Sàng Lọc</span>
+              <span>{t('clinic.creditPackage.consumptionProgress')}</span>
             </div>
             <div className="flex items-center gap-4 text-slate-600 font-mono-data text-[11px]">
               <span>
-                Đã xử lý: <strong className="text-slate-900">{scannedInBatch} ảnh</strong> ({usedPercent}%)
+                {t('clinic.creditPackage.processedCount')} <strong className="text-slate-900">{scannedInBatch} {isVi ? 'ảnh' : 'scans'}</strong> ({usedPercent}%)
               </span>
               <span>
-                Khả dụng: <strong className="text-[#0891B2]">{remainingCredits} lượt</strong> ({remainingPercent}%)
+                {t('clinic.creditPackage.availableCount')} <strong className="text-[#0891B2]">{remainingCredits} {t('clinic.creditPackage.scansUnit')}</strong> ({remainingPercent}%)
               </span>
             </div>
           </div>
@@ -536,21 +539,21 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
             <div
               className="h-full bg-slate-400 rounded-l-full transition-all duration-500"
               style={{ width: `${usedPercent}%` }}
-              title={`Đã xử lý: ${scannedInBatch} ảnh (${usedPercent}%)`}
+              title={`${t('clinic.creditPackage.processedCount')} ${scannedInBatch} (${usedPercent}%)`}
             />
             <div
               className="h-full bg-gradient-to-r from-[#0891B2] to-[#06B6D4] rounded-r-full transition-all duration-500"
               style={{ width: `${remainingPercent}%` }}
-              title={`Còn khả dụng: ${remainingCredits} lượt (${remainingPercent}%)`}
+              title={`${t('clinic.creditPackage.availableCount')} ${remainingCredits} (${remainingPercent}%)`}
             />
           </div>
 
           <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1">
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" /> Đã phân tích trong đợt
+              <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" /> {t('clinic.creditPackage.processedInBatchLegend')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#0891B2] inline-block" /> Lượt khám khả dụng sẵn sàng
+              <span className="w-2.5 h-2.5 rounded-full bg-[#0891B2] inline-block" /> {t('clinic.creditPackage.availableCreditsLegend')}
             </span>
           </div>
         </div>
@@ -564,14 +567,14 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Building2 className="w-5 h-5 text-[#0891B2]" />
-              Danh Sách Gói Dịch Vụ Cấp Phòng Khám (FR-28)
+              {t('clinic.creditPackage.packagesSectionTitle')}
             </h2>
             <p className="text-xs text-slate-500">
-              Hạn mức thiết kế chuyên biệt cho đợt tầm soát vi mạch diện rộng và bệnh viện (500 – 5.000 lượt phân tích AI).
+              {t('clinic.creditPackage.packagesSectionSubtitle')}
             </p>
           </div>
           <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full self-start sm:self-auto">
-            Hỗ trợ hóa đơn VAT & chứng thư y tế
+            {t('clinic.creditPackage.vatSupportBadge')}
           </span>
         </div>
 
@@ -592,7 +595,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                 {/* Ribbon nổi bật */}
                 {pkg.isPopular && (
                   <div className="bg-[#0891B2] text-white text-[11px] font-extrabold uppercase py-1 text-center tracking-wider flex items-center justify-center gap-1">
-                    <Zap className="w-3.5 h-3.5" /> Gói Khuyên Dùng Cho Chiến Dịch
+                    <Zap className="w-3.5 h-3.5" /> {t('clinic.creditPackage.recommendedRibbon')}
                   </div>
                 )}
 
@@ -602,7 +605,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                       <h3 className="text-base font-bold text-slate-900">{pkg.name}</h3>
                       {isCurrentActive && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          Đang Dùng
+                          {t('clinic.creditPackage.currentPlanBadge')}
                         </span>
                       )}
                     </div>
@@ -617,22 +620,22 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                   <div className="pt-2 pb-1 border-y border-slate-100">
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-extrabold font-mono-data text-[#0891B2]">
-                        {pkg.priceVnd.toLocaleString('vi-VN')}
+                        {pkg.priceVnd.toLocaleString(isVi ? 'vi-VN' : 'en-US')}
                       </span>
-                      <span className="text-xs font-bold text-slate-500">VNĐ</span>
+                      <span className="text-xs font-bold text-slate-500">{t('clinic.creditPackage.currencyVnd')}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
                       <span className="font-semibold text-emerald-700">
-                        +{pkg.scansCount.toLocaleString('vi-VN')} lượt phân tích
+                        +{pkg.scansCount.toLocaleString(isVi ? 'vi-VN' : 'en-US')} {t('clinic.creditPackage.plusScans')}
                       </span>
-                      <span>Thời hạn: {pkg.validityDays} ngày</span>
+                      <span>{t('clinic.creditPackage.validityDays')} {pkg.validityDays} {isVi ? 'ngày' : 'days'}</span>
                     </div>
                   </div>
 
                   {/* Danh sách tính năng */}
                   <div className="space-y-2.5 pt-1">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Tính năng bao gồm:
+                      {t('clinic.creditPackage.featuresIncluded')}
                     </span>
                     <ul className="space-y-2 text-xs text-slate-700">
                       {pkg.features.map((feat, idx) => (
@@ -654,7 +657,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                     icon={<Zap className="w-4 h-4" />}
                     onClick={() => handleOpenPurchase(pkg)}
                   >
-                    {isCurrentActive ? 'Gia Hạn Gói Này' : 'Mua Gói Ngay'}
+                    {isCurrentActive ? t('clinic.creditPackage.renewThisPackage') : t('clinic.creditPackage.buyPackageNow')}
                   </Button>
                 </div>
               </div>
@@ -672,10 +675,10 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
             <History className="w-5 h-5 text-[#0891B2]" />
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                Lịch Sử Giao Dịch & Hóa Đơn Phòng Khám (FR-28)
+                {t('clinic.creditPackage.historySectionTitle')}
               </h3>
               <p className="text-xs text-slate-500">
-                Toàn bộ nhật ký nạp hạn mức, thanh toán hợp đồng dịch vụ và biên lai điện tử.
+                {t('clinic.creditPackage.historySectionSubtitle')}
               </p>
             </div>
           </div>
@@ -685,7 +688,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
             className="text-xs font-semibold text-[#0891B2] hover:text-cyan-800 flex items-center gap-1.5 self-end sm:self-auto"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Tải lại lịch sử</span>
+            <span>{t('clinic.creditPackage.reloadHistory')}</span>
           </button>
         </div>
 
@@ -695,14 +698,14 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
             <table className="w-full text-xs text-left">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
                 <tr>
-                  <th className="p-3.5">Mã Giao Dịch</th>
-                  <th className="p-3.5">Gói Dịch Vụ</th>
-                  <th className="p-3.5">Số Tiền (VNĐ)</th>
-                  <th className="p-3.5">Số Lượt</th>
-                  <th className="p-3.5">Ngày Thanh Toán</th>
-                  <th className="p-3.5">Phương Thức</th>
-                  <th className="p-3.5">Trạng Thái</th>
-                  <th className="p-3.5 text-right">Biên Lai</th>
+                  <th className="p-3.5">{t('clinic.creditPackage.colTxnId')}</th>
+                  <th className="p-3.5">{t('clinic.creditPackage.colPackage')}</th>
+                  <th className="p-3.5">{t('clinic.creditPackage.colAmount')}</th>
+                  <th className="p-3.5">{t('clinic.creditPackage.colScans')}</th>
+                  <th className="p-3.5">{t('clinic.creditPackage.colPaidDate')}</th>
+                  <th className="p-3.5">{t('clinic.creditPackage.colMethod')}</th>
+                  <th className="p-3.5">{t('clinic.creditPackage.colStatus')}</th>
+                  <th className="p-3.5 text-right">{t('clinic.creditPackage.colReceipt')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -710,9 +713,9 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                   <tr>
                     <td colSpan={8} className="p-8 text-center text-slate-400">
                       <FileText className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                      <p className="font-semibold">Chưa có lịch sử giao dịch nào.</p>
+                      <p className="font-semibold">{t('clinic.creditPackage.emptyHistory')}</p>
                       <p className="text-[11px] text-slate-400 mt-1">
-                        Khi cơ sở thanh toán gia hạn hoặc mua gói hạn mức, thông tin hóa đơn sẽ hiển thị tại đây.
+                        {t('clinic.creditPackage.emptyHistorySub')}
                       </p>
                     </td>
                   </tr>
@@ -730,12 +733,12 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
 
                         {/* Tên gói */}
                         <td className="p-3.5 font-bold text-slate-900">
-                          {p.servicePackageName || 'Gói Sàng Lọc Phòng Khám'}
+                          {p.servicePackageName || t('clinic.creditPackage.pkgStarterName')}
                         </td>
 
                         {/* Số tiền */}
                         <td className="p-3.5 font-mono font-extrabold text-slate-900">
-                          {Number(p.amount || 0).toLocaleString('vi-VN')} đ
+                          {Number(p.amount || 0).toLocaleString(isVi ? 'vi-VN' : 'en-US')} {t('clinic.creditPackage.currencyVnd')}
                         </td>
 
                         {/* Số lượt */}
@@ -745,7 +748,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                             : p.servicePackageName?.includes('2000') || p.amount >= 15000000
                               ? '+2.000'
                               : '+500'}{' '}
-                          lượt
+                          {t('clinic.creditPackage.scansUnit')}
                         </td>
 
                         {/* Ngày thanh toán */}
@@ -765,10 +768,10 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                             }`}
                           >
                             {p.provider === 'MOMO'
-                              ? 'Ví MoMo'
+                              ? t('clinic.creditPackage.providerMomo')
                               : p.provider === 'BANK_TRANSFER'
-                                ? 'Chuyển Khoản'
-                                : 'VNPay QR'}
+                                ? t('clinic.creditPackage.providerBank')
+                                : t('clinic.creditPackage.providerVnpay')}
                           </span>
                         </td>
 
@@ -783,7 +786,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                                   : 'bg-red-50 text-red-800 border border-red-200'
                             }`}
                           >
-                            {isSuccess ? 'THÀNH CÔNG' : isPending ? 'ĐANG XỬ LÝ' : 'THẤT BẠI'}
+                            {isSuccess ? t('clinic.creditPackage.statusSuccess') : isPending ? t('clinic.creditPackage.statusPending') : t('clinic.creditPackage.statusFailed')}
                           </span>
                         </td>
 
@@ -794,7 +797,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                             className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0891B2] hover:underline"
                           >
                             <FileText className="w-3.5 h-3.5" />
-                            <span>Xem biên lai</span>
+                            <span>{t('clinic.creditPackage.viewReceipt')}</span>
                           </button>
                         </td>
                       </tr>
@@ -826,7 +829,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[#0891B2]" />
-                <h4 className="text-base font-bold text-slate-900">Biên Lai Điện Tử Phòng Khám</h4>
+                <h4 className="text-base font-bold text-slate-900">{t('clinic.creditPackage.receiptTitle')}</h4>
               </div>
               <button
                 onClick={() => setSelectedReceipt(null)}
@@ -838,55 +841,55 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
 
             <div className="space-y-3 text-xs">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
-                <div className="text-[11px] text-slate-400 font-semibold">Đơn vị cung cấp dịch vụ:</div>
-                <div className="font-bold text-slate-900">HỆ THỐNG Y TẾ AURA CDS & AI SCREENING</div>
-                <div className="text-slate-500 text-[11px]">Nền tảng sàng lọc vi mạch võng mạc & nguy cơ tim mạch</div>
+                <div className="text-[11px] text-slate-400 font-semibold">{t('clinic.creditPackage.providerLabel')}</div>
+                <div className="font-bold text-slate-900">{t('clinic.creditPackage.providerSystemName')}</div>
+                <div className="text-slate-500 text-[11px]">{t('clinic.creditPackage.providerSystemDesc')}</div>
               </div>
 
               <div className="space-y-2 py-2">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Mã hóa đơn:</span>
+                  <span className="text-slate-500">{t('clinic.creditPackage.invoiceIdLabel')}</span>
                   <span className="font-mono font-bold text-slate-800">
                     {selectedReceipt.providerReference || `TXN-CLN-${selectedReceipt.id}`}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Gói dịch vụ:</span>
+                  <span className="text-slate-500">{t('clinic.creditPackage.servicePackageLabel')}</span>
                   <span className="font-bold text-slate-800">{selectedReceipt.servicePackageName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Thời gian ghi nhận:</span>
+                  <span className="text-slate-500">{t('clinic.creditPackage.recordedTimeLabel')}</span>
                   <span className="font-mono text-slate-700">
                     {formatDateTime(selectedReceipt.paidAt || selectedReceipt.createdAt)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Cổng thanh toán:</span>
+                  <span className="text-slate-500">{t('clinic.creditPackage.paymentGatewayLabel')}</span>
                   <span className="font-semibold text-slate-800">
                     {selectedReceipt.provider || 'VNPay QR'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Trạng thái:</span>
-                  <span className="font-bold text-emerald-700">Đã quyết toán hợp lệ</span>
+                  <span className="text-slate-500">{t('clinic.creditPackage.settlementStatusLabel')}</span>
+                  <span className="font-bold text-emerald-700">{t('clinic.creditPackage.settledValid')}</span>
                 </div>
               </div>
 
               <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200 flex justify-between items-baseline">
-                <span className="font-bold text-emerald-900 text-sm">Tổng tiền thanh toán:</span>
+                <span className="font-bold text-emerald-900 text-sm">{t('clinic.creditPackage.totalPaidLabel')}</span>
                 <span className="text-xl font-extrabold font-mono-data text-emerald-800">
-                  {Number(selectedReceipt.amount).toLocaleString('vi-VN')} VNĐ
+                  {Number(selectedReceipt.amount).toLocaleString(isVi ? 'vi-VN' : 'en-US')} {t('clinic.creditPackage.currencyVnd')}
                 </span>
               </div>
 
               <div className="text-[10px] text-slate-400 italic pt-1 text-center">
-                Chứng từ điện tử tuân thủ quy chuẩn y tế và có giá trị thanh quyết toán kinh phí chiến dịch sàng lọc.
+                {t('clinic.creditPackage.receiptDisclaimer')}
               </div>
             </div>
 
             <div className="pt-2 flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setSelectedReceipt(null)}>
-                Đóng
+                {t('clinic.creditPackage.closeReceipt')}
               </Button>
               <Button
                 variant="primary"
@@ -896,7 +899,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                   window.print();
                 }}
               >
-                In Biên Lai
+                {t('clinic.creditPackage.printReceipt')}
               </Button>
             </div>
           </div>
@@ -907,12 +910,10 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
       <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500 space-y-1">
         <div className="flex items-center gap-1.5 font-bold text-slate-700">
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Quy Định Sử Dụng Hạn Mức Sàng Lọc Phòng Khám (AURA CDS Compliance)</span>
+          <span>{t('clinic.creditPackage.complianceTitle')}</span>
         </div>
         <p className="leading-relaxed">
-          Số lượt khám được cấp chỉ phục vụ cho hoạt động sàng lọc ban đầu và hỗ trợ quyết định lâm sàng tại cơ sở y tế đã
-          được cấp phép. Kết quả phân tích AI không thay thế chẩn đoán xác định của bác sĩ chuyên khoa mắt hoặc tim mạch.
-          Hạn mức chưa sử dụng sẽ được cộng dồn tự động khi cơ sở thực hiện gia hạn trước thời điểm hết hạn của gói hiện tại.
+          {t('clinic.creditPackage.complianceText')}
         </p>
       </div>
     </div>

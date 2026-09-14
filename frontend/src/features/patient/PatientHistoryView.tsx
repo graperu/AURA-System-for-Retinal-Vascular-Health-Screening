@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ArrowUpDown,
   X,
+  ShieldCheck,
 } from 'lucide-react';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { RiskBadge } from '../../components/ui/RiskBadge';
@@ -125,9 +126,12 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     setRiskFilter('ALL');
     setSortBy('NEWEST');
     setActionNotice(
-      isVi
-        ? 'Đã đặt lại toàn bộ bộ lọc và ô tìm kiếm về mặc định'
-        : 'Reset all filters and search input to default'
+      t(
+        'patient.history.filters.resetFiltersNotice',
+        isVi
+          ? 'Đã đặt lại toàn bộ điều kiện lọc về mặc định. Lịch sử khám bệnh được lưu trữ an toàn theo tiêu chuẩn y tế.'
+          : 'Reset all filter criteria to default. Medical screening history is securely preserved per clinical standards.'
+      )
     );
     setTimeout(() => setActionNotice(null), 3500);
   };
@@ -395,10 +399,15 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
               type="button"
               onClick={handleReset}
               className="h-10 px-3.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-all flex items-center justify-center gap-1 cursor-pointer"
-              title={isVi ? 'Đặt lại bộ lọc' : 'Reset filters'}
+              title={t(
+                'patient.history.filters.resetFiltersTooltip',
+                isVi
+                  ? 'Đặt lại các điều kiện lọc (Mắt, Mức nguy cơ, Ô tìm kiếm) về mặc định'
+                  : 'Reset all filter criteria (Eye, Risk level, Search box) to default'
+              )}
             >
               <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span>{isVi ? 'Đặt lại' : 'Reset'}</span>
+              <span>{t('patient.history.filters.resetFilters', isVi ? 'Đặt lại bộ lọc' : 'Reset filters')}</span>
             </button>
           </div>
         </div>
@@ -419,6 +428,19 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
             </button>
           </div>
         )}
+      </div>
+
+      {/* EHR Immutability Notice Callout */}
+      <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl px-4 py-2.5 flex items-center gap-2.5 text-xs text-slate-600 shadow-2xs">
+        <ShieldCheck className="w-4 h-4 text-teal-700 shrink-0" />
+        <span className="leading-relaxed">
+          {t(
+            'patient.history.immutabilityNotice',
+            isVi
+              ? 'Hồ sơ bệnh án điện tử (EMR) được lưu trữ bất biến theo quy chuẩn an toàn y tế HIPAA & Bộ Y Tế nhằm phục vụ theo dõi diễn tiến sức khỏe trọn đời.'
+              : 'Electronic Medical Records (EMR) are immutably preserved per HIPAA and MoH clinical standards for lifelong health tracking.'
+          )}
+        </span>
       </div>
 
       {/* Header Danh Sách & Sắp Xếp */}

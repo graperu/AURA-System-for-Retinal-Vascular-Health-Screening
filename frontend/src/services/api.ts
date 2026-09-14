@@ -217,9 +217,57 @@ export const notificationApi = {
   getStreamUrl: () => `${API_BASE_URL}/api/v1/notifications/stream`,
 };
 
+export interface ServicePackageResponse {
+  id: number;
+  name: string;
+  description?: string;
+  scope: "INDIVIDUAL" | "CLINIC";
+  price: number;
+  credits: number;
+  validityDays?: number;
+  active?: boolean;
+}
+
+export interface PaymentStatusResponse {
+  transactionId: number;
+  providerReference: string;
+  status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+  amount: number;
+  creditsAdded?: number;
+  paidAt?: string;
+  expiresAt?: string;
+  failureReason?: string;
+}
+
+export interface PaymentTransactionResponse {
+  id: number;
+  servicePackageId?: number;
+  servicePackageName?: string;
+  amount: number;
+  status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+  provider: string;
+  failureReason?: string;
+  createdAt?: string;
+  paidAt?: string;
+  providerReference?: string;
+  paymentUrl?: string;
+  merchantId?: string;
+  transferContent?: string;
+  qrCodeUrl?: string;
+  expiresAt?: string;
+}
+
 export const billingApi = {
+  checkout: (packageId: number, paymentMethod = "VIETQR") =>
+    apiFetch<PaymentTransactionResponse>(
+      `/api/v1/me/packages/${packageId}/checkout?paymentMethod=${paymentMethod}`,
+      {
+        method: "POST",
+      },
+    ),
+
   purchase: (packageId: number, paymentMethod = "VNPAY") =>
-    apiFetch<any>(
+    apiFetch<PaymentTransactionResponse>(
       `/api/v1/me/packages/${packageId}/purchase?paymentMethod=${paymentMethod}`,
       {
         method: "POST",
@@ -229,8 +277,16 @@ export const billingApi = {
   purchasePackage: (packageId: number, paymentMethod = "VNPAY") =>
     billingApi.purchase(packageId, paymentMethod),
 
+  getTransactionStatus: (transactionId: number) =>
+    apiFetch<PaymentStatusResponse>(
+      `/api/v1/me/payments/${transactionId}/status`,
+      {
+        method: "GET",
+      },
+    ),
+
   packages: (scope: "INDIVIDUAL" | "CLINIC" = "CLINIC") =>
-    apiFetch<any[]>(`/api/v1/packages?scope=${scope}`, { method: "GET" }),
+    apiFetch<ServicePackageResponse[]>(`/api/v1/packages?scope=${scope}`, { method: "GET" }),
 
   mySubscriptions: () =>
     apiFetch<any[]>("/api/v1/me/subscriptions", {
@@ -238,7 +294,7 @@ export const billingApi = {
     }),
 
   myPayments: () =>
-    apiFetch<any[]>("/api/v1/me/payments", {
+    apiFetch<PaymentTransactionResponse[]>("/api/v1/me/payments", {
       method: "GET",
     }),
 

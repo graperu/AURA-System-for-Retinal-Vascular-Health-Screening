@@ -7,10 +7,12 @@ import { CDSDashboardPage } from './pages/CDSDashboardPage';
 import { ClinicPortalPage } from './pages/ClinicPortalPage';
 import { AdminAuditLogsPage } from './pages/AdminAuditLogsPage';
 import { useAuth } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
 import { LoadingState } from './components/ui/StateFeedback';
 
 export const App: React.FC = () => {
   const { user: currentUser, loading, logout } = useAuth();
+  const { t, isVi } = useLanguage();
   const [activeSection, setActiveSection] = useState('dashboard');
 
   const handleSelectSection = (section: string) => {
@@ -20,7 +22,7 @@ export const App: React.FC = () => {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F4F7FC] text-slate-900 font-sans">
-        <LoadingState message="Đang khởi tạo không gian làm việc AURA..." />
+        <LoadingState message={t('common.loadingInit', isVi ? 'Đang khởi tạo không gian làm việc AURA...' : 'Initializing AURA clinical workspace...')} />
       </div>
     );
   }

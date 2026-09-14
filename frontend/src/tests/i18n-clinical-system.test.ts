@@ -27,6 +27,30 @@ import { ConsultationChatModal } from '../components/ConsultationChatModal';
 import { MedicalProfileModal } from '../components/MedicalProfileModal';
 import { CreditPurchaseModal } from '../components/CreditPurchaseModal';
 import { PatientPortalPage } from '../pages/PatientPortalPage';
+import { DoctorWorklistView } from '../features/doctor/DoctorWorklistView';
+import { DoctorDiagnosisModal } from '../components/DoctorDiagnosisModal';
+import { DoctorRiskAnalyticsView } from '../features/doctor/DoctorRiskAnalyticsView';
+import { DoctorReportsView } from '../features/doctor/DoctorReportsView';
+import { DoctorConsultationView } from '../features/doctor/DoctorConsultationView';
+import { ClinicalValidationBar } from '../components/ClinicalValidationBar';
+import { PatientAssignmentBoard } from '../components/PatientAssignmentBoard';
+import { MedicalReportModal } from '../components/MedicalReportModal';
+import { RiskAssessmentPanel } from '../components/RiskAssessmentPanel';
+import { ClinicalRiskSummaryCard } from '../components/ClinicalRiskSummaryCard';
+import { ClinicBatchJob } from '../types/cds';
+import { ClinicBatchWorkspace } from '../features/clinic/ClinicBatchWorkspace';
+import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
+import { BatchUploadModal } from '../components/BatchUploadModal';
+import { BatchItemDetailModal } from '../components/BatchItemDetailModal';
+import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
+import { ClinicCreditPackageSection } from '../components/ClinicCreditPackageSection';
+import { ClinicPortalPage } from '../pages/ClinicPortalPage';
+import { AdminAuditWorkspace, AuditLogItem } from '../features/admin/AdminAuditWorkspace';
+import { AdminAuditLogsPage } from '../pages/AdminAuditLogsPage';
+import { AuthHeroPanel } from '../components/auth/AuthHeroPanel';
+import { PasswordInput } from '../components/auth/PasswordInput';
+import { Footer } from '../components/Footer';
+import { LoadingState, ErrorState } from '../components/ui/StateFeedback';
 
 // Polyfill localStorage cho môi trường kiểm thử Node
 if (typeof globalThis.localStorage === 'undefined' || !globalThis.localStorage.getItem) {
@@ -1003,12 +1027,22 @@ runTest('PATIENT-I18N-5: MedicalProfileModal render song ngữ chuẩn (VI & EN)
 });
 
 runTest('PATIENT-I18N-6: CreditPurchaseModal render song ngữ chuẩn (VI & EN)', () => {
+  const viPackages = [
+    {
+      id: 1,
+      name: 'Gói Cơ Bản (Khám Đơn)',
+      scansCount: 1,
+      priceVnd: 50000,
+      features: ['1 lượt phân tích ảnh võng mạc AI'],
+    },
+  ];
   const viHtml = renderWithLang(
     React.createElement(CreditPurchaseModal, {
       isOpen: true,
       onClose: () => {},
       userRole: 'patient',
       currentCredits: 3,
+      customPackages: viPackages,
     }),
     'vi'
   );
@@ -1017,12 +1051,22 @@ runTest('PATIENT-I18N-6: CreditPurchaseModal render song ngữ chuẩn (VI & EN)
   assert.ok(viHtml.includes('Gói Cơ Bản (Khám Đơn)'), 'VI: Tên gói cơ bản');
   assert.ok(viHtml.includes('Tiếp tục chọn phương thức'), 'VI: Nút tiếp tục');
 
+  const enPackages = [
+    {
+      id: 1,
+      name: 'Basic Package (Single Scan)',
+      scansCount: 1,
+      priceVnd: 50000,
+      features: ['1 AI retinal scan analysis'],
+    },
+  ];
   const enHtml = renderWithLang(
     React.createElement(CreditPurchaseModal, {
       isOpen: true,
       onClose: () => {},
       userRole: 'patient',
       currentCredits: 3,
+      customPackages: enPackages,
     }),
     'en'
   );
@@ -1070,6 +1114,708 @@ runTest('PATIENT-I18N-7: PatientPortalPage render song ngữ chuẩn (VI & EN)',
     'EN: Nút hồ sơ'
   );
   assert.ok(!enHtml.includes('Khám Định Kỳ Võng Mạc'), 'EN: Không còn "Khám Định Kỳ Võng Mạc"');
+});
+
+// -----------------------------------------------------------------------------
+// PHẦN 9: KIỂM THỬ KHẢ NĂNG CHUYỂN ĐỔI SONG NGỮ PHÂN HỆ BÁC SĨ (DOCTOR PORTAL)
+// -----------------------------------------------------------------------------
+console.log('\n--- 9. Kiểm Thử Khả Năng Chuyển Đổi Song Ngữ Phân Hệ Bác Sĩ (Doctor Portal) ---');
+
+const sampleDoctorAssigned = [
+  {
+    patientId: 'p-001',
+    mrn: 'MRN-12345',
+    fullName: 'Nguyễn Văn Người Bệnh',
+    age: 58,
+    gender: 'Male',
+    systolicBp: 135,
+    diastolicBp: 85,
+    hba1c: 6.8,
+    hasDiabetes: true,
+    hasHypertension: true,
+    screeningCount: 2,
+    assignedAt: '2026-03-10',
+    assignmentStatus: 'ASSIGNED',
+    latestRiskLevel: 'Moderate',
+  },
+];
+
+runTest('DOCTOR-I18N-1: DoctorWorklistView render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(DoctorWorklistView, {
+      patients: [samplePatientData],
+      onSelectPatient: () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Danh sách ca khám phân công'), 'VI: Tiêu đề danh sách ca khám');
+  assert.ok(viHtml.includes('Tìm kiếm bệnh nhân'), 'VI: Nhãn tìm kiếm');
+  assert.ok(viHtml.includes('Trạng thái thẩm định'), 'VI: Bộ lọc trạng thái');
+  assert.ok(viHtml.includes('Mức nguy cơ'), 'VI: Bộ lọc mức nguy cơ');
+  assert.ok(viHtml.includes('Mở CDS'), 'VI: Nút mở CDS');
+
+  const enHtml = renderWithLang(
+    React.createElement(DoctorWorklistView, {
+      patients: [samplePatientData],
+      onSelectPatient: () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Assigned Screening Queue'), 'EN: Tiêu đề danh sách');
+  assert.ok(enHtml.includes('Search patients'), 'EN: Nhãn tìm kiếm');
+  assert.ok(enHtml.includes('Review status'), 'EN: Bộ lọc trạng thái');
+  assert.ok(enHtml.includes('Risk level'), 'EN: Bộ lọc nguy cơ');
+  assert.ok(enHtml.includes('Open CDS'), 'EN: Nút mở CDS');
+  assert.ok(!enHtml.includes('Danh sách ca khám phân công'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('DOCTOR-I18N-2: DoctorDiagnosisModal render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(DoctorDiagnosisModal, {
+      isOpen: true,
+      onClose: () => {},
+      analysisId: 'ANA-999',
+      patientName: 'Nguyễn Văn Người Bệnh',
+      mrn: 'MRN-12345',
+      onSaveFeedback: () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Thẩm định kết quả và Ký số kết luận lâm sàng'), 'VI: Tiêu đề modal');
+  assert.ok(viHtml.includes('Chấp thuận chẩn đoán của AI') || viHtml.includes('Đồng Ý AI'), 'VI: Nút đồng ý AI');
+  assert.ok(viHtml.includes('Hiệu chỉnh kết luận lâm sàng') || viHtml.includes('Chỉnh Sửa'), 'VI: Nút chỉnh sửa');
+  assert.ok(viHtml.includes('Bác bỏ kết luận của AI') || viHtml.includes('Bác Bỏ'), 'VI: Nút bác bỏ');
+  assert.ok(viHtml.includes('Chữ ký số PKI:'), 'VI: Nhãn chữ ký số');
+  assert.ok(viHtml.includes('Lưu và Ký duyệt hồ sơ') || viHtml.includes('Lưu & Ký'), 'VI: Nút lưu');
+
+  const enHtml = renderWithLang(
+    React.createElement(DoctorDiagnosisModal, {
+      isOpen: true,
+      onClose: () => {},
+      analysisId: 'ANA-999',
+      patientName: 'Nguyễn Văn Người Bệnh',
+      mrn: 'MRN-12345',
+      onSaveFeedback: () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Clinical Validation &amp; Digital Sign-off') || enHtml.includes('Clinical Validation & Digital Sign-off'), 'EN: Tiêu đề modal');
+  assert.ok(enHtml.includes('Approve AI'), 'EN: Nút approve AI');
+  assert.ok(enHtml.includes('Modify'), 'EN: Nút modify');
+  assert.ok(enHtml.includes('Reject'), 'EN: Nút reject');
+  assert.ok(enHtml.includes('PKI Digital Signature:'), 'EN: Nhãn chữ ký số');
+  assert.ok(enHtml.includes('Save &amp; Record sign-off') || enHtml.includes('Save & Record sign-off') || enHtml.includes('Save'), 'EN: Nút save');
+  assert.ok(!enHtml.includes('Thẩm định kết quả và Ký số kết luận lâm sàng'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('DOCTOR-I18N-3: DoctorRiskAnalyticsView render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(DoctorRiskAnalyticsView, {
+      assignedPatients: sampleDoctorAssigned,
+      onSelectPatientForCDS: () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Thống Kê Nguy Cơ &amp; Hiệu Suất Lâm Sàng') || viHtml.includes('Thống Kê Nguy Cơ & Hiệu Suất Lâm Sàng'), 'VI: Tiêu đề analytics');
+  assert.ok(viHtml.includes('Bệnh Nhân Phụ Trách'), 'VI: Bệnh nhân phụ trách');
+  assert.ok(viHtml.includes('Đã Duyệt Lâm Sàng'), 'VI: Đã duyệt lâm sàng');
+  assert.ok(viHtml.includes('Đồng Thuận Với AI'), 'VI: Đồng thuận AI');
+
+  const enHtml = renderWithLang(
+    React.createElement(DoctorRiskAnalyticsView, {
+      assignedPatients: sampleDoctorAssigned,
+      onSelectPatientForCDS: () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Population Risk Analytics &amp; Clinical Performance') || enHtml.includes('Population Risk Analytics & Clinical Performance'), 'EN: Tiêu đề analytics');
+  assert.ok(enHtml.includes('Assigned Patients'), 'EN: Assigned patients');
+  assert.ok(enHtml.includes('Clinically Reviewed'), 'EN: Clinically reviewed');
+  assert.ok(enHtml.includes('Consensus with AI'), 'EN: Consensus with AI');
+  assert.ok(!enHtml.includes('Bệnh Nhân Phụ Trách'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('DOCTOR-I18N-4: DoctorReportsView render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(DoctorReportsView, {
+      assignedPatients: sampleDoctorAssigned,
+      onReviewAndSign: () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Hồ Sơ Báo Cáo Y Khoa &amp; Ký Duyệt Chẩn Đoán') || viHtml.includes('Hồ Sơ Báo Cáo Y Khoa & Ký Duyệt Chẩn Đoán'), 'VI: Tiêu đề báo cáo');
+  assert.ok(viHtml.includes('Tổng Số Hồ Sơ Báo Cáo'), 'VI: Tổng số báo cáo');
+  assert.ok(viHtml.includes('Chờ Bác Sĩ Thẩm Định'), 'VI: Chờ thẩm định');
+  assert.ok(viHtml.includes('Đã Ký Duyệt Lâm Sàng'), 'VI: Đã ký duyệt');
+
+  const enHtml = renderWithLang(
+    React.createElement(DoctorReportsView, {
+      assignedPatients: sampleDoctorAssigned,
+      onReviewAndSign: () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Medical Reports &amp; Sign-off Archives') || enHtml.includes('Medical Reports & Sign-off Archives'), 'EN: Tiêu đề báo cáo');
+  assert.ok(enHtml.includes('Total Medical Reports'), 'EN: Total reports');
+  assert.ok(enHtml.includes('Pending Review'), 'EN: Pending review');
+  assert.ok(enHtml.includes('Clinically Approved &amp; Signed') || enHtml.includes('Clinically Approved & Signed'), 'EN: Approved & signed');
+  assert.ok(!enHtml.includes('Tổng Số Hồ Sơ Báo Cáo'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('DOCTOR-I18N-5: DoctorConsultationView render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(DoctorConsultationView, {
+      assignedPatients: sampleDoctorAssigned,
+      onSelectPatientForCDS: () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Kênh Tư Vấn &amp; Trao Đổi Trực Tuyến Với Bệnh Nhân') || viHtml.includes('Kênh Tư Vấn & Trao Đổi Trực Tuyến Với Bệnh Nhân'), 'VI: Tiêu đề chat');
+  assert.ok(viHtml.includes('Bệnh Nhân Phụ Trách'), 'VI: Bệnh nhân phụ trách');
+  assert.ok(viHtml.includes('Cảnh báo an toàn y khoa:'), 'VI: Cảnh báo an toàn');
+
+  const enHtml = renderWithLang(
+    React.createElement(DoctorConsultationView, {
+      assignedPatients: sampleDoctorAssigned,
+      onSelectPatientForCDS: () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Online Patient Consultation &amp; Direct Channel') || enHtml.includes('Online Patient Consultation & Direct Channel'), 'EN: Tiêu đề chat');
+  assert.ok(enHtml.includes('Assigned Patients'), 'EN: Assigned patients');
+  assert.ok(enHtml.includes('Medical Safety Notice:'), 'EN: Medical safety notice');
+  assert.ok(!enHtml.includes('Cảnh báo an toàn y khoa:'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('DOCTOR-I18N-6: ClinicalValidationBar render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(ClinicalValidationBar, {
+      analysisId: 'ANA-999',
+      onSaveFeedback: async () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Thẩm Định Lâm Sàng &amp; Phê Duyệt Kết Quả Sàng Lọc') || viHtml.includes('Thẩm Định Lâm Sàng & Phê Duyệt Kết Quả Sàng Lọc'), 'VI: Tiêu đề validation bar');
+  assert.ok(viHtml.includes('Chấp thuận AI'), 'VI: Chấp thuận AI');
+  assert.ok(viHtml.includes('Hiệu chỉnh nguy cơ'), 'VI: Hiệu chỉnh nguy cơ');
+
+  const enHtml = renderWithLang(
+    React.createElement(ClinicalValidationBar, {
+      analysisId: 'ANA-999',
+      onSaveFeedback: async () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Clinical Validation &amp; Screening Approval') || enHtml.includes('Clinical Validation & Screening Approval'), 'EN: Tiêu đề validation bar');
+  assert.ok(enHtml.includes('Approve AI'), 'EN: Approve AI');
+  assert.ok(enHtml.includes('Modify Risk'), 'EN: Modify Risk');
+  assert.ok(!enHtml.includes('Hiệu chỉnh nguy cơ'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('DOCTOR-I18N-7: PatientAssignmentBoard render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(PatientAssignmentBoard, null),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Điều phối bệnh nhân cho bác sĩ') || viHtml.includes('Đang tải bảng phân công...'), 'VI: Bảng phân công');
+
+  const enHtml = renderWithLang(
+    React.createElement(PatientAssignmentBoard, null),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Patient Assignment &amp; Care Coordination') || enHtml.includes('Patient Assignment & Care Coordination') || enHtml.includes('Loading assignment board...'), 'EN: Bảng phân công');
+  assert.ok(!enHtml.includes('Điều phối bệnh nhân cho bác sĩ'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('DOCTOR-I18N-8: MedicalReportModal render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(MedicalReportModal, {
+      isOpen: true,
+      onClose: () => {},
+      patient: samplePatientData,
+      result: sampleResultData,
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('HỆ THỐNG SÀNG LỌC MẠCH MÁU VÕNG MẠC AURA'), 'VI: Tiêu đề hệ thống');
+  assert.ok(
+    viHtml.includes('Báo Cáo Sàng Lọc Y Tế Võng Mạc AURA') ||
+      viHtml.includes('Báo Cáo Sàng Lọc Sơ Bộ AURA AI'),
+    'VI: Tiêu đề báo cáo'
+  );
+  assert.ok(viHtml.includes('Xuất CSV'), 'VI: Nút xuất CSV');
+  assert.ok(viHtml.includes('In Phiếu / PDF'), 'VI: Nút in phiếu');
+
+  const enHtml = renderWithLang(
+    React.createElement(MedicalReportModal, {
+      isOpen: true,
+      onClose: () => {},
+      patient: samplePatientData,
+      result: sampleResultData,
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('AURA RETINAL VASCULAR SCREENING SYSTEM'), 'EN: Tiêu đề hệ thống');
+  assert.ok(
+    enHtml.includes('AURA Retinal Medical Screening Report') ||
+      enHtml.includes('AURA AI Preliminary Screening Report'),
+    'EN: Tiêu đề báo cáo'
+  );
+  assert.ok(enHtml.includes('Export CSV'), 'EN: Nút export CSV');
+  assert.ok(enHtml.includes('Print / PDF'), 'EN: Nút in PDF');
+  assert.ok(!enHtml.includes('HỆ THỐNG SÀNG LỌC MẠCH MÁU VÕNG MẠC AURA'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('DOCTOR-I18N-9: RiskAssessmentPanel render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(RiskAssessmentPanel, {
+      result: sampleResultData,
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Đánh Giá Nguy Cơ Lâm Sàng AI'), 'VI: Tiêu đề panel');
+  assert.ok(viHtml.includes('Nguy Cơ Tim Mạch'), 'VI: Nguy cơ tim mạch');
+  assert.ok(viHtml.includes('Nguy Cơ Đột Quỵ'), 'VI: Nguy cơ đột quỵ');
+
+  const enHtml = renderWithLang(
+    React.createElement(RiskAssessmentPanel, {
+      result: sampleResultData,
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('AI Clinical Risk Assessment'), 'EN: Tiêu đề panel');
+  assert.ok(enHtml.includes('Cardiovascular Risk'), 'EN: Cardiovascular Risk');
+  assert.ok(enHtml.includes('Stroke Risk'), 'EN: Stroke Risk');
+  assert.ok(!enHtml.includes('Nguy Cơ Tim Mạch'), 'EN: Không lẫn tiếng Việt');
+});
+
+// -----------------------------------------------------------------------------
+// PHẦN 10: KIỂM THỬ KHẢ NĂNG CHUYỂN ĐỔI SONG NGỮ PHÂN HỆ PHÒNG KHÁM (CLINIC PORTAL)
+// -----------------------------------------------------------------------------
+console.log('\n--- 10. Kiểm Thử Khả Năng Chuyển Đổi Song Ngữ Phân Hệ Phòng Khám (Clinic Portal) ---');
+
+const sampleClinicBatchJob: ClinicBatchJob = {
+  batchId: 'BATCH-2026-TEST',
+  clinicId: 'CLN-001',
+  clinicName: 'Phòng khám Đa khoa AURA Test',
+  totalImages: 2,
+  processedCount: 2,
+  failedCount: 0,
+  status: 'COMPLETED',
+  createdAt: '2026-03-14T08:00:00.000Z',
+  estimatedTimeRemainingSec: 0,
+  items: [
+    {
+      id: 'ITEM-01',
+      fileName: 'fundus_sample_01.jpg',
+      patientName: 'Nguyễn Thị Hoa',
+      pseudonymId: 'ANON-HOA-01',
+      mrn: 'MRN-001',
+      patientAge: 52,
+      patientGender: 'Female',
+      eye: 'OD',
+      status: 'DONE',
+      riskScore: 78,
+      riskLevel: 'High',
+      strokeRisk: 22,
+      durationMs: 1200,
+    },
+    {
+      id: 'ITEM-02',
+      fileName: 'fundus_sample_02.jpg',
+      patientName: 'Trần Văn Bình',
+      pseudonymId: 'ANON-BINH-02',
+      mrn: 'MRN-002',
+      patientAge: 45,
+      patientGender: 'Male',
+      eye: 'OS',
+      status: 'DONE',
+      riskScore: 32,
+      riskLevel: 'Low',
+      strokeRisk: 4,
+      durationMs: 950,
+    },
+  ],
+};
+
+runTest('CLINIC-I18N-1: ClinicBatchWorkspace render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(ClinicBatchWorkspace, {
+      batchJob: sampleClinicBatchJob,
+      onExportCsv: () => {},
+      onUploadNewBatch: () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Tổng số ảnh trong đợt'), 'VI: Tổng số ảnh trong đợt');
+  assert.ok(viHtml.includes('Đã hoàn thành AI'), 'VI: Đã hoàn thành AI');
+  assert.ok(viHtml.includes('Tất cả trạng thái'), 'VI: Tất cả trạng thái');
+  assert.ok(viHtml.includes('Xuất CSV'), 'VI: Xuất CSV');
+  assert.ok(viHtml.includes('Danh sách tệp ảnh chiến dịch'), 'VI: Danh sách tệp ảnh chiến dịch');
+
+  const enHtml = renderWithLang(
+    React.createElement(ClinicBatchWorkspace, {
+      batchJob: sampleClinicBatchJob,
+      onExportCsv: () => {},
+      onUploadNewBatch: () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Total images in batch'), 'EN: Total images in batch');
+  assert.ok(enHtml.includes('AI completed'), 'EN: AI completed');
+  assert.ok(enHtml.includes('All statuses'), 'EN: All statuses');
+  assert.ok(enHtml.includes('Export CSV'), 'EN: Export CSV');
+  assert.ok(enHtml.includes('Campaign scan files'), 'EN: Campaign scan files');
+  assert.ok(!enHtml.includes('Tổng số ảnh trong đợt'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('CLINIC-I18N-2: ClinicBatchProcessing render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(ClinicBatchProcessing, {
+      batchJob: sampleClinicBatchJob,
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Mã chiến dịch:'), 'VI: Mã chiến dịch');
+  assert.ok(viHtml.includes('Tiến độ xử lý hàng đợi AI'), 'VI: Hàng đợi AI');
+  assert.ok(viHtml.includes('Quản lý lượt khám sàng lọc'), 'VI: Quản lý credit');
+  assert.ok(viHtml.includes('Chi tiết phân bổ mức nguy cơ'), 'VI: Chi tiết nguy cơ');
+
+  const enHtml = renderWithLang(
+    React.createElement(ClinicBatchProcessing, {
+      batchJob: sampleClinicBatchJob,
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Campaign ID:'), 'EN: Campaign ID');
+  assert.ok(enHtml.includes('AI Queue Processing Progress'), 'EN: Bulk Queue Progress');
+  assert.ok(enHtml.includes('Screening Credits Management'), 'EN: Credits Management');
+  assert.ok(enHtml.includes('Risk distribution breakdown'), 'EN: Risk breakdown');
+  assert.ok(!enHtml.includes('Quản lý lượt khám sàng lọc'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('CLINIC-I18N-3: BatchUploadModal render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(BatchUploadModal, {
+      isOpen: true,
+      onClose: () => {},
+      currentCredits: 1000,
+      onSubmitBatch: async () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Tải lên lô ảnh võng mạc hàng loạt'), 'VI: Tiêu đề tải lô');
+  assert.ok(viHtml.includes('Tên chiến dịch tầm soát'), 'VI: Tên chiến dịch');
+  assert.ok(viHtml.includes('Nạp nhanh 100 ảnh mẫu'), 'VI: Nút nạp demo');
+
+  const enHtml = renderWithLang(
+    React.createElement(BatchUploadModal, {
+      isOpen: true,
+      onClose: () => {},
+      currentCredits: 1000,
+      onSubmitBatch: async () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Upload Bulk Retinal Image Batch'), 'EN: Tiêu đề upload batch');
+  assert.ok(enHtml.includes('Screening campaign name'), 'EN: Tên chiến dịch');
+  assert.ok(enHtml.includes('Load 100 demo scans'), 'EN: Nút nạp demo EN');
+  assert.ok(!enHtml.includes('Tải lên lô ảnh võng mạc hàng loạt'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('CLINIC-I18N-4: BatchItemDetailModal render song ngữ chuẩn (VI & EN)', () => {
+  const sampleItem = sampleClinicBatchJob.items[0];
+  const viHtml = renderWithLang(
+    React.createElement(BatchItemDetailModal, {
+      item: sampleItem,
+      onClose: () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Nguy cơ mạch máu chung'), 'VI: Nguy cơ mạch máu chung');
+  assert.ok(viHtml.includes('Bản đồ nhiệt Grad-CAM &amp; vùng tổn thương') || viHtml.includes('Bản đồ nhiệt Grad-CAM & vùng tổn thương'), 'VI: Grad-CAM');
+  assert.ok(viHtml.includes('Chỉ số sinh học vi mạch võng mạc'), 'VI: Biomarkers');
+
+  const enHtml = renderWithLang(
+    React.createElement(BatchItemDetailModal, {
+      item: sampleItem,
+      onClose: () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Overall vascular risk'), 'EN: Overall vascular risk');
+  assert.ok(enHtml.includes('Grad-CAM heatmap &amp; lesion regions') || enHtml.includes('Grad-CAM heatmap & lesion regions'), 'EN: Grad-CAM');
+  assert.ok(enHtml.includes('Quantitative retinal biomarkers'), 'EN: Biomarkers');
+  assert.ok(!enHtml.includes('Nguy cơ mạch máu chung'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('CLINIC-I18N-5: ClinicCampaignAnalytics render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(ClinicCampaignAnalytics, null),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Đang tải dữ liệu báo cáo chiến dịch lâm sàng...'), 'VI: Loading state');
+
+  const enHtml = renderWithLang(
+    React.createElement(ClinicCampaignAnalytics, null),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Loading clinical campaign analytics data...'), 'EN: Loading state');
+  assert.ok(!enHtml.includes('Đang tải dữ liệu báo cáo chiến dịch lâm sàng...'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('CLINIC-I18N-6: ClinicCreditPackageSection render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(ClinicCreditPackageSection, {
+      batchJob: sampleClinicBatchJob,
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Đang tải dữ liệu hạn mức và gói cước phòng khám...'), 'VI: Loading credit packages');
+
+  const enHtml = renderWithLang(
+    React.createElement(ClinicCreditPackageSection, {
+      batchJob: sampleClinicBatchJob,
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Loading clinic screening credits and service packages...'), 'EN: Loading credit packages');
+  assert.ok(!enHtml.includes('Đang tải dữ liệu hạn mức và gói cước phòng khám...'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('CLINIC-I18N-7: ClinicPortalPage render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(ClinicPortalPage, { activeView: 'bulk-batch' }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Không gian quản lý sàng lọc phòng khám'), 'VI: Portal title');
+  assert.ok(viHtml.includes('Quản trị chiến dịch tầm soát vi mạch số lượng lớn'), 'VI: Portal subtitle');
+
+  const enHtml = renderWithLang(
+    React.createElement(ClinicPortalPage, { activeView: 'bulk-batch' }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Clinic Screening Operations Portal'), 'EN: Portal title');
+  assert.ok(enHtml.includes('Manage bulk microvascular screening campaigns'), 'EN: Portal subtitle');
+  assert.ok(!enHtml.includes('Không gian quản lý sàng lọc phòng khám'), 'EN: Không lẫn tiếng Việt');
+});
+
+// -----------------------------------------------------------------------------
+// PHẦN 11: KIỂM THỬ KHẢ NĂNG CHUYỂN ĐỔI SONG NGỮ PHÂN HỆ QUẢN TRỊ VIÊN (ADMIN PORTAL)
+// -----------------------------------------------------------------------------
+console.log('\n--- 11. Kiểm Thử Khả Năng Chuyển Đổi Song Ngữ Phân Hệ Quản Trị Viên (Admin Portal) ---');
+
+const sampleAuditLogs: AuditLogItem[] = [
+  {
+    id: 'log-001',
+    timestamp: '2026-09-14T08:30:00.000Z',
+    actor: 'admin@aura.health',
+    role: 'ROLE_ADMIN',
+    action: 'USER_ROLE_UPDATE',
+    resource: 'USER #u-001',
+    severity: 'WARNING',
+    status: 'SUCCESS',
+    ipAddress: '192.168.1.1',
+  },
+];
+
+runTest('ADMIN-I18N-1: AdminAuditWorkspace render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(AdminAuditWorkspace, {
+      logs: sampleAuditLogs,
+      loading: false,
+      onRefresh: () => {},
+      onExportLogs: () => {},
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Thời Gian') || viHtml.includes('Thời gian'), 'VI: Cột thời gian');
+  assert.ok(viHtml.includes('Người Thực Hiện') || viHtml.includes('Người thực hiện'), 'VI: Cột người thực hiện');
+  assert.ok(viHtml.includes('Cảnh báo'), 'VI: Mức độ cảnh báo');
+  assert.ok(viHtml.includes('Thành công'), 'VI: Trạng thái thành công');
+  assert.ok(viHtml.includes('Xuất Nhật Ký'), 'VI: Nút xuất nhật ký');
+
+  const enHtml = renderWithLang(
+    React.createElement(AdminAuditWorkspace, {
+      logs: sampleAuditLogs,
+      loading: false,
+      onRefresh: () => {},
+      onExportLogs: () => {},
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('Timestamp'), 'EN: Timestamp column');
+  assert.ok(enHtml.includes('Actor') || enHtml.includes('User account'), 'EN: Actor column');
+  assert.ok(enHtml.includes('Warning'), 'EN: Warning severity');
+  assert.ok(enHtml.includes('Success'), 'EN: Success status');
+  assert.ok(enHtml.includes('Export Logs'), 'EN: Export logs button');
+  assert.ok(!enHtml.includes('Thời Gian') && !enHtml.includes('Thời gian'), 'EN: Không lẫn tiếng Việt');
+  assert.ok(!enHtml.includes('Thành công'), 'EN: Không lẫn Thành công');
+});
+
+runTest('ADMIN-I18N-2: AdminAuditLogsPage render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(AdminAuditLogsPage, { activeView: 'user-management' }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Bảng Điều Khiển Quản Trị Hệ Thống'), 'VI: Admin banner tag');
+  assert.ok(viHtml.includes('Tài Khoản'), 'VI: Tab Tài Khoản');
+  assert.ok(viHtml.includes('Phân Quyền'), 'VI: Tab Phân Quyền');
+  assert.ok(viHtml.includes('Thông Báo'), 'VI: Tab Thông Báo');
+  assert.ok(viHtml.includes('Duyệt Phòng Khám'), 'VI: Tab Duyệt Phòng Khám');
+  assert.ok(viHtml.includes('Gói Dịch Vụ'), 'VI: Tab Gói Dịch Vụ');
+  assert.ok(viHtml.includes('Cấu Hình AI'), 'VI: Tab Cấu Hình AI');
+
+  const enHtml = renderWithLang(
+    React.createElement(AdminAuditLogsPage, { activeView: 'user-management' }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('System Administration Dashboard'), 'EN: Admin banner tag');
+  assert.ok(enHtml.includes('Accounts'), 'EN: Tab Accounts');
+  assert.ok(enHtml.includes('RBAC Matrix'), 'EN: Tab RBAC Matrix');
+  assert.ok(enHtml.includes('Notifications'), 'EN: Tab Notifications');
+  assert.ok(enHtml.includes('Clinic Approvals'), 'EN: Tab Clinic Approvals');
+  assert.ok(enHtml.includes('Service Packages'), 'EN: Tab Service Packages');
+  assert.ok(enHtml.includes('AI Configuration'), 'EN: Tab AI Configuration');
+  assert.ok(!enHtml.includes('Bảng Điều Khiển Quản Trị Hệ Thống'), 'EN: Không lẫn tiếng Việt');
+});
+
+// -----------------------------------------------------------------------------
+// PHẦN 12: KIỂM THỬ KHẢ NĂNG CHUYỂN ĐỔI SONG NGỮ CÁC THÀNH PHẦN XÁC THỰC (AUTH)
+// -----------------------------------------------------------------------------
+console.log('\n--- 12. Kiểm Thử Khả Năng Chuyển Đổi Song Ngữ Các Thành Phần Xác Thực (Auth) ---');
+
+runTest('AUTH-I18N-1: AuthHeroPanel render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(AuthHeroPanel, null),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('AI hỗ trợ sàng lọc'), 'VI: Hero pill 1');
+  assert.ok(viHtml.includes('Phân tích ảnh võng mạc'), 'VI: Hero pill 2');
+  assert.ok(viHtml.includes('Kết quả chỉ hỗ trợ sàng lọc và không thay thế chẩn đoán của bác sĩ.'), 'VI: Hero warning');
+
+  const enHtml = renderWithLang(
+    React.createElement(AuthHeroPanel, null),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('AI Screening Support'), 'EN: Hero pill 1');
+  assert.ok(enHtml.includes('Retinal Image Analysis'), 'EN: Hero pill 2');
+  assert.ok(enHtml.includes('Results are for screening support only and do not replace professional doctor diagnosis.'), 'EN: Hero warning');
+  assert.ok(!enHtml.includes('AI hỗ trợ sàng lọc'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('AUTH-I18N-2: PasswordInput render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(PasswordInput, {
+      id: 'test-pwd',
+      label: 'Mật khẩu',
+    }),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('aria-label="Hiện mật khẩu"'), 'VI: aria-label hiện mật khẩu');
+
+  const enHtml = renderWithLang(
+    React.createElement(PasswordInput, {
+      id: 'test-pwd',
+      label: 'Password',
+    }),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('aria-label="Show password"'), 'EN: aria-label show password');
+  assert.ok(!enHtml.includes('aria-label="Hiện mật khẩu"'), 'EN: Không lẫn tiếng Việt');
+});
+
+// -----------------------------------------------------------------------------
+// PHẦN 13: KIỂM THỬ KHẢ NĂNG CHUYỂN ĐỔI SONG NGỮ CÁC THÀNH PHẦN DÙNG CHUNG (COMMON)
+// -----------------------------------------------------------------------------
+console.log('\n--- 13. Kiểm Thử Khả Năng Chuyển Đổi Song Ngữ Các Thành Phần Dùng Chung (Common) ---');
+
+runTest('COMMON-I18N-1: Footer render song ngữ chuẩn (VI & EN)', () => {
+  const viHtml = renderWithLang(
+    React.createElement(Footer, null),
+    'vi'
+  );
+
+  assert.ok(viHtml.includes('Đạt chuẩn HIPAA & ISO 13485 / ISO 27001') || viHtml.includes('Đạt chuẩn HIPAA &amp; ISO 13485 / ISO 27001'), 'VI: Security cert');
+  assert.ok(viHtml.includes('Chính sách Bảo mật'), 'VI: Privacy policy');
+  assert.ok(viHtml.includes('Điều khoản Sử dụng'), 'VI: Terms of service');
+  assert.ok(viHtml.includes('Trung tâm Hỗ trợ'), 'VI: Support center');
+
+  const enHtml = renderWithLang(
+    React.createElement(Footer, null),
+    'en'
+  );
+
+  assert.ok(enHtml.includes('HIPAA & ISO 13485 / ISO 27001 Certified') || enHtml.includes('HIPAA &amp; ISO 13485 / ISO 27001 Certified'), 'EN: Security cert');
+  assert.ok(enHtml.includes('Privacy Policy'), 'EN: Privacy policy');
+  assert.ok(enHtml.includes('Terms of Service'), 'EN: Terms of service');
+  assert.ok(enHtml.includes('Support Center'), 'EN: Support center');
+  assert.ok(!enHtml.includes('Chính sách Bảo mật'), 'EN: Không lẫn tiếng Việt');
+});
+
+runTest('COMMON-I18N-2: StateFeedback (LoadingState & ErrorState) render song ngữ chuẩn (VI & EN)', () => {
+  const viLoading = renderWithLang(React.createElement(LoadingState, null), 'vi');
+  assert.ok(viLoading.includes('Đang tải dữ liệu lâm sàng...'), 'VI: Loading default message');
+
+  const enLoading = renderWithLang(React.createElement(LoadingState, null), 'en');
+  assert.ok(enLoading.includes('Loading clinical data...'), 'EN: Loading default message');
+  assert.ok(!enLoading.includes('Đang tải dữ liệu lâm sàng...'), 'EN: Không lẫn tiếng Việt');
+
+  const viError = renderWithLang(
+    React.createElement(ErrorState, { message: 'Lỗi mạng', onRetry: () => {} }),
+    'vi'
+  );
+  assert.ok(viError.includes('Đã xảy ra lỗi'), 'VI: Error default title');
+  assert.ok(viError.includes('Thử lại'), 'VI: Retry button');
+
+  const enError = renderWithLang(
+    React.createElement(ErrorState, { message: 'Network error', onRetry: () => {} }),
+    'en'
+  );
+  assert.ok(enError.includes('An error occurred'), 'EN: Error default title');
+  assert.ok(enError.includes('Retry'), 'EN: Retry button');
+  assert.ok(!enError.includes('Đã xảy ra lỗi'), 'EN: Không lẫn tiếng Việt');
+  assert.ok(!enError.includes('Thử lại'), 'EN: Không lẫn Thử lại');
 });
 
 // Reset storage sau khi test

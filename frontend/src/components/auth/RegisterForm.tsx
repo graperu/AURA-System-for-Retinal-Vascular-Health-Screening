@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Loader2, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { PasswordInput } from './PasswordInput';
 import googleLogo from '../../assets/sso/google.png';
 import { isFirebaseConfigured, signInWithGoogleFirebase } from '../../config/firebase';
@@ -11,6 +12,7 @@ const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,1
 
 export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
   const { sendOtp, verifyOtpAndRegister, loginWithSocial } = useAuth();
+  const { t, isVi } = useLanguage();
   const [step, setStep] = useState<'form' | 'otp'>('form');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,13 +38,13 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     if (submitting || socialLoading) return;
     const cleanEmail = email.trim();
     const next: Record<string, string> = {};
-    if (fullName.trim().length > 150) next.fullName = 'Họ và tên không được vượt quá 150 ký tự.';
-    if (!cleanEmail) next.email = 'Vui lòng nhập địa chỉ email.';
-    else if (!emailPattern.test(cleanEmail)) next.email = 'Email không đúng định dạng.';
-    if (!password) next.password = 'Vui lòng nhập mật khẩu.';
-    else if (!passwordPattern.test(password)) next.password = 'Mật khẩu chưa đáp ứng đầy đủ yêu cầu bảo mật.';
-    if (!confirm) next.confirm = 'Vui lòng xác nhận lại mật khẩu.';
-    else if (confirm !== password) next.confirm = 'Mật khẩu xác nhận không khớp.';
+    if (fullName.trim().length > 150) next.fullName = isVi ? 'Họ và tên không được vượt quá 150 ký tự.' : 'Full name cannot exceed 150 characters.';
+    if (!cleanEmail) next.email = t('auth.loginForm.errorMessages.emailRequired', isVi ? 'Vui lòng nhập địa chỉ email.' : 'Email address is required.');
+    else if (!emailPattern.test(cleanEmail)) next.email = isVi ? 'Email không đúng định dạng.' : 'Invalid email format.';
+    if (!password) next.password = t('auth.loginForm.errorMessages.passwordRequired', isVi ? 'Vui lòng nhập mật khẩu.' : 'Password is required.');
+    else if (!passwordPattern.test(password)) next.password = isVi ? 'Mật khẩu chưa đáp ứng đầy đủ yêu cầu bảo mật.' : 'Password does not meet security requirements.';
+    if (!confirm) next.confirm = isVi ? 'Vui lòng xác nhận lại mật khẩu.' : 'Please confirm your password.';
+    else if (confirm !== password) next.confirm = isVi ? 'Mật khẩu xác nhận không khớp.' : 'Passwords do not match.';
     if (Object.keys(next).length) { setErrors(next); return; }
 
     setSubmitting(true);
@@ -60,7 +62,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
         setOtp('');
       }
     } else {
-      setErrors({ form: result.message || 'Không thể gửi mã OTP. Vui lòng thử lại.' });
+      setErrors({ form: result.message || (isVi ? 'Không thể gửi mã OTP. Vui lòng thử lại.' : 'Could not send OTP code. Please try again.') });
     }
   };
 
@@ -78,7 +80,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
         setOtp(devOtp);
       }
     } else {
-      setErrors({ form: result.message || 'Gửi lại mã OTP thất bại.' });
+      setErrors({ form: result.message || (isVi ? 'Gửi lại mã OTP thất bại.' : 'Resending OTP failed.') });
     }
   };
 
@@ -88,11 +90,11 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     if (submitting) return;
     const cleanOtp = otp.trim();
     if (!cleanOtp) {
-      setErrors({ otp: 'Vui lòng nhập mã OTP.' });
+      setErrors({ otp: isVi ? 'Vui lòng nhập mã OTP.' : 'Please enter the OTP code.' });
       return;
     }
     if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
-      setErrors({ otp: 'Mã OTP phải gồm đúng 6 chữ số.' });
+      setErrors({ otp: isVi ? 'Mã OTP phải gồm đúng 6 chữ số.' : 'OTP code must be exactly 6 digits.' });
       return;
     }
 
@@ -109,7 +111,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     if (result.success) {
       // User is logged in automatically via AuthContext
     } else {
-      setErrors({ otp: result.message || 'Xác thực mã OTP thất bại. Vui lòng kiểm tra lại.' });
+      setErrors({ otp: result.message || (isVi ? 'Xác thực mã OTP thất bại. Vui lòng kiểm tra lại.' : 'OTP verification failed. Please check again.') });
     }
   };
 
@@ -130,12 +132,12 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
           picture,
         });
         if (!result.success) {
-          setErrors({ form: result.message || 'Đăng ký Google qua Firebase thất bại.' });
+          setErrors({ form: result.message || (isVi ? 'Đăng ký Google qua Firebase thất bại.' : 'Google sign-up failed.') });
         }
         return;
       } catch (err: any) {
         if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-          setErrors({ form: err.message || 'Lỗi xác thực Firebase Google.' });
+          setErrors({ form: err.message || (isVi ? 'Lỗi xác thực Firebase Google.' : 'Firebase Google authentication error.') });
         }
         return;
       } finally {
@@ -143,7 +145,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
       }
     }
 
-    setErrors({ form: 'Đăng ký Google chưa được cấu hình. Vui lòng đăng ký bằng email hoặc liên hệ quản trị viên.' });
+    setErrors({ form: isVi ? 'Đăng ký Google chưa được cấu hình. Vui lòng đăng ký bằng email hoặc liên hệ quản trị viên.' : 'Google sign-up is not configured. Please sign up with email or contact your administrator.' });
     setSocialLoading(null);
   };
 
@@ -155,9 +157,11 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
           <div className="mb-3 flex h-13 w-13 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
             <ShieldCheck className="h-7 w-7" />
           </div>
-          <h3 className="text-base font-bold text-slate-800">Xác thực mã OTP</h3>
+          <h3 className="text-base font-bold text-slate-800">
+            {t('auth.registerForm.verifyOtpTitle', isVi ? 'Xác thực mã OTP' : 'Verify OTP Code')}
+          </h3>
           <p className="mt-1 text-xs text-slate-500">
-            Mã OTP gồm 6 chữ số đã được gửi tới:
+            {t('auth.registerForm.otpSentTo', isVi ? 'Mã OTP gồm 6 chữ số đã được gửi tới:' : 'A 6-digit OTP code was sent to:')}
             <br />
             <span className="font-semibold text-slate-800">{email}</span>
           </p>
@@ -171,7 +175,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
 
         <div>
           <label htmlFor="register-otp" className="mb-1.5 block text-center text-xs font-medium text-slate-600">
-            Nhập mã xác thực 6 chữ số
+            {t('auth.registerForm.enterOtpLabel', isVi ? 'Nhập mã xác thực 6 chữ số' : 'Enter 6-digit verification code')}
           </label>
           <input
             id="register-otp"
@@ -195,7 +199,9 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
         {/* Resend OTP */}
         <div className="text-center pt-1">
           {cooldown > 0 ? (
-            <span className="text-xs text-slate-400">Gửi lại mã sau ({cooldown}s)</span>
+            <span className="text-xs text-slate-400">
+              {isVi ? `Gửi lại mã sau (${cooldown}s)` : `Resend code in (${cooldown}s)`}
+            </span>
           ) : (
             <button
               type="button"
@@ -203,7 +209,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
               disabled={submitting}
               className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline"
             >
-              Gửi lại mã OTP
+              {t('auth.registerForm.resendOtpBtn', isVi ? 'Gửi lại mã OTP' : 'Resend OTP Code')}
             </button>
           )}
         </div>
@@ -215,9 +221,9 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
           className="flex h-[52px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white shadow-sm transition hover:bg-brand-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? (
-            <><Loader2 className="h-5 w-5 animate-spin mr-2" />Đang xác thực…</>
+            <><Loader2 className="h-5 w-5 animate-spin mr-2" />{t('auth.registerForm.verifyingOtp', isVi ? 'Đang xác thực…' : 'Verifying...')}</>
           ) : (
-            'Xác thực & Tạo tài khoản'
+            t('auth.registerForm.verifyAndCreateBtn', isVi ? 'Xác thực & Tạo tài khoản' : 'Verify & Create Account')
           )}
         </button>
 
@@ -228,7 +234,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
             onClick={() => { setStep('form'); setErrors({}); }}
             className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition hover:text-slate-800"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Thay đổi thông tin email
+            <ArrowLeft className="h-3.5 w-3.5" /> {t('auth.registerForm.changeEmailBtn', isVi ? 'Thay đổi thông tin email' : 'Change email address')}
           </button>
         </div>
       </form>
@@ -257,7 +263,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
           ) : (
             <>
               <img src={googleLogo || '/assets/sso/google.png'} alt="Google" className="h-5 w-5 object-contain shrink-0" />
-              <span>Đăng ký bằng Google</span>
+              <span>{t('auth.registerForm.signUpWithGoogle', isVi ? 'Đăng ký bằng Google' : 'Sign up with Google')}</span>
             </>
           )}
         </button>
@@ -269,7 +275,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
           <div className="w-full border-t border-slate-200" />
         </div>
         <div className="relative flex justify-center text-xs font-medium">
-          <span className="bg-white px-3 text-slate-400">Hoặc</span>
+          <span className="bg-white px-3 text-slate-400">{t('auth.registerForm.orDivider', isVi ? 'Hoặc' : 'Or')}</span>
         </div>
       </div>
 
@@ -277,15 +283,15 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <label htmlFor="register-name" className="text-sm font-medium text-slate-700">
-            Họ và tên
+            {t('auth.registerForm.fullName', isVi ? 'Họ và tên' : 'Full Name')}
           </label>
-          <span className="text-xs text-slate-400">Tùy chọn</span>
+          <span className="text-xs text-slate-400">{t('auth.registerForm.optionalLabel', isVi ? 'Tùy chọn' : 'Optional')}</span>
         </div>
         <div className="relative">
           <UserRound className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
           <input
             id="register-name"
-            placeholder="Nguyễn Văn A"
+            placeholder={isVi ? "Nguyễn Văn A" : "John Doe"}
             value={fullName}
             onChange={e => setFullName(e.target.value)}
             autoComplete="name"
@@ -298,7 +304,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
       {/* Email Input */}
       <div>
         <label htmlFor="register-email" className="mb-2 block text-sm font-medium text-slate-700">
-          Email
+          {t('auth.registerForm.email', isVi ? 'Email' : 'Email Address')}
         </label>
         <div className="relative">
           <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -318,18 +324,20 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
       {/* Password Input */}
       <PasswordInput
         id="register-password"
-        label="Mật khẩu"
+        label={t('auth.registerForm.password', isVi ? 'Mật khẩu' : 'Password')}
         value={password}
         onChange={e => setPassword(e.target.value)}
         autoComplete="new-password"
         error={errors.password}
       />
-      <p className="-mt-2 text-xs text-slate-400">Mật khẩu 12–128 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</p>
+      <p className="-mt-2 text-xs text-slate-400">
+        {t('auth.registerForm.passwordRequirementsHint', isVi ? 'Mật khẩu 12–128 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.' : 'Password must be 12–128 characters, with uppercase, lowercase, numbers, and special characters.')}
+      </p>
 
       {/* Confirm Password Input */}
       <PasswordInput
         id="register-confirm"
-        label="Xác nhận mật khẩu"
+        label={t('auth.registerForm.confirmPassword', isVi ? 'Xác nhận mật khẩu' : 'Confirm Password')}
         value={confirm}
         onChange={e => setConfirm(e.target.value)}
         autoComplete="new-password"
@@ -343,9 +351,9 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
         className="flex h-[52px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white shadow-sm transition hover:bg-brand-700 hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-65"
       >
         {submitting ? (
-          <><Loader2 className="h-5 w-5 animate-spin mr-2" />Đang gửi mã OTP…</>
+          <><Loader2 className="h-5 w-5 animate-spin mr-2" />{t('auth.registerForm.sendingOtp', isVi ? 'Đang gửi mã OTP…' : 'Sending OTP code...')}</>
         ) : (
-          'Tạo tài khoản'
+          t('auth.registerForm.registerButton', isVi ? 'Tạo tài khoản' : 'Create Account')
         )}
       </button>
     </form>

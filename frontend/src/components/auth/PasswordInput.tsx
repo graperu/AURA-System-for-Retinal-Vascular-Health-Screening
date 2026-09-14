@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface Props extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> { label: string; error?: string }
 
 export const PasswordInput: React.FC<Props> = ({ label, error, id, ...props }) => {
+  const { t, isVi } = useLanguage();
   const [visible, setVisible] = useState(false);
   const errorId = `${id}-error`;
   return <div>
@@ -23,7 +25,7 @@ export const PasswordInput: React.FC<Props> = ({ label, error, id, ...props }) =
         type="button"
         onClick={() => setVisible(value => !value)}
         className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
-        aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+        aria-label={visible ? t('auth.passwordInput.hidePassword', isVi ? 'Ẩn mật khẩu' : 'Hide password') : t('auth.passwordInput.showPassword', isVi ? 'Hiện mật khẩu' : 'Show password')}
       >
         {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>

@@ -22,13 +22,24 @@ import {
   PatientHistoryView,
   type PatientHistoryItem,
 } from '../features/patient/PatientHistoryView.tsx';
-import { InteractiveCDSViewer } from '../components/InteractiveCDSViewer.tsx';
+import {
+  InteractiveCDSViewer,
+  getAnomalyMedicalTheme,
+  renderAnatomicalHeatmap,
+  processVesselOverlayCanvas,
+} from '../components/InteractiveCDSViewer.tsx';
 import { ClinicalRiskSummaryCard } from '../components/ClinicalRiskSummaryCard.tsx';
 import { PatientScreeningResultView } from '../features/patient/PatientScreeningResultView.tsx';
 import { RiskAssessmentPanel } from '../components/RiskAssessmentPanel.tsx';
 import { ConsultationChatModal } from '../components/ConsultationChatModal.tsx';
 import { ClinicBatchWorkspace } from '../features/clinic/ClinicBatchWorkspace.tsx';
 import { DoctorWorklistView } from '../features/doctor/DoctorWorklistView.tsx';
+import {
+  renderDynamicRetinalHeatmap,
+  generateDynamicHeatmapDataUrl,
+  getMedicalPlasmaColor,
+} from '../utils/dynamicHeatmapEngine.ts';
+import { DynamicHeatmapCanvas } from '../components/DynamicHeatmapCanvas.tsx';
 import {
   getClinicBatchStorageKey,
   loadBatchJobForClinic,
@@ -602,6 +613,184 @@ runTest('VIEWER-8: Marker tổn thương vi mạch có hiệu ứng nhấp nháy
   // 3. Tooltip bệnh học
   assert.ok(html.includes('Độ tin cậy'), 'Tooltip có thông tin độ tin cậy');
   assert.ok(html.includes('group-hover:flex'), 'Có tooltip hover phân tích bệnh học');
+});
+
+runTest('VIEWER-9: Thuật toán phổ nhiệt giải phẫu (renderAnatomicalHeatmap) căn chuẩn OD vs OS, quầng mạch thái dương và tâm nhiệt tổn thương', () => {
+  // Mock Canvas 2D Context
+  function createMockCanvas(w = 500, h = 400) {
+    const gradients: any[] = [];
+    const arcs: any[] = [];
+    const rects: any[] = [];
+    const ctx = {
+      clearRect: () => {},
+      createRadialGradient: (x0: number, y0: number, r0: number, x1: number, y1: number, r1: number) => {
+        const stops: { offset: number; color: string }[] = [];
+        const g = {
+          x0, y0, r0, x1, y1, r1, stops,
+          addColorStop: (offset: number, color: string) => stops.push({ offset, color }),
+        };
+        gradients.push(g);
+        return g;
+      },
+      fillRect: (x: number, y: number, w: number, h: number) => rects.push({ x, y, w, h }),
+      beginPath: () => {},
+      arc: (x: number, y: number, r: number, s: number, e: number) => arcs.push({ x, y, r, s, e }),
+      fill: () => {},
+      fillStyle: null as any,
+    };
+    return {
+      canvas: { width: w, height: h, getContext: () => ctx } as unknown as HTMLCanvasElement,
+      gradients,
+      arcs,
+      rects,
+    };
+  }
+
+  // 1. Mắt Phải (OD): Hoàng điểm phía thái dương (phải ảnh: w * 0.64 = 320)
+  const odMock = createMockCanvas(500, 400);
+  renderAnatomicalHeatmap(odMock.canvas, 'OD (Mắt Phải)', 75, [
+    {
+      id: 'anom-1',
+      type: 'Microaneurysm',
+      coordinates: { x: 60, y: 50, width: 24, height: 24 },
+      confidence: 0.95,
+      description: 'Vi phình mạch',
+    },
+  ]);
+  assert.strictEqual(odMock.gradients[0].x0, 320, 'OD: Hoàng điểm nằm ở 64% chiều rộng');
+  assert.strictEqual(odMock.gradients[0].stops[0].color, 'rgba(239, 68, 68, 0.78)', 'Nguy cơ cao: Tâm gradient đỏ rực');
+  // Cung mạch thái dương và hotspot tổn thương
+  assert.ok(odMock.arcs.length >= 3, 'OD: Vẽ ít nhất 2 quầng cung mạch thái dương và 1 hotspot tổn thương');
+
+  // 2. Mắt Trái (OS): Hoàng điểm phía thái dương (trái ảnh: w * 0.36 = 180)
+  const osMock = createMockCanvas(500, 400);
+  renderAnatomicalHeatmap(osMock.canvas, 'OS (Mắt Trái)', 25, []);
+  assert.strictEqual(osMock.gradients[0].x0, 180, 'OS: Hoàng điểm nằm ở 36% chiều rộng');
+  assert.strictEqual(osMock.gradients[0].stops[0].color, 'rgba(16, 185, 129, 0.45)', 'Nguy cơ thấp: Tâm gradient xanh lục');
+  assert.strictEqual(osMock.arcs.length, 0, 'Nguy cơ thấp và 0 tổn thương: Không sinh arc cung mạch thái dương');
+
+  // 3. Nguy cơ trung bình (score = 50)
+  const modMock = createMockCanvas(500, 400);
+  renderAnatomicalHeatmap(modMock.canvas, 'OD', 50, []);
+  assert.strictEqual(modMock.gradients[0].stops[0].color, 'rgba(245, 158, 11, 0.65)', 'Nguy cơ TB: Tâm gradient cam vàng');
+  assert.strictEqual(modMock.arcs.length, 2, 'Nguy cơ TB: Có 2 arc cung mạch thái dương trên và dưới');
+});
+
+runTest('VIEWER-10: Phân loại màu sắc y tế chuẩn (getAnomalyMedicalTheme) bao phủ 100% 5 loại tổn thương vi mạch', () => {
+  // 1. Hemorrhage -> Rose (Đỏ sẫm cảnh báo)
+  const hem = getAnomalyMedicalTheme('Hemorrhage');
+  assert.ok(hem.border.includes('rose-600'));
+  assert.ok(hem.ping.includes('rose-500'));
+  assert.ok(hem.badgeBg.includes('text-rose-800'));
+
+  // 2. Microaneurysm -> Amber (Vàng hổ phách)
+  const micro = getAnomalyMedicalTheme('Microaneurysm');
+  assert.ok(micro.border.includes('amber-400'));
+  assert.ok(micro.ping.includes('amber-400'));
+  assert.ok(micro.badgeBg.includes('text-amber-900'));
+
+  // 3. Hard_Exudate -> Yellow (Vàng xuất tiết)
+  const exudate = getAnomalyMedicalTheme('Hard_Exudate');
+  assert.ok(exudate.border.includes('yellow-300'));
+  assert.ok(exudate.ping.includes('yellow-300'));
+  assert.ok(exudate.badgeBg.includes('text-yellow-900'));
+
+  // 4. AV_Nipping -> Orange-500 (Cam đậm biến dạng mạch máu)
+  const avNip = getAnomalyMedicalTheme('AV_Nipping');
+  assert.ok(avNip.border.includes('orange-500'));
+  assert.ok(avNip.ping.includes('orange-500'));
+  assert.ok(avNip.badgeBg.includes('text-orange-900'));
+
+  // 5. Focal_Narrowing -> Orange-400 (Cam hẹp vi mạch khu trú)
+  const focal = getAnomalyMedicalTheme('Focal_Narrowing');
+  assert.ok(focal.border.includes('orange-400'));
+  assert.ok(focal.ping.includes('orange-400'));
+  assert.ok(focal.badgeBg.includes('text-orange-900'));
+});
+
+runTest('VIEWER-11: Bộ xử lý vi mạch quang học Client-Side (processVesselOverlayCanvas) xử lý Red-Free và Buồng tối', () => {
+  // Test khả năng chống sập khi truyền null hoặc ảnh rỗng
+  assert.doesNotThrow(() => {
+    processVesselOverlayCanvas(null as any, null as any, { isDarkRoom: false });
+  });
+
+  // Mock source image và target canvas
+  let putImageDataCalled = false;
+  const mockTargetCanvas = {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      drawImage: () => {},
+      getImageData: (x: number, y: number, w: number, h: number) => ({
+        data: new Uint8ClampedArray(w * h * 4),
+      }),
+      putImageData: () => {
+        putImageDataCalled = true;
+      },
+    }),
+  } as unknown as HTMLCanvasElement;
+
+  const mockSourceImg = {
+    naturalWidth: 400,
+    naturalHeight: 300,
+    width: 400,
+    height: 300,
+  } as unknown as HTMLImageElement;
+
+  processVesselOverlayCanvas(mockSourceImg, mockTargetCanvas, { isDarkRoom: false });
+  assert.strictEqual(mockTargetCanvas.width, 400, 'Canvas width đồng bộ kích thước ảnh');
+  assert.strictEqual(mockTargetCanvas.height, 300, 'Canvas height đồng bộ kích thước ảnh');
+  assert.ok(putImageDataCalled, 'Hàm putImageData được gọi để vẽ kết quả Red-Free lên canvas');
+
+  // Test chế độ Dark Room
+  putImageDataCalled = false;
+  processVesselOverlayCanvas(mockSourceImg, mockTargetCanvas, { isDarkRoom: true });
+  assert.ok(putImageDataCalled, 'Dark Room: putImageData được gọi mô phỏng huỳnh quang FA');
+});
+
+runTest('VIEWER-12: Ghim định vị không gian (Spatial Target Pins) và nhãn trợ năng', () => {
+  const resultWithMultipleAnomalies: AIRiskResult = {
+    ...sampleAnalysisResult,
+    annotatedMap: {
+      ...sampleAnalysisResult.annotatedMap,
+      detectedAnomalies: [
+        {
+          id: 'ano-hem-1',
+          type: 'Hemorrhage',
+          coordinates: { x: 35.5, y: 48.2, width: 28, height: 28 },
+          confidence: 0.94,
+          description: 'Xuất huyết chấm võng mạc cung thái dương trên',
+        },
+        {
+          id: 'ano-micro-1',
+          type: 'Microaneurysm',
+          coordinates: { x: 72.0, y: 65.4, width: 26, height: 26 },
+          confidence: 0.88,
+          description: 'Vi phình mạch khu trú cạnh hoàng điểm',
+        },
+      ],
+    },
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(InteractiveCDSViewer, {
+      analysisResult: resultWithMultipleAnomalies,
+      selectedEye: 'OD (Mắt Phải)',
+    })
+  );
+
+  // 1. Tọa độ chính xác
+  assert.ok(html.includes('left:35.5%') || html.includes('left: 35.5%'), 'Pin 1 có tọa độ X 35.5%');
+  assert.ok(html.includes('top:48.2%') || html.includes('top: 48.2%'), 'Pin 1 có tọa độ Y 48.2%');
+  assert.ok(html.includes('left:72%') || html.includes('left: 72%'), 'Pin 2 có tọa độ X 72%');
+  assert.ok(html.includes('top:65.4%') || html.includes('top: 65.4%'), 'Pin 2 có tọa độ Y 65.4%');
+
+  // 2. Class màu sắc phân loại bệnh học
+  assert.ok(html.includes('border-rose-600'), 'Pin Hemorrhage có viền rose-600');
+  assert.ok(html.includes('border-amber-400'), 'Pin Microaneurysm có viền amber-400');
+
+  // 3. Đếm số lượng tổn thương trên thanh công cụ
+  assert.ok(html.includes('Hiển thị tọa độ tổn thương (2)'), 'Thanh công cụ đếm đúng 2 tổn thương');
 });
 
 // -----------------------------------------------------------------------------
@@ -2169,6 +2358,141 @@ runTest('CRSC-10: Các nút chuyển chế độ Trực quan / Dạng bảng và
   assert.ok(html.includes('Trực quan'), 'Có nút chuyển chế độ Trực quan');
   assert.ok(html.includes('Dạng bảng'), 'Có nút chuyển chế độ Dạng bảng');
   assert.ok(html.includes('Thu Gọn Bảng Chỉ Số ▲') || html.includes('Xem Đầy Đủ 4 Chỉ Số ▼'), 'Có nút thu gọn / mở rộng bảng chỉ số');
+});
+
+// =================================================================
+// PHẦN 14: KIỂM THỬ ĐỘNG CƠ HEATMAP ĐỘNG & TÍNH BẤT BIẾN Y TẾ EMR (SDD-007)
+// =================================================================
+console.log('\n--- 14. Kiểm thử Động Cơ Heatmap Động & Tính Bất Biến Y Tế EMR (SDD-007) ---');
+
+runTest('HEATMAP-ENGINE-1: getMedicalPlasmaColor ánh xạ chuẩn phổ Plasma/Turbo gradient theo 4 dải y tế', () => {
+  // Dải 0: Mức 0 trả về trong suốt
+  const transparentColor = getMedicalPlasmaColor(0.0);
+  assert.strictEqual(transparentColor[3], 0);
+
+  // Dải 1: Cyan / Xanh ngọc (0.15)
+  const cyanColor = getMedicalPlasmaColor(0.15);
+  assert.ok(cyanColor[2] > cyanColor[0], 'Kênh Blue chiếm ưu thế ở dải Cyan');
+  assert.ok(cyanColor[1] > 100, 'Kênh Green sáng ở dải Cyan');
+
+  // Dải 2: Vàng sáng (0.45)
+  const yellowColor = getMedicalPlasmaColor(0.45);
+  assert.ok(yellowColor[0] > 150 && yellowColor[1] > 150, 'Kênh Red và Green cao tạo màu vàng');
+
+  // Dải 3: Cam đậm (0.7)
+  const orangeColor = getMedicalPlasmaColor(0.7);
+  assert.ok(orangeColor[0] > 200, 'Kênh Red cực đại ở màu cam');
+  assert.ok(orangeColor[1] < yellowColor[1], 'Kênh Green giảm khi chuyển sang cam');
+
+  // Dải 4: Đỏ rực / Đỏ sẫm (0.95)
+  const redColor = getMedicalPlasmaColor(0.95);
+  assert.ok(redColor[0] > 200, 'Kênh Red cao');
+  assert.ok(redColor[1] < 50, 'Kênh Green thấp tạo sắc đỏ thuần');
+});
+
+runTest('HEATMAP-ENGINE-2: renderDynamicRetinalHeatmap fallback vector an toàn và không throw error', () => {
+  function createMockCanvas(w = 512, h = 512) {
+    const gradients: any[] = [];
+    const arcs: any[] = [];
+    const rects: any[] = [];
+    const ctx = {
+      clearRect: () => {},
+      createRadialGradient: (x0: number, y0: number, r0: number, x1: number, y1: number, r1: number) => {
+        const stops: { offset: number; color: string }[] = [];
+        const g = {
+          x0, y0, r0, x1, y1, r1, stops,
+          addColorStop: (offset: number, color: string) => stops.push({ offset, color }),
+        };
+        gradients.push(g);
+        return g;
+      },
+      fillRect: (x: number, y: number, w: number, h: number) => rects.push({ x, y, w, h }),
+      beginPath: () => {},
+      arc: (x: number, y: number, r: number, s: number, e: number) => arcs.push({ x, y, r, s, e }),
+      fill: () => {},
+      fillStyle: null as any,
+    };
+    return {
+      canvas: { width: w, height: h, getContext: () => ctx } as unknown as HTMLCanvasElement,
+      gradients,
+      arcs,
+      rects,
+    };
+  }
+
+  const mock = createMockCanvas(512, 512);
+  const success = renderDynamicRetinalHeatmap(mock.canvas, mock.canvas, {
+    riskScore: 82,
+    selectedEye: 'OD',
+    anomalies: [
+      {
+        coordinates: { x: 45, y: 40, width: 20, height: 20 },
+        type: 'Microaneurysm',
+        confidence: 0.92,
+      },
+    ],
+  });
+
+  assert.strictEqual(success, true, 'Hàm renderDynamicRetinalHeatmap thực thi thành công');
+  assert.ok(mock.gradients.length > 0, 'Đã tạo radial gradient cho phổ nhiệt');
+  assert.ok(mock.rects.length > 0, 'Đã vẽ nền phổ nhiệt lên canvas');
+});
+
+runTest('HEATMAP-ENGINE-3: generateDynamicHeatmapDataUrl xử lý chuỗi ảnh rỗng mà không throw error', () => {
+  generateDynamicHeatmapDataUrl('', {
+    riskScore: 50,
+  }).then((dataUrl) => {
+    assert.ok(typeof dataUrl === 'string', 'Trả về chuỗi dataUrl');
+    assert.ok(dataUrl.startsWith('data:image/png'), 'Data URL có định dạng data:image/png');
+  });
+});
+
+runTest('HEATMAP-CANVAS-1: DynamicHeatmapCanvas render static markup với aria-label và mix-blend-screen', () => {
+  const html = renderToStaticMarkup(
+    React.createElement(DynamicHeatmapCanvas, {
+      imageSrc: '/uploads/fundus_test.png',
+      riskScore: 65,
+      selectedEye: 'OD',
+      opacity: 0.75,
+      className: 'custom-heatmap-class',
+    })
+  );
+
+  assert.ok(html.includes('<canvas'), 'Render thẻ canvas');
+  assert.ok(html.includes('aria-label="Dynamic Retinal XAI Grad-CAM Heatmap"'), 'Có thuộc tính aria-label trợ năng');
+  assert.ok(html.includes('custom-heatmap-class'), 'Truyền class tùy chỉnh');
+  assert.ok(html.includes('mix-blend-mode:screen') || html.includes('mix-blend-screen'), 'Hỗ trợ hiệu ứng mix-blend-screen');
+});
+
+runTest('HISTORY-IMMUTABILITY-1: PatientHistoryView có nút "Đặt lại bộ lọc" với tooltip hướng dẫn rõ ràng', () => {
+  const html = renderToStaticMarkup(
+    React.createElement(PatientHistoryView, {
+      screenings: sampleHistoryScreenings,
+    })
+  );
+
+  // Đổi nhãn từ "Đặt lại" sang "Đặt lại bộ lọc"
+  assert.ok(html.includes('Đặt lại bộ lọc'), 'Nhãn nút đã đổi thành "Đặt lại bộ lọc"');
+  assert.ok(
+    html.includes('title="Đặt lại các điều kiện lọc (Mắt, Mức nguy cơ, Ô tìm kiếm) về mặc định"'),
+    'Có tooltip giải thích rõ ràng phạm vi đặt lại'
+  );
+});
+
+runTest('HISTORY-IMMUTABILITY-2: PatientHistoryView hiển thị EHR Immutability Callout với icon ShieldCheck và thông điệp HIPAA', () => {
+  const html = renderToStaticMarkup(
+    React.createElement(PatientHistoryView, {
+      screenings: sampleHistoryScreenings,
+    })
+  );
+
+  // Chỉ dẫn tính bất biến y tế HIPAA
+  assert.ok(
+    html.includes('Hồ sơ bệnh án điện tử (EMR) được lưu trữ bất biến theo quy chuẩn an toàn y tế HIPAA &amp; Bộ Y Tế') ||
+    html.includes('Hồ sơ bệnh án điện tử (EMR) được lưu trữ bất biến theo quy chuẩn an toàn y tế HIPAA & Bộ Y Tế'),
+    'Hiển thị thông điệp tính bất biến EMR HIPAA & Bộ Y Tế'
+  );
+  assert.ok(html.includes('lucide-shield-check'), 'Callout có chứa icon ShieldCheck');
 });
 
 console.log('\n=================================================================');

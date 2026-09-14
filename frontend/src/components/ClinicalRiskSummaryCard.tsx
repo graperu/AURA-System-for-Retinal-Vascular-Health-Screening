@@ -3,6 +3,7 @@ import { AIRiskResult } from '../types/cds';
 import { RiskBadge } from './ui/RiskBadge';
 import { Button } from './ui/Button';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
+import { useLanguage } from '../context/LanguageContext';
 import {
   Heart,
   Eye,
@@ -27,43 +28,51 @@ export interface ClinicalRiskSummaryCardProps {
   onConsultDoctor?: () => void;
 }
 
-const formatHypertensionStage = (stage?: string | null): string => {
-  if (!stage) return 'Giai đoạn 0 (Bình thường)';
+const formatHypertensionStage = (stage?: string | null, isVi = true): string => {
+  if (!stage) return isVi ? 'Giai đoạn 0 (Bình thường)' : 'Stage 0 (Normal)';
   const upper = stage.toUpperCase();
-  if (upper === 'LOW' || upper === 'NORMAL' || upper.includes('STAGE_0') || upper.includes('STAGE 0')) return 'Giai đoạn 0 (Bình thường)';
-  if (upper === 'MODERATE' || upper === 'MEDIUM' || upper.includes('STAGE_1') || upper.includes('STAGE 1')) return 'Giai đoạn 1 (Co nhẹ vi mạch)';
-  if (upper === 'HIGH' || upper.includes('STAGE_2') || upper.includes('STAGE 2')) return 'Giai đoạn 2 (Tăng áp rõ)';
-  if (upper === 'CRITICAL' || upper === 'SEVERE' || upper.includes('STAGE_3') || upper.includes('STAGE 3')) return 'Giai đoạn 3 (Áp lực cao)';
+  if (upper === 'LOW' || upper === 'NORMAL' || upper.includes('STAGE_0') || upper.includes('STAGE 0')) {
+    return isVi ? 'Giai đoạn 0 (Bình thường)' : 'Stage 0 (Normal)';
+  }
+  if (upper === 'MODERATE' || upper === 'MEDIUM' || upper.includes('STAGE_1') || upper.includes('STAGE 1')) {
+    return isVi ? 'Giai đoạn 1 (Co nhẹ vi mạch)' : 'Stage 1 (Mild Arteriolar Constriction)';
+  }
+  if (upper === 'HIGH' || upper.includes('STAGE_2') || upper.includes('STAGE 2')) {
+    return isVi ? 'Giai đoạn 2 (Tăng áp rõ)' : 'Stage 2 (Marked Narrowing)';
+  }
+  if (upper === 'CRITICAL' || upper === 'SEVERE' || upper.includes('STAGE_3') || upper.includes('STAGE 3')) {
+    return isVi ? 'Giai đoạn 3 (Áp lực cao)' : 'Stage 3 (Severe Hypertension)';
+  }
   return stage;
 };
 
-const formatEtdrsGrade = (grade?: string | null, score?: number, level?: string): string => {
+const formatEtdrsGrade = (grade?: string | null, score?: number, level?: string, isVi = true): string => {
   const s = score ?? 0;
   const l = (level || '').toLowerCase();
   if (s >= 80 || l.includes('critical') || l.includes('severe')) {
     return grade && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr') && !grade.toLowerCase().includes('theo phân tích')
       ? grade
-      : 'Cấp độ 4 (PDR - Tăng sinh)';
+      : (isVi ? 'Cấp độ 4 (PDR - Tăng sinh)' : 'Grade 4 (PDR - Proliferative)');
   }
   if (s >= 65 || l.includes('high')) {
     return grade && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr') && !grade.toLowerCase().includes('theo phân tích')
       ? grade
-      : 'Cấp độ 3 (NPDR nặng)';
+      : (isVi ? 'Cấp độ 3 (NPDR nặng)' : 'Grade 3 (Severe NPDR)');
   }
   if (s >= 40 || l.includes('moderate') || l.includes('medium')) {
     return grade && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr') && !grade.toLowerCase().includes('theo phân tích')
       ? grade
-      : 'Cấp độ 2 (NPDR trung bình)';
+      : (isVi ? 'Cấp độ 2 (NPDR trung bình)' : 'Grade 2 (Moderate NPDR)');
   }
   if (s >= 25) {
     return grade && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr') && !grade.toLowerCase().includes('theo phân tích')
       ? grade
-      : 'Cấp độ 1 (NPDR nhẹ)';
+      : (isVi ? 'Cấp độ 1 (NPDR nhẹ)' : 'Grade 1 (Mild NPDR)');
   }
   if (grade && !grade.toLowerCase().includes('theo phân tích')) {
     return grade;
   }
-  return 'Cấp độ 0 (Không DR)';
+  return isVi ? 'Cấp độ 0 (Không DR)' : 'Grade 0 (No DR)';
 };
 
 // Helper phân tách nhận định / khuyến nghị thành các ý rõ ràng, giảm tải chữ
@@ -152,6 +161,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
   onOpenFullReport,
   onConsultDoctor,
 }) => {
+  const { isVi } = useLanguage();
   const [isBiomarkersOpen, setIsBiomarkersOpen] = useState(true);
   const [biomarkerMode, setBiomarkerMode] = useState<'cards' | 'table'>('cards');
 
@@ -209,21 +219,41 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
 
   // Danh sách nhận định và khuyến nghị được phân tách ngắn gọn
   const findingsItems = useMemo(
-    () => parseClinicalPoints(analysisResult.findings, [
-      'Cung mạch thái dương và mạng lưới vi mạch võng mạc phân bố đồng đều.',
-      'Không phát hiện dấu hiệu xuất huyết võng mạc hay vi phình mạch.',
-      'Chưa ghi nhận biến đổi bệnh lý vi tuần hoàn đáy mắt tại thời điểm ghi hình.'
-    ]),
-    [analysisResult.findings]
+    () =>
+      parseClinicalPoints(
+        analysisResult.findings,
+        isVi
+          ? [
+              'Cung mạch thái dương và mạng lưới vi mạch võng mạc phân bố đồng đều.',
+              'Không phát hiện dấu hiệu xuất huyết võng mạc hay vi phình mạch.',
+              'Chưa ghi nhận biến đổi bệnh lý vi tuần hoàn đáy mắt tại thời điểm ghi hình.',
+            ]
+          : [
+              'Temporal arcades and retinal microvascular network are evenly distributed.',
+              'No retinal hemorrhages or microaneurysms detected.',
+              'No microcirculatory pathological changes observed at time of imaging.',
+            ]
+      ),
+    [analysisResult.findings, isVi]
   );
 
   const recommendationItems = useMemo(
-    () => parseClinicalPoints(analysisResult.recommendations, [
-      'Duy trì khám mắt định kỳ 6-12 tháng/lần để theo dõi sức khỏe vi tuần hoàn võng mạc.',
-      'Kiểm soát huyết áp và chỉ số đường huyết trong giới hạn bình thường.',
-      'Duy trì chế độ dinh dưỡng lành mạnh và lối sống vận động thường xuyên.'
-    ]),
-    [analysisResult.recommendations]
+    () =>
+      parseClinicalPoints(
+        analysisResult.recommendations,
+        isVi
+          ? [
+              'Duy trì khám mắt định kỳ 6-12 tháng/lần để theo dõi sức khỏe vi tuần hoàn võng mạc.',
+              'Kiểm soát huyết áp và chỉ số đường huyết trong giới hạn bình thường.',
+              'Duy trì chế độ dinh dưỡng lành mạnh và lối sống vận động thường xuyên.',
+            ]
+          : [
+              'Maintain routine 6-12 month eye exams to monitor microcirculatory health.',
+              'Maintain blood pressure and blood glucose within target normal ranges.',
+              'Adhere to a balanced diet and regular physical activity routine.',
+            ]
+      ),
+    [analysisResult.recommendations, isVi]
   );
 
   return (
@@ -236,24 +266,24 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xs uppercase tracking-wider font-extrabold bg-white/20 px-3 py-1 rounded-full backdrop-blur-xs border border-white/20">
-                Tóm Tắt Nguy Cơ Vi Mạch Lâm Sàng
+                {isVi ? 'Tóm Tắt Nguy Cơ Vi Mạch Lâm Sàng' : 'Retinal Microvascular Risk Summary'}
               </span>
               {isDoctorReviewed ? (
                 <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/30 text-emerald-100 font-bold border border-emerald-400/40 flex items-center gap-1.5 backdrop-blur-xs">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
-                  Đã Thẩm Định Bởi Bác Sĩ Chuyên Khoa
+                  {isVi ? 'Đã Thẩm Định Bởi Bác Sĩ Chuyên Khoa' : 'Reviewed by Attending Specialist'}
                 </span>
               ) : (
                 <span className="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-100 font-bold border border-amber-400/30 flex items-center gap-1.5 backdrop-blur-xs">
                   <Clock className="w-3.5 h-3.5 text-amber-200" />
-                  Kết Quả Sơ Bộ AI - Chờ Bác Sĩ Thẩm Định
+                  {isVi ? 'Kết Quả Sơ Bộ AI - Chờ Bác Sĩ Thẩm Định' : 'Preliminary AI Result - Awaiting Review'}
                 </span>
               )}
             </div>
 
             <div className="flex items-baseline gap-3">
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-                Chỉ Số Nguy Cơ Vi Mạch:
+                {isVi ? 'Chỉ Số Nguy Cơ Vi Mạch:' : 'Microvascular Risk Score:'}
               </h2>
               <span className="text-3xl sm:text-4xl font-black font-mono-data">
                 {score}
@@ -264,10 +294,10 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             <div className="flex items-center gap-3">
               <RiskBadge level={riskLevel} size="lg" className="shadow-xs font-bold" />
               <p className="text-xs text-white/90">
-                {riskLevel === 'Low' && 'Hệ vi mạch võng mạc bình thường, nguy cơ tim mạch và đột quỵ thấp.'}
-                {riskLevel === 'Moderate' && 'Phát hiện dấu hiệu co thắt nhẹ vi mạch hoặc thay đổi vi tuần hoàn võng mạc.'}
-                {riskLevel === 'High' && 'Phát hiện tổn thương vi mạch rõ rệt, cần bác sĩ chuyên khoa khám xác định sớm.'}
-                {riskLevel === 'Critical' && 'Nguy cơ biến chứng mạch máu cao, đề nghị chuyển khám chuyên khoa tim mạch / mắt khẩn cấp.'}
+                {riskLevel === 'Low' && (isVi ? 'Hệ vi mạch võng mạc bình thường, nguy cơ tim mạch và đột quỵ thấp.' : 'Normal retinal microvasculature, low cardiovascular and stroke risk.')}
+                {riskLevel === 'Moderate' && (isVi ? 'Phát hiện dấu hiệu co thắt nhẹ vi mạch hoặc thay đổi vi tuần hoàn võng mạc.' : 'Mild microvascular narrowing or subtle retinal microcirculatory changes detected.')}
+                {riskLevel === 'High' && (isVi ? 'Phát hiện tổn thương vi mạch rõ rệt, cần bác sĩ chuyên khoa khám xác định sớm.' : 'Significant microvascular lesions detected, early specialist evaluation indicated.')}
+                {riskLevel === 'Critical' && (isVi ? 'Nguy cơ biến chứng mạch máu cao, đề nghị chuyển khám chuyên khoa tim mạch / mắt khẩn cấp.' : 'High vascular complication risk, urgent ophthalmology / cardiology consultation recommended.')}
               </p>
             </div>
           </div>
@@ -280,7 +310,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               className="bg-white text-slate-900 hover:bg-slate-50 border-white/60 font-bold shadow-md text-xs sm:text-sm flex items-center justify-center gap-2"
             >
               <FileText className="w-4 h-4 text-brand-600" />
-              Xem & In Phiếu Báo Cáo Chi Tiết
+              {isVi ? 'Xem & In Phiếu Báo Cáo Chi Tiết' : 'View & Print Detailed Report'}
             </Button>
             {onConsultDoctor && (
               <Button
@@ -290,7 +320,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md text-xs sm:text-sm flex items-center justify-center gap-2"
               >
                 <MessageSquare className="w-4 h-4" />
-                Trao Đổi Với Bác Sĩ
+                {isVi ? 'Trao Đổi Với Bác Sĩ' : 'Consult with Doctor'}
               </Button>
             )}
           </div>
@@ -307,7 +337,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <div className="p-2 rounded-lg bg-rose-100 text-rose-700">
                   <Heart className="w-4 h-4" />
                 </div>
-                <span>Nguy cơ tim mạch 3 năm</span>
+                <span>{isVi ? 'Nguy cơ tim mạch 3 năm' : '3-Year Cardiovascular Risk'}</span>
               </div>
               <RiskBadge level={cvdLevel} size="sm" />
             </div>
@@ -315,7 +345,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             {/* Điểm số & Thanh đo rủi ro */}
             <div className="space-y-1.5 pt-1">
               <div className="flex items-baseline justify-between">
-                <span className="text-xs text-slate-500 font-medium">Điểm nguy cơ:</span>
+                <span className="text-xs text-slate-500 font-medium">{isVi ? 'Điểm nguy cơ:' : 'Risk score:'}</span>
                 <span className="text-lg font-black font-mono-data text-slate-900">
                   {rawCvdScore}
                   <span className="text-xs text-slate-400 font-normal">/100</span>
@@ -340,13 +370,13 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             {/* Hai thông số thành phần dạng chip */}
             <div className="grid grid-cols-2 gap-2 pt-1">
               <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
-                <span className="text-[10px] text-slate-400 block font-medium">Huyết áp võng mạc</span>
-                <strong className="text-slate-800 font-semibold truncate block mt-0.5" title={formatHypertensionStage(analysisResult.cardiovascularRisk?.hypertensionStage)}>
-                  {formatHypertensionStage(analysisResult.cardiovascularRisk?.hypertensionStage)}
+                <span className="text-[10px] text-slate-400 block font-medium">{isVi ? 'Huyết áp võng mạc' : 'Retinal BP'}</span>
+                <strong className="text-slate-800 font-semibold truncate block mt-0.5" title={formatHypertensionStage(analysisResult.cardiovascularRisk?.hypertensionStage, isVi)}>
+                  {formatHypertensionStage(analysisResult.cardiovascularRisk?.hypertensionStage, isVi)}
                 </strong>
               </div>
               <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
-                <span className="text-[10px] text-slate-400 block font-medium">Nguy cơ đột quỵ 3 năm</span>
+                <span className="text-[10px] text-slate-400 block font-medium">{isVi ? 'Nguy cơ đột quỵ 3 năm' : '3-Year Stroke Risk'}</span>
                 <strong className="text-slate-900 font-black font-mono-data block mt-0.5">
                   {analysisResult.cardiovascularRisk?.threeYearStrokeRiskPercent ?? rawCvdScore}%
                 </strong>
@@ -361,7 +391,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <div className="p-2 rounded-lg bg-amber-100 text-amber-700">
                   <Eye className="w-4 h-4" />
                 </div>
-                <span>Bệnh võng mạc đái tháo đường</span>
+                <span>{isVi ? 'Bệnh võng mạc đái tháo đường' : 'Diabetic Retinopathy'}</span>
               </div>
               <RiskBadge level={drLevel} size="sm" />
             </div>
@@ -369,7 +399,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             {/* Điểm số & Thanh đo rủi ro */}
             <div className="space-y-1.5 pt-1">
               <div className="flex items-baseline justify-between">
-                <span className="text-xs text-slate-500 font-medium">Điểm nguy cơ:</span>
+                <span className="text-xs text-slate-500 font-medium">{isVi ? 'Điểm nguy cơ:' : 'Risk score:'}</span>
                 <span className="text-lg font-black font-mono-data text-slate-900">
                   {rawDrScore}
                   <span className="text-xs text-slate-400 font-normal">/100</span>
@@ -394,15 +424,15 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             {/* Hai thông số thành phần dạng chip */}
             <div className="grid grid-cols-2 gap-2 pt-1">
               <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
-                <span className="text-[10px] text-slate-400 block font-medium">Phân độ ETDRS</span>
+                <span className="text-[10px] text-slate-400 block font-medium">{isVi ? 'Phân độ ETDRS' : 'ETDRS Grade'}</span>
                 <strong className="text-slate-800 font-semibold truncate block mt-0.5" title={analysisResult.diabeticRetinopathyRisk?.etdrsGrade}>
-                  {formatEtdrsGrade(analysisResult.diabeticRetinopathyRisk?.etdrsGrade, rawDrScore, drLevel)}
+                  {formatEtdrsGrade(analysisResult.diabeticRetinopathyRisk?.etdrsGrade, rawDrScore, drLevel, isVi)}
                 </strong>
               </div>
               <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
-                <span className="text-[10px] text-slate-400 block font-medium">Phù hoàng điểm</span>
+                <span className="text-[10px] text-slate-400 block font-medium">{isVi ? 'Phù hoàng điểm' : 'Macular Edema'}</span>
                 <strong className={`font-semibold block mt-0.5 ${hasMacularEdema ? 'text-rose-600' : 'text-emerald-700'}`}>
-                  {hasMacularEdema ? 'Có phát hiện' : 'Không phát hiện'}
+                  {hasMacularEdema ? (isVi ? 'Có phát hiện' : 'Detected') : (isVi ? 'Không phát hiện' : 'Not detected')}
                 </strong>
               </div>
             </div>
@@ -415,7 +445,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <div className="p-2 rounded-lg bg-teal-100 text-teal-700">
                   <Activity className="w-4 h-4" />
                 </div>
-                <span>Nguy cơ tăng nhãn áp</span>
+                <span>{isVi ? 'Nguy cơ tăng nhãn áp' : 'Glaucoma Risk'}</span>
               </div>
               <RiskBadge level={analysisResult.glaucomaRisk?.level || 'Low'} size="sm" />
             </div>
@@ -423,7 +453,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             {/* Điểm số & Thanh đo rủi ro */}
             <div className="space-y-1.5 pt-1">
               <div className="flex items-baseline justify-between">
-                <span className="text-xs text-slate-500 font-medium">Điểm nguy cơ:</span>
+                <span className="text-xs text-slate-500 font-medium">{isVi ? 'Điểm nguy cơ:' : 'Risk score:'}</span>
                 <span className="text-lg font-black font-mono-data text-slate-900">
                   {glaucomaScore}
                   <span className="text-xs text-slate-400 font-normal">/100</span>
@@ -448,36 +478,36 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             {/* Hai thông số thành phần dạng chip */}
             <div className="grid grid-cols-2 gap-2 pt-1">
               <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
-                <span className="text-[10px] text-slate-400 block font-medium">Tỷ lệ lõm gai thị</span>
+                <span className="text-[10px] text-slate-400 block font-medium">{isVi ? 'Tỷ lệ lõm gai thị' : 'Cup-to-Disc Ratio'}</span>
                 <strong className="text-slate-800 font-mono-data font-semibold block mt-0.5">
-                  {hasVcdr ? rawVcdr.toFixed(2) : 'Chưa xác định'}
+                  {hasVcdr ? rawVcdr.toFixed(2) : (isVi ? 'Chưa xác định' : 'Undetermined')}
                 </strong>
               </div>
               <div className="bg-white border border-slate-200/80 rounded-lg p-2 text-xs">
-                <span className="text-[10px] text-slate-400 block font-medium">Trạng thái gai thị</span>
+                <span className="text-[10px] text-slate-400 block font-medium">{isVi ? 'Trạng thái gai thị' : 'Optic Disc Status'}</span>
                 {hasVcdr ? (
                   <strong className={`font-semibold truncate block mt-0.5 ${isVcdrNormal ? 'text-emerald-700' : 'text-amber-700'}`}>
-                    {isVcdrNormal ? 'Bình thường (< 0.50)' : 'Lõm gai mở rộng'}
+                    {isVcdrNormal ? (isVi ? 'Bình thường (< 0.50)' : 'Normal (< 0.50)') : (isVi ? 'Lõm gai mở rộng' : 'Enlarged Cupping')}
                   </strong>
                 ) : (
-                  <strong className="text-slate-400 font-medium block mt-0.5">Chưa đo được</strong>
+                  <strong className="text-slate-400 font-medium block mt-0.5">{isVi ? 'Chưa đo được' : 'Not measured'}</strong>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* 3. BẢNG CHỈ SỐ SINH HỌC VI MẠCH - CHẾ ĐỘ XEM TRỰC QUAN MỚI (Visual Cards) HOẶC BẢNG */}
+        {/* 3. BẢNG CHỈ SỐ SINH HỌC VI MẠCH - CHẾ ĐỘ XEM TRỰC QUAN (Visual Cards) HOẶC BẢNG */}
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
           {/* Header thanh công cụ thông số vi mạch */}
           <div className="bg-slate-50/90 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                 <Activity className="w-4 h-4 text-brand-600" />
-                Chỉ Số Vi Mạch Chuyên Sâu
+                {isVi ? 'Chỉ Số Vi Mạch Chuyên Sâu' : 'Advanced Microvascular Biomarkers'}
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Dành cho bác sĩ chuyên khoa tham khảo đánh giá tuần hoàn đáy mắt.
+                {isVi ? 'Dành cho bác sĩ chuyên khoa tham khảo đánh giá tuần hoàn đáy mắt.' : 'Clinical reference for fundus microcirculation evaluation.'}
               </p>
             </div>
 
@@ -487,28 +517,28 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <button
                   type="button"
                   onClick={() => setBiomarkerMode('cards')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all ${
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
                     biomarkerMode === 'cards'
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
-                  title="Chế độ thẻ trực quan"
+                  title={isVi ? 'Chế độ thẻ trực quan' : 'Visual cards mode'}
                 >
                   <LayoutGrid className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Trực quan</span>
+                  <span className="hidden sm:inline">{isVi ? 'Trực quan' : 'Visual'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setBiomarkerMode('table')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all ${
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
                     biomarkerMode === 'table'
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
-                  title="Chế độ bảng chi tiết"
+                  title={isVi ? 'Chế độ bảng chi tiết' : 'Detailed table mode'}
                 >
                   <TableIcon className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Dạng bảng</span>
+                  <span className="hidden sm:inline">{isVi ? 'Dạng bảng' : 'Table'}</span>
                 </button>
               </div>
 
@@ -516,9 +546,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               <button
                 type="button"
                 onClick={() => setIsBiomarkersOpen(!isBiomarkersOpen)}
-                className="text-xs font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-200 transition-colors"
+                className="text-xs font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-200 transition-colors cursor-pointer"
               >
-                <span>{isBiomarkersOpen ? 'Thu Gọn Bảng Chỉ Số ▲' : 'Xem Đầy Đủ 4 Chỉ Số ▼'}</span>
+                <span>{isBiomarkersOpen ? (isVi ? 'Thu Gọn Bảng Chỉ Số ▲' : 'Collapse Biomarkers ▲') : (isVi ? 'Xem Đầy Đủ 4 Chỉ Số ▼' : 'Expand All 4 Biomarkers ▼')}</span>
               </button>
             </div>
           </div>
@@ -526,15 +556,15 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
           {/* Nội dung chỉ số khi mở */}
           {isBiomarkersOpen && (
             <div className="p-4 bg-slate-50/40">
-              {/* CHẾ ĐỘ 1: THẺ TRỰC QUAN (Visual Metric Cards) - Tinh gọn, trực quan, bớt chữ */}
+              {/* CHẾ ĐỘ 1: THẺ TRỰC QUAN (Visual Metric Cards) */}
               {biomarkerMode === 'cards' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                   {/* Biomarker 1: A/V Ratio */}
                   <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-brand-300 transition-all">
                     <div>
                       <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className="text-xs font-bold text-slate-800 truncate" title="Tỷ lệ Động mạch / Tĩnh mạch">
-                          Tỷ Lệ Động - Tĩnh Mạch
+                        <span className="text-xs font-bold text-slate-800 truncate" title={isVi ? 'Tỷ lệ Động mạch / Tĩnh mạch' : 'Arteriovenous Ratio'}>
+                          {isVi ? 'Tỷ Lệ Động - Tĩnh Mạch' : 'Arteriovenous Ratio'}
                         </span>
                         {hasAvRatio ? (
                           <span
@@ -545,21 +575,21 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                             }`}
                           >
                             {isAvNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                            {isAvNormal ? 'Bình thường' : 'Cần lưu ý'}
+                            {isAvNormal ? (isVi ? 'Bình thường' : 'Normal') : (isVi ? 'Cần lưu ý' : 'Attention')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
                             <HelpCircle className="w-3 h-3 text-slate-400" />
-                            Chưa đo được
+                            {isVi ? 'Chưa đo được' : 'Not measured'}
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-bold font-mono-data text-slate-900">
-                          {hasAvRatio ? rawAvRatio.toFixed(2) : 'Chưa xác định'}
+                          {hasAvRatio ? rawAvRatio.toFixed(2) : (isVi ? 'Chưa xác định' : 'Undetermined')}
                         </span>
-                        <span className="text-[11px] text-slate-400">Động / Tĩnh</span>
+                        <span className="text-[11px] text-slate-400">{isVi ? 'Động / Tĩnh' : 'A / V'}</span>
                       </div>
 
                       {/* Visual Range Bar */}
@@ -573,9 +603,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                       />
 
                       <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono-data">
-                        <span>Chuẩn: ≥ 0.67 (2:3)</span>
+                        <span>{isVi ? 'Chuẩn: ≥ 0.67 (2:3)' : 'Ref: ≥ 0.67 (2:3)'}</span>
                         <span className={isAvNormal ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-semibold'}>
-                          {hasAvRatio ? (isAvNormal ? 'Đạt chuẩn' : 'Co thắt nhẹ') : '---'}
+                          {hasAvRatio ? (isAvNormal ? (isVi ? 'Đạt chuẩn' : 'Normal') : (isVi ? 'Co thắt nhẹ' : 'Mild Constriction')) : '---'}
                         </span>
                       </div>
                     </div>
@@ -583,9 +613,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                     <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 leading-snug">
                       {hasAvRatio
                         ? isAvNormal
-                          ? 'Lòng mạch phân nhánh đồng đều.'
-                          : 'Hẹp nhẹ tiểu động mạch, nghi do HA.'
-                        : 'Chưa đủ dữ liệu để phân tích tỷ lệ.'}
+                          ? (isVi ? 'Lòng mạch phân nhánh đồng đều.' : 'Normal branching vascular pattern.')
+                          : (isVi ? 'Hẹp nhẹ tiểu động mạch, nghi do HA.' : 'Mild arteriolar narrowing, hypertension suspected.')
+                        : (isVi ? 'Chưa đủ dữ liệu để phân tích tỷ lệ.' : 'Insufficient data for ratio analysis.')}
                     </div>
                   </div>
 
@@ -593,8 +623,8 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                   <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-brand-300 transition-all">
                     <div>
                       <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className="text-xs font-bold text-slate-800 truncate" title="Mật độ mao mạch võng mạc">
-                          Mật Độ Mao Mạch
+                        <span className="text-xs font-bold text-slate-800 truncate" title={isVi ? 'Mật độ mao mạch võng mạc' : 'Capillary Density'}>
+                          {isVi ? 'Mật Độ Mao Mạch' : 'Capillary Density'}
                         </span>
                         {hasVesselDensity ? (
                           <span
@@ -605,21 +635,21 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                             }`}
                           >
                             {isDensityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                            {isDensityNormal ? 'Bình thường' : 'Bất thường'}
+                            {isDensityNormal ? (isVi ? 'Bình thường' : 'Normal') : (isVi ? 'Bất thường' : 'Abnormal')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
                             <HelpCircle className="w-3 h-3 text-slate-400" />
-                            Chưa đo được
+                            {isVi ? 'Chưa đo được' : 'Not measured'}
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-bold font-mono-data text-slate-900">
-                          {hasVesselDensity ? `${rawVesselDensity.toFixed(1)}%` : 'Chưa xác định'}
+                          {hasVesselDensity ? `${rawVesselDensity.toFixed(1)}%` : (isVi ? 'Chưa xác định' : 'Undetermined')}
                         </span>
-                        <span className="text-[11px] text-slate-400">Diện tích</span>
+                        <span className="text-[11px] text-slate-400">{isVi ? 'Diện tích' : 'Area'}</span>
                       </div>
 
                       {/* Visual Range Bar */}
@@ -633,9 +663,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                       />
 
                       <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono-data">
-                        <span>Chuẩn: 15.5% – 19.0%</span>
+                        <span>{isVi ? 'Chuẩn: 15.5% – 19.0%' : 'Ref: 15.5% – 19.0%'}</span>
                         <span className={isDensityNormal ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-semibold'}>
-                          {hasVesselDensity ? (isDensityNormal ? 'Tưới máu tốt' : 'Ngoài chuẩn') : '---'}
+                          {hasVesselDensity ? (isDensityNormal ? (isVi ? 'Tưới máu tốt' : 'Normal Perfusion') : (isVi ? 'Ngoài chuẩn' : 'Out of range')) : '---'}
                         </span>
                       </div>
                     </div>
@@ -643,11 +673,11 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                     <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 leading-snug">
                       {hasVesselDensity
                         ? isDensityNormal
-                          ? 'Mạng lưới mao mạch tưới máu đầy đủ.'
+                          ? (isVi ? 'Mạng lưới mao mạch tưới máu đầy đủ.' : 'Adequate capillary bed perfusion.')
                           : rawVesselDensity < 15.5
-                          ? 'Giảm tưới máu, nghi thiếu máu vi mạch.'
-                          : 'Tăng sinh mạch bất thường.'
-                        : 'Chưa đủ dữ liệu đo lường.'}
+                          ? (isVi ? 'Giảm tưới máu, nghi thiếu máu vi mạch.' : 'Reduced perfusion, ischemia suspected.')
+                          : (isVi ? 'Tăng sinh mạch bất thường.' : 'Abnormal vessel proliferation.')
+                        : (isVi ? 'Chưa đủ dữ liệu đo lường.' : 'Insufficient measurement data.')}
                     </div>
                   </div>
 
@@ -655,8 +685,8 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                   <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-brand-300 transition-all">
                     <div>
                       <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className="text-xs font-bold text-slate-800 truncate" title="Độ uốn lượn vi mạch">
-                          Độ Uốn Lượn Vi Mạch
+                        <span className="text-xs font-bold text-slate-800 truncate" title={isVi ? 'Độ uốn lượn vi mạch' : 'Vascular Tortuosity'}>
+                          {isVi ? 'Độ Uốn Lượn Vi Mạch' : 'Vascular Tortuosity'}
                         </span>
                         {hasTortuosity ? (
                           <span
@@ -667,21 +697,21 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                             }`}
                           >
                             {isTortuosityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                            {isTortuosityNormal ? 'Bình thường' : 'Uốn lượn'}
+                            {isTortuosityNormal ? (isVi ? 'Bình thường' : 'Normal') : (isVi ? 'Uốn lượn' : 'Tortuous')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
                             <HelpCircle className="w-3 h-3 text-slate-400" />
-                            Chưa đo được
+                            {isVi ? 'Chưa đo được' : 'Not measured'}
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-bold font-mono-data text-slate-900">
-                          {hasTortuosity ? rawTortuosity.toFixed(2) : 'Chưa xác định'}
+                          {hasTortuosity ? rawTortuosity.toFixed(2) : (isVi ? 'Chưa xác định' : 'Undetermined')}
                         </span>
-                        <span className="text-[11px] text-slate-400">Chỉ số uốn</span>
+                        <span className="text-[11px] text-slate-400">{isVi ? 'Chỉ số uốn' : 'Index'}</span>
                       </div>
 
                       {/* Visual Range Bar */}
@@ -695,9 +725,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                       />
 
                       <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono-data">
-                        <span>Chuẩn: &lt; 1.25</span>
+                        <span>{isVi ? 'Chuẩn: < 1.25' : 'Ref: < 1.25'}</span>
                         <span className={isTortuosityNormal ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-semibold'}>
-                          {hasTortuosity ? (isTortuosityNormal ? 'Đều đặn' : 'Xoắn vặn') : '---'}
+                          {hasTortuosity ? (isTortuosityNormal ? (isVi ? 'Đều đặn' : 'Smooth') : (isVi ? 'Xoắn vặn' : 'Tortuous')) : '---'}
                         </span>
                       </div>
                     </div>
@@ -705,9 +735,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                     <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 leading-snug">
                       {hasTortuosity
                         ? isTortuosityNormal
-                          ? 'Đường đi mạch máu đều, không xoắn vặn.'
-                          : 'Mạch máu uốn lượn, áp lực thành mạch cao.'
-                        : 'Chưa đủ dữ liệu đo độ uốn.'}
+                          ? (isVi ? 'Đường đi mạch máu đều, không xoắn vặn.' : 'Smooth vascular course, non-tortuous.')
+                          : (isVi ? 'Mạch máu uốn lượn, áp lực thành mạch cao.' : 'Tortuous vessels, high mural tension.')
+                        : (isVi ? 'Chưa đủ dữ liệu đo độ uốn.' : 'Insufficient data for tortuosity.')}
                     </div>
                   </div>
 
@@ -715,8 +745,8 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                   <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-brand-300 transition-all">
                     <div>
                       <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className="text-xs font-bold text-slate-800 truncate" title="Tỷ lệ lõm gai thị">
-                          Tỷ Lệ Lõm Gai Thị
+                        <span className="text-xs font-bold text-slate-800 truncate" title={isVi ? 'Tỷ lệ lõm gai thị' : 'Cup-to-Disc Ratio'}>
+                          {isVi ? 'Tỷ Lệ Lõm Gai Thị' : 'Cup-to-Disc Ratio'}
                         </span>
                         {hasVcdr ? (
                           <span
@@ -727,37 +757,37 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                             }`}
                           >
                             {isVcdrNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                            {isVcdrNormal ? 'Bình thường' : 'Nghi ngờ tăng nhãn áp'}
+                            {isVcdrNormal ? (isVi ? 'Bình thường' : 'Normal') : (isVi ? 'Mở rộng' : 'Enlarged')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold text-[10px] bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
                             <HelpCircle className="w-3 h-3 text-slate-400" />
-                            Chưa đo được
+                            {isVi ? 'Chưa đo được' : 'Not measured'}
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-bold font-mono-data text-slate-900">
-                          {hasVcdr ? rawVcdr.toFixed(2) : 'Chưa xác định'}
+                          {hasVcdr ? rawVcdr.toFixed(2) : (isVi ? 'Chưa xác định' : 'Undetermined')}
                         </span>
-                        <span className="text-[11px] text-slate-400">Cup / Disc</span>
+                        <span className="text-[11px] text-slate-400">{isVi ? 'Lõm / Gai' : 'Cup / Disc'}</span>
                       </div>
 
                       {/* Visual Range Bar */}
                       <BiomarkerRangeBar
                         value={rawVcdr}
-                        min={0.1}
-                        max={0.7}
-                        targetMin={0.1}
+                        min={0.2}
+                        max={0.8}
+                        targetMin={0.2}
                         targetMax={0.5}
                         isNormal={isVcdrNormal}
                       />
 
                       <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono-data">
-                        <span>Chuẩn: &lt; 0.50 (0.3 - 0.45)</span>
+                        <span>{isVi ? 'Chuẩn: < 0.50 (0.3 - 0.45)' : 'Ref: < 0.50 (0.3 - 0.45)'}</span>
                         <span className={isVcdrNormal ? 'text-emerald-700 font-semibold' : 'text-rose-700 font-semibold'}>
-                          {hasVcdr ? (isVcdrNormal ? 'An toàn' : 'Lõm rộng') : '---'}
+                          {hasVcdr ? (isVcdrNormal ? (isVi ? 'Bình thường' : 'Normal') : (isVi ? 'Lõm gai rộng' : 'Enlarged Cup')) : '---'}
                         </span>
                       </div>
                     </div>
@@ -765,44 +795,44 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                     <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 leading-snug">
                       {hasVcdr
                         ? isVcdrNormal
-                          ? 'Gai thị hồng, viền thần kinh đều.'
-                          : 'Lõm gai mở rộng, nghi ngờ tăng nhãn áp.'
-                        : 'Chưa định vị rõ bờ gai thị.'}
+                          ? (isVi ? 'Bờ viền thần kinh võng mạc đều, hồng hào.' : 'Healthy neuroretinal rim, well-perfused.')
+                          : (isVi ? 'Lõm gai mở rộng, nghi ngờ Glaucoma sớm.' : 'Enlarged cup, early glaucoma suspicion.')
+                        : (isVi ? 'Không định vị được bờ gai thị.' : 'Optic disc boundary not localized.')}
                     </div>
                   </div>
                 </div>
               ) : (
-                /* CHẾ ĐỘ 2: BẢNG DỮ LIỆU ĐƯỢC LÀM MỚI TINH GỌN (Compact Modern Table) */
-                <div className="overflow-x-auto bg-white rounded-xl border border-slate-200">
+                /* CHẾ ĐỘ 2: BẢNG DỮ LIỆU CHI TIẾT (Tabular Mode) */
+                <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="bg-slate-50/80 text-slate-500 border-b border-slate-200 font-semibold">
-                        <th className="py-2.5 px-4">Tên Chỉ Số Sinh Học</th>
-                        <th className="py-2.5 px-4 text-center">Giá Trị Đo</th>
-                        <th className="py-2.5 px-4 text-center">Ngưỡng Tham Chiếu</th>
-                        <th className="py-2.5 px-4">Đánh Giá Lâm Sàng</th>
-                        <th className="py-2.5 px-4 text-center">Trạng Thái</th>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-[11px]">
+                        <th className="py-2.5 px-4">{isVi ? 'Chỉ số sinh học' : 'Biomarker'}</th>
+                        <th className="py-2.5 px-4 text-center">{isVi ? 'Giá trị' : 'Value'}</th>
+                        <th className="py-2.5 px-4 text-center">{isVi ? 'Dải chuẩn' : 'Reference Range'}</th>
+                        <th className="py-2.5 px-4">{isVi ? 'Đánh giá lâm sàng (AI)' : 'Clinical Evaluation (AI)'}</th>
+                        <th className="py-2.5 px-4 text-center">{isVi ? 'Trạng thái' : 'Status'}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {/* 1. A/V Ratio */}
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {/* 1. AVR */}
                       <tr className="hover:bg-slate-50/50">
                         <td className="py-2.5 px-4 font-semibold text-slate-800">
-                          <div>Tỷ lệ động - tĩnh mạch</div>
-                          <div className="text-[10px] text-slate-400 font-normal">Arteriolar-Venular Ratio</div>
+                          <div>{isVi ? 'Tỷ lệ động/tĩnh mạch võng mạc (AVR)' : 'Retinal Arteriovenous Ratio (AVR)'}</div>
+                          <div className="text-[10px] text-slate-400 font-normal">Artery-to-Vein Ratio</div>
                         </td>
                         <td className="py-2.5 px-4 text-center font-mono-data font-bold text-slate-900">
-                          {hasAvRatio ? rawAvRatio.toFixed(2) : <span className="text-slate-400 font-normal">Chưa xác định</span>}
+                          {hasAvRatio ? rawAvRatio.toFixed(2) : <span className="text-slate-400 font-normal">{isVi ? 'Chưa xác định' : 'Undetermined'}</span>}
                         </td>
                         <td className="py-2.5 px-4 text-center text-slate-600 font-mono-data">
-                          ≥ 0.67 (Tỷ lệ 2:3)
+                          ≥ 0.67 (2:3)
                         </td>
                         <td className="py-2.5 px-4 text-slate-700">
                           {hasAvRatio
                             ? isAvNormal
-                              ? 'Lòng mạch phân nhánh đồng đều, không thấy co thắt.'
-                              : 'Hẹp lòng tiểu động mạch, nghi ngờ ảnh hưởng bởi tăng huyết áp.'
-                            : 'Chưa đủ dữ liệu để phân tích tỷ lệ động/tĩnh mạch.'}
+                              ? (isVi ? 'Lòng mạch phân nhánh đồng đều, không thấy co thắt.' : 'Uniform vascular branching, no focal constriction.')
+                              : (isVi ? 'Hẹp lòng tiểu động mạch, nghi ngờ ảnh hưởng bởi tăng huyết áp.' : 'Arteriolar narrowing, hypertension effect suspected.')
+                            : (isVi ? 'Chưa đủ dữ liệu để phân tích tỷ lệ động/tĩnh mạch.' : 'Insufficient data for arteriovenous ratio analysis.')}
                         </td>
                         <td className="py-2.5 px-4 text-center">
                           {hasAvRatio ? (
@@ -814,12 +844,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                               }`}
                             >
                               {isAvNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                              {isAvNormal ? 'Bình thường' : 'Cần lưu ý'}
+                              {isAvNormal ? (isVi ? 'Bình thường' : 'Normal') : (isVi ? 'Cần lưu ý' : 'Attention')}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
                               <HelpCircle className="w-3 h-3 text-slate-400" />
-                              Chưa đo được
+                              {isVi ? 'Chưa đo được' : 'Not measured'}
                             </span>
                           )}
                         </td>
@@ -828,11 +858,11 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                       {/* 2. Vessel Density */}
                       <tr className="hover:bg-slate-50/50">
                         <td className="py-2.5 px-4 font-semibold text-slate-800">
-                          <div>Mật độ mao mạch võng mạc</div>
+                          <div>{isVi ? 'Mật độ mao mạch võng mạc' : 'Retinal Capillary Density'}</div>
                           <div className="text-[10px] text-slate-400 font-normal">Retinal Capillary Density</div>
                         </td>
                         <td className="py-2.5 px-4 text-center font-mono-data font-bold text-slate-900">
-                          {hasVesselDensity ? `${rawVesselDensity.toFixed(1)}%` : <span className="text-slate-400 font-normal">Chưa xác định</span>}
+                          {hasVesselDensity ? `${rawVesselDensity.toFixed(1)}%` : <span className="text-slate-400 font-normal">{isVi ? 'Chưa xác định' : 'Undetermined'}</span>}
                         </td>
                         <td className="py-2.5 px-4 text-center text-slate-600 font-mono-data">
                           15.5% - 19.0%
@@ -840,11 +870,11 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                         <td className="py-2.5 px-4 text-slate-700">
                           {hasVesselDensity
                             ? isDensityNormal
-                              ? 'Mạng lưới mao mạch tưới máu đầy đủ.'
+                              ? (isVi ? 'Mạng lưới mao mạch tưới máu đầy đủ.' : 'Adequate capillary bed perfusion.')
                               : rawVesselDensity < 15.5
-                              ? 'Giảm tưới máu mao mạch, dấu hiệu thiếu máu cục bộ võng mạc.'
-                              : 'Tăng sinh mạch máu bất thường.'
-                            : 'Chưa đủ dữ liệu để phân tích mật độ mao mạch võng mạc.'}
+                              ? (isVi ? 'Giảm tưới máu mao mạch, dấu hiệu thiếu máu cục bộ võng mạc.' : 'Reduced capillary perfusion, ischemic sign.')
+                              : (isVi ? 'Tăng sinh mạch máu bất thường.' : 'Abnormal vascular proliferation.')
+                            : (isVi ? 'Chưa đủ dữ liệu để phân tích mật độ mao mạch võng mạc.' : 'Insufficient data for capillary density analysis.')}
                         </td>
                         <td className="py-2.5 px-4 text-center">
                           {hasVesselDensity ? (
@@ -856,12 +886,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                               }`}
                             >
                               {isDensityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                              {isDensityNormal ? 'Bình thường' : 'Bất thường'}
+                              {isDensityNormal ? (isVi ? 'Bình thường' : 'Normal') : (isVi ? 'Bất thường' : 'Abnormal')}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
                               <HelpCircle className="w-3 h-3 text-slate-400" />
-                              Chưa đo được
+                              {isVi ? 'Chưa đo được' : 'Not measured'}
                             </span>
                           )}
                         </td>
@@ -870,11 +900,11 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                       {/* 3. Tortuosity Index */}
                       <tr className="hover:bg-slate-50/50">
                         <td className="py-2.5 px-4 font-semibold text-slate-800">
-                          <div>Độ uốn lượn vi mạch</div>
+                          <div>{isVi ? 'Độ uốn lượn vi mạch' : 'Vascular Curvature Metric'}</div>
                           <div className="text-[10px] text-slate-400 font-normal">Vascular Curvature Metric</div>
                         </td>
                         <td className="py-2.5 px-4 text-center font-mono-data font-bold text-slate-900">
-                          {hasTortuosity ? rawTortuosity.toFixed(2) : <span className="text-slate-400 font-normal">Chưa xác định</span>}
+                          {hasTortuosity ? rawTortuosity.toFixed(2) : <span className="text-slate-400 font-normal">{isVi ? 'Chưa xác định' : 'Undetermined'}</span>}
                         </td>
                         <td className="py-2.5 px-4 text-center text-slate-600 font-mono-data">
                           &lt; 1.25
@@ -882,9 +912,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                         <td className="py-2.5 px-4 text-slate-700">
                           {hasTortuosity
                             ? isTortuosityNormal
-                              ? 'Đường đi mạch máu đều đặn, không bị xoắn vặn quá mức.'
-                              : 'Mạch máu uốn lượn bất thường, phản ánh áp lực thành mạch cao.'
-                            : 'Chưa đủ dữ liệu để đo lường độ cong vi mạch võng mạc.'}
+                              ? (isVi ? 'Đường đi mạch máu đều đặn, không bị xoắn vặn quá mức.' : 'Smooth vessel course, no excessive tortuosity.')
+                              : (isVi ? 'Mạch máu uốn lượn bất thường, phản ánh áp lực thành mạch cao.' : 'Abnormal tortuosity, reflects high wall tension.')
+                            : (isVi ? 'Chưa đủ dữ liệu để đo lường độ cong vi mạch võng mạc.' : 'Insufficient data for retinal vascular curvature.')}
                         </td>
                         <td className="py-2.5 px-4 text-center">
                           {hasTortuosity ? (
@@ -896,12 +926,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                               }`}
                             >
                               {isTortuosityNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                              {isTortuosityNormal ? 'Bình thường' : 'Uốn lượn'}
+                              {isTortuosityNormal ? (isVi ? 'Bình thường' : 'Normal') : (isVi ? 'Uốn lượn' : 'Tortuous')}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
                               <HelpCircle className="w-3 h-3 text-slate-400" />
-                              Chưa đo được
+                              {isVi ? 'Chưa đo được' : 'Not measured'}
                             </span>
                           )}
                         </td>
@@ -910,21 +940,21 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                       {/* 4. Optic Cup-to-Disc Ratio */}
                       <tr className="hover:bg-slate-50/50">
                         <td className="py-2.5 px-4 font-semibold text-slate-800">
-                          <div>Tỷ lệ lõm gai thị</div>
+                          <div>{isVi ? 'Tỷ lệ lõm gai thị' : 'Vertical Cup-to-Disc Ratio'}</div>
                           <div className="text-[10px] text-slate-400 font-normal">Vertical Cup-to-Disc Ratio</div>
                         </td>
                         <td className="py-2.5 px-4 text-center font-mono-data font-bold text-slate-900">
-                          {hasVcdr ? rawVcdr.toFixed(2) : <span className="text-slate-400 font-normal">Chưa xác định</span>}
+                          {hasVcdr ? rawVcdr.toFixed(2) : <span className="text-slate-400 font-normal">{isVi ? 'Chưa xác định' : 'Undetermined'}</span>}
                         </td>
                         <td className="py-2.5 px-4 text-center text-slate-600 font-mono-data">
-                          &lt; 0.50 (Chuẩn 0.30 - 0.45)
+                          &lt; 0.50 {isVi ? '(Chuẩn 0.30 - 0.45)' : '(Ref: 0.30 - 0.45)'}
                         </td>
                         <td className="py-2.5 px-4 text-slate-700">
                           {hasVcdr
                             ? isVcdrNormal
-                              ? 'Gai thị hồng, viền thần kinh võng mạc đều, không tổn hại.'
-                              : 'Lõm gai thị mở rộng, nguy cơ tổn hại sợi thần kinh thị giác trong bệnh tăng nhãn áp.'
-                            : 'Gai thị không nằm trong trường nhìn hoặc chưa định vị rõ bờ gai thị.'}
+                              ? (isVi ? 'Gai thị hồng, viền thần kinh võng mạc đều, không tổn hại.' : 'Pink disc, intact neuroretinal rim, no damage.')
+                              : (isVi ? 'Lõm gai thị mở rộng, nguy cơ tổn hại sợi thần kinh thị giác trong bệnh tăng nhãn áp.' : 'Enlarged cupping, risk of optic nerve fiber damage in glaucoma.')
+                            : (isVi ? 'Gai thị không nằm trong trường nhìn hoặc chưa định vị rõ bờ gai thị.' : 'Optic disc not in field of view or margin undefined.')}
                         </td>
                         <td className="py-2.5 px-4 text-center">
                           {hasVcdr ? (
@@ -936,12 +966,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                               }`}
                             >
                               {isVcdrNormal ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                              {isVcdrNormal ? 'Bình thường' : 'Nghi ngờ tăng nhãn áp'}
+                              {isVcdrNormal ? (isVi ? 'Bình thường' : 'Normal') : (isVi ? 'Nghi ngờ tăng nhãn áp' : 'Glaucoma Suspicion')}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-slate-100 text-slate-600 border border-slate-200">
                               <HelpCircle className="w-3 h-3 text-slate-400" />
-                              Chưa đo được
+                              {isVi ? 'Chưa đo được' : 'Not measured'}
                             </span>
                           )}
                         </td>
@@ -966,15 +996,15 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900 tracking-tight">
-                      Nhận định lâm sàng từ AI
+                      {isVi ? 'Nhận định lâm sàng từ AI' : 'AI Clinical Findings'}
                     </h4>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Đặc điểm vi tuần hoàn và hình thái võng mạc
+                      {isVi ? 'Đặc điểm vi tuần hoàn và hình thái võng mạc' : 'Microcirculation characteristics and retinal morphology'}
                     </p>
                   </div>
                 </div>
                 <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200/60 shrink-0">
-                  Phân tích hình ảnh
+                  {isVi ? 'Phân tích hình ảnh' : 'Image Analysis'}
                 </span>
               </div>
 
@@ -1000,15 +1030,15 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-teal-950 tracking-tight">
-                      Khuyến nghị y khoa & theo dõi
+                      {isVi ? 'Khuyến nghị y khoa & theo dõi' : 'Medical Management & Follow-up'}
                     </h4>
                     <p className="text-[11px] text-teal-700/80 mt-0.5">
-                      Kế hoạch chăm sóc và định kỳ sàng lọc
+                      {isVi ? 'Kế hoạch chăm sóc và định kỳ sàng lọc' : 'Care plan and screening intervals'}
                     </p>
                   </div>
                 </div>
                 <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-md bg-teal-100/80 text-teal-800 border border-teal-200/60 shrink-0">
-                  Hỗ trợ quyết định lâm sàng
+                  {isVi ? 'Hỗ trợ quyết định lâm sàng' : 'Clinical Decision Support'}
                 </span>
               </div>
 
@@ -1035,12 +1065,12 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                     <UserCheck className="w-4 h-4 text-teal-700" />
                   </div>
                   <h4 className="text-xs sm:text-sm font-bold text-teal-950">
-                    Ghi chú thẩm định từ bác sĩ phụ trách
+                    {isVi ? 'Ghi chú thẩm định từ bác sĩ phụ trách' : 'Attending Specialist Clinical Notes'}
                   </h4>
                 </div>
                 <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-teal-100/80 text-teal-800 border border-teal-200/60 flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-                  {analysisResult.doctorName || 'Bác sĩ chuyên khoa'}
+                  {analysisResult.doctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist')}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-700 italic pl-7 border-l-2 border-teal-300/60 ml-2 py-0.5 leading-relaxed">
@@ -1062,7 +1092,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             className="text-xs font-bold gap-2 shadow-xs"
           >
             <FileText className="w-4 h-4 text-brand-600" />
-            Xem & In Phiếu Báo Cáo Chi Tiết
+            {isVi ? 'Xem & In Phiếu Báo Cáo Chi Tiết' : 'View & Print Detailed Report'}
           </Button>
           {onConsultDoctor && (
             <Button
@@ -1072,7 +1102,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               className="text-xs font-bold gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700"
             >
               <MessageSquare className="w-4 h-4" />
-              Trao Đổi Với Bác Sĩ
+              {isVi ? 'Trao Đổi Với Bác Sĩ' : 'Consult with Doctor'}
             </Button>
           )}
         </div>

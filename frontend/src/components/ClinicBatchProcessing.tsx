@@ -12,6 +12,7 @@ import { BatchItemDetailModal } from './BatchItemDetailModal';
 import { bulkScreeningApi, BulkUploadPayload, BulkUploadItemPayload, billingApi } from '../services/api';
 import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
+import { useLanguage } from '../context/LanguageContext';
 
 const BATCH_STATUS_OPTIONS: ClinicalSelectOption<string>[] = [
   { value: 'ALL', label: 'Tất cả Trạng thái' },
@@ -93,6 +94,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
   onUpdateBatch,
   onResetBatch,
 }) => {
+  const { t, isVi } = useLanguage();
   const [currentJob, setCurrentJob] = useState<ClinicBatchJob>(initialBatchJob);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -100,6 +102,56 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
   const [eyeFilter, setEyeFilter] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'NEWEST' | 'OLDEST' | 'RISK_DESC' | 'MRN_ASC'>('NEWEST');
   const [isAnonymizedView, setIsAnonymizedView] = useState(false);
+
+  const batchStatusOptions: ClinicalSelectOption<string>[] = useMemo(
+    () => [
+      { value: 'ALL', label: t('clinic.batchProcessing.allStatuses') },
+      { value: 'DONE', label: t('clinic.batchProcessing.statusDone'), riskLevel: 'low' },
+      { value: 'PROCESSING', label: t('clinic.batchProcessing.statusProcessing'), riskLevel: 'moderate' },
+      { value: 'PENDING', label: t('clinic.batchProcessing.statusPending') },
+      { value: 'FAILED', label: t('clinic.batchProcessing.statusFailed'), riskLevel: 'critical' },
+    ],
+    [t]
+  );
+
+  const batchRiskOptions: ClinicalSelectOption<string>[] = useMemo(
+    () => [
+      { value: 'ALL', label: t('clinic.batchProcessing.allRisks') },
+      { value: 'HIGH_OR_CRITICAL', label: t('clinic.batchProcessing.riskHighCritical'), riskLevel: 'critical' },
+      { value: 'MODERATE', label: t('clinic.batchProcessing.riskModerate'), riskLevel: 'moderate' },
+      { value: 'LOW', label: t('clinic.batchProcessing.riskLow'), riskLevel: 'low' },
+    ],
+    [t]
+  );
+
+  const batchEyeOptions: ClinicalSelectOption<string>[] = useMemo(
+    () => [
+      { value: 'ALL', label: t('clinic.batchProcessing.allEyes') },
+      { value: 'OD', label: t('clinic.batchProcessing.rightEye') },
+      { value: 'OS', label: t('clinic.batchProcessing.leftEye') },
+    ],
+    [t]
+  );
+
+  const batchSortOptions: ClinicalSelectOption<string>[] = useMemo(
+    () => [
+      { value: 'NEWEST', label: t('clinic.batchProcessing.sortNewest') },
+      { value: 'OLDEST', label: t('clinic.batchProcessing.sortOldest') },
+      { value: 'RISK_DESC', label: t('clinic.batchProcessing.sortRiskDesc') },
+      { value: 'MRN_ASC', label: t('clinic.batchProcessing.sortMrnAsc') },
+    ],
+    [t]
+  );
+
+  const pageSizeOptions: ClinicalSelectOption<number>[] = useMemo(
+    () => [
+      { value: 25, label: t('clinic.batchProcessing.pageSize25') },
+      { value: 50, label: t('clinic.batchProcessing.pageSize50') },
+      { value: 100, label: t('clinic.batchProcessing.pageSize100') },
+      { value: -1, label: t('clinic.batchProcessing.pageSizeAll') },
+    ],
+    [t]
+  );
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -241,7 +293,9 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
               if (pollingRef.current) clearInterval(pollingRef.current);
               setIsPolling(false);
               setFeedbackMsg(
-                `Đã hoàn tất xử lý ${raw.processedCount}/${raw.totalImages} ảnh đáy mắt thành công!`
+                isVi
+                  ? `Đã hoàn tất xử lý ${raw.processedCount}/${raw.totalImages} ảnh đáy mắt thành công!`
+                  : `Successfully processed ${raw.processedCount}/${raw.totalImages} fundus scans!`
               );
             }
           }
@@ -363,16 +417,28 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 riskScore: score,
                 severity,
                 title: isCrit
-                  ? `Nguy cơ vi mạch võng mạc cực kỳ nghiêm trọng (${score}/100)`
-                  : `Nguy cơ tim mạch và đột quỵ mức cao (${score}/100)`,
+                  ? (isVi
+                      ? `Nguy cơ vi mạch võng mạc cực kỳ nghiêm trọng (${score}/100)`
+                      : `Critical retinal microvascular risk (${score}/100)`)
+                  : (isVi
+                      ? `Nguy cơ tim mạch và đột quỵ mức cao (${score}/100)`
+                      : `High cardiovascular & stroke risk (${score}/100)`),
                 reason: isCrit
-                  ? 'Ghi nhận dấu hiệu co thắt tiểu động mạch cấp tính, tỷ số A/V dưới 0.45 và xuất huyết dạng chấm võng mạc.'
-                  : 'Chỉ số ngoằn ngoèo vi mạch tăng cao và có dấu hiệu tiền xơ vữa tiểu động mạch.',
+                  ? (isVi
+                      ? 'Ghi nhận dấu hiệu co thắt tiểu động mạch cấp tính, tỷ số A/V dưới 0.45 và xuất huyết dạng chấm võng mạc.'
+                      : 'Acute arteriolar narrowing observed, A/V ratio below 0.45 and dot-blot retinal hemorrhages.')
+                  : (isVi
+                      ? 'Chỉ số ngoằn ngoèo vi mạch tăng cao và có dấu hiệu tiền xơ vữa tiểu động mạch.'
+                      : 'Elevated microvascular tortuosity index and early signs of arteriolar sclerosis.'),
                 strokeRiskPercent: item.strokeRisk || Math.round(score * 0.35),
                 anomaliesCount: item.anomaliesCount || (isCrit ? 4 : 2),
                 recommendedAction: isCrit
-                  ? 'Chuyển tuyến khẩn cấp chuyên khoa Mắt & Can thiệp Tim mạch trong vòng 24 giờ.'
-                  : 'Hội chẩn bác sĩ lâm sàng và thiết lập phác đồ kiểm soát huyết áp.',
+                  ? (isVi
+                      ? 'Chuyển tuyến khẩn cấp chuyên khoa Mắt & Can thiệp Tim mạch trong vòng 24 giờ.'
+                      : 'Urgent referral to Ophthalmology and Cardiology intervention within 24 hours.')
+                  : (isVi
+                      ? 'Hội chẩn bác sĩ lâm sàng và thiết lập phác đồ kiểm soát huyết áp.'
+                      : 'Clinical specialist consultation and blood pressure control management protocol.'),
                 createdAt: new Date().toISOString(),
               });
             }
@@ -388,7 +454,9 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
               hasAbnormalTrend: critCount >= 3 || (critCount + warnCount) / Math.max(1, currentJob.processedCount) >= 0.2,
               abnormalTrendMessage:
                 critCount >= 3
-                  ? `Cảnh báo xu hướng: Tỷ lệ bệnh nhân nguy kịch tăng cao bất thường (${critCount} ca).`
+                  ? (isVi
+                      ? `Cảnh báo xu hướng: Tỷ lệ bệnh nhân nguy kịch tăng cao bất thường (${critCount} ca).`
+                      : `Trend alert: Unusually high proportion of critical patients (${critCount} cases).`)
                   : null,
               alerts: alertList,
             });
@@ -447,7 +515,9 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
     if (onUpdateBatch) onUpdateBatch(newJob);
     setIsUploadModalOpen(false);
     setFeedbackMsg(
-      `Đã khởi tạo đợt khám ${generatedBatchId} (${payload.items.length} ảnh) và chuyển vào hàng đợi xử lý AI.`
+      isVi
+        ? `Đã khởi tạo đợt khám ${generatedBatchId} (${payload.items.length} ảnh) và chuyển vào hàng đợi xử lý AI.`
+        : `Initialized batch ${generatedBatchId} (${payload.items.length} scans) and queued for AI analysis.`
     );
   };
 
@@ -669,7 +739,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             onClick={() => setFeedbackMsg(null)}
             className="text-cyan-200 hover:text-white text-xs font-bold"
           >
-            Đóng
+            {t('clinic.batchProcessing.closeToast')}
           </button>
         </div>
       )}
@@ -686,17 +756,17 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
               <h3 className="font-bold text-sm text-[#134E4A] truncate">{currentJob.clinicName}</h3>
             </div>
             <span className="text-xs text-slate-500 block font-mono-data mt-0.5">
-              Mã Chiến Dịch:{' '}
+              {t('clinic.batchProcessing.campaignIdLabel')}{' '}
               <strong className="text-[#0891B2]">
-                {currentJob.totalImages === 0 ? 'Sẵn sàng tiếp nhận đợt mới' : currentJob.batchId}
+                {currentJob.totalImages === 0 ? t('clinic.batchProcessing.readyForNewBatch') : currentJob.batchId}
               </strong>
             </span>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[11px] text-[#16A34A] font-semibold flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 {currentJob.totalImages === 0
-                  ? 'Hệ thống sàng lọc AI sẵn sàng'
-                  : `Chiến Dịch Sàng Lọc Sức Khỏe Mạch Máu (${currentJob.status})`}
+                  ? t('clinic.batchProcessing.systemReady')
+                  : `${t('clinic.batchProcessing.campaignSubtitle')} (${currentJob.status})`}
               </span>
               {isPolling && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#0891B2] bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded-full font-mono-data animate-pulse">
@@ -711,7 +781,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         <div className="bg-white border border-[#CCFBF1] rounded-2xl p-5 shadow-medical-md space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-[#134E4A] flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-[#0891B2]" /> Tiến Độ Xử Lý Hàng Đợi AI (Bulk Queue)
+              <Clock className="w-4 h-4 text-[#0891B2]" /> {t('clinic.batchProcessing.bulkQueueProgress')}
             </span>
             <span className="font-mono-data font-extrabold text-sm text-[#0891B2]">
               {percentComplete}%
@@ -731,17 +801,17 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
 
           <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono-data pt-0.5">
             <span>
-              Đã xong:{' '}
+              {t('clinic.batchProcessing.doneLabel')}{' '}
               <strong className="text-slate-800">
                 {currentJob.processedCount}/{currentJob.totalImages}
               </strong>{' '}
-              ảnh
+              {t('clinic.batchProcessing.scansLabel')}
               {currentJob.totalImages >= 100 && (
-                <span className="text-emerald-600 font-bold ml-1.5">(≥100 ảnh)</span>
+                <span className="text-emerald-600 font-bold ml-1.5">{t('clinic.batchProcessing.minScansStandard')}</span>
               )}
             </span>
             <span>
-              Thời gian còn lại:{' '}
+              {t('clinic.batchProcessing.timeRemaining')}{' '}
               <strong>~{Math.max(0, Math.round(currentJob.estimatedTimeRemainingSec))}s</strong>
             </span>
           </div>
@@ -751,7 +821,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         <div className="bg-gradient-to-br from-[#0891B2] via-[#0E7490] to-[#134E4A] text-white rounded-2xl p-5 shadow-medical-md space-y-2 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-cyan-100 flex items-center gap-1.5">
-              <CreditCard className="w-4 h-4" /> Quản Lý Gói Credit Sàng Lọc
+              <CreditCard className="w-4 h-4" /> {t('clinic.batchProcessing.creditsManagement')}
             </span>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono-data border border-white/20">
               Clinic Enterprise
@@ -761,15 +831,15 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             <span className="text-3xl font-extrabold font-mono-data">
               {clinicCredits.toLocaleString()}
             </span>
-            <span className="text-xs text-cyan-200">lượt AI khả dụng</span>
+            <span className="text-xs text-cyan-200">{t('clinic.batchProcessing.availableCredits')}</span>
           </div>
           <div className="text-[11px] text-cyan-100 flex justify-between items-center pt-1 border-t border-white/15">
-            <span>Đồng bộ từ gói cước hoạt động</span>
+            <span>{t('clinic.batchProcessing.syncedActivePackage')}</span>
             <button
               onClick={() => setIsCreditModalOpen(true)}
               className="bg-white text-[#0891B2] hover:bg-cyan-50 px-2.5 py-1 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all"
             >
-              + Mua Thêm Credit
+              {t('clinic.batchProcessing.topUpButton')}
             </button>
           </div>
         </div>
@@ -781,12 +851,12 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         <div className="bg-white border border-rose-200 rounded-2xl p-4 shadow-medical-xs flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-rose-700 block flex items-center gap-1">
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Nguy Cơ Cao (Khẩn)
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> {t('clinic.batchProcessing.highRiskCard')}
             </span>
             <span className="text-2xl font-extrabold font-mono-data text-rose-700 mt-1 block">
               {highRiskCount}
             </span>
-            <span className="text-[11px] text-slate-500">Cần bác sĩ hội chẩn ngay</span>
+            <span className="text-[11px] text-slate-500">{t('clinic.batchProcessing.highRiskAction')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold font-mono-data">
             {currentJob.processedCount > 0
@@ -800,12 +870,12 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         <div className="bg-white border border-amber-200 rounded-2xl p-4 shadow-medical-xs flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-amber-700 block flex items-center gap-1">
-              <Activity className="w-3.5 h-3.5 text-amber-600" /> Nguy Cơ Trung Bình
+              <Activity className="w-3.5 h-3.5 text-amber-600" /> {t('clinic.batchProcessing.moderateRiskCard')}
             </span>
             <span className="text-2xl font-extrabold font-mono-data text-amber-700 mt-1 block">
               {moderateRiskCount}
             </span>
-            <span className="text-[11px] text-slate-500">Khám theo dõi định kỳ</span>
+            <span className="text-[11px] text-slate-500">{t('clinic.batchProcessing.moderateRiskAction')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold font-mono-data">
             {currentJob.processedCount > 0
@@ -819,12 +889,12 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         <div className="bg-white border border-emerald-200 rounded-2xl p-4 shadow-medical-xs flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-emerald-700 block flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Nguy Cơ Thấp / Bình Thường
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {t('clinic.batchProcessing.lowRiskCard')}
             </span>
             <span className="text-2xl font-extrabold font-mono-data text-emerald-700 mt-1 block">
               {lowRiskCount}
             </span>
-            <span className="text-[11px] text-slate-500">Chỉ số vi mạch an toàn</span>
+            <span className="text-[11px] text-slate-500">{t('clinic.batchProcessing.lowRiskAction')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold font-mono-data">
             {currentJob.processedCount > 0
@@ -838,7 +908,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         <div className="bg-white border border-cyan-200 rounded-2xl p-4 shadow-medical-xs flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-[#0891B2] block flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-[#0891B2]" /> Đang Chờ & Phân Tích
+              <Clock className="w-3.5 h-3.5 text-[#0891B2]" /> {t('clinic.batchProcessing.queueProcessingCard')}
             </span>
             <div className="flex items-baseline gap-1 mt-1">
               <span className="text-2xl font-extrabold font-mono-data text-[#0891B2]">
@@ -847,7 +917,9 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
               <span className="text-xs text-slate-400">/{currentJob.totalImages}</span>
             </div>
             <span className="text-[11px] text-slate-500">
-              {processingCount > 0 ? `Đang chạy: ${processingCount} ảnh` : 'Đã hoàn tất toàn bộ'}
+              {processingCount > 0
+                ? `${t('clinic.batchProcessing.runningScans')} ${processingCount} ${t('clinic.batchProcessing.scansLabel')}`
+                : t('clinic.batchProcessing.allCompleted')}
             </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-cyan-50 text-[#0891B2] flex items-center justify-center font-bold font-mono-data">
@@ -871,18 +943,20 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="bg-red-950/80 text-yellow-300 text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border border-yellow-400/40 tracking-wider">
-                    [FR-29] Cảnh Báo Khẩn Cấp
+                    {t('clinic.batchProcessing.emergencyBannerTag')}
                   </span>
                   <span className="bg-white/20 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
-                    {alertSummary.criticalAlertsCount} Ca Nguy Cấp &bull;{' '}
-                    {alertSummary.warningAlertsCount} Ca Nguy Cơ Cao
+                    {alertSummary.criticalAlertsCount} {isVi ? 'Ca Nguy Cấp' : 'Critical'} &bull;{' '}
+                    {alertSummary.warningAlertsCount} {isVi ? 'Ca Nguy Cơ Cao' : 'High Risk'}
                   </span>
                 </div>
                 <h2 className="text-base font-extrabold text-white">
-                  Phát hiện {alertSummary.totalAlerts} ca bệnh có nguy cơ mạch máu nghiêm trọng cần can thiệp!
+                  {isVi
+                    ? `Phát hiện ${alertSummary.totalAlerts} ca bệnh có nguy cơ mạch máu nghiêm trọng cần can thiệp!`
+                    : `Identified ${alertSummary.totalAlerts} cases with severe microvascular risk requiring intervention!`}
                 </h2>
                 <p className="text-xs text-red-100 max-w-3xl leading-relaxed">
-                  Hệ thống AI nhận diện tổn thương vi mạch võng mạc mức độ nặng (Hẹp tiểu động mạch lan tỏa, tỷ số A/V giảm sâu, nguy cơ đột quỵ &ge; 20%). Cần kích hoạt quy trình hội chẩn và chuyển tuyến khẩn cấp.
+                  {t('clinic.batchProcessing.emergencyDesc')}
                 </p>
                 {alertSummary.hasAbnormalTrend && (
                   <div className="mt-2 flex items-center gap-2 bg-yellow-400/20 border border-yellow-300/40 rounded-xl px-3 py-1.5 text-xs text-yellow-200 font-semibold">
@@ -897,7 +971,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
               onClick={() => setShowAlertDetails(!showAlertDetails)}
               className="px-4 py-2.5 bg-white text-red-700 hover:bg-yellow-50 rounded-xl font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md shrink-0"
             >
-              <span>{showAlertDetails ? 'Ẩn Danh Sách' : 'Xem Chi Tiết Cảnh Báo'}</span>
+              <span>{showAlertDetails ? t('clinic.batchProcessing.hideList') : t('clinic.batchProcessing.viewAlertDetails')}</span>
               {showAlertDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           </div>
@@ -906,7 +980,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
           {showAlertDetails && (
             <div className="mt-4 pt-4 border-t border-white/20 space-y-2.5">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-yellow-200">
-                Danh Sách Ca Bệnh Cần Can Thiệp Khẩn Cấp:
+                {t('clinic.batchProcessing.urgentCaseList')}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto pr-1">
                 {alertSummary.alerts.map((al) => (
@@ -930,7 +1004,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                     </div>
                     <p className="text-red-100 text-[11px] leading-relaxed">{al.reason}</p>
                     <div className="bg-white/10 rounded-lg p-2 text-[11px] text-amber-200">
-                      <strong>Chỉ định:</strong> {al.recommendedAction}
+                      <strong>{t('clinic.batchProcessing.actionLabel')}</strong> {al.recommendedAction}
                     </div>
                   </div>
                 ))}
@@ -946,19 +1020,19 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="bg-[#CCFBF1] text-[#0F766E] text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full">
-                [FR-25] Giám Sát Rủi Ro Tổng Hợp
+                {t('clinic.batchProcessing.aggregatedSurveillanceTitle')}
               </span>
               <h2 className="text-base font-extrabold text-[#134E4A]">
-                Phân Bố Nguy Cơ Mạch Máu Toàn Bộ Chiến Dịch (TC-CLI-04)
+                {t('clinic.batchProcessing.riskDistributionTitle')}
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Biểu đồ phân bổ tỷ lệ nguy cơ và các chỉ số vi mạch tổng hợp của tập bệnh nhân sàng lọc.
+              {t('clinic.batchProcessing.riskDistributionDesc')}
             </p>
           </div>
 
           <span className="text-xs font-mono-data text-slate-400">
-            Tổng đánh giá: <strong>{totalEvaluated}</strong> hồ sơ
+            {t('clinic.batchProcessing.totalEvaluatedRecords')} <strong>{totalEvaluated}</strong> {isVi ? 'hồ sơ' : 'records'}
           </span>
         </div>
 
@@ -966,7 +1040,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1">
             <span className="text-[11px] text-slate-500 font-semibold flex items-center gap-1">
-              <Activity className="w-3.5 h-3.5 text-[#0891B2]" /> Điểm Mạch Máu TB
+              <Activity className="w-3.5 h-3.5 text-[#0891B2]" /> {t('clinic.batchProcessing.meanVascularScore')}
             </span>
             <div className="text-2xl font-extrabold text-[#134E4A] font-mono-data">
               {statistics ? `${statistics.averageVascularRiskScore}/100` : '--'}
@@ -976,7 +1050,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
 
           <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 space-y-1">
             <span className="text-[11px] text-rose-700 font-semibold flex items-center gap-1">
-              <ShieldAlert className="w-3.5 h-3.5 text-rose-600" /> Tỷ Lệ Nguy Cơ Cao
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-600" /> {t('clinic.batchProcessing.highRiskRate')}
             </span>
             <div className="text-2xl font-extrabold text-rose-800 font-mono-data">
               {statistics
@@ -984,28 +1058,28 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 : '--'}
             </div>
             <span className="text-[10px] text-rose-500 block">
-              {dist.highCount + dist.criticalCount} ca High / Severe
+              {dist.highCount + dist.criticalCount} {t('clinic.batchProcessing.highSevereCases')}
             </span>
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 space-y-1">
             <span className="text-[11px] text-amber-800 font-semibold flex items-center gap-1">
-              <HeartPulse className="w-3.5 h-3.5 text-amber-600" /> Nguy Cơ Đột Quỵ 3 Năm
+              <HeartPulse className="w-3.5 h-3.5 text-amber-600" /> {t('clinic.batchProcessing.threeYearStrokeRisk')}
             </span>
             <div className="text-2xl font-extrabold text-amber-900 font-mono-data">
               {statistics ? `${statistics.averageStrokeRiskPercent}%` : '--'}
             </div>
-            <span className="text-[10px] text-amber-600 block">Dự báo đột quỵ trung bình</span>
+            <span className="text-[10px] text-amber-600 block">{t('clinic.batchProcessing.meanStrokeForecast')}</span>
           </div>
 
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 space-y-1">
             <span className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Tỷ Lệ Nguy Cơ Thấp
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {t('clinic.batchProcessing.lowRiskRate')}
             </span>
             <div className="text-2xl font-extrabold text-emerald-800 font-mono-data">
               {dist.lowPercentage}%
             </div>
-            <span className="text-[10px] text-emerald-600 block">{dist.lowCount} ca an toàn</span>
+            <span className="text-[10px] text-emerald-600 block">{dist.lowCount} {t('clinic.batchProcessing.safeCases')}</span>
           </div>
         </div>
 
@@ -1080,7 +1154,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
           {/* Interactive Legend & Details */}
           <div className="md:col-span-7 space-y-3">
             <h4 className="text-xs font-bold text-[#134E4A] uppercase tracking-wider">
-              Chi Tiết Phân Bổ Mức Nguy Cơ
+              {t('clinic.batchProcessing.riskBreakdownTitle')}
             </h4>
 
             <div
@@ -1093,12 +1167,12 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-3.5 h-3.5 rounded-full bg-[#10B981] shadow-xs"></span>
-                <span className="text-xs font-bold text-slate-800">Nguy Cơ Thấp (Low)</span>
-                <span className="text-[10px] text-slate-400">&lt; 40 điểm</span>
+                <span className="text-xs font-bold text-slate-800">{t('clinic.batchProcessing.lowRiskBand')}</span>
+                <span className="text-[10px] text-slate-400">&lt; 40</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono-data font-bold text-slate-700">
-                  {dist.lowCount} ca
+                  {dist.lowCount} {t('clinic.batchProcessing.casesCount')}
                 </span>
                 <span className="text-xs font-mono-data font-extrabold text-[#10B981] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                   {dist.lowPercentage}%
@@ -1116,12 +1190,12 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-3.5 h-3.5 rounded-full bg-[#F59E0B] shadow-xs"></span>
-                <span className="text-xs font-bold text-slate-800">Nguy Cơ Trung Bình (Moderate)</span>
-                <span className="text-[10px] text-slate-400">40 - 69 điểm</span>
+                <span className="text-xs font-bold text-slate-800">{t('clinic.batchProcessing.moderateRiskBand')}</span>
+                <span className="text-[10px] text-slate-400">40 - 69</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono-data font-bold text-slate-700">
-                  {dist.moderateCount} ca
+                  {dist.moderateCount} {t('clinic.batchProcessing.casesCount')}
                 </span>
                 <span className="text-xs font-mono-data font-extrabold text-[#F59E0B] bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                   {dist.moderatePercentage}%
@@ -1139,12 +1213,12 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-3.5 h-3.5 rounded-full bg-[#F97316] shadow-xs"></span>
-                <span className="text-xs font-bold text-slate-800">Nguy Cơ Cao (High)</span>
-                <span className="text-[10px] text-slate-400">70 - 84 điểm</span>
+                <span className="text-xs font-bold text-slate-800">{t('clinic.batchProcessing.highRiskBand')}</span>
+                <span className="text-[10px] text-slate-400">70 - 84</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono-data font-bold text-slate-700">
-                  {dist.highCount} ca
+                  {dist.highCount} {t('clinic.batchProcessing.casesCount')}
                 </span>
                 <span className="text-xs font-mono-data font-extrabold text-[#F97316] bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200">
                   {dist.highPercentage}%
@@ -1162,12 +1236,12 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-3.5 h-3.5 rounded-full bg-[#EF4444] shadow-xs"></span>
-                <span className="text-xs font-bold text-slate-800">Nguy Cơ Cực Kỳ Nghiêm Trọng</span>
-                <span className="text-[10px] text-slate-400">&ge; 85 điểm</span>
+                <span className="text-xs font-bold text-slate-800">{t('clinic.batchProcessing.criticalRiskBand')}</span>
+                <span className="text-[10px] text-slate-400">&ge; 85</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono-data font-bold text-slate-700">
-                  {dist.criticalCount} ca
+                  {dist.criticalCount} {t('clinic.batchProcessing.casesCount')}
                 </span>
                 <span className="text-xs font-mono-data font-extrabold text-[#EF4444] bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
                   {dist.criticalPercentage}%
@@ -1189,7 +1263,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Tìm theo MRN, tên, hoặc file ảnh..."
+                placeholder={t('clinic.batchProcessing.searchPlaceholder')}
                 className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#0891B2]"
               />
             </div>
@@ -1197,7 +1271,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             <ClinicalSelect<string>
               value={statusFilter}
               onChange={setStatusFilter}
-              options={BATCH_STATUS_OPTIONS}
+              options={batchStatusOptions}
               size="sm"
               className="w-40 shrink-0"
             />
@@ -1205,7 +1279,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             <ClinicalSelect<string>
               value={riskFilter}
               onChange={setRiskFilter}
-              options={BATCH_RISK_OPTIONS}
+              options={batchRiskOptions}
               size="sm"
               className="w-48 shrink-0"
             />
@@ -1213,7 +1287,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             <ClinicalSelect<string>
               value={eyeFilter}
               onChange={setEyeFilter}
-              options={BATCH_EYE_OPTIONS}
+              options={batchEyeOptions}
               size="sm"
               className="w-36 shrink-0"
             />
@@ -1221,7 +1295,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             <ClinicalSelect<string>
               value={sortBy}
               onChange={(val) => setSortBy(val as any)}
-              options={BATCH_SORT_OPTIONS}
+              options={batchSortOptions}
               size="sm"
               className="w-44 shrink-0"
             />
@@ -1233,10 +1307,10 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-1 ring-emerald-400'
                   : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
               }`}
-              title="Chuyển đổi hiển thị tên bệnh nhân thành mã định danh giả lập HIPAA SHA-256"
+              title={t('clinic.batchProcessing.deidentifiedTooltip')}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{isAnonymizedView ? 'Chế độ Ẩn Danh (HIPAA)' : 'Chế độ Đầy Đủ'}</span>
+              <span>{isAnonymizedView ? t('clinic.batchProcessing.deidentifiedModeOn') : t('clinic.batchProcessing.deidentifiedModeOff')}</span>
             </button>
           </div>
 
@@ -1245,19 +1319,19 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             <button
               onClick={handlePrintReport}
               className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-slate-200"
-              title="In phiếu tổng quan chiến dịch"
+              title={t('clinic.batchProcessing.printReportButton')}
             >
               <Printer className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">In Báo Cáo</span>
+              <span className="hidden sm:inline">{t('clinic.batchProcessing.printReportButton')}</span>
             </button>
 
             <button
               onClick={handleExportCSV}
               className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-slate-200"
-              title="Tải toàn bộ dữ liệu sàng lọc định dạng CSV Excel (UTF-8)"
+              title={t('clinic.batchProcessing.exportCsvButton')}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-[#16A34A]" />
-              <span className="hidden sm:inline">Xuất CSV</span>
+              <span className="hidden sm:inline">{t('clinic.batchProcessing.exportCsvButton')}</span>
             </button>
 
             <button
@@ -1265,7 +1339,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
               className="px-4 py-2 bg-gradient-to-r from-[#0891B2] to-[#134E4A] hover:from-[#0E7490] hover:to-[#0F766E] text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1.5"
             >
               <UploadCloud className="w-4 h-4" />
-              <span>Tải Lên Thư Mục (≥100 ảnh)</span>
+              <span>{t('clinic.batchProcessing.uploadFolderButton')}</span>
             </button>
           </div>
         </div>
@@ -1277,14 +1351,14 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-[#F0FDFA] border-b border-[#CCFBF1] text-[#134E4A] font-extrabold uppercase text-[10px] tracking-wider">
-                <th className="py-3 px-3 text-center w-12">#</th>
-                <th className="py-3 px-3 w-16">Ảnh Fundus</th>
-                <th className="py-3 px-4">Bệnh Nhân & Mã MRN</th>
-                <th className="py-3 px-3">Mắt</th>
-                <th className="py-3 px-3">Trạng Thái</th>
-                <th className="py-3 px-4">Đánh Giá Nguy Cơ</th>
-                <th className="py-3 px-4">Thông Số Lâm Sàng & AI</th>
-                <th className="py-3 px-4 text-right">Chi Tiết CDS</th>
+                <th className="py-3 px-3 text-center w-12">{t('clinic.batchProcessing.colNum')}</th>
+                <th className="py-3 px-3 w-16">{t('clinic.batchProcessing.colThumbnail')}</th>
+                <th className="py-3 px-4">{t('clinic.batchProcessing.colPatientMrn')}</th>
+                <th className="py-3 px-3">{t('clinic.batchProcessing.colEye')}</th>
+                <th className="py-3 px-3">{t('clinic.batchProcessing.colStatus')}</th>
+                <th className="py-3 px-4">{t('clinic.batchProcessing.colRiskAssessment')}</th>
+                <th className="py-3 px-4">{t('clinic.batchProcessing.colClinicalVitals')}</th>
+                <th className="py-3 px-4 text-right">{t('clinic.batchProcessing.colActions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1292,7 +1366,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Eye className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                    Không tìm thấy bản ghi sàng lọc nào khớp với bộ lọc hiện tại.
+                    {t('clinic.batchProcessing.emptyRecords')}
                   </td>
                 </tr>
               ) : (
@@ -1332,8 +1406,8 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                           {isAnonymizedView ? item.pseudonymId || `ANO-${item.id}` : item.patientName}
                         </div>
                         <div className="text-[11px] text-slate-400 font-mono-data">
-                          MRN: {item.mrn} &bull; {item.patientAge ? `${item.patientAge}t` : ''}{' '}
-                          {item.patientGender ? `(${item.patientGender})` : ''}
+                          MRN: {item.mrn} &bull; {item.patientAge ? `${item.patientAge}${isVi ? 't' : 'yo'}` : ''}{' '}
+                          {item.patientGender ? `(${isVi ? (item.patientGender === 'Male' || item.patientGender === 'Nam' ? 'Nam' : 'Nữ') : item.patientGender})` : ''}
                         </div>
                       </td>
 
@@ -1354,22 +1428,22 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                       <td className="py-3 px-3">
                         {item.status === 'DONE' && (
                           <span className="inline-flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 text-[11px]">
-                            <CheckCircle2 className="w-3 h-3" /> Hoàn tất
+                            <CheckCircle2 className="w-3 h-3" /> {t('clinic.batchProcessing.badgeCompleted')}
                           </span>
                         )}
                         {item.status === 'PROCESSING' && (
                           <span className="inline-flex items-center gap-1 text-[#0891B2] font-medium bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200 text-[11px] animate-pulse">
-                            <Loader2 className="w-3 h-3 animate-spin" /> Đang chạy
+                            <Loader2 className="w-3 h-3 animate-spin" /> {t('clinic.batchProcessing.badgeProcessing')}
                           </span>
                         )}
                         {item.status === 'PENDING' && (
                           <span className="inline-flex items-center gap-1 text-slate-600 font-medium bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200 text-[11px]">
-                            <Clock className="w-3 h-3 text-slate-400" /> Chờ hàng đợi
+                            <Clock className="w-3 h-3 text-slate-400" /> {t('clinic.batchProcessing.badgePending')}
                           </span>
                         )}
                         {(item.status === 'ERROR' || item.status === 'FAILED') && (
                           <span className="inline-flex items-center gap-1 text-rose-600 font-medium bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 text-[11px]">
-                            <AlertTriangle className="w-3 h-3" /> Lỗi đọc ảnh
+                            <AlertTriangle className="w-3 h-3" /> {t('clinic.batchProcessing.badgeError')}
                           </span>
                         )}
                       </td>
@@ -1386,12 +1460,20 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                                 : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             }`}
                           >
-                            {item.riskLevel ||
-                              (item.riskScore >= 75
-                                ? 'High'
-                                : item.riskScore >= 50
-                                ? 'Moderate'
-                                : 'Low')}{' '}
+                            {isVi
+                              ? (item.riskScore >= 75 || item.riskLevel === 'High'
+                                  ? 'Nguy cơ cao'
+                                  : item.riskScore >= 50 || item.riskLevel === 'Moderate'
+                                  ? 'Nguy cơ trung bình'
+                                  : item.riskLevel === 'Severe' || item.riskLevel === 'Critical'
+                                  ? 'Nguy kịch'
+                                  : 'Nguy cơ thấp')
+                              : (item.riskLevel ||
+                                  (item.riskScore >= 75
+                                    ? 'High'
+                                    : item.riskScore >= 50
+                                    ? 'Moderate'
+                                    : 'Low'))}{' '}
                             ({item.riskScore}%)
                           </span>
                         ) : (
@@ -1408,7 +1490,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                           </span>
                         ) : (
                           <span>
-                            HA: {item.systolicBp && item.diastolicBp ? `${item.systolicBp}/${item.diastolicBp}` : '—'} &bull; HbA1c:{' '}
+                            {isVi ? 'HA:' : 'BP:'} {item.systolicBp && item.diastolicBp ? `${item.systolicBp}/${item.diastolicBp}` : '—'} &bull; HbA1c:{' '}
                             {item.hbA1c ? `${item.hbA1c}%` : '—'}
                           </span>
                         )}
@@ -1424,7 +1506,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                           }}
                           className="text-[#0891B2] hover:text-[#0E7490] font-bold text-xs bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 rounded-lg border border-cyan-200 transition-colors"
                         >
-                          Xem CDS &rarr;
+                          {t('clinic.batchProcessing.viewCdsButton')}
                         </button>
                       </td>
                     </tr>
@@ -1438,19 +1520,19 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         {/* Pagination Toolbar */}
         <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
           <div className="flex items-center gap-2">
-            <span className="font-medium">Hiển thị:</span>
+            <span className="font-medium">{t('clinic.batchProcessing.showingPagination')}</span>
             <ClinicalSelect<number>
               value={pageSize}
               onChange={(val) => {
                 setPageSize(Number(val));
                 setCurrentPage(1);
               }}
-              options={PAGE_SIZE_OPTIONS}
+              options={pageSizeOptions}
               size="sm"
               className="w-44"
             />
             <span className="text-slate-400 font-mono-data ml-2">
-              (Hiển thị{' '}
+              ({t('clinic.batchProcessing.showingPagination')}{' '}
               {filteredItems.length === 0
                 ? 0
                 : (effectivePage - 1) * (pageSize === -1 ? filteredItems.length : pageSize) + 1}{' '}
@@ -1459,7 +1541,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 effectivePage * (pageSize === -1 ? filteredItems.length : pageSize),
                 filteredItems.length
               )}{' '}
-              trong tổng số <strong>{filteredItems.length}</strong> ảnh)
+              {isVi ? 'trong tổng số' : 'of'} <strong>{filteredItems.length}</strong> {t('clinic.batchProcessing.scansLabel')})
             </span>
           </div>
 
@@ -1470,7 +1552,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 disabled={effectivePage <= 1}
                 onClick={() => setCurrentPage(1)}
                 className="p-1.5 rounded-lg border border-slate-300 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                title="Về trang đầu"
+                title={t('clinic.batchProcessing.firstPageTitle')}
               >
                 <ChevronsLeft className="w-3.5 h-3.5 text-slate-600" />
               </button>
@@ -1479,13 +1561,13 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 disabled={effectivePage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 className="p-1.5 rounded-lg border border-slate-300 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                title="Trang trước"
+                title={t('clinic.batchProcessing.prevPageTitle')}
               >
                 <ChevronLeft className="w-3.5 h-3.5 text-slate-600" />
               </button>
 
               <div className="px-3 py-1 bg-white border border-slate-300 rounded-lg font-bold text-[#134E4A]">
-                Trang {effectivePage} / {totalPages}
+                {t('clinic.batchProcessing.pageOf')} {effectivePage} / {totalPages}
               </div>
 
               <button
@@ -1493,7 +1575,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 disabled={effectivePage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 className="p-1.5 rounded-lg border border-slate-300 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                title="Trang sau"
+                title={t('clinic.batchProcessing.nextPageTitle')}
               >
                 <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
               </button>
@@ -1502,7 +1584,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 disabled={effectivePage >= totalPages}
                 onClick={() => setCurrentPage(totalPages)}
                 className="p-1.5 rounded-lg border border-slate-300 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                title="Đến trang cuối"
+                title={t('clinic.batchProcessing.lastPageTitle')}
               >
                 <ChevronsRight className="w-3.5 h-3.5 text-slate-600" />
               </button>

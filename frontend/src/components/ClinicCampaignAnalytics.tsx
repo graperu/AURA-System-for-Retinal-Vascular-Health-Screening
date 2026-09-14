@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Download, Building2, Layers, AlertTriangle } from 'lucide-react';
 import { clinicAnalyticsApi } from '../services/api';
 import { PageHeader, Card, LoadingState, EmptyState, ErrorState, Button, MedicalDisclaimer } from './ui';
+import { useLanguage } from '../context/LanguageContext';
 
 export const ClinicCampaignAnalytics: React.FC = () => {
+  const { t, isVi } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
@@ -20,10 +22,10 @@ export const ClinicCampaignAnalytics: React.FC = () => {
       if (res.success) {
         setData(res.data);
       } else {
-        setError(res.message || 'Lỗi tải dữ liệu báo cáo chiến dịch');
+        setError(res.message || t('clinic.campaignAnalytics.errorTitle'));
       }
     } catch (err: any) {
-      setError(err?.message || 'Không thể kết nối đến máy chủ báo cáo chiến dịch.');
+      setError(err?.message || t('clinic.campaignAnalytics.errorMessage'));
     } finally {
       setLoading(false);
     }
@@ -33,18 +35,18 @@ export const ClinicCampaignAnalytics: React.FC = () => {
     try {
       await clinicAnalyticsApi.exportData();
     } catch (err: any) {
-      alert(err.message || 'Không thể xuất dữ liệu');
+      alert(err.message || (isVi ? 'Không thể xuất dữ liệu' : 'Unable to export data'));
     }
   };
 
   if (loading) {
-    return <LoadingState message="Đang tải dữ liệu báo cáo chiến dịch lâm sàng..." />;
+    return <LoadingState message={t('clinic.campaignAnalytics.loadingMessage')} />;
   }
 
   if (error) {
     return (
       <ErrorState
-        title="Lỗi tải dữ liệu chiến dịch"
+        title={t('clinic.campaignAnalytics.errorTitle')}
         message={error}
         onRetry={fetchData}
       />
@@ -55,14 +57,14 @@ export const ClinicCampaignAnalytics: React.FC = () => {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Báo cáo Chiến dịch Lâm sàng"
-          subtitle="Dữ liệu tổng hợp toàn phòng khám và các đợt sàng lọc vi mạch."
+          title={t('clinic.campaignAnalytics.campaignTitle')}
+          subtitle={t('clinic.campaignAnalytics.pageSubtitle')}
         />
         <EmptyState
           icon={<Building2 className="w-10 h-10 text-slate-400" />}
-          title="Chưa có dữ liệu chiến dịch"
-          description="Phòng khám chưa triển khai chiến dịch sàng lọc nào hoặc chưa có dữ liệu tổng hợp."
-          actionLabel="Tải lại dữ liệu"
+          title={t('clinic.campaignAnalytics.emptyTitle')}
+          description={t('clinic.campaignAnalytics.emptyDescription')}
+          actionLabel={t('clinic.campaignAnalytics.reloadButton')}
           onAction={fetchData}
         />
       </div>
@@ -72,8 +74,8 @@ export const ClinicCampaignAnalytics: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Báo cáo Chiến dịch Lâm sàng"
-        subtitle="Dữ liệu tổng hợp toàn cơ sở y tế / phòng khám và các đợt sàng lọc vi mạch."
+        title={t('clinic.campaignAnalytics.campaignTitle')}
+        subtitle={t('clinic.campaignAnalytics.pageSubtitle')}
         actions={
           <Button
             variant="primary"
@@ -81,7 +83,7 @@ export const ClinicCampaignAnalytics: React.FC = () => {
             onClick={handleExport}
             icon={<Download className="w-4 h-4" />}
           >
-            Xuất dữ liệu (CSV)
+            {t('clinic.campaignAnalytics.exportCsvButton')}
           </Button>
         }
       />
@@ -90,7 +92,7 @@ export const ClinicCampaignAnalytics: React.FC = () => {
         <Card padding="lg" className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-clinical-text-secondary uppercase tracking-wider">
-              Tổng số chiến dịch
+              {t('clinic.campaignAnalytics.totalCampaignsCard')}
             </span>
             <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
               <Building2 className="w-4 h-4" />
@@ -100,14 +102,14 @@ export const ClinicCampaignAnalytics: React.FC = () => {
             {data?.totalCampaigns || 0}
           </div>
           <p className="text-xs text-clinical-text-muted">
-            Chiến dịch sàng lọc cộng đồng đã khởi tạo
+            {t('clinic.campaignAnalytics.totalCampaignsSub')}
           </p>
         </Card>
 
         <Card padding="lg" className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-clinical-text-secondary uppercase tracking-wider">
-              Tổng số ảnh đã quét
+              {t('clinic.campaignAnalytics.totalImagesCard')}
             </span>
             <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
               <Layers className="w-4 h-4" />
@@ -117,14 +119,14 @@ export const ClinicCampaignAnalytics: React.FC = () => {
             {data?.totalImages || 0}
           </div>
           <p className="text-xs text-clinical-text-muted">
-            Ảnh chụp đáy mắt đã phân tích qua AI
+            {t('clinic.campaignAnalytics.totalImagesSub')}
           </p>
         </Card>
 
         <Card padding="lg" className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">
-              Bệnh nhân nguy cơ cao
+              {t('clinic.campaignAnalytics.highRiskCard')}
             </span>
             <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
               <AlertTriangle className="w-4 h-4" />
@@ -134,7 +136,7 @@ export const ClinicCampaignAnalytics: React.FC = () => {
             {data?.highRiskPatients || 0}
           </div>
           <p className="text-xs text-clinical-text-muted">
-            Ca bệnh cần theo dõi hoặc chuyển tuyến chuyên khoa
+            {t('clinic.campaignAnalytics.highRiskSub')}
           </p>
         </Card>
       </div>

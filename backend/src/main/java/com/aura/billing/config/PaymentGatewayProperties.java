@@ -1,21 +1,36 @@
 package com.aura.billing.config;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
 /**
- * FR-11, FR-28: Cấu hình Merchant ID và Secret Key cho các cổng thanh toán (VNPay / MoMo).
+ * FR-11, FR-28: Cấu hình Merchant ID và Secret Key cho các cổng thanh toán (VNPay / MoMo / VietQR).
  */
 @ConfigurationProperties(prefix = "payment")
 public record PaymentGatewayProperties(
     VnPayProperties vnpay,
     MomoProperties momo,
+    VietQrProperties vietqr,
+    String webhookSecret,
     boolean sandboxMode) {
 
   public PaymentGatewayProperties() {
-    this(new VnPayProperties(), new MomoProperties(), true);
+    this(new VnPayProperties(), new MomoProperties(), new VietQrProperties(), "AURA_BILLING_WEBHOOK_SECRET_2026", true);
   }
 
   public PaymentGatewayProperties(VnPayProperties vnpay, MomoProperties momo, boolean sandboxMode) {
+    this(vnpay, momo, new VietQrProperties(), "AURA_BILLING_WEBHOOK_SECRET_2026", sandboxMode);
+  }
+
+  public PaymentGatewayProperties(
+      VnPayProperties vnpay,
+      MomoProperties momo,
+      VietQrProperties vietqr,
+      String webhookSecret,
+      boolean sandboxMode) {
     this.vnpay = vnpay != null ? vnpay : new VnPayProperties();
     this.momo = momo != null ? momo : new MomoProperties();
+    this.vietqr = vietqr != null ? vietqr : new VietQrProperties();
+    this.webhookSecret = webhookSecret;
     this.sandboxMode = sandboxMode;
   }
 
@@ -31,8 +46,43 @@ public record PaymentGatewayProperties(
     return momo;
   }
 
+  public VietQrProperties getVietqr() {
+    return vietqr;
+  }
+
+  public String getWebhookSecret() {
+    return webhookSecret;
+  }
+
   public boolean getSandboxMode() {
     return sandboxMode;
+  }
+
+  public record VietQrProperties(
+      String bankId,
+      String accountNo,
+      String accountName,
+      String template) {
+
+    public VietQrProperties() {
+      this("MB", "0901234567", "CONG TY CO PHAN CONG NGHE AURA", "compact2");
+    }
+
+    public String getBankId() {
+      return bankId != null ? bankId : "MB";
+    }
+
+    public String getAccountNo() {
+      return accountNo != null ? accountNo : "0901234567";
+    }
+
+    public String getAccountName() {
+      return accountName != null ? accountName : "CONG TY CO PHAN CONG NGHE AURA";
+    }
+
+    public String getTemplate() {
+      return template != null ? template : "compact2";
+    }
   }
 
   public record VnPayProperties(

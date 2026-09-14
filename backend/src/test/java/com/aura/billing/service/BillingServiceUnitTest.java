@@ -123,7 +123,7 @@ class BillingServiceUnitTest {
   class PurchaseOrRenewTests {
 
     @Test
-    @DisplayName("Successfully purchases INDIVIDUAL package with default payment gateway (VNPAY)")
+    @DisplayName("Successfully initiates INDIVIDUAL package checkout with default payment gateway (VNPAY) in PENDING status, then succeeds upon IPN")
     void purchase_DefaultGateway_IndividualUser_Success() {
       when(userRepository.findById(individualUserId)).thenReturn(Optional.of(individualUser));
       when(servicePackageService.findOrThrow(1L)).thenReturn(individualPackage);
@@ -146,22 +146,38 @@ class BillingServiceUnitTest {
       when(paymentGateway.charge(individualUser.getEmail(), individualPackage.getPrice(), "VNPAY"))
           .thenReturn(gatewayResult);
 
-      when(subscriptionRepository.findByOwnerIdAndServicePackageId(individualUserId, 1L))
-          .thenReturn(Optional.empty());
-
-      when(subscriptionRepository.save(any(Subscription.class)))
-          .thenAnswer(inv -> inv.getArgument(0));
-
       PaymentTransactionResponse response = billingService.purchaseOrRenew(individualUserId, 1L);
 
       assertThat(response).isNotNull();
       assertThat(response.id()).isEqualTo(101L);
       assertThat(response.amount()).isEqualByComparingTo(BigDecimal.valueOf(100_000));
-      assertThat(response.status()).isEqualTo(PaymentStatus.SUCCEEDED);
+      assertThat(response.status()).isEqualTo(PaymentStatus.PENDING);
       assertThat(response.provider()).isEqualTo("VNPAY");
       assertThat(response.paymentUrl()).isEqualTo("https://sandbox.vnpayment.vn/pay");
+      assertThat(response.transferContent()).isNotNull();
+      assertThat(response.qrCodeUrl()).isNotNull();
 
-      verify(paymentTransactionRepository, times(2)).save(any(PaymentTransaction.class));
+      // Chưa có IPN: Tuyệt đối không cộng credits hoặc gửi thông báo
+      verify(subscriptionRepository, never()).save(any(Subscription.class));
+      verify(userNotificationService, never()).sendNotificationToUser(any(), any(), any(), any(), any(), any());
+
+      // Khi có IPN gửi về xác nhận thành công
+      PaymentTransaction pendingTxn = PaymentTransaction.builder()
+          .id(101L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.PENDING)
+          .provider("VNPAY")
+          .providerReference("VNPAY-REF-001")
+          .build();
+      when(paymentTransactionRepository.findByProviderReference("VNPAY-REF-001"))
+          .thenReturn(Optional.of(pendingTxn));
+      when(subscriptionRepository.findByOwnerIdAndServicePackageId(individualUserId, 1L))
+          .thenReturn(Optional.empty());
+
+      PaymentTransaction confirmed = billingService.processPaymentSuccess("VNPAY-REF-001", "VNP-TXN-001", BigDecimal.valueOf(100_000));
+      assertThat(confirmed.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
       verify(subscriptionRepository).save(any(Subscription.class));
       verify(userNotificationService).sendNotificationToUser(
           eq(individualUserId),
@@ -173,7 +189,7 @@ class BillingServiceUnitTest {
     }
 
     @Test
-    @DisplayName("Successfully purchases CLINIC package with custom payment method MOMO and renews existing subscription")
+    @DisplayName("Successfully purchases CLINIC package with custom payment method MOMO and renews existing subscription upon IPN")
     void purchase_CustomGateway_RenewExistingSubscription_Success() {
       when(userRepository.findById(clinicUserId)).thenReturn(Optional.of(clinicUser));
       when(servicePackageService.findOrThrow(2L)).thenReturn(clinicPackage);
@@ -196,6 +212,14 @@ class BillingServiceUnitTest {
       when(paymentGateway.charge(clinicUser.getEmail(), clinicPackage.getPrice(), "MOMO"))
           .thenReturn(gatewayResult);
 
+      PaymentTransactionResponse response =
+          billingService.purchaseOrRenew(clinicUserId, 2L, "MOMO");
+
+      assertThat(response).isNotNull();
+      assertThat(response.status()).isEqualTo(PaymentStatus.PENDING);
+      assertThat(response.provider()).isEqualTo("MOMO");
+      verify(subscriptionRepository, never()).save(any(Subscription.class));
+
       LocalDateTime existingExpiry = LocalDateTime.now().plusDays(20);
       Subscription existingSub =
           Subscription.builder()
@@ -207,17 +231,25 @@ class BillingServiceUnitTest {
               .status(SubscriptionStatus.ACTIVE)
               .build();
 
+      PaymentTransaction pendingTxn = PaymentTransaction.builder()
+          .id(202L)
+          .buyer(clinicUser)
+          .servicePackage(clinicPackage)
+          .amount(clinicPackage.getPrice())
+          .status(PaymentStatus.PENDING)
+          .provider("MOMO")
+          .providerReference("MOMO-REF-999")
+          .build();
+
+      when(paymentTransactionRepository.findByProviderReference("MOMO-REF-999"))
+          .thenReturn(Optional.of(pendingTxn));
       when(subscriptionRepository.findByOwnerIdAndServicePackageId(clinicUserId, 2L))
           .thenReturn(Optional.of(existingSub));
       when(subscriptionRepository.save(any(Subscription.class)))
           .thenAnswer(inv -> inv.getArgument(0));
 
-      PaymentTransactionResponse response =
-          billingService.purchaseOrRenew(clinicUserId, 2L, "MOMO");
-
-      assertThat(response).isNotNull();
-      assertThat(response.status()).isEqualTo(PaymentStatus.SUCCEEDED);
-      assertThat(response.provider()).isEqualTo("MOMO");
+      PaymentTransaction confirmed = billingService.processPaymentSuccess("MOMO-REF-999", "MOMO-TXN-999", clinicPackage.getPrice());
+      assertThat(confirmed.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
       assertThat(existingSub.getRemainingCredits()).isEqualTo(550);
       assertThat(existingSub.getExpiresAt()).isAfter(existingExpiry);
       assertThat(existingSub.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
@@ -226,7 +258,7 @@ class BillingServiceUnitTest {
     }
 
     @Test
-    @DisplayName("Renewing expired subscription calculates new expiration from current time")
+    @DisplayName("Renewing expired subscription calculates new expiration from current time upon IPN success")
     void purchase_RenewExpiredSubscription_CalculatesFromNow() {
       when(userRepository.findById(individualUserId)).thenReturn(Optional.of(individualUser));
       when(servicePackageService.findOrThrow(1L)).thenReturn(individualPackage);
@@ -242,6 +274,9 @@ class BillingServiceUnitTest {
       when(paymentGateway.charge(individualUser.getEmail(), individualPackage.getPrice(), "VNPAY"))
           .thenReturn(gatewayResult);
 
+      PaymentTransactionResponse response = billingService.purchaseOrRenew(individualUserId, 1L, "VNPAY");
+      assertThat(response.status()).isEqualTo(PaymentStatus.PENDING);
+
       Subscription expiredSub =
           Subscription.builder()
               .id(60L)
@@ -252,12 +287,24 @@ class BillingServiceUnitTest {
               .status(SubscriptionStatus.EXPIRED)
               .build();
 
+      PaymentTransaction pendingTxn = PaymentTransaction.builder()
+          .id(303L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(individualPackage.getPrice())
+          .status(PaymentStatus.PENDING)
+          .provider("VNPAY")
+          .providerReference("REF-RENEW")
+          .build();
+
+      when(paymentTransactionRepository.findByProviderReference("REF-RENEW"))
+          .thenReturn(Optional.of(pendingTxn));
       when(subscriptionRepository.findByOwnerIdAndServicePackageId(individualUserId, 1L))
           .thenReturn(Optional.of(expiredSub));
       when(subscriptionRepository.save(any(Subscription.class)))
           .thenAnswer(inv -> inv.getArgument(0));
 
-      billingService.purchaseOrRenew(individualUserId, 1L, "VNPAY");
+      billingService.processPaymentSuccess("REF-RENEW", "VNP-RENEW", individualPackage.getPrice());
 
       assertThat(expiredSub.getRemainingCredits()).isEqualTo(10);
       assertThat(expiredSub.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
@@ -281,6 +328,22 @@ class BillingServiceUnitTest {
       when(paymentGateway.charge(individualUser.getEmail(), individualPackage.getPrice(), "VNPAY"))
           .thenReturn(gatewayResult);
 
+      PaymentTransactionResponse response = billingService.purchaseOrRenew(individualUserId, 1L);
+      assertThat(response).isNotNull();
+      assertThat(response.status()).isEqualTo(PaymentStatus.PENDING);
+
+      PaymentTransaction pendingTxn = PaymentTransaction.builder()
+          .id(404L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(individualPackage.getPrice())
+          .status(PaymentStatus.PENDING)
+          .provider("VNPAY")
+          .providerReference("REF-NOTIF-FAIL")
+          .build();
+
+      when(paymentTransactionRepository.findByProviderReference("REF-NOTIF-FAIL"))
+          .thenReturn(Optional.of(pendingTxn));
       when(subscriptionRepository.findByOwnerIdAndServicePackageId(individualUserId, 1L))
           .thenReturn(Optional.empty());
 
@@ -288,10 +351,8 @@ class BillingServiceUnitTest {
           .when(userNotificationService)
           .sendNotificationToUser(any(), anyString(), anyString(), anyString(), anyString(), anyString());
 
-      PaymentTransactionResponse response = billingService.purchaseOrRenew(individualUserId, 1L);
-
-      assertThat(response).isNotNull();
-      assertThat(response.status()).isEqualTo(PaymentStatus.SUCCEEDED);
+      PaymentTransaction confirmed = billingService.processPaymentSuccess("REF-NOTIF-FAIL", "VNP-404", individualPackage.getPrice());
+      assertThat(confirmed.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
       verify(subscriptionRepository).save(any(Subscription.class));
     }
 
@@ -593,6 +654,130 @@ class BillingServiceUnitTest {
       sub.setRemainingCredits(beforeCredits - 1);
 
       assertThat(sub.getRemainingCredits()).isEqualTo(9);
+    }
+  }
+
+  @Nested
+  @DisplayName("IPN Webhook & Payment Status Polling Tests")
+  class IpnAndStatusTests {
+
+    @Test
+    @DisplayName("Idempotency: Khi IPN gửi lặp lại cho giao dịch đã SUCCEEDED, không cộng credit lần 2")
+    void processPaymentSuccess_Idempotency_DoesNotGrantCreditsTwice() {
+      PaymentTransaction succeededTxn = PaymentTransaction.builder()
+          .id(777L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.SUCCEEDED)
+          .provider("VNPAY")
+          .providerReference("VNPAY_DUP_01")
+          .build();
+
+      when(paymentTransactionRepository.findByProviderReference("VNPAY_DUP_01"))
+          .thenReturn(Optional.of(succeededTxn));
+
+      PaymentTransaction result = billingService.processPaymentSuccess(
+          "VNPAY_DUP_01", "GATEWAY-DUP", BigDecimal.valueOf(100_000));
+
+      assertThat(result).isNotNull();
+      assertThat(result.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+      // verify không gọi save subscription lần 2
+      verify(subscriptionRepository, never()).save(any(Subscription.class));
+    }
+
+    @Test
+    @DisplayName("Fail-Closed: Khi số tiền trong IPN nhỏ hơn giá trị gói, giao dịch bị đánh dấu FAILED")
+    void processPaymentSuccess_Underpayment_MarksFailed() {
+      PaymentTransaction pendingTxn = PaymentTransaction.builder()
+          .id(778L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.PENDING)
+          .provider("VNPAY")
+          .providerReference("VNPAY_UNDERPAY_01")
+          .build();
+
+      when(paymentTransactionRepository.findByProviderReference("VNPAY_UNDERPAY_01"))
+          .thenReturn(Optional.of(pendingTxn));
+      when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
+
+      // Khách trả 50,000 VND trong khi gói 100,000 VND
+      PaymentTransaction result = billingService.processPaymentSuccess(
+          "VNPAY_UNDERPAY_01", "GATEWAY-UNDER", BigDecimal.valueOf(50_000));
+
+      assertThat(result.getStatus()).isEqualTo(PaymentStatus.FAILED);
+      assertThat(result.getFailureReason()).contains("Số tiền thanh toán không hợp lệ");
+      verify(subscriptionRepository, never()).save(any(Subscription.class));
+    }
+
+    @Test
+    @DisplayName("Fail-Closed: Khi số tiền trong IPN là null, giao dịch bị đánh dấu FAILED")
+    void processPaymentSuccess_NullAmount_MarksFailed() {
+      PaymentTransaction pendingTxn = PaymentTransaction.builder()
+          .id(779L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.PENDING)
+          .provider("VNPAY")
+          .providerReference("VNPAY_NULL_AMOUNT_01")
+          .build();
+
+      when(paymentTransactionRepository.findByProviderReference("VNPAY_NULL_AMOUNT_01"))
+          .thenReturn(Optional.of(pendingTxn));
+      when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
+
+      PaymentTransaction result = billingService.processPaymentSuccess(
+          "VNPAY_NULL_AMOUNT_01", "GATEWAY-NULL", null);
+
+      assertThat(result.getStatus()).isEqualTo(PaymentStatus.FAILED);
+      assertThat(result.getFailureReason()).contains("Số tiền thanh toán không hợp lệ: Yêu cầu 100000 nhưng nhận NULL");
+      verify(subscriptionRepository, never()).save(any(Subscription.class));
+    }
+
+    @Test
+    @DisplayName("Chống IDOR: getTransactionStatus ném AccessDeniedException khi buyerId không khớp")
+    void getTransactionStatus_IdorMismatch_ThrowsAccessDeniedException() {
+      UUID strangerId = UUID.randomUUID();
+      PaymentTransaction txn = PaymentTransaction.builder()
+          .id(888L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.PENDING)
+          .build();
+
+      when(paymentTransactionRepository.findById(888L)).thenReturn(Optional.of(txn));
+
+      assertThatThrownBy(() -> billingService.getTransactionStatus(strangerId, 888L))
+          .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("Fail-Closed: getTransactionStatus tự động chuyển PENDING thành EXPIRED nếu quá 15 phút")
+    void getTransactionStatus_ExpiredPending_TransitionsToExpired() {
+      PaymentTransaction expiredTxn = PaymentTransaction.builder()
+          .id(889L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.PENDING)
+          .expiresAt(LocalDateTime.now().minusMinutes(5)) // Đã quá hạn 5 phút
+          .build();
+
+      when(paymentTransactionRepository.findById(889L)).thenReturn(Optional.of(expiredTxn));
+      when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
+
+      var statusResponse = billingService.getTransactionStatus(individualUserId, 889L);
+
+      assertThat(statusResponse).isNotNull();
+      assertThat(statusResponse.status()).isEqualTo(PaymentStatus.EXPIRED);
+      assertThat(statusResponse.failureReason()).contains("hết hạn thanh toán");
     }
   }
 }

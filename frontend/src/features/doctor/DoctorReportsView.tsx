@@ -21,6 +21,8 @@ import { mapScreeningToAIRiskResult } from '../../services/screeningMapper';
 import { PatientProfile, AIRiskResult } from '../../types/cds';
 import { DoctorPatientSummary } from '../../pages/CDSDashboardPage';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
 
 interface DoctorReportsViewProps {
   assignedPatients: DoctorPatientSummary[];
@@ -34,33 +36,13 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
   doctorName,
 }) => {
   const { user } = useAuth();
-  const currentDoctorName = doctorName || user?.name || 'Bác sĩ chuyên khoa';
+  const { t, isVi } = useLanguage();
+  const currentDoctorName = doctorName || user?.name || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist');
   const [screenings, setScreenings] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ANALYZED' | 'REVIEWED'>('ALL');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
-
-  const handleRefreshReports = async () => {
-    await loadScreenings();
-    setActionNotice('Đã làm mới danh sách hồ sơ báo cáo y khoa thành công');
-    setTimeout(() => setActionNotice(null), 3500);
-  };
-
-  // Modal in phiếu kết quả
-  const [selectedReportPatient, setSelectedReportPatient] = useState<PatientProfile | null>(null);
-  const [selectedReportResult, setSelectedReportResult] = useState<AIRiskResult | null>(null);
-  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
-
-  // Modal chi tiết chữ ký số HMAC
-  const [selectedSignature, setSelectedSignature] = useState<{
-    screeningId: string;
-    patientName: string;
-    mrn: string;
-    signature: string;
-    signedAt: string;
-    decision: string;
-  } | null>(null);
 
   const loadScreenings = useCallback(async () => {
     setLoading(true);
@@ -78,6 +60,31 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       setLoading(false);
     }
   }, []);
+
+  const handleRefreshReports = async () => {
+    await loadScreenings();
+    setActionNotice(
+      isVi
+        ? 'Đã làm mới danh sách hồ sơ báo cáo y khoa thành công'
+        : 'Medical reports archive refreshed successfully'
+    );
+    setTimeout(() => setActionNotice(null), 3500);
+  };
+
+  // Modal in phiếu kết quả
+  const [selectedReportPatient, setSelectedReportPatient] = useState<PatientProfile | null>(null);
+  const [selectedReportResult, setSelectedReportResult] = useState<AIRiskResult | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+
+  // Modal chi tiết chữ ký số HMAC
+  const [selectedSignature, setSelectedSignature] = useState<{
+    screeningId: string;
+    patientName: string;
+    mrn: string;
+    signature: string;
+    signedAt: string;
+    decision: string;
+  } | null>(null);
 
   useEffect(() => {
     loadScreenings();
@@ -138,7 +145,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       id: screening.patientId,
       userId: screening.patientId,
       mrn: patientSummary?.mrn || 'N/A',
-      fullName: patientSummary?.fullName || 'Bệnh nhân',
+      fullName: patientSummary?.fullName || (isVi ? 'Bệnh nhân' : 'Patient'),
       age: patientSummary?.age ?? null,
       gender: patientSummary?.gender || null,
       systolicBp: patientSummary?.systolicBp ?? null,
@@ -157,7 +164,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
 
   const columns: Column<any>[] = [
     {
-      header: 'Mã Ca Khám',
+      header: t('doctor.reportsView.columns.code', 'Mã Ca Khám'),
       accessor: (row) => (
         <div className="space-y-1">
           <span className="font-mono-data font-bold text-slate-900 block text-xs">
@@ -168,17 +175,17 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       ),
     },
     {
-      header: 'Ngày Khám',
+      header: t('doctor.reportsView.columns.date', 'Ngày Khám'),
       accessor: (row) => {
         const dateStr = row.createdAt
-          ? new Date(row.createdAt).toLocaleDateString('vi-VN', {
+          ? new Date(row.createdAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US', {
               day: '2-digit',
               month: '2-digit',
               year: 'numeric',
               hour: '2-digit',
               minute: '2-digit',
             })
-          : 'Gần đây';
+          : (isVi ? 'Gần đây' : 'Recent');
         return (
           <div className="flex items-center gap-1.5 text-xs text-slate-600 font-mono-data">
             <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -188,20 +195,20 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       },
     },
     {
-      header: 'Bệnh Nhân',
+      header: t('doctor.reportsView.columns.patient', 'Bệnh Nhân'),
       accessor: (row) => {
         const patient = patientMap.get(row.patientId);
         return (
           <div className="flex items-center gap-2.5 font-sans">
             <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-800 font-bold flex items-center justify-center border border-teal-200/80 shrink-0 text-xs font-sans">
-              {patient?.fullName ? patient.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : 'BN'}
+              {patient?.fullName ? patient.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : (isVi ? 'BN' : 'PT')}
             </div>
             <div>
               <span className="font-semibold text-slate-900 block truncate max-w-[140px]">
-                {patient?.fullName || 'Bệnh nhân'}
+                {patient?.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}
               </span>
               <span className="text-[11px] text-slate-500">
-                <span className="font-mono-data">{patient?.mrn || 'Chưa có MRN'}</span> • {patient?.age ? `${patient.age} tuổi` : ''}
+                <span className="font-mono-data">{patient?.mrn || (isVi ? 'Chưa có MRN' : 'No MRN')}</span> • {patient?.age ? `${patient.age} ${isVi ? 'tuổi' : 'yrs'}` : ''}
               </span>
             </div>
           </div>
@@ -209,15 +216,15 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       },
     },
     {
-      header: 'Mắt Khám',
+      header: t('doctor.reportsView.columns.eye', 'Mắt Khám'),
       accessor: (row) => <EyeBadge position={row.eyePosition} />,
     },
     {
-      header: 'Mức Rủi Ro AI',
+      header: t('doctor.reportsView.columns.aiRisk', 'Mức Rủi Ro AI'),
       accessor: (row) => <RiskBadge level={row.riskLevel || row.aiRiskLevel || 'Low'} size="sm" />,
     },
     {
-      header: 'Trạng Thái Duyệt',
+      header: t('doctor.reportsView.columns.status', 'Trạng Thái Duyệt'),
       accessor: (row) => {
         const isReviewed = row.status === 'REVIEWED' || row.reviewDecision != null || row.digitalSignature != null;
         return (
@@ -229,18 +236,18 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
             }`}
           >
             {isReviewed ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Clock className="w-3.5 h-3.5 text-amber-600" />}
-            {isReviewed ? 'Đã ký duyệt' : 'Chờ thẩm định'}
+            {isReviewed ? t('doctor.reportsView.reviewedTab', 'Đã Ký Duyệt') : t('doctor.reportsView.pendingTab', 'Chờ Thẩm Định')}
           </span>
         );
       },
     },
     {
-      header: 'Chữ Ký Số HMAC',
+      header: t('doctor.reportsView.columns.hmac', 'Chữ Ký Số HMAC'),
       accessor: (row) => {
         const hasSig = Boolean(row.digitalSignature);
         if (!hasSig) {
           return (
-            <span className="text-[11px] text-slate-400 italic font-sans">Chưa ký số</span>
+            <span className="text-[11px] text-slate-400 italic font-sans">{t('doctor.reportsView.unsigned', 'Chưa ký số')}</span>
           );
         }
         const patient = patientMap.get(row.patientId);
@@ -251,15 +258,15 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
             onClick={() =>
               setSelectedSignature({
                 screeningId: row.id,
-                patientName: patient?.fullName || 'Bệnh nhân',
+                patientName: patient?.fullName || (isVi ? 'Bệnh nhân' : 'Patient'),
                 mrn: patient?.mrn || 'N/A',
                 signature: row.digitalSignature,
-                signedAt: row.signedAt || row.reviewedAt || row.updatedAt || 'Hôm nay',
+                signedAt: row.signedAt || row.reviewedAt || row.updatedAt || new Date().toISOString(),
                 decision: row.reviewDecision || 'APPROVED',
               })
             }
             className="inline-flex items-center gap-1.5 text-[11px] text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200/80 transition-colors font-sans font-medium cursor-pointer"
-            title="Nhấp để kiểm tra chứng thư số HMAC-SHA256"
+            title={isVi ? 'Nhấp để kiểm tra chứng thư số HMAC-SHA256' : 'Click to verify HMAC-SHA256 digital certificate'}
           >
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span className="font-mono-data font-semibold">{shortSig}</span>
@@ -268,7 +275,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       },
     },
     {
-      header: 'Thao Tác',
+      header: t('doctor.reportsView.columns.actions', 'Thao Tác'),
       align: 'right',
       accessor: (row) => {
         return (
@@ -277,22 +284,22 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
             <button
               type="button"
               onClick={() => onReviewAndSign(row.patientId, row.id)}
-              title="Mở ảnh đáy mắt trên bàn chẩn đoán CDS để ký duyệt lâm sàng"
+              title={isVi ? 'Mở ảnh đáy mắt trên bàn chẩn đoán CDS để ký duyệt lâm sàng' : 'Open fundus scan in CDS desk for clinical review & sign-off'}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5 text-teal-700" />
-              <span>Thẩm Định / Ký</span>
+              <span>{t('doctor.reportsView.reviewAndSign', 'Thẩm Định / Ký')}</span>
             </button>
 
             {/* Nút In Phiếu Kết Quả / Xuất Báo Cáo */}
             <button
               type="button"
               onClick={() => handleOpenPrintModal(row)}
-              title="Xem và in phiếu kết quả chẩn đoán y khoa"
+              title={isVi ? 'Xem và in phiếu kết quả chẩn đoán y khoa' : 'View and print medical report'}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>In Báo Cáo</span>
+              <span>{t('doctor.reportsView.print', 'In Báo Cáo')}</span>
             </button>
           </div>
         );
@@ -307,10 +314,12 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-[#0891B2]" />
-            <h1 className="text-lg font-bold text-[#134E4A]">Hồ Sơ Báo Cáo Y Khoa & Ký Duyệt Chẩn Đoán</h1>
+            <h1 className="text-lg font-bold text-[#134E4A]">
+              {t('doctor.reportsView.title', 'Hồ Sơ Báo Cáo Y Khoa & Ký Duyệt Chẩn Đoán')}
+            </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            FR-15, FR-16: Quản lý hồ sơ kết luận lâm sàng, xác thực chữ ký số HMAC và xuất phiếu kết quả y tế.
+            {t('doctor.reportsView.subtitle', 'FR-15, FR-16: Quản lý hồ sơ kết luận lâm sàng, xác thực chữ ký số HMAC và xuất phiếu kết quả y tế.')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -321,7 +330,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Làm mới</span>
+            <span>{t('doctor.riskAnalytics.refresh', 'Làm mới')}</span>
           </button>
         </div>
       </div>
@@ -335,7 +344,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
           <button
             type="button"
             onClick={() => setActionNotice(null)}
-            className="text-teal-700 hover:text-teal-950 text-xs font-bold px-2 py-0.5"
+            className="text-teal-700 hover:text-teal-950 text-xs font-bold px-2 py-0.5 cursor-pointer"
           >
             ✕
           </button>
@@ -346,7 +355,9 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-medical-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-slate-500 block">Tổng Số Hồ Sơ Báo Cáo</span>
+            <span className="text-xs font-semibold text-slate-500 block">
+              {t('doctor.reportsView.totalReports', 'Tổng Số Hồ Sơ Báo Cáo')}
+            </span>
             <span className="text-2xl font-extrabold text-slate-900 font-mono-data mt-1 block">
               {stats.total}
             </span>
@@ -358,7 +369,9 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
 
         <div className="bg-white border border-amber-200 rounded-2xl p-4 shadow-medical-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-amber-800 block">Chờ Bác Sĩ Thẩm Định</span>
+            <span className="text-xs font-semibold text-amber-800 block">
+              {t('doctor.reportsView.pendingReview', 'Chờ Bác Sĩ Thẩm Định')}
+            </span>
             <span className="text-2xl font-extrabold text-amber-600 font-mono-data mt-1 block">
               {stats.pending}
             </span>
@@ -370,7 +383,9 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
 
         <div className="bg-white border border-emerald-200 rounded-2xl p-4 shadow-medical-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-emerald-800 block">Đã Ký Duyệt Lâm Sàng</span>
+            <span className="text-xs font-semibold text-emerald-800 block">
+              {t('doctor.reportsView.reviewed', 'Đã Ký Duyệt Lâm Sàng')}
+            </span>
             <span className="text-2xl font-extrabold text-emerald-700 font-mono-data mt-1 block">
               {stats.reviewed}
             </span>
@@ -386,7 +401,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
         {/* Search */}
         <div className="w-full md:w-80 space-y-1.5">
           <label className="block text-xs font-semibold text-slate-700">
-            Tìm kiếm hồ sơ báo cáo
+            {t('doctor.reportsView.searchLabel', 'Tìm kiếm hồ sơ báo cáo')}
           </label>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -394,7 +409,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm theo MRN, tên bệnh nhân, mã ca..."
+              placeholder={t('doctor.reportsView.searchPlaceholder', 'Tìm theo MRN, tên bệnh nhân, mã ca...')}
               className="w-full h-10 pl-10 pr-4 text-xs bg-slate-50/50 border border-slate-200/90 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium"
             />
           </div>
@@ -402,7 +417,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
 
         {/* Status Filter Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full md:w-auto">
-          <label className="text-xs font-semibold text-slate-700 sm:hidden">Lọc trạng thái:</label>
+          <label className="text-xs font-semibold text-slate-700 sm:hidden">{isVi ? 'Lọc trạng thái:' : 'Status Filter:'}</label>
           <div className="flex items-center gap-2 overflow-x-auto">
             <button
               type="button"
@@ -413,7 +428,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
                   : 'bg-slate-100/90 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              Tất cả ({screenings.length})
+              {t('doctor.reportsView.allTab', 'Tất cả')} ({screenings.length})
             </button>
             <button
               type="button"
@@ -425,7 +440,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>Chờ Thẩm Định ({stats.pending})</span>
+              <span>{t('doctor.reportsView.pendingTab', 'Chờ Thẩm Định')} ({stats.pending})</span>
             </button>
             <button
               type="button"
@@ -437,7 +452,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Đã Ký Duyệt ({stats.reviewed})</span>
+              <span>{t('doctor.reportsView.reviewedTab', 'Đã Ký Duyệt')} ({stats.reviewed})</span>
             </button>
           </div>
         </div>
@@ -447,7 +462,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
       <div className="flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2.5">
           <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            Danh sách hồ sơ báo cáo
+            {t('doctor.reportsView.listTitle', 'Danh sách hồ sơ báo cáo')}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200/80">
             ({filteredScreenings.length})
@@ -461,16 +476,11 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
         data={filteredScreenings}
         keyExtractor={(row, idx) => row.id || idx}
         loading={loading}
-        emptyMessage="Không tìm thấy hồ sơ báo cáo nào phù hợp với điều kiện lọc."
+        emptyMessage={t('doctor.reportsView.emptyReports', 'Không tìm thấy hồ sơ báo cáo nào phù hợp với điều kiện lọc.')}
       />
 
       {/* Medical Safety Disclaimer */}
-      <div className="p-3 rounded-xl bg-slate-100/80 border border-slate-200 text-xs text-slate-600 flex items-center gap-2">
-        <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0" />
-        <span>
-          <strong>Lưu ý y khoa bắt buộc:</strong> Kết quả phân tích do AI thực hiện chỉ nhằm mục đích hỗ trợ sàng lọc và không thay thế chẩn đoán chuyên môn của bác sĩ chuyên khoa mắt hoặc tim mạch.
-        </span>
-      </div>
+      <MedicalDisclaimer variant="subtle" />
 
       {/* Modal In Phiếu Kết Quả (Tích hợp MedicalReportModal có sẵn) */}
       {selectedReportPatient && selectedReportResult && (
@@ -493,9 +503,11 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Chứng Thư & Chữ Ký Số Lâm Sàng</h3>
+                <h3 className="text-base font-bold text-slate-900">
+                  {t('doctor.reportsView.certModalTitle', 'Chứng Thư & Chữ Ký Số Lâm Sàng')}
+                </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Xác thực tính toàn vẹn hồ sơ bệnh án theo tiêu chuẩn bảo mật y tế HIPAA & HMAC-SHA256
+                  {t('doctor.reportsView.certModalDesc', 'Xác thực tính toàn vẹn hồ sơ bệnh án theo tiêu chuẩn bảo mật y tế HIPAA & HMAC-SHA256')}
                 </p>
               </div>
               <button
@@ -513,40 +525,44 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-emerald-950">Chữ Ký Số Hợp Lệ & Toàn Vẹn</h4>
+                  <h4 className="text-xs font-bold text-emerald-950">
+                    {t('doctor.reportsView.validCert', 'Chữ Ký Số Hợp Lệ & Toàn Vẹn')}
+                  </h4>
                   <p className="text-[11px] text-emerald-700">
-                    Bản ghi chẩn đoán đã được niêm phong mật mã bởi bác sĩ chuyên khoa.
+                    {t('doctor.reportsView.sealedDesc', 'Bản ghi chẩn đoán đã được niêm phong mật mã bởi bác sĩ chuyên khoa.')}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Mã ca khám:</span>
+                  <span className="text-slate-500 font-medium">{t('doctor.reportsView.recordCodeLabel', 'Mã ca khám')}:</span>
                   <span className="font-mono-data font-bold text-slate-900">
                     {selectedSignature.screeningId}
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Bệnh nhân:</span>
+                  <span className="text-slate-500 font-medium">{t('doctor.reportsView.patientLabel', 'Bệnh nhân')}:</span>
                   <span className="font-bold text-slate-900">
                     {selectedSignature.patientName} ({selectedSignature.mrn})
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Bác sĩ ký duyệt:</span>
+                  <span className="text-slate-500 font-medium">{t('doctor.reportsView.signingDoctor', 'Bác sĩ ký duyệt')}:</span>
                   <span className="font-bold text-slate-900">{currentDoctorName}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Thời điểm ký:</span>
+                  <span className="text-slate-500 font-medium">{t('doctor.reportsView.signedAtLabel', 'Thời điểm ký')}:</span>
                   <span className="font-mono-data text-slate-700">
-                    {new Date(selectedSignature.signedAt).toLocaleString('vi-VN')}
+                    {new Date(selectedSignature.signedAt).toLocaleString(isVi ? 'vi-VN' : 'en-US')}
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Quyết định lâm sàng:</span>
+                  <span className="text-slate-500 font-medium">{t('doctor.reportsView.clinicalDecisionLabel', 'Quyết định lâm sàng')}:</span>
                   <span className="font-bold text-emerald-700">
-                    {selectedSignature.decision === 'APPROVED' ? 'Đồng thuận chẩn đoán AI' : 'Hiệu chỉnh chuyên môn'}
+                    {selectedSignature.decision === 'APPROVED'
+                      ? t('doctor.reportsView.approvedDecision', 'Đồng thuận chẩn đoán AI')
+                      : t('doctor.reportsView.modifiedDecision', 'Hiệu chỉnh chuyên môn')}
                   </span>
                 </div>
               </div>
@@ -554,7 +570,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                   <FileBadge className="w-3.5 h-3.5 text-slate-500" />
-                  Chuỗi mã băm chữ ký số HMAC:
+                  {t('doctor.reportsView.hmacHashLabel', 'Chuỗi mã băm chữ ký số HMAC:')}
                 </label>
                 <div className="p-3 bg-slate-900 text-emerald-400 rounded-xl font-mono text-[11px] break-all select-all shadow-inner border border-slate-800">
                   {selectedSignature.signature}
@@ -567,7 +583,7 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
                   onClick={() => setSelectedSignature(null)}
                   className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                 >
-                  Đóng
+                  {t('doctor.reportsView.close', 'Đóng')}
                 </button>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Search,
   Download,
@@ -40,26 +40,7 @@ import {
   ServicePackagePayload,
 } from "../services/api";
 import { ClinicalSelect, ClinicalSelectOption } from "../components/ui/ClinicalSelect";
-
-const USER_ROLE_FILTER_OPTIONS: ClinicalSelectOption<string>[] = [
-  { value: "ALL", label: "Tất cả vai trò" },
-  { value: "ROLE_USER", label: "Bệnh nhân (ROLE_USER)" },
-  { value: "ROLE_DOCTOR", label: "Bác sĩ (ROLE_DOCTOR)" },
-  { value: "ROLE_CLINIC", label: "Phòng khám (ROLE_CLINIC)" },
-  { value: "ROLE_ADMIN", label: "Quản trị viên (ROLE_ADMIN)" },
-];
-
-const NOTIFICATION_CHANNEL_OPTIONS: ClinicalSelectOption<string>[] = [
-  { value: "IN_APP", label: "IN_APP (Thông báo hệ thống)" },
-  { value: "EMAIL", label: "EMAIL (Thư điện tử)" },
-  { value: "SMS", label: "SMS (Tin nhắn điện thoại)" },
-];
-
-const PACKAGE_SCOPE_OPTIONS: ClinicalSelectOption<string>[] = [
-  { value: "ALL", label: "Tất cả đối tượng" },
-  { value: "USER", label: "Cá nhân (USER)" },
-  { value: "CLINIC", label: "Phòng khám (CLINIC)" },
-];
+import { useLanguage } from "../context/LanguageContext";
 import { PatientAssignmentBoard } from "../components/PatientAssignmentBoard";
 import {
   AdminAuditWorkspace,
@@ -83,6 +64,28 @@ type AdminTab =
 export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   activeView,
 }) => {
+  const { t, isVi } = useLanguage();
+
+  const userRoleFilterOptions = useMemo<ClinicalSelectOption<string>[]>(() => [
+    { value: "ALL", label: t('admin.userManagement.allRoles', isVi ? "Tất cả vai trò" : "All Roles") },
+    { value: "ROLE_USER", label: isVi ? "Bệnh nhân" : "Patient" },
+    { value: "ROLE_DOCTOR", label: isVi ? "Bác sĩ chuyên khoa" : "Specialist Doctor" },
+    { value: "ROLE_CLINIC", label: isVi ? "Tổ chức phòng khám" : "Clinic Organization" },
+    { value: "ROLE_ADMIN", label: isVi ? "Quản trị viên" : "Administrator" },
+  ], [t, isVi]);
+
+  const notificationChannelOptions = useMemo<ClinicalSelectOption<string>[]>(() => [
+    { value: "IN_APP", label: isVi ? "Thông báo hệ thống" : "System Notification" },
+    { value: "EMAIL", label: isVi ? "Thư điện tử" : "Email" },
+    { value: "SMS", label: isVi ? "Tin nhắn SMS" : "SMS Message" },
+  ], [isVi]);
+
+  const packageScopeOptions = useMemo<ClinicalSelectOption<string>[]>(() => [
+    { value: "ALL", label: t('admin.packages.scopeAll', isVi ? "Tất cả đối tượng" : "All Audiences") },
+    { value: "USER", label: t('admin.packages.scopeUser', isVi ? "Cá nhân" : "Individual (Patient)") },
+    { value: "CLINIC", label: t('admin.packages.scopeClinic', isVi ? "Phòng khám" : "Clinic") },
+  ], [t, isVi]);
+
   const sectionToTab: Record<string, AdminTab> = {
     "user-management": "users",
     "rbac-matrix": "rbac",
@@ -140,12 +143,12 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             address: u.address || "",
             department:
               u.roles?.[0] === "ROLE_DOCTOR"
-                ? "Khoa Mắt & Tim Mạch"
+                ? (isVi ? "Khoa Mắt & Tim Mạch" : "Ophthalmology & Cardiology")
                 : u.roles?.[0] === "ROLE_CLINIC"
-                  ? "Phòng Khám Đa Khoa"
+                  ? (isVi ? "Phòng Khám Đa Khoa" : "General Clinic")
                   : u.roles?.[0] === "ROLE_ADMIN"
-                    ? "Ban Quản Trị Hệ Thống"
-                    : "Cổng Bệnh Nhân",
+                    ? (isVi ? "Ban Quản Trị Hệ Thống" : "System Administration")
+                    : (isVi ? "Cổng Bệnh Nhân" : "Patient Portal"),
             exams: u.totalScreenings || 0,
           })),
         );
@@ -165,8 +168,8 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       if (res.success) {
         setUserActionNotice(
           newActive
-            ? "Đã kích hoạt tài khoản thành công."
-            : "Đã vô hiệu hóa (khóa) tài khoản.",
+            ? t('admin.userManagement.activatedSuccess', isVi ? "Đã kích hoạt tài khoản thành công." : "Account activated successfully.")
+            : t('admin.userManagement.suspendedSuccess', isVi ? "Đã vô hiệu hóa (khóa) tài khoản." : "Account suspended successfully."),
         );
         setTimeout(() => setUserActionNotice(null), 4000);
         loadUsers();
@@ -181,7 +184,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     try {
       const res = await adminUserApi.updateUser(editingUser.id, editFormData);
       if (res.success) {
-        setUserActionNotice("Đã cập nhật thông tin tài khoản.");
+        setUserActionNotice(t('admin.userManagement.updatedSuccess', isVi ? "Đã cập nhật thông tin tài khoản." : "Account details updated successfully."));
         setTimeout(() => setUserActionNotice(null), 4000);
         setEditingUser(null);
         loadUsers();
@@ -200,7 +203,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       );
       if (res.success) {
         setUserActionNotice(
-          `Đã chuyển vai trò tài khoản thành ${selectedNewRole}.`,
+          t('admin.userManagement.roleUpdatedSuccess', isVi ? `Đã thay đổi vai trò tài khoản thành ${selectedNewRole}.` : `User role changed to ${selectedNewRole}.`),
         );
         setTimeout(() => setUserActionNotice(null), 4000);
         setRoleChangeUser(null);
@@ -278,83 +281,83 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   const [selectedRbacRole, setSelectedRbacRole] = useState("ROLE_DOCTOR");
   const [rbacSavedNotice, setRbacSavedNotice] = useState<string | null>(null);
 
-  const permissionCatalog = [
+  const permissionCatalog = useMemo<{ code: string; name: string; group: string }[]>(() => [
     {
       code: "SCREENING_READ",
-      name: "Xem kết quả phân tích AI & Biomarkers",
-      group: "Chẩn đoán AI",
+      name: isVi ? "Xem kết quả phân tích AI & Biomarkers" : "View AI Analysis Results & Biomarkers",
+      group: isVi ? "Chẩn đoán AI" : "AI Diagnostics",
     },
     {
       code: "SCREENING_CREATE",
-      name: "Tải ảnh đáy mắt & Chạy suy luận AI",
-      group: "Chẩn đoán AI",
+      name: isVi ? "Tải ảnh đáy mắt & Chạy suy luận AI" : "Upload Fundus Images & Run AI Inference",
+      group: isVi ? "Chẩn đoán AI" : "AI Diagnostics",
     },
     {
       code: "GRADCAM_VIEW",
-      name: "Xem bản đồ nhiệt Grad-CAM vi mạch",
-      group: "Chẩn đoán AI",
+      name: isVi ? "Xem bản đồ nhiệt Grad-CAM vi mạch" : "View Grad-CAM Retinal Microvascular Heatmaps",
+      group: isVi ? "Chẩn đoán AI" : "AI Diagnostics",
     },
     {
       code: "BULK_SCREENING",
-      name: "Sàng lọc hàng loạt (≥100 ảnh/lô)",
-      group: "Chẩn đoán AI",
+      name: isVi ? "Sàng lọc hàng loạt (≥100 ảnh/lô)" : "Bulk Screening (≥100 scans/batch)",
+      group: isVi ? "Chẩn đoán AI" : "AI Diagnostics",
     },
     {
       code: "DOCTOR_REVIEW",
-      name: "Thẩm định & Điều chỉnh mức nguy cơ",
-      group: "Lâm sàng",
+      name: isVi ? "Thẩm định & Điều chỉnh mức nguy cơ" : "Review & Override Clinical Risk Levels",
+      group: isVi ? "Lâm sàng" : "Clinical",
     },
     {
       code: "DIGITAL_SIGNATURE",
-      name: "Ký số báo cáo y khoa chuẩn HMAC",
-      group: "Lâm sàng",
+      name: isVi ? "Ký số báo cáo y khoa chuẩn HMAC" : "HMAC Digital Signature for Medical Reports",
+      group: isVi ? "Lâm sàng" : "Clinical",
     },
     {
       code: "ICD10_DIAGNOSE",
-      name: "Gán mã bệnh ICD-10 (H35.0, I10)",
-      group: "Lâm sàng",
+      name: isVi ? "Gán mã bệnh ICD-10 (H35.0, I10)" : "Assign ICD-10 Diagnostic Codes (H35.0, I10)",
+      group: isVi ? "Lâm sàng" : "Clinical",
     },
     {
       code: "CONSULTATION_CHAT",
-      name: "Nhắn tin tư vấn trực tuyến",
-      group: "Lâm sàng",
+      name: isVi ? "Nhắn tin tư vấn trực tuyến" : "Online Clinical Consultation Messaging",
+      group: isVi ? "Lâm sàng" : "Clinical",
     },
     {
       code: "BILLING_READ",
-      name: "Xem gói dịch vụ & Lịch sử giao dịch",
-      group: "Thanh toán",
+      name: isVi ? "Xem gói dịch vụ & Lịch sử giao dịch" : "View Service Packages & Transaction History",
+      group: isVi ? "Thanh toán" : "Billing",
     },
     {
       code: "PACKAGE_PURCHASE",
-      name: "Mua/gia hạn gói qua VNPay / MoMo",
-      group: "Thanh toán",
+      name: isVi ? "Mua/gia hạn gói qua VNPay / MoMo" : "Purchase/Renew Packages via VNPay / MoMo",
+      group: isVi ? "Thanh toán" : "Billing",
     },
     {
       code: "USER_MANAGE",
-      name: "Kích hoạt / Khóa / Sửa tài khoản",
-      group: "Quản trị",
+      name: isVi ? "Kích hoạt / Khóa / Sửa tài khoản" : "Activate / Suspend / Edit User Accounts",
+      group: isVi ? "Quản trị" : "Administration",
     },
     {
       code: "ROLE_CONFIG",
-      name: "Cấu hình ma trận phân quyền RBAC",
-      group: "Quản trị",
+      name: isVi ? "Cấu hình ma trận phân quyền RBAC" : "Configure RBAC Permission Matrix",
+      group: isVi ? "Quản trị" : "Administration",
     },
     {
       code: "AI_THRESHOLD_UPDATE",
-      name: "Điều chỉnh độ nhạy AI & Ngưỡng cảnh báo",
-      group: "Quản trị",
+      name: isVi ? "Điều chỉnh độ nhạy AI & Ngưỡng cảnh báo" : "Adjust AI Sensitivity & Warning Thresholds",
+      group: isVi ? "Quản trị" : "Administration",
     },
     {
       code: "NOTIFICATION_MANAGE",
-      name: "Quản lý mẫu thông báo & Chính sách",
-      group: "Quản trị",
+      name: isVi ? "Quản lý mẫu thông báo & Chính sách" : "Manage Notification Templates & Policies",
+      group: isVi ? "Quản trị" : "Administration",
     },
     {
       code: "AUDIT_EXPORT",
-      name: "Xuất báo cáo nhật ký kiểm toán HIPAA",
-      group: "Quản trị",
+      name: isVi ? "Xuất báo cáo nhật ký kiểm toán HIPAA" : "Export HIPAA Audit Trail Reports",
+      group: isVi ? "Quản trị" : "Administration",
     },
-  ];
+  ], [isVi]);
 
   const loadRbacRoles = async () => {
     try {
@@ -392,7 +395,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
         currentRoleObj.permissions,
       );
       setRbacSavedNotice(
-        `Đã lưu cấu hình phân quyền cho vai trò ${selectedRbacRole}!`,
+        t('admin.rbac.savedSuccess', isVi ? `Đã lưu cấu hình phân quyền cho vai trò ${selectedRbacRole}!` : `Permissions saved for role ${selectedRbacRole}!`),
       );
       setTimeout(() => setRbacSavedNotice(null), 4000);
     } catch (e) {
@@ -501,7 +504,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       if (isCreatingTemplate) {
         const res = await adminNotificationApi.createTemplate(templateForm);
         if (res.success) {
-          setNotifActionNotice("Đã tạo mẫu thông báo mới!");
+          setNotifActionNotice(t('admin.templates.savedNotice', isVi ? "Đã tạo mẫu thông báo mới!" : "Notification template created successfully."));
           setIsCreatingTemplate(false);
           loadNotifConfig();
         }
@@ -511,7 +514,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           templateForm,
         );
         if (res.success) {
-          setNotifActionNotice("Đã cập nhật mẫu thông báo!");
+          setNotifActionNotice(t('admin.templates.savedNotice', isVi ? "Đã cập nhật mẫu thông báo!" : "Notification template updated successfully."));
           setEditingTemplate(null);
           loadNotifConfig();
         }
@@ -526,7 +529,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     try {
       await adminNotificationApi.deleteTemplate(id);
       setNotifTemplates((prev) => prev.filter((t) => t.id !== id));
-      setNotifActionNotice("Đã xóa mẫu thông báo.");
+      setNotifActionNotice(t('admin.templates.savedNotice', isVi ? "Đã xóa mẫu thông báo." : "Notification template deleted."));
       setTimeout(() => setNotifActionNotice(null), 4000);
     } catch (e) {
       console.warn("Could not delete template:", e);
@@ -536,7 +539,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   const handleSavePolicy = async () => {
     try {
       await adminNotificationApi.updatePolicy(commPolicy);
-      setNotifActionNotice("Đã lưu chính sách liên lạc hệ thống!");
+      setNotifActionNotice(t('admin.templates.policySavedNotice', isVi ? "Đã lưu chính sách liên lạc hệ thống!" : "Notification policies saved successfully."));
       setTimeout(() => setNotifActionNotice(null), 4000);
     } catch (e) {
       console.warn("Could not update policy:", e);
@@ -571,8 +574,8 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     setClinicActionMessage((prev) => ({
       ...prev,
       [clinicProfileId]: res.success
-        ? "Đã phê duyệt hồ sơ."
-        : res.message || "Phê duyệt thất bại.",
+        ? t('admin.clinics.approvedSuccess', isVi ? "Đã phê duyệt hồ sơ." : "Clinic profile approved.")
+        : res.message || (isVi ? "Phê duyệt thất bại." : "Approval failed."),
     }));
     if (res.success) loadClinicProfiles();
   };
@@ -582,7 +585,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     if (!reason) {
       setClinicActionMessage((prev) => ({
         ...prev,
-        [clinicProfileId]: "Vui lòng nhập lý do từ chối.",
+        [clinicProfileId]: isVi ? "Vui lòng nhập lý do từ chối." : "Please provide a rejection reason.",
       }));
       return;
     }
@@ -594,8 +597,8 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     setClinicActionMessage((prev) => ({
       ...prev,
       [clinicProfileId]: res.success
-        ? "Đã từ chối hồ sơ."
-        : res.message || "Từ chối thất bại.",
+        ? t('admin.clinics.rejectedSuccess', isVi ? "Đã từ chối hồ sơ." : "Clinic profile rejected.")
+        : res.message || (isVi ? "Từ chối thất bại." : "Rejection failed."),
     }));
     if (res.success) loadClinicProfiles();
   };
@@ -647,8 +650,8 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       if (res.success) {
         setPackageActionNotice(
           packageId
-            ? "Cập nhật thông tin gói dịch vụ thành công."
-            : "Đã tạo mới gói dịch vụ thành công.",
+            ? t('admin.packages.packageSavedNotice', isVi ? "Cập nhật thông tin gói dịch vụ thành công." : "Service package updated successfully.")
+            : t('admin.packages.packageCreatedNotice', isVi ? "Đã tạo mới gói dịch vụ thành công." : "New service package created successfully."),
         );
         setTimeout(() => setPackageActionNotice(null), 4000);
         setIsCreatePackageModalOpen(false);
@@ -656,13 +659,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
         await loadPackages();
         return true;
       } else {
-        setPackageActionNotice(res.message || "Lỗi khi lưu gói dịch vụ.");
+        setPackageActionNotice(res.message || (isVi ? "Lỗi khi lưu gói dịch vụ." : "Error saving service package."));
         setTimeout(() => setPackageActionNotice(null), 4000);
         return false;
       }
     } catch (e) {
       console.warn("Could not save package:", e);
-      setPackageActionNotice("Lỗi hệ thống khi lưu thông tin gói dịch vụ.");
+      setPackageActionNotice(isVi ? "Lỗi hệ thống khi lưu thông tin gói dịch vụ." : "System error while saving service package.");
       setTimeout(() => setPackageActionNotice(null), 4000);
       return false;
     }
@@ -677,19 +680,17 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       const res = await adminServicePackageApi.setActive(packageId, newActive);
       if (res.success) {
         setPackageActionNotice(
-          newActive
-            ? "Đã mở bán lại gói dịch vụ thành công."
-            : "Đã tạm ngưng bán gói dịch vụ.",
+          t('admin.packages.statusToggledNotice', isVi ? "Đã cập nhật trạng thái mở bán gói dịch vụ." : "Service package active status updated."),
         );
         setTimeout(() => setPackageActionNotice(null), 4000);
         await loadPackages();
       } else {
-        setPackageActionNotice(res.message || "Không thể cập nhật trạng thái gói dịch vụ.");
+        setPackageActionNotice(res.message || (isVi ? "Không thể cập nhật trạng thái gói dịch vụ." : "Unable to update service package status."));
         setTimeout(() => setPackageActionNotice(null), 4000);
       }
     } catch (e) {
       console.warn("Could not toggle package status:", e);
-      setPackageActionNotice("Lỗi hệ thống khi cập nhật trạng thái gói dịch vụ.");
+      setPackageActionNotice(isVi ? "Lỗi hệ thống khi cập nhật trạng thái gói dịch vụ." : "System error while updating service package status.");
       setTimeout(() => setPackageActionNotice(null), 4000);
     }
   };
@@ -725,19 +726,19 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   const handleSubmitPackageForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!packageFormData.name.trim()) {
-      setPackageFormError("Vui lòng nhập tên gói dịch vụ.");
+      setPackageFormError(isVi ? "Vui lòng nhập tên gói dịch vụ." : "Please enter package name.");
       return;
     }
     if (Number(packageFormData.price) < 0) {
-      setPackageFormError("Giá gói không được nhỏ hơn 0 VNĐ.");
+      setPackageFormError(isVi ? "Giá gói không được nhỏ hơn 0 VNĐ." : "Package price cannot be negative.");
       return;
     }
     if (Number(packageFormData.credits) < 1) {
-      setPackageFormError("Số lượt phân tích tối thiểu là 1 lượt.");
+      setPackageFormError(isVi ? "Số lượt phân tích tối thiểu là 1 lượt." : "Minimum credits is 1.");
       return;
     }
     if (Number(packageFormData.validityDays) < 1) {
-      setPackageFormError("Thời hạn sử dụng tối thiểu là 1 ngày.");
+      setPackageFormError(isVi ? "Thời hạn sử dụng tối thiểu là 1 ngày." : "Minimum validity is 1 day.");
       return;
     }
 
@@ -813,12 +814,12 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           return {
             id: a.id ? String(a.id) : `LOG-${Math.random().toString(36).substring(2, 8)}`,
             timestamp: a.createdAt || new Date().toISOString(),
-            actor: a.userEmail || (a.userId ? String(a.userId) : "Hệ thống"),
+            actor: a.userEmail || (a.userId ? String(a.userId) : (isVi ? "Hệ thống" : "System")),
             role: a.actorRole || "USER",
-            action: a.action || "Thao tác hệ thống",
+            action: a.action || (isVi ? "Thao tác hệ thống" : "System action"),
             resource: a.resourceType
               ? `${a.resourceType}${a.resourceId ? ` (#${String(a.resourceId).slice(0, 8)})` : ""}`
-              : a.details || "Hệ thống",
+              : a.details || (isVi ? "Hệ thống" : "System"),
             severity,
             status: isFailed ? "FAILED" : "SUCCESS",
             ipAddress: a.ipAddress || "—",
@@ -865,8 +866,12 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
         return `"${escaped}"`;
       };
 
+      const csvHeader = isVi
+        ? "Mã Log,Thời Gian,Mức Độ,Hành Động,Tài Nguyên,Người Thực Hiện,IP,Trạng Thái"
+        : "Log ID,Timestamp,Severity,Action,Resource,Actor,IP,Status";
+
       const csvRows = [
-        "Mã Log,Thời Gian,Mức Độ,Hành Động,Tài Nguyên,Người Thực Hiện,IP,Trạng Thái",
+        csvHeader,
         ...exportData.map((l: any) =>
           [
             sanitizeCsvCell(l.id),
@@ -874,9 +879,9 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             sanitizeCsvCell(l.severity || 'INFO'),
             sanitizeCsvCell(l.action || l.title || ''),
             sanitizeCsvCell(l.resource || l.resourceType || l.details || ''),
-            sanitizeCsvCell(l.actor || l.userEmail || l.user || 'Hệ thống'),
+            sanitizeCsvCell(l.actor || l.userEmail || l.user || (isVi ? 'Hệ thống' : 'System')),
             sanitizeCsvCell(l.ipAddress || l.ip || ''),
-            sanitizeCsvCell(l.status || 'SUCCESS'),
+            sanitizeCsvCell(l.status === 'SUCCESS' ? (isVi ? 'Thành công' : 'SUCCESS') : (isVi ? 'Thất bại' : 'FAILED')),
           ].join(',')
         ),
       ].join('\r\n');
@@ -901,13 +906,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       <div className="bg-white p-6 rounded-2xl border border-clinical-border shadow-medical-card flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
           <span className="text-xs font-bold text-brand-700 uppercase tracking-widest">
-            Bảng Điều Khiển Quản Trị Hệ Thống
+            {t('admin.dashboardTitle', isVi ? 'Bảng Điều Khiển Quản Trị Hệ Thống' : 'System Administration Dashboard')}
           </span>
           <h1 className="text-xl sm:text-2xl font-bold text-clinical-text mt-1">
             AURA Security & Administration
           </h1>
           <p className="text-xs text-clinical-text-muted mt-0.5">
-            Quản trị tài khoản (FR-31), Ma trận phân quyền RBAC (FR-32), Mẫu thông báo & Chính sách (FR-39)
+            {t('admin.dashboardSubtitle', isVi ? 'Quản trị tài khoản, Ma trận phân quyền RBAC, Mẫu thông báo & Chính sách' : 'Account Management, RBAC Permission Matrix, Notification Templates & Policies')}
           </p>
         </div>
 
@@ -921,7 +926,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
-            <Users className="w-4 h-4" /> Tài Khoản (FR-31)
+            <Users className="w-4 h-4" /> {t('admin.tabs.users', isVi ? 'Tài Khoản' : 'Accounts')}
           </button>
           <button
             onClick={() => setActiveTab("rbac")}
@@ -931,7 +936,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
-            <ShieldCheck className="w-4 h-4" /> Phân Quyền (FR-32)
+            <ShieldCheck className="w-4 h-4" /> {t('admin.tabs.rbac', isVi ? 'Phân Quyền' : 'RBAC Matrix')}
           </button>
           <button
             onClick={() => setActiveTab("notifications")}
@@ -941,7 +946,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
-            <Bell className="w-4 h-4" /> Thông Báo (FR-39)
+            <Bell className="w-4 h-4" /> {t('admin.tabs.notifications', isVi ? 'Thông Báo' : 'Notifications')}
           </button>
           <button
             onClick={() => setActiveTab("clinics")}
@@ -951,7 +956,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
-            <Building2 className="w-4 h-4" /> Duyệt Phòng Khám
+            <Building2 className="w-4 h-4" /> {t('admin.tabs.clinics', isVi ? 'Duyệt Phòng Khám' : 'Clinic Approvals')}
           </button>
           <button
             onClick={() => setActiveTab("packages")}
@@ -961,7 +966,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
-            <CreditCard className="w-4 h-4" /> Gói Dịch Vụ (FR-34)
+            <CreditCard className="w-4 h-4" /> {t('admin.tabs.packages', isVi ? 'Gói Dịch Vụ' : 'Service Packages')}
           </button>
           <button
             onClick={() => setActiveTab("ai-config")}
@@ -971,7 +976,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
-            <Settings className="w-4 h-4" /> Cấu Hình AI
+            <Settings className="w-4 h-4" /> {t('admin.tabs.aiConfig', isVi ? 'Cấu Hình AI' : 'AI Configuration')}
           </button>
           <button
             onClick={() => setActiveTab("audit")}
@@ -981,7 +986,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
             }`}
           >
-            <FileText className="w-4 h-4" /> Nhật Ký HIPAA
+            <FileText className="w-4 h-4" /> {t('admin.tabs.audit', isVi ? 'Nhật Ký HIPAA' : 'HIPAA Audit Logs')}
           </button>
         </div>
       </div>
@@ -994,19 +999,17 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Users className="w-5 h-5 text-cyan-700" /> Quản Lý Tài Khoản
-                Người Dùng, Bác Sĩ & Phòng Khám (FR-31)
+                <Users className="w-5 h-5 text-cyan-700" /> {t('admin.userManagement.title', isVi ? 'Quản Lý Tài Khoản Người Dùng, Bác Sĩ & Phòng Khám' : 'User, Doctor & Clinic Account Management')}
               </h2>
               <p className="text-xs text-slate-500">
-                Kích hoạt, vô hiệu hóa, chỉnh sửa thông tin hồ sơ và gán vai trò
-                người dùng trong hệ thống AURA.
+                {t('admin.userManagement.subtitle', isVi ? 'Kích hoạt, vô hiệu hóa, chỉnh sửa thông tin hồ sơ và gán vai trò người dùng trong hệ thống AURA.' : 'Activate, suspend, edit profile details and assign user roles in the AURA system.')}
               </p>
             </div>
             <button
               onClick={loadUsers}
               className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl flex items-center gap-1.5"
             >
-              <RefreshCw className="w-3.5 h-3.5" /> Làm mới
+              <RefreshCw className="w-3.5 h-3.5" /> {t('common.refresh', isVi ? 'Làm mới' : 'Refresh')}
             </button>
           </div>
 
@@ -1023,7 +1026,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo tên hoặc email..."
+                placeholder={t('admin.userManagement.searchPlaceholder', isVi ? 'Tìm kiếm theo tên hoặc email...' : 'Search by name or email...')}
                 value={userSearchQuery}
                 onChange={(e) => setUserSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && loadUsers()}
@@ -1036,7 +1039,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               <ClinicalSelect<string>
                 value={userRoleFilter}
                 onChange={setUserRoleFilter}
-                options={USER_ROLE_FILTER_OPTIONS}
+                options={userRoleFilterOptions}
                 size="sm"
                 className="w-56"
               />
@@ -1044,7 +1047,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 onClick={loadUsers}
                 className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl h-8 shrink-0"
               >
-                Lọc
+                {t('admin.userManagement.filterBtn', isVi ? 'Lọc' : 'Filter')}
               </button>
             </div>
           </div>
@@ -1054,19 +1057,19 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
-                  <th className="p-3.5">Họ & Tên / Email</th>
-                  <th className="p-3.5">Vai Trò</th>
-                  <th className="p-3.5">Khoa / Đơn Vị</th>
-                  <th className="p-3.5">Số Điện Thoại</th>
-                  <th className="p-3.5">Trạng Thái</th>
-                  <th className="p-3.5 text-right">Thao Tác</th>
+                  <th className="p-3.5">{isVi ? 'Họ & Tên / Email' : 'Name / Email'}</th>
+                  <th className="p-3.5">{t('admin.audit.columns.role', isVi ? 'Vai Trò' : 'Role')}</th>
+                  <th className="p-3.5">{isVi ? 'Khoa / Đơn Vị' : 'Department / Facility'}</th>
+                  <th className="p-3.5">{t('admin.userManagement.phoneLabel', isVi ? 'Số Điện Thoại' : 'Phone Number')}</th>
+                  <th className="p-3.5">{t('admin.audit.columns.status', isVi ? 'Trạng Thái' : 'Status')}</th>
+                  <th className="p-3.5 text-right">{isVi ? 'Thao Tác' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {usersList.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-8 text-center text-slate-400">
-                      Không tìm thấy tài khoản người dùng nào.
+                      {t('admin.userManagement.emptyUsers', isVi ? 'Không tìm thấy tài khoản người dùng nào.' : 'No user accounts found.')}
                     </td>
                   </tr>
                 ) : (
@@ -1093,12 +1096,18 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                                   : "bg-slate-100 text-slate-700 border border-slate-200"
                           }`}
                         >
-                          {u.role}
+                          {u.role === "ROLE_ADMIN"
+                            ? (isVi ? "Quản trị viên" : "Administrator")
+                            : u.role === "ROLE_DOCTOR"
+                              ? (isVi ? "Bác sĩ" : "Doctor")
+                              : u.role === "ROLE_CLINIC"
+                                ? (isVi ? "Phòng khám" : "Clinic")
+                                : (isVi ? "Bệnh nhân" : "Patient")}
                         </span>
                       </td>
                       <td className="p-3.5 text-slate-600">{u.department}</td>
                       <td className="p-3.5 font-mono text-slate-600">
-                        {u.phoneNumber || "Chưa cập nhật"}
+                        {u.phoneNumber || t('admin.userManagement.notUpdated', isVi ? 'Chưa cập nhật' : 'Not updated')}
                       </td>
                       <td className="p-3.5">
                         <span
@@ -1108,7 +1117,9 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                               : "bg-rose-100 text-rose-800 border border-rose-300"
                           }`}
                         >
-                          {u.status === "ACTIVE" ? "HOẠT ĐỘNG" : "VÔ HIỆU HÓA"}
+                          {u.status === "ACTIVE"
+                            ? t('admin.userManagement.activeStatus', isVi ? "HOẠT ĐỘNG" : "ACTIVE")
+                            : t('admin.userManagement.suspendedStatus', isVi ? "VÔ HIỆU HÓA" : "SUSPENDED")}
                         </span>
                       </td>
                       <td className="p-3.5 text-right space-x-2">
@@ -1122,9 +1133,9 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                             });
                           }}
                           className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs"
-                          title="Chỉnh sửa thông tin"
+                          title={isVi ? "Chỉnh sửa thông tin" : "Edit details"}
                         >
-                          Sửa
+                          {t('admin.userManagement.editUser', isVi ? 'Sửa' : 'Edit')}
                         </button>
                         <button
                           onClick={() => {
@@ -1132,9 +1143,9 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                             setSelectedNewRole(u.role);
                           }}
                           className="px-2.5 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 font-bold rounded-lg text-xs"
-                          title="Chuyển đổi vai trò"
+                          title={isVi ? "Chuyển đổi vai trò" : "Change user role"}
                         >
-                          Đổi Vai Trò
+                          {t('admin.userManagement.changeRoleBtn', isVi ? 'Đổi Vai Trò' : 'Change Role')}
                         </button>
                         <button
                           onClick={() => handleToggleUserStatus(u.id, u.status)}
@@ -1144,7 +1155,9 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                               : "bg-emerald-600 hover:bg-emerald-700"
                           }`}
                         >
-                          {u.status === "ACTIVE" ? "Khóa" : "Kích hoạt"}
+                          {u.status === "ACTIVE"
+                            ? t('admin.userManagement.lockAccount', isVi ? "Khóa" : "Suspend")
+                            : t('admin.userManagement.unlockAccount', isVi ? "Kích hoạt" : "Activate")}
                         </button>
                       </td>
                     </tr>
@@ -1162,7 +1175,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-bold text-slate-900 text-base">
-                Chỉnh Sửa Hồ Sơ Tài Khoản
+                {t('admin.userManagement.editModalTitle', isVi ? 'Chỉnh Sửa Hồ Sơ Tài Khoản' : 'Edit Account Profile')}
               </h3>
               <button
                 onClick={() => setEditingUser(null)}
@@ -1174,7 +1187,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <div className="space-y-3 text-xs">
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
-                  Email đăng nhập
+                  {t('admin.userManagement.emailLabel', isVi ? 'Email đăng nhập' : 'Login Email')}
                 </label>
                 <input
                   type="text"
@@ -1185,7 +1198,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
-                  Họ và tên
+                  {t('admin.userManagement.fullNameLabel', isVi ? 'Họ và tên' : 'Full Name')}
                 </label>
                 <input
                   type="text"
@@ -1201,7 +1214,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
-                  Số điện thoại liên hệ
+                  {t('admin.userManagement.phoneLabel', isVi ? 'Số điện thoại liên hệ' : 'Phone Number')}
                 </label>
                 <input
                   type="text"
@@ -1217,7 +1230,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
-                  Địa chỉ / Cơ sở y tế
+                  {t('admin.userManagement.addressLabel', isVi ? 'Địa chỉ / Cơ sở y tế' : 'Address / Facility')}
                 </label>
                 <input
                   type="text"
@@ -1237,13 +1250,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 onClick={() => setEditingUser(null)}
                 className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50"
               >
-                Hủy
+                {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
               </button>
               <button
                 onClick={handleSaveUserEdit}
                 className="px-5 py-2 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold"
               >
-                Lưu Thay Đổi
+                {t('admin.userManagement.saveChanges', isVi ? 'Lưu Thay Đổi' : 'Save Changes')}
               </button>
             </div>
           </div>
@@ -1256,7 +1269,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-bold text-slate-900 text-base">
-                Phân Quyền Vai Trò
+                {t('admin.userManagement.roleModalTitle', isVi ? 'Phân Quyền Vai Trò' : 'Assign User Role')}
               </h3>
               <button
                 onClick={() => setRoleChangeUser(null)}
@@ -1266,21 +1279,21 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               </button>
             </div>
             <p className="text-xs text-slate-500">
-              Chọn vai trò hệ thống mới cho tài khoản:{" "}
+              {t('admin.userManagement.roleModalDesc', isVi ? 'Chọn vai trò hệ thống mới cho tài khoản:' : 'Select new system role for account:')}{" "}
               <strong>{roleChangeUser.email}</strong>
             </p>
             <div className="space-y-2">
               {[
-                { id: "ROLE_USER", label: "Bệnh nhân (ROLE_USER)" },
+                { id: "ROLE_USER", label: isVi ? "Bệnh nhân" : "Patient" },
                 {
                   id: "ROLE_DOCTOR",
-                  label: "Bác sĩ chuyên khoa (ROLE_DOCTOR)",
+                  label: isVi ? "Bác sĩ chuyên khoa" : "Specialist Doctor",
                 },
                 {
                   id: "ROLE_CLINIC",
-                  label: "Tổ chức phòng khám (ROLE_CLINIC)",
+                  label: isVi ? "Tổ chức phòng khám" : "Clinic Organization",
                 },
-                { id: "ROLE_ADMIN", label: "Quản trị viên (ROLE_ADMIN)" },
+                { id: "ROLE_ADMIN", label: isVi ? "Quản trị viên" : "Administrator" },
               ].map((r) => (
                 <label
                   key={r.id}
@@ -1306,13 +1319,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 onClick={() => setRoleChangeUser(null)}
                 className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700"
               >
-                Hủy
+                {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
               </button>
               <button
                 onClick={handleSaveUserRole}
                 className="px-5 py-2 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold"
               >
-                Xác Nhận Đổi
+                {t('admin.userManagement.confirmRoleBtn', isVi ? 'Xác Nhận Đổi' : 'Confirm Change')}
               </button>
             </div>
           </div>
@@ -1327,19 +1340,17 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-cyan-700" /> Định Nghĩa Vai
-                Trò & Ma Trận Phân Quyền RBAC (FR-32)
+                <ShieldCheck className="w-5 h-5 text-cyan-700" /> {t('admin.rbac.rolePermissionMatrix', isVi ? 'Định Nghĩa Vai Trò & Ma Trận Phân Quyền RBAC' : 'Role Definition & RBAC Permission Matrix')}
               </h2>
               <p className="text-xs text-slate-500">
-                Thiết lập quyền truy cập cho từng vai trò người dùng (USER,
-                DOCTOR, CLINIC, ADMIN) theo từng phân hệ chức năng.
+                {t('admin.rbac.subtitle', isVi ? 'Thiết lập quyền truy cập cho từng vai trò người dùng theo từng phân hệ chức năng.' : 'Configure access permissions for each user role across system clinical modules.')}
               </p>
             </div>
             <button
               onClick={handleSaveRolePermissions}
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2"
             >
-              <Save className="w-4 h-4" /> Lưu Ma Trận Quyền
+              <Save className="w-4 h-4" /> {t('admin.rbac.saveMatrix', isVi ? 'Lưu Ma Trận Quyền' : 'Save Permission Matrix')}
             </button>
           </div>
 
@@ -1355,6 +1366,14 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-[320px]">
               {rbacRoles.map((r) => {
                 const isSelected = selectedRbacRole === r.roleName;
+                const roleDesc =
+                  r.roleName === "ROLE_ADMIN"
+                    ? (isVi ? "Quản trị viên toàn quyền quản lý hệ thống, cấu hình tham số và nhật ký bảo mật" : "Full system administrator with configuration and security audit rights")
+                    : r.roleName === "ROLE_DOCTOR"
+                      ? (isVi ? "Bác sĩ chuyên khoa Mắt & Tim mạch, thẩm định lâm sàng và chẩn đoán" : "Ophthalmology & Cardiology specialist, clinical verification and diagnosis")
+                      : r.roleName === "ROLE_CLINIC"
+                        ? (isVi ? "Tổ chức phòng khám, thực hiện sàng lọc cộng đồng hàng loạt và quản lý bác sĩ cơ sở" : "Clinic organization conducting bulk community screenings and staff management")
+                        : (isVi ? "Bệnh nhân cá nhân, tải ảnh chụp đáy mắt và nhận kết quả sàng lọc AI" : "Individual patient uploading retinal fundus scans and receiving AI reports");
                 return (
                   <button
                     key={r.roleName}
@@ -1369,10 +1388,10 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                       {r.roleName}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
-                      {r.description}
+                      {roleDesc}
                     </p>
                     <div className="mt-2 text-[10px] font-bold text-brand-700">
-                      {(r.permissions || []).length} Quyền kích hoạt
+                      {(r.permissions || []).length} {t('admin.rbac.activePermissions', isVi ? 'Quyền kích hoạt' : 'Active permissions')}
                     </div>
                   </button>
                 );
@@ -1383,7 +1402,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           {/* Permissions Matrix */}
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-clinical-text">
-              Danh Mục Quyền Hạn Cho Vai Trò:{" "}
+              {t('admin.rbac.permissionCatalogTitle', isVi ? 'Danh Mục Quyền Hạn Cho Vai Trò:' : 'Permission Catalog for Role:')}{" "}
               <span className="font-mono text-brand-700 font-bold">
                 {selectedRbacRole}
               </span>
@@ -1454,13 +1473,10 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-cyan-700" /> Mẫu Thông Báo Hệ
-                  Thống (Notification Templates)
+                  <Bell className="w-5 h-5 text-cyan-700" /> {t('admin.templates.notificationTemplates', isVi ? 'Mẫu Thông Báo Hệ Thống' : 'System Notification Templates')}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Định nghĩa nội dung tin nhắn và biến số thay thế tự động (
-                  {`{patient_name}`}, {`{risk_level}`}, {`{credits}`}) cho các
-                  kênh Email, In-App và SMS.
+                  {t('admin.templates.subtitle', isVi ? 'Định nghĩa nội dung tin nhắn và biến số thay thế tự động ({patient_name}, {risk_level}, {credits}) cho các kênh Email, In-App và SMS.' : 'Define message content and automated substitution variables ({patient_name}, {risk_level}, {credits}) for Email, In-App, and SMS channels.')}
                 </p>
               </div>
               <button
@@ -1479,7 +1495,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 }}
                 className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
               >
-                <Plus className="w-4 h-4" /> Thêm Mẫu Mới
+                <Plus className="w-4 h-4" /> {t('admin.templates.addTemplate', isVi ? 'Thêm Mẫu Mới' : 'Add New Template')}
               </button>
             </div>
 
@@ -1513,7 +1529,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
 
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700 font-medium">
                     <div className="font-bold text-slate-900 mb-1">
-                      Tiêu đề: {tpl.subject}
+                      {t('admin.templates.subjectPrefix', isVi ? 'Tiêu đề:' : 'Subject:')} {tpl.subject}
                     </div>
                     <p className="text-slate-600 text-[11px] leading-relaxed line-clamp-3">
                       {tpl.body}
@@ -1522,7 +1538,10 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
 
                   <div className="flex items-center justify-between pt-1 text-xs">
                     <span className="text-[11px] text-slate-400">
-                      Trạng thái: {tpl.enabled ? "Đang kích hoạt" : "Tạm tắt"}
+                      {t('admin.templates.statusPrefix', isVi ? 'Trạng thái:' : 'Status:')}{" "}
+                      {tpl.enabled
+                        ? t('admin.templates.activeStatus', isVi ? "Đang kích hoạt" : "Active")
+                        : t('admin.templates.inactiveStatus', isVi ? "Tạm tắt" : "Disabled")}
                     </span>
                     <div className="flex items-center gap-2">
                       <button
@@ -1540,14 +1559,14 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                           });
                         }}
                         className="p-1.5 text-slate-600 hover:text-cyan-700"
-                        title="Chỉnh sửa mẫu"
+                        title={t('admin.templates.edit', isVi ? 'Chỉnh sửa mẫu' : 'Edit template')}
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteTemplate(tpl.id)}
                         className="p-1.5 text-slate-400 hover:text-rose-600"
-                        title="Xóa mẫu"
+                        title={t('admin.templates.delete', isVi ? 'Xóa mẫu' : 'Delete template')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1563,19 +1582,17 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Sliders className="w-5 h-5 text-cyan-700" /> Chính Sách & Quy
-                  Tắc Gửi Tin Nhắn (Communication Policy)
+                  <Sliders className="w-5 h-5 text-cyan-700" /> {t('admin.templates.policiesTitle', isVi ? 'Chính Sách & Quy Tắc Gửi Tin Nhắn' : 'Communication Policy & Message Rules')}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Cấu hình các kênh gửi thông báo khả dụng, cơ chế cảnh báo khẩn
-                  cấp và khung giờ giới hạn liên lạc.
+                  {t('admin.templates.policiesSubtitle', isVi ? 'Cấu hình kích hoạt các kênh gửi tin theo sự kiện lâm sàng và ngưỡng an toàn y tế.' : 'Configure channel triggers based on clinical events and medical safety thresholds.')}
                 </p>
               </div>
               <button
                 onClick={handleSavePolicy}
                 className="px-5 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
               >
-                <Save className="w-4 h-4" /> Lưu Chính Sách
+                <Save className="w-4 h-4" /> {t('admin.templates.savePolicies', isVi ? 'Lưu Chính Sách' : 'Save Policies')}
               </button>
             </div>
 
@@ -1583,10 +1600,10 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               {/* Channel Switches */}
               <div className="p-5 rounded-2xl border border-slate-200 space-y-4">
                 <h4 className="font-bold text-slate-900 text-sm">
-                  Kênh Truyền Thông Kích Hoạt
+                  {t('admin.templates.activeChannelsTitle', isVi ? 'Kênh Liên Lạc Kích Hoạt' : 'Active Communication Channels')}
                 </h4>
                 <label className="flex items-center justify-between cursor-pointer">
-                  <span>Kênh In-App Notification & SSE (Thời gian thực)</span>
+                  <span>{t('admin.templates.inAppChannelLabel', isVi ? 'Kênh Trong Ứng Dụng (Thông báo tức thời trên giao diện)' : 'In-App Channel (Real-time interface notifications)')}</span>
                   <input
                     type="checkbox"
                     checked={commPolicy.inAppEnabled}
@@ -1600,7 +1617,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   />
                 </label>
                 <label className="flex items-center justify-between cursor-pointer">
-                  <span>Kênh Email Y Tế (Kết quả khám & Báo cáo PDF)</span>
+                  <span>{t('admin.templates.emailChannelLabel', isVi ? 'Kênh Email Y Tế (Kết quả khám & Báo cáo PDF)' : 'Medical Email Channel (Screening results & PDF reports)')}</span>
                   <input
                     type="checkbox"
                     checked={commPolicy.emailEnabled}
@@ -1614,7 +1631,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   />
                 </label>
                 <label className="flex items-center justify-between cursor-pointer">
-                  <span>Kênh SMS Khẩn Cấp (Cảnh báo nguy cơ cao)</span>
+                  <span>{t('admin.templates.smsChannelLabel', isVi ? 'Kênh SMS Khẩn Cấp (Cảnh báo nguy cơ cao)' : 'Emergency SMS Channel (High-risk critical alerts)')}</span>
                   <input
                     type="checkbox"
                     checked={commPolicy.smsEnabled}
@@ -1632,15 +1649,15 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               {/* Priority & Quiet Hours */}
               <div className="p-5 rounded-2xl border border-slate-200 space-y-4">
                 <h4 className="font-bold text-slate-900 text-sm">
-                  Quy Tắc Khẩn Cấp & Giờ Yên Tĩnh
+                  {t('admin.templates.emergencyRulesTitle', isVi ? 'Quy Tắc Khẩn Cấp & Giờ Yên Tĩnh' : 'Emergency Rules & Quiet Hours')}
                 </h4>
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
                     <div className="font-semibold text-slate-800">
-                      Cảnh báo khẩn cấp nguy cơ rất cao (Critical)
+                      {t('admin.templates.criticalAlertLabel', isVi ? 'Cảnh báo khẩn cấp nguy cơ rất cao (Critical)' : 'Emergency Alert for Critical Risk')}
                     </div>
                     <div className="text-[11px] text-slate-500">
-                      Ưu tiên phát tức thời bất kể giờ yên tĩnh
+                      {t('admin.templates.criticalAlertDesc', isVi ? 'Ưu tiên phát tức thời bất kể giờ yên tĩnh' : 'Immediate delivery regardless of quiet hours')}
                     </div>
                   </div>
                   <input
@@ -1659,7 +1676,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 <div className="pt-2 grid grid-cols-2 gap-3">
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">
-                      Giờ bắt đầu yên tĩnh
+                      {t('admin.templates.quietStartLabel', isVi ? 'Giờ bắt đầu yên tĩnh' : 'Quiet hours start')}
                     </label>
                     <input
                       type="time"
@@ -1675,7 +1692,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   </div>
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">
-                      Giờ kết thúc yên tĩnh
+                      {t('admin.templates.quietEndLabel', isVi ? 'Giờ kết thúc yên tĩnh' : 'Quiet hours end')}
                     </label>
                     <input
                       type="time"
@@ -1693,7 +1710,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
 
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">
-                    Thời gian lưu trữ thông báo (Ngày)
+                    {t('admin.templates.retentionLabel', isVi ? 'Thời gian lưu trữ thông báo (Ngày)' : 'Notification Retention Period (Days)')}
                   </label>
                   <input
                     type="number"
@@ -1720,8 +1737,8 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-bold text-slate-900 text-base">
                 {isCreatingTemplate
-                  ? "Tạo Mẫu Thông Báo Mới"
-                  : "Chỉnh Sửa Mẫu Thông Báo"}
+                  ? t('admin.templates.modalCreateTitle', isVi ? "Tạo Mẫu Thông Báo Mới" : "Create New Notification Template")
+                  : t('admin.templates.modalEditTitle', isVi ? "Chỉnh Sửa Mẫu Thông Báo" : "Edit Notification Template")}
               </h3>
               <button
                 onClick={() => {
@@ -1738,7 +1755,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">
-                    Mã mẫu (Code)
+                    {t('admin.templates.codeLabel', isVi ? 'Mã định danh (Code)' : 'Template Code')}
                   </label>
                   <input
                     type="text"
@@ -1752,7 +1769,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 </div>
                 <div>
                   <ClinicalSelect<string>
-                    label="Kênh thông báo"
+                    label={t('admin.templates.channelLabel', isVi ? 'Kênh thông báo' : 'Notification Channel')}
                     value={templateForm.channel}
                     onChange={(val) =>
                       setTemplateForm({
@@ -1760,7 +1777,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                         channel: val,
                       })
                     }
-                    options={NOTIFICATION_CHANNEL_OPTIONS}
+                    options={notificationChannelOptions}
                     size="sm"
                   />
                 </div>
@@ -1768,7 +1785,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
-                  Tên hiển thị
+                  {t('admin.templates.nameLabel', isVi ? 'Tên mẫu hiển thị' : 'Template Name')}
                 </label>
                 <input
                   type="text"
@@ -1776,14 +1793,14 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   onChange={(e) =>
                     setTemplateForm({ ...templateForm, name: e.target.value })
                   }
-                  placeholder="VD: Thông báo kết quả AI hoàn tất"
+                  placeholder={isVi ? "VD: Thông báo kết quả AI hoàn tất" : "e.g. AI analysis completed notice"}
                   className="w-full p-2.5 bg-white border border-slate-200 rounded-xl"
                 />
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
-                  Tiêu đề thông báo
+                  {t('admin.templates.subjectLabel', isVi ? 'Tiêu đề tin nhắn' : 'Message Subject')}
                 </label>
                 <input
                   type="text"
@@ -1794,14 +1811,14 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                       subject: e.target.value,
                     })
                   }
-                  placeholder="VD: Kết quả phân tích mạch máu võng mạc"
+                  placeholder={isVi ? "VD: Kết quả phân tích mạch máu võng mạc" : "e.g. Retinal microvascular evaluation result"}
                   className="w-full p-2.5 bg-white border border-slate-200 rounded-xl"
                 />
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
-                  Nội dung mẫu (Body)
+                  {t('admin.templates.bodyLabel', isVi ? 'Nội dung chi tiết' : 'Message Body')}
                 </label>
                 <textarea
                   rows={4}
@@ -1809,7 +1826,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   onChange={(e) =>
                     setTemplateForm({ ...templateForm, body: e.target.value })
                   }
-                  placeholder="Hỗ trợ biến số: {patient_name}, {risk_level}, {screening_id}, {doctor_notes}"
+                  placeholder={isVi ? "Hỗ trợ biến số: {patient_name}, {risk_level}, {screening_id}, {doctor_notes}" : "Supported variables: {patient_name}, {risk_level}, {screening_id}, {doctor_notes}"}
                   className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-sans"
                 />
               </div>
@@ -1823,13 +1840,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 }}
                 className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700"
               >
-                Hủy
+                {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
               </button>
               <button
                 onClick={handleSaveTemplate}
                 className="px-5 py-2 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold"
               >
-                Lưu Mẫu
+                {t('admin.templates.saveTemplateBtn', isVi ? 'Lưu Mẫu' : 'Save Template')}
               </button>
             </div>
           </div>
@@ -1843,22 +1860,20 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-4">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-cyan-700" /> Phê Duyệt Hồ Sơ
-              Phòng Khám (FR-22)
+              <Building2 className="w-5 h-5 text-cyan-700" /> {t('admin.clinics.title', isVi ? 'Phê Duyệt Hồ Sơ Phòng Khám' : 'Clinic Profile Approvals')}
             </h2>
             <p className="text-xs text-slate-500">
-              Kiểm tra giấy phép hành nghề và phê duyệt quyền tổ chức sàng lọc
-              cộng đồng cho các cơ sở y tế.
+              {t('admin.clinics.subtitle', isVi ? 'Kiểm tra giấy phép hành nghề và phê duyệt quyền tổ chức sàng lọc cộng đồng cho các cơ sở y tế.' : 'Review medical operating licenses and approve bulk screening permissions for healthcare facilities.')}
             </p>
           </div>
 
           {clinicsLoading ? (
             <div className="p-8 text-center text-xs text-slate-400">
-              Đang tải hồ sơ phòng khám...
+              {t('admin.clinics.loading', isVi ? 'Đang tải hồ sơ phòng khám...' : 'Loading clinic profiles...')}
             </div>
           ) : clinicProfiles.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-400">
-              Không có hồ sơ phòng khám nào chờ duyệt.
+              {t('admin.clinics.empty', isVi ? 'Không có hồ sơ phòng khám nào chờ duyệt.' : 'No clinic profiles awaiting approval.')}
             </div>
           ) : (
             <div className="grid gap-4">
@@ -1872,10 +1887,10 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                       {p.organizationName}
                     </h4>
                     <p className="text-xs text-slate-500">
-                      Giấy phép số: {p.licenseNumber || "Chưa cung cấp"}
+                      {t('admin.clinics.licenseLabel', isVi ? 'Giấy phép số:' : 'License No:')} {p.licenseNumber || t('admin.clinics.notProvided', isVi ? 'Chưa cung cấp' : 'Not provided')}
                     </p>
                     <span className="mt-2 inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                      {p.verificationStatus}
+                      {p.verificationStatus === 'APPROVED' ? (isVi ? 'Đã duyệt' : 'Approved') : p.verificationStatus === 'REJECTED' ? (isVi ? 'Đã từ chối' : 'Rejected') : (isVi ? 'Chờ duyệt' : 'Pending')}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1883,13 +1898,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                       onClick={() => handleApproveClinic(p.id)}
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl"
                     >
-                      Phê Duyệt
+                      {t('admin.clinics.approve', isVi ? 'Phê Duyệt' : 'Approve')}
                     </button>
                     <button
                       onClick={() => handleRejectClinic(p.id)}
                       className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl"
                     >
-                      Từ Chối
+                      {t('admin.clinics.reject', isVi ? 'Từ Chối' : 'Reject')}
                     </button>
                   </div>
                 </div>
@@ -1907,10 +1922,10 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-cyan-700" /> Quản Lý Gói Dịch Vụ & Biểu Phí Billing (FR-34)
+                <CreditCard className="w-5 h-5 text-cyan-700" /> {t('admin.packages.servicePackageList', isVi ? 'Quản Lý Gói Dịch Vụ & Biểu Phí Billing' : 'Service Packages & Billing Management')}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Thiết lập các gói sàng lọc vi mạch võng mạc cho cá nhân (USER) và phòng khám (CLINIC), số lượt phân tích (Credits) và hạn mức sử dụng.
+                {t('admin.packages.subtitle', isVi ? 'Thiết lập các gói sàng lọc vi mạch võng mạc cho cá nhân và phòng khám, số lượt phân tích và hạn mức sử dụng.' : 'Configure retinal screening packages for patients and clinics, analysis credits, and validity periods.')}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1918,7 +1933,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 onClick={loadPackages}
                 disabled={isPackagesLoading}
                 className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all disabled:opacity-50"
-                title="Làm mới danh sách gói"
+                title={t('admin.packages.refreshTooltip', isVi ? 'Làm mới danh sách gói' : 'Refresh package list')}
               >
                 <RefreshCw className={`w-4 h-4 ${isPackagesLoading ? "animate-spin" : ""}`} />
               </button>
@@ -1926,7 +1941,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 onClick={handleOpenCreatePackageModal}
                 className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
               >
-                <Plus className="w-4 h-4" /> Tạo Gói Dịch Vụ Mới
+                <Plus className="w-4 h-4" /> {t('admin.packages.createPackage', isVi ? 'Tạo Gói Dịch Vụ Mới' : 'Create New Service Package')}
               </button>
             </div>
           </div>
@@ -1950,25 +1965,25 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
           {/* Stats Overview */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4">
-              <span className="text-[11px] font-bold text-slate-500 block">Tổng Số Gói</span>
+              <span className="text-[11px] font-bold text-slate-500 block">{t('admin.packages.totalPackages', isVi ? 'Tổng Số Gói' : 'Total Packages')}</span>
               <span className="text-2xl font-black text-slate-900 mt-1 block font-mono-data">
                 {packagesList.length}
               </span>
             </div>
             <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4">
-              <span className="text-[11px] font-bold text-emerald-700 block">Đang Mở Bán</span>
+              <span className="text-[11px] font-bold text-emerald-700 block">{t('admin.packages.activePackages', isVi ? 'Đang Mở Bán' : 'Active Packages')}</span>
               <span className="text-2xl font-black text-emerald-700 mt-1 block font-mono-data">
                 {packagesList.filter((p) => p.active).length}
               </span>
             </div>
             <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4">
-              <span className="text-[11px] font-bold text-blue-700 block">Gói Cá Nhân (USER)</span>
+              <span className="text-[11px] font-bold text-blue-700 block">{t('admin.packages.userPackages', isVi ? 'Gói Cá Nhân' : 'Individual Packages')}</span>
               <span className="text-2xl font-black text-blue-700 mt-1 block font-mono-data">
                 {packagesList.filter((p) => p.scope === "INDIVIDUAL" || p.scope === "USER").length}
               </span>
             </div>
             <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-4">
-              <span className="text-[11px] font-bold text-purple-700 block">Gói Cơ Sở (CLINIC)</span>
+              <span className="text-[11px] font-bold text-purple-700 block">{t('admin.packages.clinicPackages', isVi ? 'Gói Phòng Khám' : 'Clinic Packages')}</span>
               <span className="text-2xl font-black text-purple-700 mt-1 block font-mono-data">
                 {packagesList.filter((p) => p.scope === "CLINIC").length}
               </span>
@@ -1983,14 +1998,14 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 type="text"
                 value={packageSearchQuery}
                 onChange={(e) => setPackageSearchQuery(e.target.value)}
-                placeholder="Tìm theo tên gói hoặc mô tả chi tiết..."
+                placeholder={t('admin.packages.searchPlaceholder', isVi ? 'Tìm kiếm gói dịch vụ theo tên, mã...' : 'Search packages by name, code...')}
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-cyan-600 focus:bg-white transition-all"
               />
             </div>
             <ClinicalSelect<string>
               value={packageFilterScope}
               onChange={(val) => setPackageFilterScope(val as any)}
-              options={PACKAGE_SCOPE_OPTIONS}
+              options={packageScopeOptions}
               size="sm"
               className="w-48 shrink-0"
             />
@@ -2001,13 +2016,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
-                  <th className="p-3.5">Tên Gói Dịch Vụ</th>
-                  <th className="p-3.5">Phạm Vi</th>
-                  <th className="p-3.5">Giá Niêm Yết</th>
-                  <th className="p-3.5">Số Lượt Phân Tích</th>
-                  <th className="p-3.5">Hạn Dùng</th>
-                  <th className="p-3.5">Trạng Thái</th>
-                  <th className="p-3.5 text-right">Thao Tác</th>
+                  <th className="p-3.5">{t('admin.packages.packageName', isVi ? 'Tên Gói Dịch Vụ' : 'Package Name')}</th>
+                  <th className="p-3.5">{isVi ? 'Phạm Vi' : 'Scope'}</th>
+                  <th className="p-3.5">{t('admin.packages.price', isVi ? 'Giá Niêm Yết' : 'Price')}</th>
+                  <th className="p-3.5">{t('admin.packages.quota', isVi ? 'Số Lượt Phân Tích' : 'Screening Credits')}</th>
+                  <th className="p-3.5">{t('admin.packages.validity', isVi ? 'Hạn Dùng' : 'Validity')}</th>
+                  <th className="p-3.5">{t('admin.audit.columns.status', isVi ? 'Trạng Thái' : 'Status')}</th>
+                  <th className="p-3.5 text-right">{isVi ? 'Thao Tác' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -2015,13 +2030,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   <tr>
                     <td colSpan={7} className="p-12 text-center text-slate-400">
                       <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-600" />
-                      Đang tải danh sách gói dịch vụ...
+                      {t('admin.packages.loadingList', isVi ? 'Đang tải danh sách gói dịch vụ...' : 'Loading service package list...')}
                     </td>
                   </tr>
                 ) : filteredPackages.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-12 text-center text-slate-400">
-                      Không có gói dịch vụ nào phù hợp điều kiện lọc.
+                      {t('admin.packages.emptyFiltered', isVi ? 'Không có gói dịch vụ nào phù hợp điều kiện lọc.' : 'No service packages match the filter criteria.')}
                     </td>
                   </tr>
                 ) : (
@@ -2040,35 +2055,35 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                         <td className="p-3.5">
                           {isClinic ? (
                             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1">
-                              <Building2 className="w-3 h-3" /> CLINIC
+                              <Building2 className="w-3 h-3" /> {isVi ? 'Phòng khám' : 'Clinic'}
                             </span>
                           ) : (
                             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1">
-                              <User className="w-3 h-3" /> USER
+                              <User className="w-3 h-3" /> {isVi ? 'Cá nhân' : 'Individual'}
                             </span>
                           )}
                         </td>
                         <td className="p-3.5 font-bold font-mono-data text-slate-900">
-                          {Number(pkg.price || 0).toLocaleString("vi-VN")} ₫
+                          {Number(pkg.price || 0).toLocaleString(isVi ? "vi-VN" : "en-US")} ₫
                         </td>
                         <td className="p-3.5">
                           <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200 font-mono-data">
-                            {pkg.credits} lượt
+                            {pkg.credits} {t('admin.packages.creditsUnit', isVi ? 'lượt' : 'credits')}
                           </span>
                         </td>
                         <td className="p-3.5 font-mono-data text-slate-600">
-                          {pkg.validityDays} ngày
+                          {pkg.validityDays > 0 ? `${pkg.validityDays} ${t('admin.packages.days', isVi ? 'ngày' : 'days')}` : t('admin.packages.lifetime', isVi ? 'Vĩnh viễn' : 'Lifetime')}
                         </td>
                         <td className="p-3.5">
                           {pkg.active ? (
                             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 inline-flex items-center gap-1.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              Đang bán
+                              {t('admin.packages.active', isVi ? 'Đang bán' : 'Active')}
                             </span>
                           ) : (
                             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 inline-flex items-center gap-1.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                              Tạm ngưng
+                              {t('admin.packages.inactive', isVi ? 'Tạm ngưng' : 'Inactive')}
                             </span>
                           )}
                         </td>
@@ -2077,9 +2092,9 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                             <button
                               onClick={() => handleOpenEditPackageModal(pkg)}
                               className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-xs flex items-center gap-1 transition-all"
-                              title="Chỉnh sửa thông tin gói"
+                              title={isVi ? "Chỉnh sửa thông tin gói" : "Edit package"}
                             >
-                              <Edit className="w-3.5 h-3.5 text-slate-600" /> Sửa
+                              <Edit className="w-3.5 h-3.5 text-slate-600" /> {isVi ? 'Sửa' : 'Edit'}
                             </button>
                             <button
                               onClick={() => handleTogglePackageStatus(pkg.id, pkg.active)}
@@ -2088,15 +2103,15 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                                   ? "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
                                   : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
                               }`}
-                              title={pkg.active ? "Tạm ngưng mở bán gói" : "Kích hoạt mở bán gói"}
+                              title={pkg.active ? (isVi ? "Tạm ngưng mở bán gói" : "Deactivate package") : (isVi ? "Kích hoạt mở bán gói" : "Activate package")}
                             >
                               {pkg.active ? (
                                 <>
-                                  <Lock className="w-3.5 h-3.5" /> Ngưng bán
+                                  <Lock className="w-3.5 h-3.5" /> {t('admin.packages.deactivateBtn', isVi ? 'Ngưng bán' : 'Deactivate')}
                                 </>
                               ) : (
                                 <>
-                                  <Unlock className="w-3.5 h-3.5" /> Mở bán
+                                  <Unlock className="w-3.5 h-3.5" /> {t('admin.packages.activateBtn', isVi ? 'Mở bán' : 'Activate')}
                                 </>
                               )}
                             </button>
@@ -2122,10 +2137,14 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                     </div>
                     <div>
                       <h3 className="font-bold text-base text-slate-900">
-                        {editingPackage ? "Chỉnh Sửa Gói Dịch Vụ" : "Tạo Gói Dịch Vụ Mới"}
+                        {editingPackage
+                          ? t('admin.packages.editModalTitle', isVi ? "Chỉnh Sửa Gói Dịch Vụ" : "Edit Service Package")
+                          : t('admin.packages.createModalTitle', isVi ? "Tạo Gói Dịch Vụ Mới" : "Create New Package")}
                       </h3>
                       <span className="text-xs text-slate-500">
-                        {editingPackage ? `ID: #${editingPackage.id}` : "Định nghĩa gói sàng lọc và mức biểu phí"}
+                        {editingPackage
+                          ? `ID: #${editingPackage.id}`
+                          : t('admin.packages.createModalSubtitle', isVi ? "Định nghĩa gói sàng lọc và mức biểu phí" : "Define screening package quotas and pricing tier")}
                       </span>
                     </div>
                   </div>
@@ -2149,13 +2168,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   {/* Name */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Tên gói dịch vụ <span className="text-rose-500">*</span>
+                      {t('admin.packages.nameLabel', isVi ? 'Tên gói dịch vụ' : 'Package Name')} <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={packageFormData.name}
                       onChange={(e) => setPackageFormData({ ...packageFormData, name: e.target.value })}
-                      placeholder="VD: Gói Sàng Lọc Cá Nhân Tiêu Chuẩn"
+                      placeholder={isVi ? "VD: Gói Sàng Lọc Cá Nhân Tiêu Chuẩn" : "e.g. Standard Patient Screening Package"}
                       className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-cyan-600"
                       required
                     />
@@ -2164,12 +2183,12 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   {/* Scope */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Đối tượng áp dụng (Scope) <span className="text-rose-500">*</span>
+                      {t('admin.packages.scopeLabel', isVi ? 'Đối tượng áp dụng' : 'Target Audience')} <span className="text-rose-500">*</span>
                     </label>
                     {editingPackage ? (
                       <div className="px-3.5 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
-                        <span>{packageFormData.scope === "CLINIC" ? "Phòng khám & Cơ sở y tế (CLINIC)" : "Người dùng cá nhân (USER)"}</span>
-                        <span className="text-[10px] text-slate-500 font-normal">(Phạm vi gói cố định sau khi tạo)</span>
+                        <span>{packageFormData.scope === "CLINIC" ? (isVi ? "Phòng khám & Cơ sở y tế" : "Clinic Organization") : (isVi ? "Người dùng cá nhân" : "Individual Patient")}</span>
+                        <span className="text-[10px] text-slate-500 font-normal">({isVi ? "Phạm vi gói cố định sau khi tạo" : "Scope is locked after creation"})</span>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-3">
@@ -2183,7 +2202,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                           }`}
                         >
                           <User className="w-4 h-4 text-blue-600" />
-                          <span>Cá nhân (USER)</span>
+                          <span>{isVi ? "Cá nhân" : "Individual (Patient)"}</span>
                         </button>
                         <button
                           type="button"
@@ -2195,7 +2214,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                           }`}
                         >
                           <Building2 className="w-4 h-4 text-purple-600" />
-                          <span>Phòng khám (CLINIC)</span>
+                          <span>{isVi ? "Phòng khám" : "Clinic"}</span>
                         </button>
                       </div>
                     )}
@@ -2205,7 +2224,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Giá tiền (VNĐ) <span className="text-rose-500">*</span>
+                        {t('admin.packages.priceLabel', isVi ? 'Đơn giá (VNĐ)' : 'Price (VND)')} <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -2220,7 +2239,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Số lượt phân tích (Credits) <span className="text-rose-500">*</span>
+                        {t('admin.packages.creditsLabel', isVi ? 'Số lượt sàng lọc' : 'Screening Credits')} <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -2238,11 +2257,11 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   {/* Validity Days */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Thời hạn sử dụng (Ngày) <span className="text-rose-500">*</span>
+                      {t('admin.packages.validityLabel', isVi ? 'Thời hạn sử dụng (Ngày, 0 = Vĩnh viễn)' : 'Validity (Days, 0 = Lifetime)')} <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
                       step="1"
                       value={packageFormData.validityDays}
                       onChange={(e) => setPackageFormData({ ...packageFormData, validityDays: Number(e.target.value) })}
@@ -2255,13 +2274,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                   {/* Description */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Mô tả chi tiết & tính năng
+                      {t('admin.packages.descLabel', isVi ? 'Mô tả chi tiết' : 'Description')}
                     </label>
                     <textarea
                       rows={3}
                       value={packageFormData.description}
                       onChange={(e) => setPackageFormData({ ...packageFormData, description: e.target.value })}
-                      placeholder="Mô tả quyền lợi gói, bao gồm bản đồ nhiệt Grad-CAM, báo cáo PDF và tư vấn bác sĩ..."
+                      placeholder={isVi ? "Mô tả quyền lợi gói, bao gồm bản đồ nhiệt Grad-CAM, báo cáo PDF và tư vấn bác sĩ..." : "Describe package benefits, including Grad-CAM heatmaps, PDF reports, and doctor consultation..."}
                       className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-cyan-600 resize-none"
                     />
                   </div>
@@ -2273,7 +2292,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                       onClick={() => setIsCreatePackageModalOpen(false)}
                       className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors"
                     >
-                      Hủy bỏ
+                      {t('common.cancel', isVi ? 'Hủy bỏ' : 'Cancel')}
                     </button>
                     <button
                       type="submit"
@@ -2285,7 +2304,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                       ) : (
                         <Check className="w-3.5 h-3.5" />
                       )}
-                      {editingPackage ? "Lưu Thay Đổi" : "Tạo Gói Mới"}
+                      {editingPackage ? t('admin.packages.saveBtn', isVi ? "Lưu Thay Đổi" : "Save Changes") : t('admin.packages.createBtn', isVi ? "Tạo Gói Mới" : "Create Package")}
                     </button>
                   </div>
                 </form>
@@ -2302,19 +2321,17 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-4">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-cyan-700" /> Cấu Hình Tham Số &
-              Độ Nhạy Mô Hình AI (FR-38)
+              <Sliders className="w-5 h-5 text-cyan-700" /> {t('admin.aiConfig.title', isVi ? 'Cấu Hình Tham Số & Độ Nhạy Mô Hình AI' : 'AI Model Parameters & Sensitivity Configuration')}
             </h2>
             <p className="text-xs text-slate-500">
-              Điều chỉnh ngưỡng kích hoạt cảnh báo lâm sàng cho vi mạch hoàng
-              điểm và bệnh võng mạc tiểu đường.
+              {t('admin.aiConfig.subtitle', isVi ? 'Điều chỉnh ngưỡng kích hoạt cảnh báo lâm sàng cho vi mạch hoàng điểm và bệnh võng mạc tiểu đường.' : 'Adjust clinical alert triggers for macular microvasculature and diabetic retinopathy.')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
             <div className="p-5 rounded-2xl border border-slate-200 space-y-2">
               <span className="font-bold text-slate-700">
-                Độ Nhạy Sàng Lọc Glaucoma/CVD ({glaucomaSensitivity}%)
+                {t('admin.aiConfig.glaucomaSensitivity', isVi ? 'Độ Nhạy Sàng Lọc Glaucoma/CVD' : 'Glaucoma / CVD Screening Sensitivity')} ({glaucomaSensitivity}%)
               </span>
               <input
                 type="range"
@@ -2325,13 +2342,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 className="w-full accent-cyan-700"
               />
               <p className="text-[11px] text-slate-500">
-                Tối ưu phát hiện sớm các tổn thương co thắt tiểu động mạch.
+                {t('admin.aiConfig.glaucomaHint', isVi ? 'Tối ưu phát hiện sớm các tổn thương co thắt tiểu động mạch.' : 'Optimizes early detection of arteriolar narrowing and focal constrictions.')}
               </p>
             </div>
 
             <div className="p-5 rounded-2xl border border-slate-200 space-y-2">
               <span className="font-bold text-slate-700">
-                Ngưỡng Tin Cậy Bệnh Võng Mạc ĐTĐ ({drConfidence}%)
+                {t('admin.aiConfig.drConfidence', isVi ? 'Ngưỡng Tin Cậy Bệnh Võng Mạc ĐTĐ' : 'Diabetic Retinopathy Confidence Threshold')} ({drConfidence}%)
               </span>
               <input
                 type="range"
@@ -2342,14 +2359,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 className="w-full accent-cyan-700"
               />
               <p className="text-[11px] text-slate-500">
-                Yêu cầu AI đạt độ tin cậy tối thiểu trước khi xuất phân loại
-                ETDRS.
+                {t('admin.aiConfig.drHint', isVi ? 'Yêu cầu AI đạt độ tin cậy tối thiểu trước khi xuất phân loại lâm sàng.' : 'Requires minimum AI model confidence before outputting clinical classification.')}
               </p>
             </div>
 
             <div className="p-5 rounded-2xl border border-slate-200 space-y-2">
               <span className="font-bold text-slate-700">
-                Ngưỡng Cảnh Báo Co Thắt A/V Ratio ({retrainThreshold}%)
+                {t('admin.aiConfig.retrainThreshold', isVi ? 'Ngưỡng Cảnh Báo Co Thắt A/V Ratio' : 'A/V Ratio Constriction Alert Threshold')} ({retrainThreshold}%)
               </span>
               <input
                 type="range"
@@ -2360,8 +2376,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 className="w-full accent-cyan-700"
               />
               <p className="text-[11px] text-slate-500">
-                Kích hoạt cảnh báo nguy cơ tăng huyết áp khi A/V Ratio dưới
-                ngưỡng.
+                {t('admin.aiConfig.retrainHint', isVi ? 'Kích hoạt cảnh báo nguy cơ tăng huyết áp khi A/V Ratio dưới ngưỡng.' : 'Triggers hypertensive microvascular alert when A/V Ratio is below threshold.')}
               </p>
             </div>
           </div>

@@ -120,6 +120,13 @@ public class DoctorPatientController {
               search, risk, minScore, maxScore, hasDiabetes, hasHypertension, historyOfSmoking, doctorName, reviewStatus, assignedPatientIds, pageable);
           return ApiResponse.success("Lấy danh sách bệnh nhân thành công", PageResponse.from(patientPage));
         } else if (doctorName != null && !doctorName.isBlank() && !doctorName.equalsIgnoreCase("ALL")) {
+          // Bác sĩ chỉ được tìm kiếm theo tên của chính mình, chống IDOR qua doctorName
+          String callerFullName = (principal != null && userRepository != null)
+              ? userRepository.findById(principal.id()).map(com.aura.user.entity.User::getFullName).orElse(null)
+              : null;
+          if (callerFullName != null && !callerFullName.isBlank() && !doctorName.trim().equalsIgnoreCase(callerFullName.trim())) {
+            return ApiResponse.success("Lấy danh sách bệnh nhân thành công", PageResponse.from(new org.springframework.data.domain.PageImpl<>(List.of(), pageable, 0)));
+          }
           Page<PatientProfileDto> patientPage = profileService.searchPatients(
               search, risk, minScore, maxScore, hasDiabetes, hasHypertension, historyOfSmoking, doctorName, reviewStatus, pageable);
           return ApiResponse.success("Lấy danh sách bệnh nhân thành công", PageResponse.from(patientPage));
