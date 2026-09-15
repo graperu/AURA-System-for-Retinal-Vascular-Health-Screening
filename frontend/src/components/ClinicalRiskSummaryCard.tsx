@@ -192,8 +192,6 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
   const drLevel = getComputedRiskLevel(rawDrScore);
   const hasMacularEdema = analysisResult.diabeticRetinopathyRisk?.macularEdemaPresent ?? (rawDrScore >= 50);
 
-  const glaucomaScore = analysisResult.glaucomaRisk?.score ?? 0;
-
   const isDoctorReviewed =
     analysisResult.status === 'REVIEWED' || Boolean(analysisResult.digitalSignature);
 
@@ -208,6 +206,25 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
   const hasVesselDensity = typeof rawVesselDensity === 'number' && !Number.isNaN(rawVesselDensity);
   const hasTortuosity = typeof rawTortuosity === 'number' && !Number.isNaN(rawTortuosity);
   const hasVcdr = typeof rawVcdr === 'number' && !Number.isNaN(rawVcdr);
+
+  const rawGlaucomaScore = analysisResult.glaucomaRisk?.score ?? 0;
+  const glaucomaScore = useMemo(() => {
+    if (rawGlaucomaScore > 0) return rawGlaucomaScore;
+    if (hasVcdr && typeof rawVcdr === 'number' && rawVcdr > 0) {
+      if (rawVcdr >= 0.70) return Math.min(95, Math.round(75 + (rawVcdr - 0.70) * 100));
+      if (rawVcdr >= 0.60) return Math.min(74, Math.round(60 + (rawVcdr - 0.60) * 140));
+      if (rawVcdr >= 0.50) return Math.min(59, Math.round(40 + (rawVcdr - 0.50) * 190));
+      return Math.max(10, Math.round(rawVcdr * 60));
+    }
+    return 0;
+  }, [rawGlaucomaScore, hasVcdr, rawVcdr]);
+
+  const glaucomaLevel =
+    analysisResult.glaucomaRisk?.level &&
+    analysisResult.glaucomaRisk.level !== 'Low' &&
+    rawGlaucomaScore > 0
+      ? analysisResult.glaucomaRisk.level
+      : getComputedRiskLevel(glaucomaScore);
 
   const isAvNormal = hasAvRatio ? rawAvRatio >= 0.67 : false;
   const isDensityNormal = hasVesselDensity ? rawVesselDensity >= 15.5 && rawVesselDensity <= 19.0 : false;
@@ -454,9 +471,9 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 <div className="p-2 rounded-lg bg-teal-100 text-teal-700">
                   <Activity className="w-4 h-4" />
                 </div>
-                <span>{isVi ? 'Tăng nhãn áp (Glaucoma)' : 'Glaucoma Risk'}</span>
+                <span>{isVi ? 'Tăng nhãn áp' : 'Glaucoma Risk'}</span>
               </div>
-              <RiskBadge level={analysisResult.glaucomaRisk?.level || 'Low'} size="sm" />
+              <RiskBadge level={glaucomaLevel} size="sm" />
             </div>
 
             {/* Điểm số & Thanh đo rủi ro */}
@@ -805,7 +822,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                       {hasVcdr
                         ? isVcdrNormal
                           ? (isVi ? 'Bờ viền thần kinh võng mạc đều, hồng hào.' : 'Healthy neuroretinal rim, well-perfused.')
-                          : (isVi ? 'Lõm gai mở rộng, nghi ngờ Glaucoma sớm.' : 'Enlarged cup, early glaucoma suspicion.')
+                          : (isVi ? 'Lõm gai mở rộng, nghi ngờ tăng nhãn áp sớm.' : 'Enlarged cup, early glaucoma suspicion.')
                         : (isVi ? 'Không định vị được bờ gai thị.' : 'Optic disc boundary not localized.')}
                     </div>
                   </div>

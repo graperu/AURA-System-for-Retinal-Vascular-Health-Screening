@@ -14,6 +14,8 @@ import { Pagination } from '../components/ui/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { ClinicalSelect, ClinicalSelectOption } from '../components/ui/ClinicalSelect';
 import { useLanguage } from '../context/LanguageContext';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { realtimeBus } from '../services/realtimeService';
 
 export const getClinicBatchStorageKey = (userId?: string | null): string => {
   return userId ? `AURA_CLINIC_BATCH_JOB_${userId}` : 'AURA_CLINIC_BATCH_JOB_ANONYMOUS';
@@ -573,6 +575,17 @@ export const ClinicPortalPage: React.FC<{ activeView?: string }> = ({ activeView
       setBatchJob(createEmptyBatchJob('CLINIC', t('clinic.portal.defaultFacility')));
     }
   }, [currentUser?.id, clinicName, t]);
+
+  // Universal Real-time Synchronization for Clinic Portal
+  useRealtimeSync(
+    ['batch:update', 'credit:change', 'billing:update', 'doctor:assignment'],
+    async () => {
+      if (currentUser?.id) {
+        setBatchJob(loadBatchJobForClinic(currentUser.id, clinicName));
+      }
+    },
+    { pollIntervalMs: 12000, syncOnFocus: true }
+  );
 
   const handleUpdateBatchJob = (updated: ClinicBatchJob) => {
     setBatchJob(updated);

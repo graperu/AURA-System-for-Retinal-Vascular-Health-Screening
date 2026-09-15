@@ -181,10 +181,30 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
       ),
       macularEdemaPresent: Boolean((screening as any).macularEdemaPresent ?? false),
     },
-    glaucomaRisk: {
-      level: toFrontendRiskLevel(screening.glaucomaRiskLevel),
-      score: screening.glaucomaRiskScore ?? 0,
-    },
+    glaucomaRisk: (() => {
+      const cdr = Number(screening.verticalCdr ?? screening.annotatedMap?.opticCupToDiscRatio ?? 0);
+      let derivedScore = screening.glaucomaRiskScore;
+      let derivedLevel = screening.glaucomaRiskLevel;
+      if ((derivedScore === null || derivedScore === undefined || derivedScore === 0) && cdr > 0) {
+        if (cdr >= 0.70) {
+          derivedScore = Math.min(95, Math.round(75 + (cdr - 0.70) * 100));
+          derivedLevel = 'Critical';
+        } else if (cdr >= 0.60) {
+          derivedScore = Math.min(74, Math.round(60 + (cdr - 0.60) * 140));
+          derivedLevel = 'High';
+        } else if (cdr >= 0.50) {
+          derivedScore = Math.min(59, Math.round(40 + (cdr - 0.50) * 190));
+          derivedLevel = 'Moderate';
+        } else {
+          derivedScore = Math.max(10, Math.round(cdr * 60));
+          derivedLevel = 'Low';
+        }
+      }
+      return {
+        level: toFrontendRiskLevel(derivedLevel),
+        score: derivedScore ?? 0,
+      };
+    })(),
     annotatedMap: {
       heatmapUrl: screening.heatmapBase64 || screening.annotatedMap?.heatmapUrl || undefined,
       vesselMaskUrl: screening.vesselMaskUrl || screening.annotatedMap?.vesselMaskUrl || undefined,

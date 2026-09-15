@@ -46,6 +46,8 @@ import { ClinicalSelect, ClinicalSelectOption } from "../components/ui/ClinicalS
 import { Modal } from "../components/ui/Modal";
 import { Pagination } from "../components/ui/Pagination";
 import { useLanguage } from "../context/LanguageContext";
+import { useRealtimeSync } from "../hooks/useRealtimeSync";
+import { realtimeBus } from "../services/realtimeService";
 import { PatientAssignmentBoard } from "../components/PatientAssignmentBoard";
 import {
   AdminAuditWorkspace,
@@ -1458,6 +1460,15 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     loadAuditData();
     loadPackages();
   }, []);
+
+  // Universal Real-time State Synchronization for Admin Portal (FR-37, NFR-18)
+  useRealtimeSync(
+    ['audit:new', 'screening:new', 'screening:reviewed', 'profile:update', 'billing:update'],
+    async () => {
+      await loadAuditData();
+    },
+    { pollIntervalMs: 15000, syncOnFocus: true }
+  );
 
   const handleExportLogs = async () => {
     try {

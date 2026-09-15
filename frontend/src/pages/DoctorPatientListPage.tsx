@@ -7,6 +7,8 @@ import { Button } from '../components/ui/Button';
 import { FormField } from '../components/ui/FormField';
 import { ClinicalSelect, ClinicalSelectOption } from '../components/ui/ClinicalSelect';
 import { useLanguage } from '../context/LanguageContext';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { realtimeBus } from '../services/realtimeService';
 import { AlertCircle, CheckCircle2, UserPlus } from 'lucide-react';
 
 interface DoctorPatientListPageProps {
@@ -72,6 +74,22 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
     loadPatients();
   }, []);
 
+  // Universal Real-time State Synchronization for Doctor Patient Worklist
+  useRealtimeSync(
+    [
+      'screening:new',
+      'screening:reviewed',
+      'screening:deleted',
+      'screening:update',
+      'profile:update',
+      'doctor:assignment',
+    ],
+    async () => {
+      await loadPatients();
+    },
+    { pollIntervalMs: 12000, syncOnFocus: true }
+  );
+
   const handleOpenNewPatientModal = () => {
     setModalError(null);
     setModalSuccess(null);
@@ -121,6 +139,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
         if (res.data) {
           const newPatient = res.data;
           setPatients((prev) => [newPatient, ...prev.filter((p) => p.id !== newPatient.id && p.mrn !== newPatient.mrn)]);
+          realtimeBus.emit('profile:update', newPatient);
         }
         setTimeout(async () => {
           setIsNewPatientModalOpen(false);
@@ -145,6 +164,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
       throw new Error(res.message || (isVi ? 'Không thể xóa bệnh nhân' : 'Failed to delete patient'));
     }
     setPatients((prev) => prev.filter((p) => p.id !== id && p.userId !== id));
+    realtimeBus.emit('doctor:assignment', { deletedId: id });
     await loadPatients();
   };
 
@@ -156,6 +176,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
     }
     const idSet = new Set(patientIds);
     setPatients((prev) => prev.filter((p) => !idSet.has(p.id || '') && !idSet.has(p.userId || '')));
+    realtimeBus.emit('doctor:assignment', { deletedIds: patientIds });
     await loadPatients();
   };
 

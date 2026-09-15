@@ -27,6 +27,8 @@ import {
 import { doctorApi, screeningApi } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
 import { useAnalysisProgress } from '../hooks/useAnalysisProgress';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { realtimeBus } from '../services/realtimeService';
 
 const toApiRiskLevel = (riskLevel: string | undefined) => {
   if (!riskLevel) return undefined;
@@ -258,6 +260,25 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
     fetchAssignedPatients();
   }, [fetchAssignedPatients]);
 
+  // Universal Real-time State Synchronization for Doctor Portal (FR-15, FR-20, FR-21)
+  useRealtimeSync(
+    [
+      'screening:new',
+      'screening:reviewed',
+      'screening:deleted',
+      'screening:update',
+      'doctor:assignment',
+      'profile:update',
+    ],
+    async () => {
+      await fetchAssignedPatients();
+      if (selectedPatientId) {
+        await loadPatientDetails(selectedPatientId, activePatient);
+      }
+    },
+    { pollIntervalMs: 12000, syncOnFocus: true }
+  );
+
   const handleSelectPatientForCDS = useCallback(
     async (
       patientId: string,
@@ -326,6 +347,9 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       completeProgress(async () => {
         setAnalysisResult(mapped);
 
+        // Broadcast to patient portal and worklist in real time
+        realtimeBus.emit('screening:new', mapped);
+
         // Refresh screening count in assigned patients list silently
         doctorApi.getAssignedPatients().then((r) => {
           if (r.success && Array.isArray(r.data)) {
@@ -354,6 +378,9 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
           adjustedDrRisk: toApiRiskLevel(feedback.adjustedDrRisk),
           icd10Codes: feedback.icd10Codes,
         });
+
+        // Broadcast review event in real time to patient and analytics
+        realtimeBus.emit('screening:reviewed', feedback);
       }
 
       setFeedbackSuccessMsg(

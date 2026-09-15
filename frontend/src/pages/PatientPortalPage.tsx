@@ -21,6 +21,8 @@ import { stompClient } from "../services/websocketService";
 import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
+import { useRealtimeSync } from "../hooks/useRealtimeSync";
+import { realtimeBus } from "../services/realtimeService";
 import {
   Eye,
   Heart,
@@ -282,6 +284,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         console.warn("Screening delete API response:", res.message);
         throw new Error(res.message || (isVi ? "Không thể xóa ca khám" : "Failed to delete screening"));
       }
+      realtimeBus.emit('screening:deleted', { id });
     } catch (err) {
       console.warn("Screening delete error:", err);
       throw err;
@@ -297,6 +300,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         console.warn("Screening batch delete API response:", res.message);
         throw new Error(res.message || (isVi ? "Không thể xóa các ca khám đã chọn" : "Failed to delete selected screenings"));
       }
+      realtimeBus.emit('screening:deleted', { ids });
     } catch (err) {
       console.warn("Screening batch delete error:", err);
       throw err;
@@ -378,6 +382,31 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     };
     fetchRealData();
   }, []);
+
+  // Universal Real-time State Synchronization across all clinical topics (FR-6, FR-10, FR-12)
+  useRealtimeSync(
+    [
+      'screening:new',
+      'screening:reviewed',
+      'screening:update',
+      'screening:deleted',
+      'billing:update',
+      'credit:change',
+      'profile:update',
+      'doctor:assignment',
+    ],
+    async (event) => {
+      const type = event?.type || '';
+      if (type.startsWith('billing') || type.startsWith('credit')) {
+        await loadBillingData();
+      } else if (type.startsWith('profile') || type.startsWith('doctor:assignment')) {
+        await fetchProfileData();
+      } else {
+        await loadScreeningHistory();
+      }
+    },
+    { pollIntervalMs: 12000, syncOnFocus: true }
+  );
 
   // Real-time synchronization for Patient consultation view via WebSocket STOMP (FR-10, FR-20)
   useEffect(() => {
@@ -487,6 +516,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
 
         // Cập nhật lịch sử khám trực tiếp từ PostgreSQL (FR-6)
         await loadScreeningHistory();
+
+        // Broadcast to all active portals (Doctor Worklist, Clinic, CDS) in real time
+        realtimeBus.emit('screening:new', result);
 
         // Trigger AI Ready Notification
         setShowAiNotification(true);
@@ -1474,10 +1506,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         onSuccess={(added) => {
           setUserCredits((prev) => prev + added);
           loadBillingData();
+          realtimeBus.emit('credit:change', { added });
         }}
         onPurchaseSuccess={(newCredits) => {
           setUserCredits(newCredits);
           loadBillingData();
+          realtimeBus.emit('credit:change', { total: newCredits });
         }}
       />
 
@@ -1495,6 +1529,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             if (updated.fullName) {
               updateUser({ name: updated.fullName });
             }
+            realtimeBus.emit('profile:update', updated);
           }
         }}
       />

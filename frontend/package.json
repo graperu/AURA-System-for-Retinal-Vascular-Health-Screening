@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "npx tsx src/tests/clinical-verification.test.ts && npx tsx src/tests/ai-analysis-flow.test.ts && npx tsx src/tests/clinical-ui-components.test.ts && npx tsx src/tests/i18n-clinical-system.test.ts && npx tsx src/tests/credit-purchase-modal.test.ts"
+    "test": "npx tsx src/tests/clinical-verification.test.ts && npx tsx src/tests/ai-analysis-flow.test.ts && npx tsx src/tests/clinical-ui-components.test.ts && npx tsx src/tests/i18n-clinical-system.test.ts && npx tsx src/tests/credit-purchase-modal.test.ts && npx tsx src/tests/realtime-system.test.ts"
   },
   "dependencies": {
     "firebase": "^12.18.0",

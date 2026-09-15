@@ -16,6 +16,7 @@ import {
 import { UserSession } from '../types/auth';
 import { notificationApi, getAccessToken } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import { realtimeBus } from '../services/realtimeService';
 
 interface HeaderProps {
   currentUser: UserSession;
@@ -83,6 +84,9 @@ export const Header: React.FC<HeaderProps> = ({
           setTimeout(() => {
             setActiveToast((curr: any) => (curr?.id === data.id ? null : curr));
           }, 6000);
+
+          // Dispatch to global real-time event bus
+          realtimeBus.handleIncomingPayload(data, 'sse');
         } catch (err) {
           console.error('Error parsing SSE event:', err);
         }
