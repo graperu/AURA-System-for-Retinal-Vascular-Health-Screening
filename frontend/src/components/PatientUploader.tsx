@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   UploadCloud,
   FileImage,
@@ -103,6 +103,21 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
 
   const odInputRef = useRef<HTMLInputElement>(null);
   const osInputRef = useRef<HTMLInputElement>(null);
+
+  // VULN-04 FIX: Tự động dọn dẹp triệt để tệp và preview khi chuyển đổi bệnh nhân
+  useEffect(() => {
+    setOdFile(null);
+    setOdPreviewUrl('');
+    setOsFile(null);
+    setOsPreviewUrl('');
+    setUploadError('');
+    if (odInputRef.current) {
+      odInputRef.current.value = '';
+    }
+    if (osInputRef.current) {
+      osInputRef.current.value = '';
+    }
+  }, [activePatient?.id, activePatient?.userId]);
 
   const validateFile = (file: File): boolean => {
     if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -323,8 +338,8 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       mimeType?: string;
     } = {
       requestId: `REQ-${Date.now().toString().slice(-6)}`,
-      patientId: activePatient.id || 'PAT-DEFAULT',
-      clinicId: 'CLN-MAIN-01',
+      patientId: activePatient.id || activePatient.userId || '',
+      clinicId: (activePatient as any)?.clinicId || undefined,
       imageName: mainName,
       imageUrl: mainPreview,
       file: mainFile || undefined,
@@ -350,19 +365,19 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   return (
     <Card id="patient-uploader-card" padding="lg" className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-clinical-border pb-4">
+      <div className="flex flex-col gap-3 border-b border-clinical-border pb-4">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-clinical-text flex items-center gap-2">
-            <UploadCloud className="w-5 h-5 text-[#0891B2]" />
-            {isVi ? 'Tải Ảnh Võng Mạc Khám Sàng Lọc' : 'Upload Retinal Scan for Screening'}
+            <UploadCloud className="w-5 h-5 text-[#0891B2] shrink-0" />
+            <span>{isVi ? 'Tải Ảnh Võng Mạc Khám Sàng Lọc' : 'Upload Retinal Scan for Screening'}</span>
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
             {isVi
               ? 'Hỗ trợ ảnh PNG, JPG, DICOM (tối đa 15MB). Dữ liệu được bảo mật mã hóa an toàn.'
               : 'Supports PNG, JPG, DICOM files (max 15MB). Clinical data is securely encrypted.'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap pt-0.5">
           <Button
             type="button"
             variant="outline"
@@ -371,12 +386,13 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             disabled={isLoadingDemo || isAnalyzing}
             loading={isLoadingDemo}
             icon={<Sparkles className="w-3.5 h-3.5 text-[#0891B2]" />}
+            className="text-xs font-semibold py-1.5 px-3"
           >
             {isLoadingDemo ? (isVi ? 'Đang nạp ảnh...' : 'Loading scan...') : (isVi ? 'Dùng ảnh mẫu' : 'Use sample scan')}
           </Button>
-          <div className="flex items-center gap-1 text-xs bg-[#F0FDFA] text-[#0891B2] px-2.5 py-1.5 rounded-xl border border-[#CCFBF1] font-semibold">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>{isVi ? 'Chuẩn bảo mật' : 'Security Standard'}</span>
+          <div className="flex items-center gap-1.5 text-xs bg-[#F0FDFA] text-[#0891B2] px-2.5 py-1.5 rounded-xl border border-[#CCFBF1] font-semibold whitespace-nowrap">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{isVi ? 'Chuẩn bảo mật HIPAA' : 'HIPAA Security'}</span>
           </div>
         </div>
       </div>
@@ -425,7 +441,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Selection Configuration */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-clinical-border">
+        <div className="space-y-3.5 bg-slate-50/90 p-4 rounded-xl border border-clinical-border">
           {/* Eye Selection Mode */}
           <div>
             <label className="block text-xs font-semibold text-clinical-text mb-1.5">
@@ -437,13 +453,18 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                   key={opt.id}
                   type="button"
                   onClick={() => setEyeMode(opt.id)}
-                  className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-colors ${
+                  className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     eyeMode === opt.id
                       ? 'bg-[#0891B2] text-white border-[#0891B2] shadow-xs'
-                      : 'bg-white text-clinical-text-secondary border-clinical-border hover:bg-slate-100'
+                      : 'bg-white text-clinical-text-secondary border-clinical-border hover:bg-slate-100 hover:text-clinical-text'
                   }`}
                 >
-                  {opt.label}
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      eyeMode === opt.id ? 'bg-white' : opt.id === 'Right_OD' ? 'bg-[#0891B2]' : 'bg-teal-600'
+                    }`}
+                  />
+                  <span className="truncate">{opt.label}</span>
                 </button>
               ))}
             </div>

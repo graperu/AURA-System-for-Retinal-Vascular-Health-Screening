@@ -11,11 +11,13 @@ spring:
     password: ${DB_PASSWORD:aura_password123}
   jpa:
     hibernate:
-      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
+      ddl-auto: ${HIBERNATE_DDL_AUTO:validate}
     open-in-view: false
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     baseline-on-migrate: true
+    validate-on-migrate: false
+    out-of-order: true
   mail:
     host: ${SPRING_MAIL_HOST:smtp.gmail.com}
     port: ${SPRING_MAIL_PORT:587}

@@ -79,6 +79,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/system/health")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/packages", "/api/v1/packages/**", "/api/v1/billing/packages", "/api/v1/billing/packages/**")
+                    .permitAll()
                     .requestMatchers("/api/v1/billing/ipn/**")
                     .permitAll()
                     .requestMatchers("/api/v1/doctor/**").hasRole("DOCTOR")

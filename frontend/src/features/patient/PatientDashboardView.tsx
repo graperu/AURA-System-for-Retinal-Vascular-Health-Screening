@@ -62,12 +62,60 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
               </div>
 
               {latestResult && (
-                <RiskBadge level={latestResult.cardiovascularRisk.level} size="lg" />
+                <div className="flex items-center gap-2">
+                  {latestResult.status === 'REVIEWED' ? (
+                    <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      {isVi ? 'Đã Được Bác Sĩ Duyệt' : 'Doctor Approved'}
+                    </span>
+                  ) : (
+                    <span className="text-xs px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-bold border border-amber-300 flex items-center gap-1.5 shadow-2xs animate-pulse">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      {isVi ? 'Chờ Bác Sĩ Thẩm Định' : 'Pending Doctor Review'}
+                    </span>
+                  )}
+                  <RiskBadge level={latestResult.cardiovascularRisk.level} size="lg" />
+                </div>
               )}
             </div>
 
             {latestResult ? (
               <div className="space-y-6">
+                {/* Notice Banner: Yêu cầu Bác sĩ duyệt theo chuẩn an toàn y tế */}
+                {latestResult.status !== 'REVIEWED' ? (
+                  <div className="p-4 rounded-2xl bg-amber-50/95 border-2 border-amber-300/90 text-amber-950 space-y-2 shadow-xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
+                        {isVi ? 'QUY CHUẨN Y TẾ: KẾT QUẢ CẦN ĐƯỢC BÁC SĨ THẨM ĐỊNH & KÝ DUYỆT' : 'CLINICAL NOTICE: RESULT AWAITING DOCTOR VERIFICATION'}
+                      </span>
+                      <span className="text-[11px] font-bold text-amber-900 bg-amber-200/90 px-2.5 py-0.5 rounded-md border border-amber-300">
+                        {isVi ? 'Trạng thái: Chờ duyệt' : 'Status: Pending Approval'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-900 leading-relaxed">
+                      {isVi
+                        ? `Ảnh võng mạc của bạn đã được hệ thống AI xử lý và chuyển thẳng đến Bác sĩ chuyên khoa phụ trách (${patient.assignedDoctor || 'Bác sĩ chuyên khoa'}). Để đảm bảo an toàn lâm sàng, kết quả chẩn đoán chính thức và phiếu kết quả y khoa sẽ được gửi đến bạn ngay sau khi Bác sĩ hoàn tất thẩm định và ký duyệt điện tử.`
+                        : `Your retinal scan has been processed by AI and submitted to your attending physician (${patient.assignedDoctor || 'Attending Specialist'}). In compliance with SaMD medical standards, the confirmed diagnosis will be available once clinically verified and digitally signed.`}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-emerald-50/95 border-2 border-emerald-300 text-emerald-950 space-y-2 shadow-xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        {isVi ? 'KẾT QUẢ CHÍNH THỨC: ĐÃ ĐƯỢC BÁC SĨ CHUYÊN KHOA THẨM ĐỊNH' : 'OFFICIAL RESULT: CLINICALLY VERIFIED BY SPECIALIST'}
+                      </span>
+                      <span className="text-[11px] font-bold text-emerald-900 bg-emerald-200/90 px-2.5 py-0.5 rounded-md border border-emerald-300">
+                        {isVi ? 'Đã ký duyệt' : 'Signed Off'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-emerald-900 leading-relaxed">
+                      {latestResult.doctorNotes || latestResult.findings || (isVi ? `Bác sĩ ${patient.assignedDoctor || latestResult.doctorName || 'phụ trách'} đã hoàn tất đánh giá chuyên môn, xác nhận chỉ số vi mạch và ký duyệt kết quả cho ca khám này.` : `Your attending doctor has completed clinical review and verified the retinal vascular biomarkers for this case.`)}
+                    </p>
+                  </div>
+                )}
+
                 {/* 3 Pillars Summary */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
@@ -108,37 +156,20 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                 </div>
 
                 {/* Doctor Assessment Box */}
-                {latestResult.status === 'REVIEWED' ? (
-                  <div className="p-4 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                        {t('patient.chat.assignedDoctor', isVi ? 'Bác sĩ phụ trách' : 'Assigned doctor')}: {patient.assignedDoctor || latestResult.doctorName || (isVi ? 'Đang chờ phân công bác sĩ' : 'Awaiting doctor assignment')}
-                      </span>
-                      <span className="text-[11px] font-semibold text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
-                        {isVi ? 'Đã thẩm định bởi BS' : 'Doctor Reviewed'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-emerald-950">
-                      {latestResult.doctorNotes || latestResult.findings || (isVi ? 'Chỉ số vi mạch võng mạc đã được bác sĩ chuyên khoa thẩm định và xác nhận.' : 'Retinal microvascular biomarkers have been verified and confirmed by specialist.')}
-                    </p>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-teal-600" />
+                      {t('patient.chat.assignedDoctor', isVi ? 'Bác sĩ phụ trách' : 'Assigned doctor')}: {patient.assignedDoctor || latestResult.doctorName || (isVi ? 'Đang chờ phân công bác sĩ' : 'Awaiting doctor assignment')}
+                    </span>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${latestResult.status === 'REVIEWED' ? 'text-emerald-800 bg-emerald-50 border-emerald-200' : 'text-amber-800 bg-amber-50 border-amber-200'}`}>
+                      {latestResult.status === 'REVIEWED' ? (isVi ? 'Đã thẩm định bởi BS' : 'Doctor Reviewed') : (isVi ? 'Chờ bác sĩ duyệt' : 'Pending Doctor Review')}
+                    </span>
                   </div>
-                ) : (
-                  <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-amber-600" />
-                        {t('patient.chat.assignedDoctor', isVi ? 'Bác sĩ phụ trách' : 'Assigned doctor')}: {patient.assignedDoctor || latestResult.doctorName || (isVi ? 'Đang chờ phân công bác sĩ' : 'Awaiting doctor assignment')}
-                      </span>
-                      <span className="text-[11px] font-semibold text-amber-800 bg-white px-2 py-0.5 rounded-md border border-amber-200">
-                        {isVi ? 'Chờ bác sĩ thẩm định' : 'Pending Doctor Review'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-amber-950">
-                      {latestResult.findings || latestResult.recommendations || (isVi ? 'Kết quả phân tích sơ bộ từ AI. Đang chờ bác sĩ chuyên khoa kiểm tra và thẩm định lâm sàng.' : 'Preliminary AI analysis. Pending specialist review and clinical verification.')}
-                    </p>
-                  </div>
-                )}
+                  <p className="text-xs text-slate-700 leading-relaxed">
+                    {latestResult.doctorNotes || latestResult.findings || (latestResult.status === 'REVIEWED' ? (isVi ? 'Chỉ số vi mạch võng mạc đã được bác sĩ chuyên khoa thẩm định và xác nhận.' : 'Retinal microvascular biomarkers verified.') : (isVi ? 'Ảnh đã gửi đến Bác sĩ phụ trách. Kết quả chẩn đoán chính thức sẽ được cập nhật tại đây khi hoàn tất ký duyệt.' : 'Awaiting doctor verification.'))}
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="text-center py-8 space-y-3">

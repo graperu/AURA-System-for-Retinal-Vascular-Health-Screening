@@ -30,7 +30,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         onOpenMenu={() => setIsMobileMenuOpen(true)}
       />
 
-      <div className="mx-auto flex w-full max-w-[1440px] flex-1">
+      <div className="mx-auto flex w-full max-w-[1536px] 2xl:max-w-[1600px] flex-1">
         {/* Categorized Side Navigation */}
         <SideNavBar
           currentRole={currentUser.role}
@@ -42,7 +42,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
         {/* Dynamic Role Main Viewport */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <main className="min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
+          <main className="min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-5">
             <div key={activeSection} className="page-transition-enter min-h-full">
               {children}
             </div>

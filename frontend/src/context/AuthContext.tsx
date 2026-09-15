@@ -15,7 +15,7 @@ interface AuthContextType {
   loginWithGoogle: (payload: { idToken: string; email?: string; fullName?: string; picture?: string }) => Promise<AuthResult>;
   loginWithSocial: (payload: { provider: string; idToken: string; email?: string; fullName?: string; picture?: string }) => Promise<AuthResult>;
   register: (data: { fullName?: string; email: string; password: string; phone?: string; role?: string }) => Promise<AuthResult>;
-  sendOtp: (data: { email: string; fullName?: string; type?: string }) => Promise<AuthResult<{ email: string; expiresInSeconds: number }>>;
+  sendOtp: (data: { email: string; fullName?: string; type?: string }) => Promise<AuthResult<{ email: string; expiresInSeconds: number; devOtp?: string }>>;
   verifyOtpAndRegister: (data: { email: string; otp: string; fullName?: string; password: string }) => Promise<AuthResult>;
   logout: () => Promise<void>;
 }
@@ -85,8 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: response.success, message: response.message, code: response.code, details: response.details };
   };
 
-  const sendOtp = async (data: { email: string; fullName?: string; type?: string }): Promise<AuthResult<{ email: string; expiresInSeconds: number }>> => {
-    const response = await apiFetch<{ email: string; expiresInSeconds: number }>('/api/v1/auth/send-otp', {
+  const sendOtp = async (data: { email: string; fullName?: string; type?: string }): Promise<AuthResult<{ email: string; expiresInSeconds: number; devOtp?: string }>> => {
+    const response = await apiFetch<{ email: string; expiresInSeconds: number; devOtp?: string }>('/api/v1/auth/send-otp', {
       method: 'POST',
       body: JSON.stringify({
         email: data.email.trim(),
@@ -122,6 +122,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...(data.role ? { role: data.role.toUpperCase() === 'CLINIC' ? 'CLINIC' : 'USER' } : {}),
     };
     const response = await apiFetch<BackendUser>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify(payload) });
+    if (response.success) {
+      return await login(data.email, data.password);
+    }
     return { success: response.success, message: response.message, code: response.code, details: response.details };
   };
 

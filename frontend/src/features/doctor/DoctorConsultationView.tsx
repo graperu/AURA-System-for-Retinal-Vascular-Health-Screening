@@ -45,6 +45,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
     initialSelectedPatientId || (assignedPatients.length > 0 ? assignedPatients[0].patientId : null)
   );
+  const prevInitialPatientIdRef = useRef(initialSelectedPatientId);
   const [searchPatient, setSearchPatient] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
@@ -57,10 +58,11 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
     return assignedPatients.find((p) => p.patientId === selectedPatientId) || assignedPatients[0] || null;
   }, [assignedPatients, selectedPatientId]);
 
-  // Cập nhật selectedPatientId nếu activePatient thay đổi
+  // Cập nhật selectedPatientId khi initialSelectedPatientId từ component cha thay đổi hoặc khi danh sách nạp lần đầu
   useEffect(() => {
-    if (initialSelectedPatientId) {
+    if (initialSelectedPatientId && initialSelectedPatientId !== prevInitialPatientIdRef.current) {
       setSelectedPatientId(initialSelectedPatientId);
+      prevInitialPatientIdRef.current = initialSelectedPatientId;
     } else if (!selectedPatientId && assignedPatients.length > 0) {
       setSelectedPatientId(assignedPatients[0].patientId);
     }

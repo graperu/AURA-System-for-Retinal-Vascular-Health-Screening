@@ -481,23 +481,25 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       )}
 
       {/* Patient Selection Bar & Clinical Header */}
-      <div className="bg-white border border-[#CCFBF1] rounded-2xl p-5 shadow-medical-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-[#F0FDFA] text-[#0891B2] border border-[#CCFBF1] flex items-center justify-center font-bold">
+      <div className="bg-white border border-[#CCFBF1] rounded-2xl p-4 sm:p-5 shadow-medical-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="w-12 h-12 rounded-xl bg-[#F0FDFA] text-[#0891B2] border border-[#CCFBF1] flex items-center justify-center font-bold shrink-0 shadow-xs">
             <UserCheck className="w-6 h-6" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-bold text-[#134E4A]">{activePatient.fullName || (isVi ? 'Chưa cập nhật tên' : 'Unnamed')}</h2>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-100 text-[#0891B2] font-semibold font-mono-data border border-cyan-200">
+              <h2 className="text-base sm:text-lg font-bold text-[#134E4A] truncate">
+                {activePatient.fullName || (isVi ? 'Chưa cập nhật tên' : 'Unnamed')}
+              </h2>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-100 text-[#0891B2] font-semibold font-mono-data border border-cyan-200 shrink-0">
                 {activePatient.mrn || (isVi ? 'Chưa có MRN' : 'No MRN')}
               </span>
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs text-slate-500 font-medium shrink-0">
                 ({activePatient.age ? `${activePatient.age} ${t('doctor.cds.yearsOld', 'tuổi')}` : (isVi ? 'Chưa cập nhật tuổi' : 'Age not recorded')} •{' '}
                 {activePatient.gender === 'Female' ? t('common.gender.female', 'Nữ') : activePatient.gender === 'Male' ? t('common.gender.male', 'Nam') : (isVi ? 'Chưa cập nhật' : 'Unrecorded')})
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-3">
+            <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
               <span>
                 {t('doctor.cds.bloodPressure', 'Huyết áp')}:{' '}
                 <strong className="text-slate-800 font-mono-data">
@@ -513,31 +515,31 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                 </strong>
               </span>
               <span className="text-teal-700 font-semibold flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-teal-600" /> {t('doctor.cds.attendingDoctor', 'Bác sĩ phụ trách')}: {doctorDisplayName}
+                <ShieldCheck className="w-3.5 h-3.5 text-teal-600 shrink-0" /> {t('doctor.cds.attendingDoctor', 'Bác sĩ phụ trách')}: {doctorDisplayName}
               </span>
-            </p>
+            </div>
           </div>
         </div>
 
         {/* Patient Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0 self-stretch sm:self-auto justify-end">
           <button
             onClick={() => onNavigate?.('patient-list')}
-            className="px-3.5 py-2 bg-[#F0FDFA] hover:bg-[#CCFBF1] text-[#0891B2] font-bold rounded-xl text-xs border border-[#CCFBF1] transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 bg-[#F0FDFA] hover:bg-[#CCFBF1] text-[#0891B2] font-bold rounded-xl text-xs border border-[#CCFBF1] transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <Users className="w-4 h-4" />
             <span>{t('doctor.cds.switchPatient', 'Đổi Bệnh Nhân')}</span>
           </button>
           <button
             onClick={() => setIsChatModalOpen(true)}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <MessageSquare className="w-4 h-4 text-[#0891B2]" />
             <span>{t('doctor.cds.message', 'Nhắn Tin')}</span>
           </button>
           <button
             onClick={() => setIsReportModalOpen(true)}
-            className="px-3.5 py-2 bg-gradient-to-r from-[#0891B2] to-[#0E7490] hover:from-[#0E7490] hover:to-[#0891B2] text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 bg-gradient-to-r from-[#0891B2] to-[#0E7490] hover:from-[#0E7490] hover:to-[#0891B2] text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <Printer className="w-4 h-4" />
             <span>{t('doctor.cds.printResult', 'In Phiếu Kết Quả')}</span>
@@ -545,11 +547,12 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         </div>
       </div>
 
-      {/* Main Grid: Left Uploader Workspace (4 cols) & Right CDS Viewer / Empty State (8 cols) */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Left Column: Image Uploader Workspace (4 cols) */}
-        <div className="xl:col-span-4 space-y-6">
+      {/* Main Grid: Left Uploader Workspace (5 cols) & Right CDS Viewer / Empty State (7 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Image Uploader Workspace (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
           <PatientUploader
+            key={activePatient.id || activePatient.userId || activePatient.mrn || 'default-patient'}
             activePatient={activePatient}
             onStartAnalysis={handleStartAnalysis}
             isAnalyzing={isAnalyzing}
@@ -557,8 +560,8 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
           />
         </div>
 
-        {/* Right Column: Interactive Side-by-Side CDS Viewer OR Clean Empty State (8 cols) */}
-        <div className="xl:col-span-8 space-y-6">
+        {/* Right Column: Interactive Side-by-Side CDS Viewer OR Clean Empty State (7 cols) */}
+        <div className="lg:col-span-7 space-y-6">
           {isScreeningLoading ? (
             <div className="bg-white border border-[#CCFBF1] rounded-2xl p-8 shadow-medical-sm text-center flex flex-col items-center justify-center min-h-[380px] space-y-3">
               <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />

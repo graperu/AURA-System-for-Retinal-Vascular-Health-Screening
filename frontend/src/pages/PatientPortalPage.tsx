@@ -469,32 +469,38 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     <div className="space-y-6 animate-fadeIn">
       {/* Toast Notification (FR-9) */}
       {showAiNotification && analysisResult && (
-        <div className="fixed top-20 right-6 z-50 max-w-md bg-white border border-emerald-200 rounded-xl p-4 shadow-medical-modal animate-slideInRight flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
-            <Bell className="w-5 h-5" />
+        <div className="fixed top-20 right-6 z-50 max-w-md bg-white border border-cyan-200 rounded-2xl p-4 shadow-medical-modal animate-slideInRight flex items-start gap-3">
+          <div className="p-2.5 rounded-xl bg-cyan-50 text-[#0891B2] shrink-0 border border-cyan-100">
+            {analysisResult.status === 'REVIEWED' ? (
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+            ) : (
+              <Clock className="w-5 h-5 text-amber-600 animate-pulse" />
+            )}
           </div>
           <div className="flex-1 space-y-1">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-slate-900">
-                {isVi ? "Thông Báo AI Sẵn Sàng" : "AI Analysis Ready"}
+                {analysisResult.status === 'REVIEWED'
+                  ? (isVi ? "Kết Quả Khám Đã Được Bác Sĩ Ký Duyệt" : "Screening Approved by Specialist")
+                  : (isVi ? "Đã Tiếp Nhận & Chờ Bác Sĩ Duyệt" : "Scan Submitted - Awaiting Doctor Review")}
               </h4>
-              <span className="text-[10px] text-emerald-600 font-mono-data font-semibold">
+              <span className={`text-[10px] font-mono-data font-bold px-2 py-0.5 rounded-md ${analysisResult.status === 'REVIEWED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                 {isVi ? "Vừa xong" : "Just now"}
               </span>
             </div>
             <p className="text-xs text-slate-600 leading-snug">
-              {isVi
-                ? `Ảnh võng mạc của bạn đã được phân tích hoàn tất! Điểm rủi ro tổng hợp: `
-                : `Your retinal scan analysis is complete! Overall vascular risk score: `}
-              <strong className="text-slate-900 font-bold font-mono-data">
-                {analysisResult.overallVascularRiskScore}/100
-              </strong>
-              .
+              {analysisResult.status === 'REVIEWED'
+                ? (isVi
+                    ? `Bác sĩ ${analysisResult.doctorName || patient.assignedDoctor || 'phụ trách'} đã hoàn tất thẩm định và ký duyệt kết quả vi mạch võng mạc của bạn.`
+                    : `Your assigned specialist has clinically verified and digitally signed your screening report.`)
+                : (isVi
+                    ? `Ảnh võng mạc đã được phân tích sơ bộ thành công! Hồ sơ đã được chuyển đến Bác sĩ ${patient.assignedDoctor ? `(${patient.assignedDoctor})` : 'phụ trách'} để thẩm định lâm sàng và ký duyệt kết quả.`
+                    : `Scan analyzed by AI and submitted to your physician for clinical review and digital signature.`)}
             </p>
           </div>
           <button
             onClick={() => setShowAiNotification(false)}
-            className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+            className="text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
           >
             ✕
           </button>
@@ -641,6 +647,53 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             </div>
           </div>
 
+          {/* Banner Trạng Thái Thẩm Định Bác Sĩ (Yêu cầu nghiệp vụ bắt buộc) */}
+          {analysisResult && (
+            analysisResult.status === 'REVIEWED' ? (
+              <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 text-emerald-950 flex items-start gap-3 shadow-xs">
+                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <h4 className="font-bold text-sm text-emerald-900">
+                      {isVi ? 'Ca Sàng Lọc Đã Được Bác Sĩ Chuyên Khoa Thẩm Định & Ký Duyệt' : 'Screening Clinically Verified & Signed by Specialist'}
+                    </h4>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-xs font-bold shrink-0">
+                      {isVi ? 'Đã duyệt chính thức' : 'Official Approved'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-800 leading-relaxed">
+                    {isVi
+                      ? `Bác sĩ ${analysisResult.doctorName || patient.assignedDoctor || 'phụ trách'} đã kiểm tra đối soát ảnh chụp đáy mắt và xác nhận toàn bộ chỉ số vi mạch. Bạn có thể xuất phiếu báo cáo y khoa chính thức.`
+                      : `Your attending doctor has verified the fundus scan and confirmed all microvascular biomarkers.`}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 flex items-start gap-3 shadow-xs">
+                <div className="p-2 bg-amber-100 text-amber-700 rounded-xl shrink-0">
+                  <Clock className="w-5 h-5 text-amber-600 animate-pulse" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <h4 className="font-bold text-sm text-amber-900">
+                      {isVi ? 'Quy Chuẩn An Toàn Y Tế: Ca Sàng Lọc Đang Chờ Bác Sĩ Thẩm Định' : 'Clinical Safety: Screening Pending Doctor Review'}
+                    </h4>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-xs font-bold shrink-0">
+                      {isVi ? 'Chờ BS ký duyệt' : 'Pending Sign-off'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    {isVi
+                      ? `Hệ thống AI đã hoàn tất quét vi mạch võng mạc và chuyển dữ liệu đến Bác sĩ chuyên khoa phụ trách (${patient.assignedDoctor || 'Bác sĩ chuyên khoa'}). Kết quả chẩn đoán chính thức và phiếu kết quả y khoa có giá trị lâm sàng sẽ được mở khóa đầy đủ ngay sau khi Bác sĩ hoàn tất xem xét và ký duyệt điện tử.`
+                      : `AI scanning complete. Official clinical diagnosis will be unlocked once your attending specialist (${patient.assignedDoctor || 'Attending Physician'}) completes clinical review.`}
+                  </p>
+                </div>
+              </div>
+            )
+          )}
+
           {analysisResult ? (
             <div className="space-y-6">
               <InteractiveCDSViewer
@@ -655,11 +708,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 analysisResult={analysisResult}
                 onOpenFullReport={() => setIsReportModalOpen(true)}
                 onConsultDoctor={() => {
-                  if (assignedDoctorId) {
-                    onNavigate("consultation-chat");
-                  } else {
-                    setIsChatModalOpen(true);
-                  }
+                  onNavigate("consultation");
                 }}
               />
             </div>
@@ -936,7 +985,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       {/* =========================================================================
           VIEW 6: IN-APP CONSULTATION CHAT (FR-10)
       ========================================================================== */}
-      {activeView === "consultation" && (
+      {(activeView === "consultation" || activeView === "consultation-chat") && (
         <div className="max-w-4xl mx-auto space-y-6">
           {!assignedDoctorId && !patient.assignedDoctor ? (
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 sm:p-12 text-center space-y-5">

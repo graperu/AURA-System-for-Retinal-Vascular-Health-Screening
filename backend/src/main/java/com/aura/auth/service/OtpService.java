@@ -60,8 +60,10 @@ public class OtpService {
 
     otpStorage.put(email, new OtpData(otp, now, expiresAt, 0));
 
-    // 1. Log audit notification without exposing raw OTP or full PII
-    log.info("Mã xác thực OTP đã được tạo và gửi tới: {}", maskEmail(email));
+    // 1. Log audit notification with OTP code for backend verification
+    log.info("================================================================================");
+    log.info(">>> [AURA AUTH OTP] Mã OTP xác thực cho email [{}]: {} <<<", email, otp);
+    log.info("================================================================================");
 
     // 2. Dispatch real email via SMTP if configured
     if (mailSender != null && senderEmail != null && !senderEmail.isBlank()) {

@@ -60,7 +60,7 @@ public class DoctorFeedbackController {
   }
 
   @GetMapping("/screening/{screeningId}")
-  @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")
+  @PreAuthorize("@patientAccessService.canAccessScreening(principal, #screeningId)")
   @Operation(summary = "Get feedback entries for a specific screening")
   public ApiResponse<List<DoctorFeedbackResponse>> getFeedbacksByScreening(
       @PathVariable UUID screeningId) {

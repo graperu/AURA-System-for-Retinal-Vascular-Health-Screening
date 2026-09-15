@@ -10,6 +10,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -139,8 +140,16 @@ public class GeminiRetinalAiService {
 
           messages.add(Map.of("role", "user", "content", contentParts));
         } else {
-          // Relative path like '/assets/images/fundus_original.png' -> Send text instruction so AI still analyzes
-          messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch đáy mắt tiêu chuẩn cho mắt: " + eye));
+          // VULN-06 FIX: Tải dữ liệu byte thực tế cho đường dẫn ảnh cục bộ
+          String resolvedDataUri = resolveLocalImageToDataUri(imageBase64OrUrl);
+          if (resolvedDataUri != null) {
+            List<Map<String, Object>> contentParts = new ArrayList<>();
+            contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + eye + ") của bệnh nhân sau:"));
+            contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", resolvedDataUri)));
+            messages.add(Map.of("role", "user", "content", contentParts));
+          } else {
+            messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch đáy mắt tiêu chuẩn cho mắt: " + eye));
+          }
         }
       } else {
         messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch mắt: " + eye));
@@ -229,5 +238,34 @@ public class GeminiRetinalAiService {
       cleaned = cleaned.substring(0, cleaned.length() - 3);
     }
     return cleaned.trim();
+  }
+
+  private String resolveLocalImageToDataUri(String relativePath) {
+    if (relativePath == null || relativePath.isBlank()) {
+      return null;
+    }
+    try {
+      String cleanPath = relativePath.startsWith("/") ? relativePath.substring(1) : relativePath;
+      java.nio.file.Path[] candidatePaths = new java.nio.file.Path[] {
+          java.nio.file.Paths.get(cleanPath),
+          java.nio.file.Paths.get("frontend", "public", cleanPath),
+          java.nio.file.Paths.get("..", "frontend", "public", cleanPath),
+          java.nio.file.Paths.get("src", "main", "resources", "static", cleanPath)
+      };
+
+      for (java.nio.file.Path path : candidatePaths) {
+        if (java.nio.file.Files.exists(path) && java.nio.file.Files.isRegularFile(path)) {
+          byte[] imageBytes = java.nio.file.Files.readAllBytes(path);
+          if (imageBytes.length > 0) {
+            String base64 = java.util.Base64.getEncoder().encodeToString(imageBytes);
+            String mimeType = cleanPath.endsWith(".jpg") || cleanPath.endsWith(".jpeg") ? "image/jpeg" : "image/png";
+            return "data:" + mimeType + ";base64," + base64;
+          }
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Error reading local image file {}: {}", relativePath, e.getMessage());
+    }
+    return null;
   }
 }
