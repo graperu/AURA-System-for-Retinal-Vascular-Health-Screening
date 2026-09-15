@@ -20,6 +20,7 @@ import { screeningApi, chatApi, billingApi, patientApi } from "../services/api";
 import { stompClient } from "../services/websocketService";
 import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
 import { useLanguage } from "../context/LanguageContext";
+import { useAuth } from "../context/AuthContext";
 import {
   Eye,
   Heart,
@@ -69,6 +70,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   onNavigate = () => undefined,
 }) => {
   const { t, isVi } = useLanguage();
+  const { updateUser } = useAuth();
   const [patient, setPatient] = useState<PatientProfile>({
     fullName: user.name || (isVi ? "Bệnh nhân" : "Patient"),
     mrn: user.mrn || "",
@@ -1490,6 +1492,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               ...updated,
               assignedDoctor: safeDoc || null,
             });
+            if (updated.fullName) {
+              updateUser({ name: updated.fullName });
+            }
           }
         }}
       />

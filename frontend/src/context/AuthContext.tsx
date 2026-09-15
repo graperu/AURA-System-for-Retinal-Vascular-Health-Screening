@@ -19,6 +19,8 @@ interface AuthContextType {
   sendOtp: (data: { email: string; fullName?: string; type?: string }) => Promise<AuthResult<{ email: string; expiresInSeconds: number; devOtp?: string }>>;
   verifyOtpAndRegister: (data: { email: string; otp: string; fullName?: string; password: string }) => Promise<AuthResult>;
   logout: () => Promise<void>;
+  updateUser: (partial: Partial<UserSession>) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -170,7 +172,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, loginWithSocial, register, sendOtp, verifyOtpAndRegister, logout }}>{children}</AuthContext.Provider>;
+  const updateUser = (partial: Partial<UserSession>) => {
+    setUser((prev) => (prev ? { ...prev, ...partial } : null));
+  };
+
+  const refreshUser = async () => {
+    await fetchCurrentUser();
+  };
+
+  return <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, loginWithSocial, register, sendOtp, verifyOtpAndRegister, logout, updateUser, refreshUser }}>{children}</AuthContext.Provider>;
 };
 
 const defaultAuthContext: AuthContextType = {
@@ -183,6 +193,8 @@ const defaultAuthContext: AuthContextType = {
   sendOtp: async () => ({ success: false, message: 'No AuthProvider' }),
   verifyOtpAndRegister: async () => ({ success: false, message: 'No AuthProvider' }),
   logout: async () => {},
+  updateUser: () => {},
+  refreshUser: async () => {},
 };
 
 export const useAuth = () => {
