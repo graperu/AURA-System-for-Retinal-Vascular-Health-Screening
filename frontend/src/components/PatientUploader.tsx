@@ -57,26 +57,26 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   const scanTypeOptions: ClinicalSelectOption<'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan'>[] = useMemo(() => [
     {
       value: 'Fundus_Macula',
-      label: isVi ? 'Ảnh màu đáy mắt hoàng điểm' : 'Macula-Centered Fundus Color',
+      label: isVi ? 'Ảnh màu hoàng điểm' : 'Macula Fundus',
       sublabel: isVi
-        ? 'Tập trung vùng hoàng điểm và vi mạch trung tâm'
-        : 'Foveal center and parafoveal capillary network',
+        ? 'Tập trung vùng hoàng điểm & vi mạch trung tâm'
+        : 'Macula & central microvasculature',
       icon: <Target className="w-4 h-4 text-[#0891B2]" />,
     },
     {
       value: 'Fundus_OpticDisc',
-      label: isVi ? 'Ảnh màu đáy mắt gai thị' : 'Optic Disc Fundus Color',
+      label: isVi ? 'Ảnh màu gai thị' : 'Optic Disc Fundus',
       sublabel: isVi
-        ? 'Tập trung gai thị và tỷ lệ cup/disc'
-        : 'Neuroretinal rim and optic cup',
+        ? 'Tập trung gai thị & tỷ lệ cup/disc'
+        : 'Optic disc & cup-to-disc ratio',
       icon: <CircleDot className="w-4 h-4 text-[#0891B2]" />,
     },
     {
       value: 'OCT_Scan',
-      label: isVi ? 'Chụp cắt lớp võng mạc (OCT)' : 'Optical Coherence Tomography (OCT)',
+      label: isVi ? 'Chụp cắt lớp OCT' : 'OCT Scan',
       sublabel: isVi
-        ? 'Phân tích lớp cắt chuyên sâu'
-        : 'Cross-sectional tomographic imaging',
+        ? 'Phân tích lớp cắt võng mạc chuyên sâu'
+        : 'Cross-sectional retinal imaging',
       icon: <Layers className="w-4 h-4 text-[#0891B2]" />,
     },
   ], [isVi]);
@@ -369,12 +369,12 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         <div>
           <h2 className="text-base sm:text-lg font-bold text-clinical-text flex items-center gap-2">
             <UploadCloud className="w-5 h-5 text-[#0891B2] shrink-0" />
-            <span>{isVi ? 'Tải Ảnh Võng Mạc Khám Sàng Lọc' : 'Upload Retinal Scan for Screening'}</span>
+            <span>{isVi ? 'Tải Ảnh Võng Mạc' : 'Upload Retinal Scan'}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
             {isVi
-              ? 'Hỗ trợ ảnh PNG, JPG, DICOM (tối đa 15MB). Dữ liệu được bảo mật mã hóa an toàn.'
-              : 'Supports PNG, JPG, DICOM files (max 15MB). Clinical data is securely encrypted.'}
+              ? 'Hỗ trợ PNG, JPG, DICOM (tối đa 15MB). Mã hóa an toàn.'
+              : 'Supports PNG, JPG, DICOM (max 15MB). Securely encrypted.'}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap pt-0.5">
@@ -388,11 +388,11 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             icon={<Sparkles className="w-3.5 h-3.5 text-[#0891B2]" />}
             className="text-xs font-semibold py-1.5 px-3"
           >
-            {isLoadingDemo ? (isVi ? 'Đang nạp ảnh...' : 'Loading scan...') : (isVi ? 'Dùng ảnh mẫu' : 'Use sample scan')}
+            {isLoadingDemo ? (isVi ? 'Đang nạp...' : 'Loading...') : (isVi ? 'Ảnh mẫu' : 'Sample scan')}
           </Button>
           <div className="flex items-center gap-1.5 text-xs bg-[#F0FDFA] text-[#0891B2] px-2.5 py-1.5 rounded-xl border border-[#CCFBF1] font-semibold whitespace-nowrap">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{isVi ? 'Chuẩn bảo mật HIPAA' : 'HIPAA Security'}</span>
+            <span>{isVi ? 'Chuẩn HIPAA' : 'HIPAA Compliant'}</span>
           </div>
         </div>
       </div>

@@ -10,10 +10,12 @@ import {
   Plus,
   ChevronDown,
   X,
+  Trash2,
 } from 'lucide-react';
 import { ClinicBatchJob } from '../../types/cds';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
 import { EyeBadge } from '../../components/ui/EyeBadge';
 import { ClinicalSelect, ClinicalSelectOption } from '../../components/ui/ClinicalSelect';
 import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
@@ -26,6 +28,7 @@ export interface ClinicBatchWorkspaceProps {
   onUploadNewBatch?: () => void;
   onSelectBatchItem?: (item: any) => void;
   onExportCsv?: () => void;
+  onDeleteItems?: (itemIds: string[]) => void;
 }
 
 export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
@@ -33,10 +36,15 @@ export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
   onUploadNewBatch,
   onSelectBatchItem,
   onExportCsv,
+  onDeleteItems,
 }) => {
   const { t, isVi } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'PROCESSING' | 'FAILED'>('ALL');
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [itemToDelete, setItemToDelete] = useState<any | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isBatchDelete, setIsBatchDelete] = useState(false);
 
   const statusFilterOptions: ClinicalSelectOption<StatusFilterType>[] = useMemo(
     () => [
@@ -74,6 +82,40 @@ export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
       return matchSearch && matchStatus;
     });
   }, [batchJob.items, searchTerm, statusFilter]);
+
+  const toggleSelectItem = (id: string) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (filteredItems.length > 0 && filteredItems.every((it) => selectedItemIds.has(it.id))) {
+      setSelectedItemIds(new Set());
+    } else {
+      setSelectedItemIds(new Set(filteredItems.map((it) => it.id)));
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (isBatchDelete) {
+      const ids = Array.from(selectedItemIds);
+      onDeleteItems?.(ids);
+      setSelectedItemIds(new Set());
+    } else if (itemToDelete) {
+      onDeleteItems?.([itemToDelete.id]);
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemToDelete.id);
+        return next;
+      });
+    }
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
 
   const renderStatusBadge = (status?: string) => {
     const normStatus = (status || '').toUpperCase();
@@ -125,6 +167,28 @@ export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
   const columns: Column<any>[] = useMemo(
     () => [
       {
+        header: (
+          <input
+            type="checkbox"
+            checked={filteredItems.length > 0 && filteredItems.every((it) => selectedItemIds.has(it.id))}
+            onChange={toggleSelectAll}
+            className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 cursor-pointer"
+            aria-label={isVi ? 'Chọn tất cả ảnh trong đợt' : 'Select all batch images'}
+          />
+        ),
+        width: '44px',
+        align: 'center',
+        accessor: (row) => (
+          <input
+            type="checkbox"
+            checked={selectedItemIds.has(row.id)}
+            onChange={() => toggleSelectItem(row.id)}
+            className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 cursor-pointer"
+            aria-label={isVi ? `Chọn ảnh ${row.id}` : `Select ${row.fileName || row.id}`}
+          />
+        ),
+      },
+      {
         header: t('clinic.batchWorkspace.colFileId'),
         accessor: (row) => (
           <div className="space-y-0.5">
@@ -157,18 +221,32 @@ export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
         header: t('clinic.batchWorkspace.colActions'),
         align: 'right',
         accessor: (row) => (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onSelectBatchItem?.(row)}
-            icon={<Eye className="w-3.5 h-3.5" />}
-          >
-            {t('clinic.batchWorkspace.viewDetail')}
-          </Button>
+          <div className="flex items-center justify-end gap-1.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onSelectBatchItem?.(row)}
+              icon={<Eye className="w-3.5 h-3.5" />}
+            >
+              {t('clinic.batchWorkspace.viewDetail')}
+            </Button>
+            <button
+              onClick={() => {
+                setItemToDelete(row);
+                setIsBatchDelete(false);
+                setIsDeleteModalOpen(true);
+              }}
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+              title={isVi ? 'Xóa ảnh này khỏi đợt' : 'Remove image from batch'}
+              aria-label={isVi ? 'Xóa ảnh' : 'Delete image'}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         ),
       },
     ],
-    [t, onSelectBatchItem]
+    [t, isVi, filteredItems, selectedItemIds, onSelectBatchItem]
   );
 
   return (
@@ -177,27 +255,27 @@ export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
           <span className="text-xs font-bold text-slate-500 block">
-            {t('clinic.batchWorkspace.totalImages')}
+            {t('clinic.batchWorkspace.totalImages', isVi ? 'Tổng Số Ảnh' : 'Total Images')}
           </span>
           <div className="text-2xl font-extrabold text-slate-900 font-mono-data mt-1.5">
             {batchJob.totalImages || 0}
           </div>
           <span className="text-[11px] text-teal-700 font-semibold font-sans">
             {batchJob.batchId
-              ? `${t('clinic.batchWorkspace.batch')} ${batchJob.batchId}`
-              : t('clinic.batchWorkspace.newBatch')}
+              ? `${t('clinic.batchWorkspace.batch', isVi ? 'Đợt' : 'Batch')} ${batchJob.batchId}`
+              : t('clinic.batchWorkspace.newBatch', isVi ? 'Đợt mới' : 'New batch')}
           </span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
           <span className="text-xs font-bold text-emerald-700 block">
-            {t('clinic.batchWorkspace.completedAi')}
+            {t('clinic.batchWorkspace.completedAi', isVi ? 'Đã Phân Tích AI' : 'AI Analyzed')}
           </span>
           <div className="text-2xl font-extrabold text-emerald-600 font-mono-data mt-1.5">
             {batchJob.processedCount || 0}
           </div>
           <span className="text-[11px] text-slate-500 font-sans">
-            {t('clinic.batchWorkspace.rate')}:{' '}
+            {t('clinic.batchWorkspace.rate', isVi ? 'Tỷ lệ' : 'Rate')}:{' '}
             {batchJob.totalImages
               ? ((batchJob.processedCount / batchJob.totalImages) * 100).toFixed(0)
               : 100}
@@ -207,7 +285,7 @@ export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
           <span className="text-xs font-bold text-amber-700 block">
-            {t('clinic.batchWorkspace.processingBackground')}
+            {t('clinic.batchWorkspace.processingBackground', isVi ? 'Đang Xử Lý' : 'Processing')}
           </span>
           <div className="text-2xl font-extrabold text-amber-600 font-mono-data mt-1.5">
             {batchJob.status === 'IN_PROGRESS' || batchJob.status === 'QUEUED'
@@ -215,19 +293,19 @@ export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
               : 0}
           </div>
           <span className="text-[11px] text-slate-500 font-sans">
-            {t('clinic.batchWorkspace.asyncQueue')}
+            {t('clinic.batchWorkspace.asyncQueue', isVi ? 'Hàng đợi nền' : 'Async queue')}
           </span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
           <span className="text-xs font-bold text-red-700 block">
-            {t('clinic.batchWorkspace.qualityError')}
+            {t('clinic.batchWorkspace.qualityError', isVi ? 'Lỗi Chất Lượng' : 'Quality Error')}
           </span>
           <div className="text-2xl font-extrabold text-red-600 font-mono-data mt-1.5">
             {batchJob.failedCount || 0}
           </div>
           <span className="text-[11px] text-slate-500 font-sans">
-            {t('clinic.batchWorkspace.retakeNeeded')}
+            {t('clinic.batchWorkspace.retakeNeeded', isVi ? 'Cần chụp lại' : 'Retake needed')}
           </span>
         </div>
       </div>
@@ -325,8 +403,86 @@ export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
         columns={columns}
         data={filteredItems}
         keyExtractor={(it, idx) => it.id || String(idx)}
+        pagination={{
+          pageSize: 10,
+          pageSizeOptions: [5, 10, 20, 50],
+          itemLabel: isVi ? 'ảnh chụp' : 'images',
+        }}
         emptyMessage={t('clinic.batchWorkspace.emptyMessage')}
       />
+
+      {/* Sticky Batch Floating Action Toolbar */}
+      {selectedItemIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 backdrop-blur text-white px-6 py-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+            <span className="text-xs font-semibold">
+              {isVi
+                ? `Đã chọn ${selectedItemIds.size} / ${filteredItems.length} ảnh`
+                : `Selected ${selectedItemIds.size} / ${filteredItems.length} images`}
+            </span>
+          </div>
+          <div className="h-4 w-[1px] bg-slate-700" />
+          <button
+            onClick={() => setSelectedItemIds(new Set())}
+            className="text-xs text-slate-300 hover:text-white font-medium cursor-pointer"
+          >
+            {isVi ? 'Bỏ chọn' : 'Deselect'}
+          </button>
+          <button
+            onClick={() => {
+              setIsBatchDelete(true);
+              setItemToDelete(null);
+              setIsDeleteModalOpen(true);
+            }}
+            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {isVi ? `Xóa Đã Chọn (${selectedItemIds.size})` : `Delete Selected (${selectedItemIds.size})`}
+          </button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setItemToDelete(null);
+        }}
+        title={isVi ? 'Xác nhận xóa ảnh khỏi đợt khám' : 'Confirm Remove Image from Batch'}
+        maxWidth="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {isBatchDelete
+              ? (isVi
+                  ? `Bạn có chắc chắn muốn xóa ${selectedItemIds.size} ảnh đã chọn khỏi đợt khám này? Thao tác này không thể hoàn tác.`
+                  : `Are you sure you want to remove ${selectedItemIds.size} selected images from this batch? This action cannot be undone.`)
+              : (isVi
+                  ? `Bạn có chắc chắn muốn xóa ảnh "${itemToDelete?.fileName || itemToDelete?.id}" khỏi đợt khám không?`
+                  : `Are you sure you want to remove image "${itemToDelete?.fileName || itemToDelete?.id}" from this batch?`)}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={() => {
+                setIsDeleteModalOpen(false);
+                setItemToDelete(null);
+              }}
+              className="px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl cursor-pointer"
+            >
+              {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {isVi ? 'Xác Nhận Xóa' : 'Confirm Delete'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <MedicalDisclaimer variant="compact" />
     </div>

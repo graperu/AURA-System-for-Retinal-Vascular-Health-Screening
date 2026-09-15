@@ -391,8 +391,8 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
   const bankConfig = {
     bankId: "MB",
     bankName: "MBBank - Ngân hàng TMCP Quân Đội",
-    accountNo: "0399882026",
-    accountName: "CONG TY AI Y TE AURA",
+    accountNo: "1208123456",
+    accountName: "PHAN VAN DINH",
   };
 
   // Nội dung chuyển khoản: AURA NAP {PACKAGE_ID} {CLEAN_MRN} - Ưu tiên lấy từ activeTxnData.transferContent từ backend

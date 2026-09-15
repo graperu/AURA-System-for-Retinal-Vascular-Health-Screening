@@ -6,7 +6,6 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { FormField } from '../components/ui/FormField';
 import { ClinicalSelect, ClinicalSelectOption } from '../components/ui/ClinicalSelect';
-import { MedicalDisclaimer } from '../components/ui/MedicalDisclaimer';
 import { useLanguage } from '../context/LanguageContext';
 
 interface DoctorPatientListPageProps {
@@ -18,7 +17,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
   onSelectPatientForCDS,
   onNavigate,
 }) => {
-  const { t } = useLanguage();
+  const { t, isVi } = useLanguage();
   const [patients, setPatients] = useState<PatientProfile[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
@@ -46,24 +45,14 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
   });
 
   const loadPatients = async () => {
-    setLoading(true);
     try {
-      const res = await doctorPatientApi.getPatients({ size: 100 });
-      if (res.success && res.data) {
-        let items: PatientProfile[] = [];
-        if (Array.isArray(res.data)) {
-          items = res.data;
-        } else if (Array.isArray((res.data as any).items)) {
-          items = (res.data as any).items;
-        } else if (Array.isArray((res.data as any).content)) {
-          items = (res.data as any).content;
-        }
-        setPatients(items);
-      } else {
-        setPatients([]);
+      setLoading(true);
+      const res = await doctorPatientApi.getPatients();
+      if (res.success && Array.isArray(res.data)) {
+        setPatients(res.data);
       }
-    } catch {
-      setPatients([]);
+    } catch (e) {
+      console.error('Error loading patients for doctor:', e);
     } finally {
       setLoading(false);
     }
@@ -75,28 +64,64 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
 
   const handleCreatePatient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName.trim()) return;
-    setSubmitting(true);
     try {
-      await doctorPatientApi.create({
-        fullName: form.fullName.trim(),
-        mrn: form.mrn.trim(),
-        age: form.age,
+      setSubmitting(true);
+      const res = await doctorPatientApi.create({
+        fullName: form.fullName,
+        mrn: form.mrn,
+        age: Number(form.age),
         gender: form.gender,
-        phone: form.phone,
-        systolicBp: form.systolicBp,
-        diastolicBp: form.diastolicBp,
-        hba1c: form.hba1c,
+        phoneNumber: form.phone,
+        systolicBp: Number(form.systolicBp),
+        diastolicBp: Number(form.diastolicBp),
+        hba1c: Number(form.hba1c),
         hasDiabetes: form.hasDiabetes,
         hasHypertension: form.hasHypertension,
       });
-      setIsNewPatientModalOpen(false);
-      loadPatients();
+
+      if (res && res.success !== false) {
+        setIsNewPatientModalOpen(false);
+        setForm({
+          fullName: '',
+          mrn: `MRN-${Date.now().toString().slice(-4)}`,
+          age: 50,
+          gender: 'Male',
+          phone: '',
+          systolicBp: 130,
+          diastolicBp: 80,
+          hba1c: 6.0,
+          hasDiabetes: false,
+          hasHypertension: false,
+        });
+        await loadPatients();
+      }
     } catch (e) {
       console.error('Error creating patient:', e);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDeletePatient = async (patient: PatientProfile) => {
+    const id = patient.id || patient.userId;
+    if (!id) return;
+    const res = await doctorPatientApi.delete(id);
+    if (res && res.success === false) {
+      throw new Error(res.message || (isVi ? 'Không thể xóa bệnh nhân' : 'Failed to delete patient'));
+    }
+    setPatients((prev) => prev.filter((p) => p.id !== id && p.userId !== id));
+    await loadPatients();
+  };
+
+  const handleBatchDeletePatients = async (patientIds: string[]) => {
+    if (!patientIds || patientIds.length === 0) return;
+    const res = await doctorPatientApi.batchDelete(patientIds);
+    if (res && res.success === false) {
+      throw new Error(res.message || (isVi ? 'Không thể xóa các bệnh nhân đã chọn' : 'Failed to delete selected patients'));
+    }
+    const idSet = new Set(patientIds);
+    setPatients((prev) => prev.filter((p) => !idSet.has(p.id || '') && !idSet.has(p.userId || '')));
+    await loadPatients();
   };
 
   return (
@@ -110,6 +135,8 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
           onNavigate?.('cds-viewer');
         }}
         onNewPatientClick={() => setIsNewPatientModalOpen(true)}
+        onDeletePatient={handleDeletePatient}
+        onBatchDeletePatients={handleBatchDeletePatients}
       />
 
       {/* New Patient Registration Modal */}
@@ -223,8 +250,6 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
           </div>
         </form>
       </Modal>
-
-      <MedicalDisclaimer variant="compact" />
     </div>
   );
 };

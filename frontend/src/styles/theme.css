@@ -27,7 +27,7 @@
   --clinical-text-muted: #64748B;
 
   /* Clinical Typography */
-  --font-mono: 'Fira Code', monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* Dark Room Ophthalmology Inspection Mode */
   --darkroom-bg: #030712;

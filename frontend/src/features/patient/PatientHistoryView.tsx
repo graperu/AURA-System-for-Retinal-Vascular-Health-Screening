@@ -333,7 +333,10 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
         if (onDeleteScreening) {
           await onDeleteScreening(id);
         } else {
-          await screeningApi.delete(id);
+          const res = await screeningApi.delete(id);
+          if (res && res.success === false) {
+            throw new Error(res.message || (isVi ? 'Không thể xóa ca khám' : 'Failed to delete screening'));
+          }
         }
         setSelectedIds((prev) => {
           const next = new Set(prev);
@@ -346,7 +349,10 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
         if (onBatchDeleteScreenings) {
           await onBatchDeleteScreenings(ids);
         } else {
-          await screeningApi.batchDelete(ids);
+          const res = await screeningApi.batchDelete(ids);
+          if (res && res.success === false) {
+            throw new Error(res.message || (isVi ? 'Không thể xóa các ca khám đã chọn' : 'Failed to delete selected screenings'));
+          }
         }
         setSelectedIds(new Set());
         setActionNotice(
@@ -673,8 +679,8 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
           {t(
             'patient.history.immutabilityNotice',
             isVi
-              ? 'Hồ sơ bệnh án điện tử (EMR) được lưu trữ an toàn theo quy chuẩn y tế HIPAA & Bộ Y Tế nhằm phục vụ theo dõi diễn tiến sức khỏe trọn đời.'
-              : 'Electronic Medical Records (EMR) are securely preserved per HIPAA and MoH clinical standards for lifelong health tracking.'
+              ? 'Hồ sơ bệnh án điện tử (EMR) được lưu trữ an toàn theo tiêu chuẩn HIPAA & Bộ Y Tế.'
+              : 'Electronic Medical Records (EMR) are securely preserved per HIPAA and clinical standards.'
           )}
         </span>
       </div>
@@ -695,10 +701,10 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
             type="button"
             onClick={() => handleExportCsv(filteredData)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs transition-all cursor-pointer"
-            title={isVi ? 'Xuất toàn bộ danh sách ra CSV' : 'Export all filtered to CSV'}
+            title={isVi ? 'Xuất toàn bộ danh sách ra CSV' : 'Export all to CSV'}
           >
             <Download className="w-3.5 h-3.5 text-slate-600" />
-            <span>{isVi ? 'Xuất CSV Tất Cả' : 'Export All CSV'}</span>
+            <span>{isVi ? 'Xuất CSV' : 'Export CSV'}</span>
           </button>
 
           <span className="text-xs text-slate-500 shrink-0 font-medium">
@@ -721,6 +727,11 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
         data={filteredData}
         keyExtractor={(item) => item.id}
         loading={loading}
+        pagination={{
+          pageSize: 10,
+          pageSizeOptions: [5, 10, 20, 50],
+          itemLabel: isVi ? 'ca khám' : 'screenings',
+        }}
         emptyMessage={
           isVi
             ? 'Chưa có ca khám sàng lọc nào phù hợp với bộ lọc.'

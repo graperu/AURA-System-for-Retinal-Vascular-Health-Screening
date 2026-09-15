@@ -9,11 +9,14 @@ import {
   Stethoscope,
   X,
   RotateCcw,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { PatientProfile } from '../../types/cds';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
 import { ClinicalSelect, ClinicalSelectOption } from '../../components/ui/ClinicalSelect';
 import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
 import { useLanguage } from '../../context/LanguageContext';
@@ -27,6 +30,8 @@ export interface DoctorWorklistViewProps {
   onRefresh?: () => void;
   onSelectPatient: (patient: PatientProfile) => void;
   onNewPatientClick?: () => void;
+  onDeletePatient?: (patient: PatientProfile) => Promise<boolean | void> | void;
+  onBatchDeletePatients?: (patientIds: string[]) => Promise<boolean | void> | void;
 }
 
 export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
@@ -35,6 +40,8 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
   onRefresh,
   onSelectPatient,
   onNewPatientClick,
+  onDeletePatient,
+  onBatchDeletePatients,
 }) => {
   const { t, isVi } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +49,13 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
   const [reviewFilter, setReviewFilter] = useState<ReviewFilterType>('ALL');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    mode: 'single' | 'batch';
+    targetPatient?: PatientProfile;
+  }>({ isOpen: false, mode: 'single' });
 
   const reviewFilterOptions = useMemo<ClinicalSelectOption<ReviewFilterType>[]>(
     () => [
@@ -62,6 +76,8 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
     ],
     [t]
   );
+
+  const getPatientKey = (p: PatientProfile) => p.id || p.userId || p.mrn || '';
 
   const handleRefreshClick = async () => {
     if (onRefresh) {
@@ -86,6 +102,7 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
     setSearchTerm('');
     setRiskFilter('ALL');
     setReviewFilter('ALL');
+    setSelectedIds(new Set());
     setActionNotice(
       isVi
         ? 'Đã đặt lại toàn bộ bộ lọc và ô tìm kiếm về mặc định'
@@ -132,7 +149,140 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
     return counts;
   }, [patients]);
 
+  const allFilteredSelected = useMemo(() => {
+    if (filteredPatients.length === 0) return false;
+    return filteredPatients.every((p) => selectedIds.has(getPatientKey(p)));
+  }, [filteredPatients, selectedIds]);
+
+  const someFilteredSelected = useMemo(() => {
+    return filteredPatients.some((p) => selectedIds.has(getPatientKey(p)));
+  }, [filteredPatients, selectedIds]);
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      // Unselect all filtered
+      const next = new Set(selectedIds);
+      filteredPatients.forEach((p) => next.delete(getPatientKey(p)));
+      setSelectedIds(next);
+    } else {
+      // Select all filtered
+      const next = new Set(selectedIds);
+      filteredPatients.forEach((p) => {
+        const k = getPatientKey(p);
+        if (k) next.add(k);
+      });
+      setSelectedIds(next);
+    }
+  };
+
+  const toggleSelectOne = (key: string) => {
+    if (!key) return;
+    const next = new Set(selectedIds);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    setSelectedIds(next);
+  };
+
+  const handleTriggerSingleDelete = (patient: PatientProfile, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteModalState({
+      isOpen: true,
+      mode: 'single',
+      targetPatient: patient,
+    });
+  };
+
+  const handleTriggerBatchDelete = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteModalState({
+      isOpen: true,
+      mode: 'batch',
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      if (deleteModalState.mode === 'single' && deleteModalState.targetPatient) {
+        const p = deleteModalState.targetPatient;
+        if (onDeletePatient) {
+          await onDeletePatient(p);
+        }
+        const k = getPatientKey(p);
+        const next = new Set(selectedIds);
+        next.delete(k);
+        setSelectedIds(next);
+        setActionNotice(
+          isVi
+            ? `Đã xóa hồ sơ bệnh nhân "${p.fullName || p.mrn || 'N/A'}"`
+            : `Patient record "${p.fullName || p.mrn || 'N/A'}" deleted`
+        );
+      } else if (deleteModalState.mode === 'batch') {
+        const ids = Array.from(selectedIds);
+        if (onBatchDeletePatients) {
+          await onBatchDeletePatients(ids);
+        }
+        const count = selectedIds.size;
+        setSelectedIds(new Set());
+        setActionNotice(
+          isVi
+            ? `Đã xóa thành công ${count} hồ sơ bệnh nhân đã chọn`
+            : `Successfully deleted ${count} selected patient records`
+        );
+      }
+      setDeleteModalState({ isOpen: false, mode: 'single' });
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch {
+      setActionNotice(
+        isVi
+          ? 'Đã xảy ra lỗi khi thực hiện thao tác xóa'
+          : 'Error occurred while deleting patient record(s)'
+      );
+    } finally {
+      setIsDeleting(false);
+      setTimeout(() => setActionNotice(null), 4000);
+    }
+  };
+
   const columns: Column<PatientProfile>[] = [
+    {
+      header: (
+        <div className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            checked={allFilteredSelected}
+            ref={(el) => {
+              if (el) {
+                el.indeterminate = someFilteredSelected && !allFilteredSelected;
+              }
+            }}
+            onChange={toggleSelectAll}
+            className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
+            title={isVi ? 'Chọn tất cả trên trang' : 'Select all on page'}
+          />
+        </div>
+      ),
+      accessor: (row) => {
+        const key = getPatientKey(row);
+        return (
+          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={selectedIds.has(key)}
+              onChange={() => toggleSelectOne(key)}
+              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
+            />
+          </div>
+        );
+      },
+      className: 'w-10 text-center',
+      align: 'center',
+    },
     {
       header: t('doctor.worklist.columns.patient', 'Bệnh Nhân / MRN'),
       accessor: (row) => (
@@ -204,14 +354,26 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
       header: t('doctor.worklist.columns.action', 'Thao Tác'),
       align: 'right',
       accessor: (row) => (
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => onSelectPatient(row)}
-          icon={<Eye className="w-3.5 h-3.5" />}
-        >
-          {t('doctor.worklist.openCds', 'Mở CDS')}
-        </Button>
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onSelectPatient(row)}
+            icon={<Stethoscope className="w-3.5 h-3.5" />}
+          >
+            {t('doctor.worklist.openCds', 'Mở CDS')}
+          </Button>
+          {(onDeletePatient || onBatchDeletePatients) && (
+            <button
+              type="button"
+              onClick={(e) => handleTriggerSingleDelete(row, e)}
+              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl border border-transparent hover:border-red-200 transition-colors cursor-pointer"
+              title={isVi ? 'Xóa hồ sơ bệnh nhân' : 'Delete patient record'}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       ),
     },
   ];
@@ -229,13 +391,13 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-red-900">{t('doctor.worklist.criticalLevel', 'Rất nghiêm trọng')}</span>
+            <span className="text-xs font-bold text-red-900">{t('doctor.worklist.criticalLevel', isVi ? 'Rất nghiêm trọng' : 'Critical')}</span>
             <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
           </div>
           <div className="text-2xl font-extrabold text-red-600 font-mono-data mt-2">
             {riskCounts.critical}
           </div>
-          <span className="text-[11px] text-slate-500 font-sans">{t('doctor.worklist.priorityCritical', 'Cần ưu tiên thẩm định')}</span>
+          <span className="text-[11px] text-slate-500 font-sans">{t('doctor.worklist.priorityCritical', isVi ? 'Cần ưu tiên khám' : 'Priority review')}</span>
         </div>
 
         <div
@@ -247,13 +409,13 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-orange-900">{t('doctor.worklist.highLevel', 'Nguy cơ cao')}</span>
+            <span className="text-xs font-bold text-orange-900">{t('doctor.worklist.highLevel', isVi ? 'Nguy cơ cao' : 'High Risk')}</span>
             <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
           </div>
           <div className="text-2xl font-extrabold text-orange-600 font-mono-data mt-2">
             {riskCounts.high}
           </div>
-          <span className="text-[11px] text-slate-500 font-sans">{t('doctor.worklist.priorityHigh', 'Vi tổn thương đáng kể')}</span>
+          <span className="text-[11px] text-slate-500 font-sans">{t('doctor.worklist.priorityHigh', isVi ? 'Tổn thương rõ' : 'Marked lesions')}</span>
         </div>
 
         <div
@@ -265,13 +427,13 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-900">{t('doctor.worklist.moderateLevel', 'Nguy cơ trung bình')}</span>
+            <span className="text-xs font-bold text-amber-900">{t('doctor.worklist.moderateLevel', isVi ? 'Trung bình' : 'Moderate')}</span>
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
           </div>
           <div className="text-2xl font-extrabold text-amber-600 font-mono-data mt-2">
             {riskCounts.moderate}
           </div>
-          <span className="text-[11px] text-slate-500 font-sans">{t('doctor.worklist.priorityModerate', 'Cần theo dõi định kỳ')}</span>
+          <span className="text-[11px] text-slate-500 font-sans">{t('doctor.worklist.priorityModerate', isVi ? 'Theo dõi định kỳ' : 'Periodic follow-up')}</span>
         </div>
 
         <div
@@ -283,13 +445,13 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-900">{t('doctor.worklist.lowLevel', 'Nguy cơ thấp')}</span>
+            <span className="text-xs font-bold text-emerald-900">{t('doctor.worklist.lowLevel', isVi ? 'Nguy cơ thấp' : 'Low Risk')}</span>
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
           </div>
           <div className="text-2xl font-extrabold text-emerald-600 font-mono-data mt-2">
             {riskCounts.low}
           </div>
-          <span className="text-[11px] text-slate-500 font-sans">{t('doctor.worklist.priorityLow', 'Cấu trúc vi mạch ổn định')}</span>
+          <span className="text-[11px] text-slate-500 font-sans">{t('doctor.worklist.priorityLow', isVi ? 'Vi mạch ổn định' : 'Stable')}</span>
         </div>
       </div>
 
@@ -401,6 +563,41 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
         )}
       </div>
 
+      {/* Batch Selection Banner */}
+      {selectedIds.size > 0 && (
+        <div className="p-3.5 bg-teal-50 border border-teal-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-600 animate-pulse" />
+            <span className="text-xs font-bold text-teal-950">
+              {isVi
+                ? `Đã chọn ${selectedIds.size} bệnh nhân`
+                : `${selectedIds.size} patient(s) selected`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs text-slate-600 border-slate-300 hover:bg-white"
+            >
+              {isVi ? 'Bỏ chọn tất cả' : 'Deselect all'}
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleTriggerBatchDelete}
+              icon={<Trash2 className="w-3.5 h-3.5" />}
+              className="bg-red-600 hover:bg-red-700 text-white shadow-xs"
+            >
+              {isVi
+                ? `Xóa ${selectedIds.size} bệnh nhân đã chọn`
+                : `Delete ${selectedIds.size} selected`}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* List Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2.5">
@@ -423,10 +620,67 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
       <DataTable
         columns={columns}
         data={filteredPatients}
-        keyExtractor={(p, idx) => p.id || p.mrn || String(idx)}
+        keyExtractor={(p, idx) => getPatientKey(p) || String(idx)}
         loading={loading}
+        pagination={{
+          pageSize: 10,
+          pageSizeOptions: [5, 10, 20, 50],
+          itemLabel: isVi ? 'bệnh nhân' : 'patients',
+        }}
         emptyMessage={t('doctor.worklist.emptyFiltered', 'Không tìm thấy bệnh nhân nào phù hợp với bộ lọc.')}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalState.isOpen}
+        onClose={() => !isDeleting && setDeleteModalState({ isOpen: false, mode: 'single' })}
+        maxWidth="sm"
+        title={isVi ? 'Xác nhận xóa hồ sơ bệnh nhân' : 'Confirm Patient Deletion'}
+      >
+        <div className="space-y-4 text-xs">
+          <div className="flex items-start gap-3 p-3.5 bg-red-50/80 rounded-xl border border-red-200/80">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-red-900 space-y-1">
+              <p className="font-bold">
+                {deleteModalState.mode === 'single'
+                  ? (isVi
+                      ? `Xóa hồ sơ bệnh nhân "${deleteModalState.targetPatient?.fullName || deleteModalState.targetPatient?.mrn || 'N/A'}"?`
+                      : `Delete patient record "${deleteModalState.targetPatient?.fullName || deleteModalState.targetPatient?.mrn || 'N/A'}"?`)
+                  : (isVi
+                      ? `Xóa ${selectedIds.size} hồ sơ bệnh nhân đã chọn?`
+                      : `Delete ${selectedIds.size} selected patient records?`)}
+              </p>
+              <p className="text-red-700 leading-relaxed">
+                {isVi
+                  ? 'Hồ sơ bệnh nhân và các thông tin liên quan sẽ bị xóa khỏi danh sách theo dõi. Thao tác này không thể hoàn tác.'
+                  : 'Patient profiles and associated data will be removed from your active worklist. This action cannot be undone.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isDeleting}
+              onClick={() => setDeleteModalState({ isOpen: false, mode: 'single' })}
+            >
+              {t('common.cancel', 'Hủy')}
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              loading={isDeleting}
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isVi ? 'Xác nhận xóa' : 'Confirm Delete'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <MedicalDisclaimer variant="compact" />
     </div>

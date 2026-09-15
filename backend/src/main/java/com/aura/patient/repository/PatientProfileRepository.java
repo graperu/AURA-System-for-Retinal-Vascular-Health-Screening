@@ -16,4 +16,8 @@ public interface PatientProfileRepository
   Optional<PatientProfile> findByUserId(UUID userId);
 
   boolean existsByMrn(String mrn);
+
+  java.util.List<PatientProfile> findByAssignedDoctor(String assignedDoctor);
+
+  java.util.List<PatientProfile> findByAssignedDoctorIgnoreCase(String assignedDoctor);
 }

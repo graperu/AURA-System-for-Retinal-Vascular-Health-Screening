@@ -104,18 +104,39 @@ public class DoctorPatientController {
       Pageable pageable = PageRequest.of(pageNum, pageSize, sortObj);
 
       if (isDoctor && !isAdmin) {
-        List<UUID> assignedPatientIds = null;
+        List<UUID> assignedPatientIds = new java.util.ArrayList<>();
         if (assignmentRepository != null) {
-          assignedPatientIds = assignmentRepository.findPatientIdsByDoctorIdAndStatus(
+          var ids = assignmentRepository.findPatientIdsByDoctorIdAndStatus(
               principal.id(), com.aura.doctor.entity.AssignmentStatus.ACTIVE);
+          if (ids != null) {
+            assignedPatientIds.addAll(ids);
+          }
         } else if (assignmentService != null) {
           List<DoctorPatientSummaryResponse> assigned = assignmentService.getAssignedPatients(principal.id());
           if (assigned != null) {
-            assignedPatientIds = assigned.stream().map(DoctorPatientSummaryResponse::patientId).toList();
+            assignedPatientIds.addAll(assigned.stream().map(DoctorPatientSummaryResponse::patientId).toList());
           }
         }
 
-        if (assignedPatientIds != null && !assignedPatientIds.isEmpty()) {
+        if (userRepository != null && patientProfileRepository != null) {
+          userRepository.findById(principal.id()).ifPresent(doc -> {
+            if (doc.getFullName() != null && !doc.getFullName().isBlank()) {
+              var profilesByDoctor = patientProfileRepository.findByAssignedDoctor(doc.getFullName());
+              if (profilesByDoctor != null) {
+                for (var p : profilesByDoctor) {
+                  if (p.getUserId() != null && !assignedPatientIds.contains(p.getUserId())) {
+                    assignedPatientIds.add(p.getUserId());
+                  }
+                  if (p.getId() != null && !assignedPatientIds.contains(p.getId())) {
+                    assignedPatientIds.add(p.getId());
+                  }
+                }
+              }
+            }
+          });
+        }
+
+        if (!assignedPatientIds.isEmpty()) {
           Page<PatientProfileDto> patientPage = profileService.searchPatients(
               search, risk, minScore, maxScore, hasDiabetes, hasHypertension, historyOfSmoking, doctorName, reviewStatus, assignedPatientIds, pageable);
           return ApiResponse.success("Lấy danh sách bệnh nhân thành công", PageResponse.from(patientPage));
@@ -168,9 +189,18 @@ public class DoctorPatientController {
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN', 'CLINIC')")
   @ResponseStatus(HttpStatus.CREATED)
   @Operation(summary = "Create new patient profile")
-  public ApiResponse<PatientProfileDto> createPatient(@jakarta.validation.Valid @RequestBody PatientProfile patient) {
-    PatientProfileDto created = profileService.createPatient(patient);
+  public ApiResponse<PatientProfileDto> createPatient(
+      @jakarta.validation.Valid @RequestBody PatientProfile patient,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    UUID doctorId = (principal != null && hasRole(principal, "DOCTOR")) ? principal.id() : null;
+    PatientProfileDto created = (doctorId != null)
+        ? profileService.createPatient(patient, doctorId)
+        : profileService.createPatient(patient);
     return ApiResponse.success("Tạo hồ sơ bệnh nhân mới thành công", created);
+  }
+
+  public ApiResponse<PatientProfileDto> createPatient(PatientProfile patient) {
+    return createPatient(patient, null);
   }
 
   @PutMapping("/{id}")
@@ -197,6 +227,60 @@ public class DoctorPatientController {
 
   public ApiResponse<PatientProfileDto> updatePatient(UUID id, PatientProfile patient) {
     return updatePatient(id, patient, null);
+  }
+
+  @DeleteMapping("/{id}")
+  @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN', 'CLINIC')")
+  @Operation(summary = "Delete patient profile")
+  public ApiResponse<Void> deletePatient(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+
+    boolean isDoctor = principal != null && principal.roles() != null && principal.roles().contains("DOCTOR");
+    boolean isAdmin = principal != null && principal.roles() != null && principal.roles().contains("ADMIN");
+
+    if (isDoctor && !isAdmin) {
+      boolean hasAccess = checkDoctorAccessToPatient(principal.id(), id);
+      if (!hasAccess) {
+        throw new AuthException(ErrorCode.ACCESS_DENIED, "Bạn không có quyền xóa hồ sơ bệnh nhân này do chưa được phân công phụ trách.");
+      }
+    }
+
+    profileService.deletePatient(id);
+    return ApiResponse.success("Xóa hồ sơ bệnh nhân thành công", null);
+  }
+
+  public ApiResponse<Void> deletePatient(UUID id) {
+    return deletePatient(id, null);
+  }
+
+  public record BatchDeletePatientRequest(List<UUID> patientIds) {}
+
+  @PostMapping("/batch-delete")
+  @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN', 'CLINIC')")
+  @Operation(summary = "Batch delete patient profiles")
+  public ApiResponse<Integer> batchDeletePatients(
+      @RequestBody BatchDeletePatientRequest request,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    if (request == null || request.patientIds() == null || request.patientIds().isEmpty()) {
+      return ApiResponse.success("Không có bệnh nhân nào được chọn để xóa", 0);
+    }
+
+    boolean isDoctor = principal != null && principal.roles() != null && principal.roles().contains("DOCTOR");
+    boolean isAdmin = principal != null && principal.roles() != null && principal.roles().contains("ADMIN");
+
+    List<UUID> idsToDelete = request.patientIds();
+    if (isDoctor && !isAdmin) {
+      idsToDelete = idsToDelete.stream()
+          .filter(id -> checkDoctorAccessToPatient(principal.id(), id))
+          .toList();
+      if (idsToDelete.isEmpty()) {
+        throw new AuthException(ErrorCode.ACCESS_DENIED, "Bạn không có quyền xóa các bệnh nhân đã chọn.");
+      }
+    }
+
+    int count = profileService.batchDeletePatients(idsToDelete);
+    return ApiResponse.success("Xóa thành công " + count + " hồ sơ bệnh nhân", count);
   }
 
   private boolean checkDoctorAccessToPatient(UUID doctorId, UUID patientOrProfileId) {
@@ -236,7 +320,14 @@ public class DoctorPatientController {
   @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<PatientProfileResponse> getAssignedPatientProfile(
       @PathVariable UUID patientId) {
-    PatientProfileResponse response = profileService.getProfileByPatientId(patientId);
+    UUID effectivePatientId = patientId;
+    if (patientProfileRepository != null) {
+      var profileOpt = patientProfileRepository.findById(patientId);
+      if (profileOpt.isPresent() && profileOpt.get().getUserId() != null) {
+        effectivePatientId = profileOpt.get().getUserId();
+      }
+    }
+    PatientProfileResponse response = profileService.getProfileByPatientId(effectivePatientId);
     return ApiResponse.success("Lấy thông tin hồ sơ bệnh nhân thành công", response);
   }
 
@@ -244,7 +335,14 @@ public class DoctorPatientController {
   @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<List<Screening>> getAssignedPatientScreenings(
       @PathVariable UUID patientId) {
-    List<Screening> screenings = screeningService.getScreeningsForPatient(patientId);
+    UUID effectivePatientId = patientId;
+    if (patientProfileRepository != null) {
+      var profileOpt = patientProfileRepository.findById(patientId);
+      if (profileOpt.isPresent() && profileOpt.get().getUserId() != null) {
+        effectivePatientId = profileOpt.get().getUserId();
+      }
+    }
+    List<Screening> screenings = screeningService.getScreeningsForPatient(effectivePatientId);
     return ApiResponse.success("Lấy lịch sử ca sàng lọc của bệnh nhân thành công", screenings);
   }
 
@@ -258,7 +356,14 @@ public class DoctorPatientController {
     if (principal == null) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập tài khoản Bác sĩ");
     }
-    Screening screening = screeningService.createScreening(patientId, request);
+    UUID effectivePatientId = patientId;
+    if (patientProfileRepository != null) {
+      var profileOpt = patientProfileRepository.findById(patientId);
+      if (profileOpt.isPresent() && profileOpt.get().getUserId() != null) {
+        effectivePatientId = profileOpt.get().getUserId();
+      }
+    }
+    Screening screening = screeningService.createScreening(effectivePatientId, request);
     return ApiResponse.success("Tạo ca sàng lọc cho bệnh nhân được phân công thành công", screening);
   }
 

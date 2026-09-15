@@ -13,6 +13,7 @@ import com.aura.user.entity.User;
 import com.aura.user.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import com.aura.doctor.entity.AssignmentStatus;
+import com.aura.doctor.entity.DoctorPatientAssignment;
 import com.aura.doctor.repository.DoctorPatientAssignmentRepository;
 import java.time.LocalDate;
 import java.time.Period;
@@ -27,6 +28,11 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.aura.patient.dto.DoctorOptionDto;
+import com.aura.patient.dto.RegisterExaminationRequest;
+import com.aura.role.enums.RoleName;
+import com.aura.user.repository.UserRoleRepository;
+
 @Service
 public class PatientProfileService {
 
@@ -36,30 +42,55 @@ public class PatientProfileService {
   private final UserRepository userRepository;
   private final PatientProfileRepository patientRepository;
   private final DoctorPatientAssignmentRepository assignmentRepository;
+  private final UserRoleRepository userRoleRepository;
+  private final com.aura.role.repository.RoleRepository roleRepository;
 
   @org.springframework.beans.factory.annotation.Autowired
   public PatientProfileService(
       PatientMedicalProfileRepository profileRepository,
       UserRepository userRepository,
       PatientProfileRepository patientRepository,
-      DoctorPatientAssignmentRepository assignmentRepository) {
+      DoctorPatientAssignmentRepository assignmentRepository,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+      UserRoleRepository userRoleRepository,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+      com.aura.role.repository.RoleRepository roleRepository) {
     this.profileRepository = profileRepository;
     this.userRepository = userRepository;
     this.patientRepository = patientRepository;
     this.assignmentRepository = assignmentRepository;
+    this.userRoleRepository = userRoleRepository;
+    this.roleRepository = roleRepository;
+  }
+
+  public PatientProfileService(
+      PatientMedicalProfileRepository profileRepository,
+      UserRepository userRepository,
+      PatientProfileRepository patientRepository,
+      DoctorPatientAssignmentRepository assignmentRepository,
+      UserRoleRepository userRoleRepository) {
+    this(profileRepository, userRepository, patientRepository, assignmentRepository, userRoleRepository, null);
   }
 
   public PatientProfileService(
       PatientMedicalProfileRepository profileRepository,
       UserRepository userRepository) {
-    this(profileRepository, userRepository, null, null);
+    this(profileRepository, userRepository, null, null, null);
   }
 
   public PatientProfileService(
       PatientMedicalProfileRepository profileRepository,
       UserRepository userRepository,
       DoctorPatientAssignmentRepository assignmentRepository) {
-    this(profileRepository, userRepository, null, assignmentRepository);
+    this(profileRepository, userRepository, null, assignmentRepository, null);
+  }
+
+  public PatientProfileService(
+      PatientMedicalProfileRepository profileRepository,
+      UserRepository userRepository,
+      PatientProfileRepository patientRepository,
+      DoctorPatientAssignmentRepository assignmentRepository) {
+    this(profileRepository, userRepository, patientRepository, assignmentRepository, null);
   }
 
   // --- FR-18 Worklist & Filter methods ---
@@ -133,9 +164,91 @@ public class PatientProfileService {
 
   @Transactional
   public PatientProfileDto createPatient(PatientProfile patient) {
+    return createPatient(patient, null);
+  }
+
+  @Transactional
+  public PatientProfileDto createPatient(PatientProfile patient, UUID doctorId) {
     if (patient.getMrn() == null || patient.getMrn().isBlank()) {
       patient.setMrn("MRN-" + Year.now().getValue() + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase());
     }
+
+    // 1. Tìm hoặc tạo User tài khoản bệnh nhân
+    User patientUser = null;
+    if (patient.getUserId() != null && userRepository != null) {
+      patientUser = userRepository.findById(patient.getUserId()).orElse(null);
+    }
+    if (patientUser == null && userRepository != null) {
+      String cleanMrn = patient.getMrn().trim().toLowerCase().replaceAll("[^a-z0-9]", "");
+      String email = "patient_" + cleanMrn + "@aura.local";
+      if (userRepository.existsByEmailIgnoreCase(email)) {
+        email = "patient_" + cleanMrn + "_" + UUID.randomUUID().toString().substring(0, 4) + "@aura.local";
+      }
+      User newUser = new User(email, "$2a$10$7EqJtq98hPqEX7fNZaFWoO.8/fU3015Bf/TcvB3cTeqr9f2oV2Dde", patient.getFullName());
+      newUser.setEmailVerified(true);
+      newUser.setActive(true);
+      patientUser = userRepository.save(newUser);
+
+      if (patientUser != null && roleRepository != null && userRoleRepository != null) {
+        var userRoleOpt = roleRepository.findByName(RoleName.USER);
+        if (userRoleOpt.isPresent()) {
+          userRoleRepository.save(new com.aura.user.entity.UserRole(patientUser, userRoleOpt.get()));
+        }
+      }
+      if (patientUser != null && patientUser.getId() != null) {
+        patient.setUserId(patientUser.getId());
+      }
+    }
+
+    // 2. Tìm Bác sĩ phụ trách và tạo phân công nếu có doctorId
+    User doctorUser = null;
+    if (doctorId != null && userRepository != null) {
+      doctorUser = userRepository.findById(doctorId).orElse(null);
+    }
+    if (doctorUser != null) {
+      String docName = doctorUser.getFullName() != null && !doctorUser.getFullName().isBlank() ? doctorUser.getFullName() : doctorUser.getEmail();
+      patient.setAssignedDoctor(docName);
+      if (assignmentRepository != null && patientUser != null && patientUser.getId() != null && doctorUser.getId() != null) {
+        final User pUser = patientUser;
+        final User dUser = doctorUser;
+        DoctorPatientAssignment assignment = assignmentRepository
+            .findByDoctorIdAndPatientId(dUser.getId(), pUser.getId())
+            .orElseGet(() -> new DoctorPatientAssignment(dUser, pUser, AssignmentStatus.ACTIVE, doctorId));
+        assignment.setStatus(AssignmentStatus.ACTIVE);
+        assignment.setAssignedAt(java.time.Instant.now());
+        assignment.setAssignedBy(doctorId);
+        assignmentRepository.save(assignment);
+      }
+    }
+
+    // 3. Tạo hoặc đồng bộ PatientMedicalProfile để lưu trữ đầy đủ sinh hiệu (HA, HbA1c, bệnh lý)
+    if (profileRepository != null && patientUser != null && patientUser.getId() != null) {
+      final User pUser = patientUser;
+      PatientMedicalProfile medProfile = profileRepository.findByUserIdWithUser(pUser.getId())
+          .orElseGet(() -> new PatientMedicalProfile(pUser, patient.getMrn()));
+      if (patient.getAge() != null) medProfile.setAge(patient.getAge());
+      if (patient.getGender() != null) medProfile.setGender(patient.getGender());
+      if (patient.getPhone() != null) medProfile.setPhoneNumber(patient.getPhone());
+      if (patient.getAddress() != null) medProfile.setAddress(patient.getAddress());
+      if (patient.getSystolicBp() != null) medProfile.setSystolicBp(patient.getSystolicBp());
+      if (patient.getDiastolicBp() != null) medProfile.setDiastolicBp(patient.getDiastolicBp());
+      if (patient.getHba1c() != null) medProfile.setHba1c(patient.getHba1c());
+      if (patient.getHasDiabetes() != null) medProfile.setHasDiabetes(patient.getHasDiabetes());
+      if (patient.getHasHypertension() != null) medProfile.setHasHypertension(patient.getHasHypertension());
+      if (patient.getHistoryOfSmoking() != null) medProfile.setHistoryOfSmoking(patient.getHistoryOfSmoking());
+      if (doctorUser != null) {
+        medProfile.setAssignedDoctor(patient.getAssignedDoctor());
+      }
+      profileRepository.save(medProfile);
+    }
+
+    if (patient.getReviewStatus() == null || patient.getReviewStatus().isBlank()) {
+      patient.setReviewStatus("PENDING");
+    }
+    if (patient.getLastExamDate() == null || patient.getLastExamDate().isBlank()) {
+      patient.setLastExamDate(LocalDate.now().toString());
+    }
+
     return PatientProfileDto.from(patientRepository.save(patient));
   }
 
@@ -163,6 +276,36 @@ public class PatientProfileService {
     existing.setFindingsSummary(updatedData.getFindingsSummary());
 
     return PatientProfileDto.from(patientRepository.save(existing));
+  }
+
+  @Transactional
+  public void deletePatient(UUID id) {
+    PatientProfile existing = patientRepository
+        .findById(id)
+        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ bệnh nhân với ID: " + id));
+
+    if (existing.getUserId() != null && assignmentRepository != null) {
+      var assignments = assignmentRepository.findByPatientId(existing.getUserId());
+      if (assignments != null && !assignments.isEmpty()) {
+        assignmentRepository.deleteAll(assignments);
+      }
+    }
+    patientRepository.delete(existing);
+  }
+
+  @Transactional
+  public int batchDeletePatients(List<UUID> ids) {
+    if (ids == null || ids.isEmpty()) {
+      return 0;
+    }
+    int count = 0;
+    for (UUID id : ids) {
+      if (id != null && patientRepository.existsById(id)) {
+        deletePatient(id);
+        count++;
+      }
+    }
+    return count;
   }
 
   @Transactional
@@ -329,6 +472,116 @@ public class PatientProfileService {
         .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ y tế với ID: " + patientId));
 
     return toResponse(profile);
+  }
+
+  @Transactional(readOnly = true)
+  public List<DoctorOptionDto> getAvailableDoctors() {
+    if (userRoleRepository == null) {
+      return List.of();
+    }
+    List<User> doctors = userRoleRepository.findActiveUsersByRole(RoleName.DOCTOR);
+    return doctors.stream()
+        .map(d -> new DoctorOptionDto(
+            d.getId(),
+            d.getFullName() != null && !d.getFullName().isBlank() ? d.getFullName() : d.getEmail(),
+            d.getEmail(),
+            "Bác sĩ Chuyên khoa Mắt & Tim mạch",
+            "BS. Chuyên khoa"
+        ))
+        .toList();
+  }
+
+  @Transactional
+  public PatientProfileResponse registerExamination(UUID patientUserId, RegisterExaminationRequest request) {
+    User patientUser = userRepository.findById(patientUserId)
+        .orElseThrow(() -> new ResourceNotFoundException("Bệnh nhân không tồn tại với ID: " + patientUserId));
+
+    // 1. Xác định Bác sĩ được chỉ định
+    User assignedDoctorUser = null;
+    if (request != null && request.doctorId() != null) {
+      assignedDoctorUser = userRepository.findById(request.doctorId()).orElse(null);
+    }
+    if (assignedDoctorUser == null && userRoleRepository != null) {
+      List<User> activeDoctors = userRoleRepository.findActiveUsersByRole(RoleName.DOCTOR);
+      if (!activeDoctors.isEmpty()) {
+        assignedDoctorUser = activeDoctors.get(0);
+      }
+    }
+
+    // 2. Tạo hoặc kích hoạt bản ghi phân công khám (DoctorPatientAssignment)
+    if (assignedDoctorUser != null && assignmentRepository != null) {
+      User finalDoctor = assignedDoctorUser;
+      DoctorPatientAssignment assignment = assignmentRepository
+          .findByDoctorIdAndPatientId(finalDoctor.getId(), patientUserId)
+          .orElseGet(() -> new DoctorPatientAssignment(finalDoctor, patientUser, AssignmentStatus.ACTIVE, patientUserId));
+      assignment.setStatus(AssignmentStatus.ACTIVE);
+      assignment.setAssignedAt(java.time.Instant.now());
+      assignment.setAssignedBy(patientUserId);
+      assignmentRepository.save(assignment);
+    }
+
+    // 3. Cập nhật hồ sơ bệnh án điện tử (PatientMedicalProfile)
+    String doctorDisplayName = assignedDoctorUser != null
+        ? (assignedDoctorUser.getFullName() != null && !assignedDoctorUser.getFullName().isBlank() ? assignedDoctorUser.getFullName() : assignedDoctorUser.getEmail())
+        : "Bác sĩ Chuyên khoa";
+
+    PatientMedicalProfile profile = profileRepository.findByUserIdWithUser(patientUserId)
+        .orElseGet(() -> {
+          String generatedMrn = "MRN-" + Year.now().getValue() + "-" +
+              patientUserId.toString().replace("-", "").substring(0, 4).toUpperCase();
+          return new PatientMedicalProfile(patientUser, generatedMrn);
+        });
+
+    profile.setAssignedDoctor(doctorDisplayName);
+    if (request != null) {
+      if (request.systolicBp() != null) profile.setSystolicBp(request.systolicBp());
+      if (request.diastolicBp() != null) profile.setDiastolicBp(request.diastolicBp());
+      if (request.hba1c() != null) profile.setHba1c(request.hba1c());
+      if (request.hasDiabetes() != null) profile.setHasDiabetes(request.hasDiabetes());
+      if (request.hasHypertension() != null) profile.setHasHypertension(request.hasHypertension());
+      if (request.historyOfSmoking() != null) profile.setHistoryOfSmoking(request.historyOfSmoking());
+    }
+
+    PatientMedicalProfile savedProfile = profileRepository.save(profile);
+
+    // 4. Đồng bộ hoặc tạo bản ghi PatientProfile phục vụ Bác sĩ tìm kiếm & làm việc trên Worklist
+    if (patientRepository != null) {
+      String mrn = savedProfile.getMrn();
+      PatientProfile worklistProfile = patientRepository.findAll().stream()
+          .filter(p -> (p.getUserId() != null && p.getUserId().equals(patientUserId)) || (p.getMrn() != null && p.getMrn().equalsIgnoreCase(mrn)))
+          .findFirst()
+          .orElseGet(() -> {
+            PatientProfile np = new PatientProfile();
+            np.setUserId(patientUserId);
+            np.setMrn(mrn);
+            return np;
+          });
+
+      worklistProfile.setFullName(patientUser.getFullName() != null && !patientUser.getFullName().isBlank() ? patientUser.getFullName() : "Bệnh nhân");
+      worklistProfile.setAge(savedProfile.getAge() != null ? savedProfile.getAge() : 45);
+      worklistProfile.setGender(savedProfile.getGender() != null ? savedProfile.getGender() : "Other");
+      worklistProfile.setPhone(savedProfile.getPhoneNumber());
+      worklistProfile.setAddress(savedProfile.getAddress());
+      worklistProfile.setSystolicBp(savedProfile.getSystolicBp() != null ? savedProfile.getSystolicBp() : 120);
+      worklistProfile.setDiastolicBp(savedProfile.getDiastolicBp() != null ? savedProfile.getDiastolicBp() : 80);
+      worklistProfile.setHba1c(savedProfile.getHba1c() != null ? savedProfile.getHba1c() : 5.7);
+      worklistProfile.setHasDiabetes(savedProfile.getHasDiabetes() != null ? savedProfile.getHasDiabetes() : false);
+      worklistProfile.setHasHypertension(savedProfile.getHasHypertension() != null ? savedProfile.getHasHypertension() : false);
+      worklistProfile.setHistoryOfSmoking(savedProfile.getHistoryOfSmoking() != null ? savedProfile.getHistoryOfSmoking() : false);
+      worklistProfile.setAssignedDoctor(doctorDisplayName);
+      worklistProfile.setReviewStatus("PENDING");
+      worklistProfile.setLastExamDate(LocalDate.now().toString());
+
+      if (request != null && request.examinationReason() != null && !request.examinationReason().isBlank()) {
+        worklistProfile.setFindingsSummary("Đăng ký khám: " + request.examinationReason().trim() +
+            (request.symptomsNotes() != null && !request.symptomsNotes().isBlank() ? " | Triệu chứng: " + request.symptomsNotes().trim() : ""));
+      }
+
+      patientRepository.save(worklistProfile);
+    }
+
+    UUID docId = assignedDoctorUser != null ? assignedDoctorUser.getId() : null;
+    return PatientProfileResponse.fromEntity(savedProfile, docId, doctorDisplayName);
   }
 
   private PatientProfileResponse toResponse(PatientMedicalProfile profile) {

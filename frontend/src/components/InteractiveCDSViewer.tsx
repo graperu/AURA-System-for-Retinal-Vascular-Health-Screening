@@ -411,8 +411,8 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               <Eye className="w-5 h-5 text-brand-600 shrink-0" />
               <span>
                 {isVi
-                  ? 'Bàn chẩn đoán tương tác CDS — Bản đồ nhiệt Grad-CAM'
-                  : 'Interactive CDS Workspace — Grad-CAM Heatmap'}
+                  ? 'Bản đồ nhiệt vi mạch (Grad-CAM)'
+                  : 'Retinal Heatmap (Grad-CAM)'}
               </span>
             </h2>
             <span
@@ -432,13 +432,11 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
           >
             {isVi ? (
               <>
-                AI làm nổi bật các nhánh mạch máu bằng màu sắc. Vùng{' '}
-                <strong className="text-rose-600">màu đỏ/vàng</strong> là nơi có dấu hiệu bất thường cần bác sĩ lưu ý.
+                Bản đồ nhiệt vi mạch: vùng <strong className="text-rose-600">đỏ/vàng</strong> là khu vực cần lưu ý.
               </>
             ) : (
               <>
-                AI highlights vascular trees using color heatmaps. Zones in{' '}
-                <strong className="text-rose-600">red/yellow</strong> indicate abnormal features requiring physician review.
+                Vascular heatmap: zones in <strong className="text-rose-600">red/yellow</strong> require clinical attention.
               </>
             )}
           </p>
@@ -766,7 +764,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                     'cdsViewer.negativeFindingBannerTitle',
                     isVi
                       ? 'Khảo sát vi mạch toàn diện: Cấu trúc bình thường (0 điểm tổn thương)'
-                      : 'Comprehensive Microvascular Survey: Normal Architecture (0 lesions detected)'
+                      : 'Comprehensive Vascular Survey: Normal Structure (0 lesions detected)'
                   )}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 font-semibold border border-emerald-300/60">
@@ -778,7 +776,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                   'cdsViewer.negativeFindingBannerDesc',
                   isVi
                     ? 'AI đã quét 4 góc phần tư võng mạc và cây mạch máu, không phát hiện vi phình mạch, xuất huyết hay co thắt khu trú.'
-                    : 'AI surveyed all 4 retinal quadrants and vascular trees, confirming no microaneurysms, hemorrhages, or focal narrowing.'
+                    : 'AI scanned all 4 retinal quadrants and vascular tree, detecting no microaneurysms, hemorrhages, or focal constrictions.'
                 )}
               </p>
             </div>
@@ -790,8 +788,8 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               <div className="font-bold text-amber-950 flex items-center gap-2 flex-wrap">
                 <span>
                   {isVi
-                    ? 'Cảnh báo: Biến đổi vi mạch toàn thể lan tỏa - Không phát hiện ổ khu trú đơn độc'
-                    : 'Notice: Diffuse Retinal Vascular Alterations - No focal lesions detected'}
+                    ? 'Biến đổi vi mạch lan tỏa (không có ổ khu trú)'
+                    : 'Diffuse Retinal Vascular Alterations (no focal lesions)'}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-semibold border border-amber-300">
                   {isVi ? 'Theo dõi lan tỏa' : 'Diffuse Survey'}
@@ -799,8 +797,8 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               </div>
               <p className="text-amber-800 leading-relaxed text-[11.5px]">
                 {isVi
-                  ? `Chỉ số nguy cơ vi mạch (${riskScore}/100) phản ánh tình trạng biến đổi vi tuần hoàn toàn diện (co hẹp tiểu động mạch, tăng độ uốn lượn hoặc giảm tưới máu). Vui lòng đối chiếu phổ nhiệt Grad-CAM và tham vấn bác sĩ chuyên khoa.`
-                  : `Vascular risk score (${riskScore}/100) indicates diffuse microcirculatory changes (arteriolar narrowing, increased tortuosity, or perfusion alterations). Please consult Grad-CAM attention field and physician notes.`}
+                  ? `Điểm nguy cơ (${riskScore}/100) cho thấy biến đổi vi tuần hoàn lan tỏa. Vui lòng đối chiếu bản đồ nhiệt và tham vấn bác sĩ.`
+                  : `Risk score (${riskScore}/100) indicates diffuse microcirculatory changes. Please review heatmap and consult physician.`}
               </p>
             </div>
           </div>

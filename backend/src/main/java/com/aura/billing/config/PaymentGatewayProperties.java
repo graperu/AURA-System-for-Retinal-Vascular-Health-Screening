@@ -65,7 +65,7 @@ public record PaymentGatewayProperties(
       String template) {
 
     public VietQrProperties() {
-      this("MB", "0901234567", "CONG TY CO PHAN CONG NGHE AURA", "compact2");
+      this("MB", "1208123456", "PHAN VAN DINH", "compact2");
     }
 
     public String getBankId() {
@@ -73,11 +73,11 @@ public record PaymentGatewayProperties(
     }
 
     public String getAccountNo() {
-      return accountNo != null ? accountNo : "0901234567";
+      return accountNo != null ? accountNo : "1208123456";
     }
 
     public String getAccountName() {
-      return accountName != null ? accountName : "CONG TY CO PHAN CONG NGHE AURA";
+      return accountName != null ? accountName : "PHAN VAN DINH";
     }
 
     public String getTemplate() {

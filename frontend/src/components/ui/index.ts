@@ -8,3 +8,4 @@ export * from './FormField';
 export * from './DataTable';
 export * from './MedicalDisclaimer';
 export * from './ClinicalSelect';
+export * from './Pagination';

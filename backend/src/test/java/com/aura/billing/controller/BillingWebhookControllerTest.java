@@ -161,7 +161,7 @@ class BillingWebhookControllerTest {
     BankTransferIpnRequest req = new BankTransferIpnRequest(
         "VietQR", "BANK_TXN_555", null,
         "MBVCB.12345.AURA NAP 1 KHAM 9A8B7C.chuyen tien goi",
-        BigDecimal.valueOf(100_000), "0901234567", null, "COMPLETED"
+        BigDecimal.valueOf(100_000), "1208123456", null, "COMPLETED"
     );
 
     when(billingService.processPaymentSuccess(eq("AURA NAP 1 KHAM 9A8B7C"), eq("BANK_TXN_555"), eq(BigDecimal.valueOf(100_000))))
@@ -182,7 +182,7 @@ class BillingWebhookControllerTest {
   void handleBankTransferWebhook_InvalidSecret_ReturnsUnauthorized() {
     BankTransferIpnRequest req = new BankTransferIpnRequest(
         "VietQR", "BANK_TXN_555", null,
-        "AURA NAP 1 KHAM 9A8B7C", BigDecimal.valueOf(100_000), "0901234567", null, "COMPLETED"
+        "AURA NAP 1 KHAM 9A8B7C", BigDecimal.valueOf(100_000), "1208123456", null, "COMPLETED"
     );
 
     ResponseEntity<Map<String, Object>> response = controller.handleBankTransferWebhook(
@@ -203,7 +203,7 @@ class BillingWebhookControllerTest {
 
     BankTransferIpnRequest req = new BankTransferIpnRequest(
         "VietQR", "BANK_TXN_555", null,
-        "AURA NAP 1 KHAM 9A8B7C", BigDecimal.valueOf(100_000), "0901234567", null, "COMPLETED"
+        "AURA NAP 1 KHAM 9A8B7C", BigDecimal.valueOf(100_000), "1208123456", null, "COMPLETED"
     );
 
     ResponseEntity<Map<String, Object>> response = unconfiguredController.handleBankTransferWebhook(

@@ -476,6 +476,11 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
         data={filteredScreenings}
         keyExtractor={(row, idx) => row.id || idx}
         loading={loading}
+        pagination={{
+          pageSize: 10,
+          pageSizeOptions: [5, 10, 20, 50],
+          itemLabel: isVi ? 'báo cáo' : 'reports',
+        }}
         emptyMessage={t('doctor.reportsView.emptyReports', 'Không tìm thấy hồ sơ báo cáo nào phù hợp với điều kiện lọc.')}
       />
 

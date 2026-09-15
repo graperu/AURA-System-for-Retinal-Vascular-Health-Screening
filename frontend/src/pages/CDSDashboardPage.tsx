@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { doctorApi, screeningApi } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
+import { useAnalysisProgress } from '../hooks/useAnalysisProgress';
 
 const toApiRiskLevel = (riskLevel: string | undefined) => {
   if (!riskLevel) return undefined;
@@ -76,11 +77,15 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
   // Medical analysis is empty until a successful backend response is received.
   const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(null);
   const [isScreeningLoading, setIsScreeningLoading] = useState<boolean>(false);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [analysisProgress, setAnalysisProgress] = useState<{ status: string; percent: number }>({
-    status: '',
-    percent: 0,
-  });
+  const {
+    isAnalyzing,
+    error: progressError,
+    analysisProgress,
+    startProgress,
+    completeProgress,
+    failProgress,
+    resetProgress,
+  } = useAnalysisProgress();
   const [analysisErrorMsg, setAnalysisErrorMsg] = useState<string | null>(null);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -253,46 +258,32 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       return;
     }
 
-    setIsAnalyzing(true);
+    startProgress();
     setAnalysisErrorMsg(null);
-    setAnalysisProgress({
-      status: isVi ? 'Khởi tạo kết nối AI Microservice...' : 'Initializing AI Microservice connection...',
-      percent: 15,
-    });
 
     try {
-      setAnalysisProgress({
-        status: isVi ? 'Đang gửi ảnh đến AURA AI Core cho bệnh nhân...' : 'Submitting image to AURA AI Core...',
-        percent: 45,
-      });
-
       // Call doctor-specific screening endpoint
       const res = await doctorApi.createScreeningForPatient(selectedPatientId, {
         imageUrl: request.imageUrl,
-        eyePosition: request.eye,
-        eye: request.eye,
-        scanType: request.scanType,
-        fileName: request.fileName,
+        eyePosition: request.eyePosition || request.eye || 'Right_OD',
+        eye: request.eye || request.eyePosition || 'Right_OD',
+        scanType: request.scanType || 'Fundus_Macula',
+        fileName: request.fileName || request.imageName || 'fundus_scan.png',
         fileSize: request.fileSize,
-        mimeType: request.mimeType,
+        mimeType: request.mimeType || 'image/png',
       });
 
-      if (res.success && res.data && res.data.status !== 'FAILED') {
-        if (res.data.patientId && res.data.patientId !== selectedPatientId) {
-          setAnalysisErrorMsg(
-            isVi
-              ? 'Lỗi toàn vẹn dữ liệu: Ca sàng lọc không thuộc về bệnh nhân đang chọn.'
-              : 'Data integrity error: Screening does not belong to selected patient.'
-          );
-          setAnalysisResult(null);
-          return;
-        }
+      if (!res.success || !res.data || res.data.status === 'FAILED') {
+        throw new Error(
+          (res.data?.status === 'FAILED' && res.data?.findings)
+            ? res.data.findings
+            : (res.message || (isVi ? 'Máy chủ AI không thể phân tích ảnh hoặc đang ngoại tuyến. Vui lòng thử lại sau.' : 'AI engine could not analyze image or is offline. Please retry later.'))
+        );
+      }
 
-        setAnalysisProgress({
-          status: isVi ? 'Đang xử lý kết quả Grad-CAM & chỉ số vi mạch...' : 'Processing Grad-CAM and microvascular metrics...',
-          percent: 85,
-        });
-        const mapped = mapScreeningToAIRiskResult(res.data, request.imageUrl);
+      const mapped = mapScreeningToAIRiskResult(res.data, request.imageUrl);
+
+      completeProgress(async () => {
         setAnalysisResult(mapped);
 
         // Refresh screening count in assigned patients list silently
@@ -301,26 +292,15 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
             setAssignedPatients(r.data);
           }
         });
-        return;
-      }
-
-      setAnalysisResult(null);
-      setAnalysisErrorMsg(
-        res.message ||
-          (isVi
-            ? 'Máy chủ AI không thể phân tích ảnh hoặc đang ngoại tuyến. Vui lòng thử lại sau.'
-            : 'AI engine could not analyze image or is offline. Please retry later.')
-      );
+      });
     } catch (err) {
       console.error('Doctor screening upload error:', err);
-      setAnalysisResult(null);
-      setAnalysisErrorMsg(
+      const errMsg =
         err instanceof Error
           ? err.message
-          : (isVi ? 'Không thể kết nối đến máy chủ phân tích. Vui lòng thử lại.' : 'Failed to connect to analysis server. Please retry.')
-      );
-    } finally {
-      setIsAnalyzing(false);
+          : (isVi ? 'Không thể kết nối đến máy chủ phân tích. Vui lòng thử lại.' : 'Failed to connect to analysis server. Please retry.');
+      failProgress(errMsg);
+      setAnalysisErrorMsg(errMsg);
     }
   };
 
@@ -528,21 +508,21 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
             className="px-3.5 py-2 bg-[#F0FDFA] hover:bg-[#CCFBF1] text-[#0891B2] font-bold rounded-xl text-xs border border-[#CCFBF1] transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <Users className="w-4 h-4" />
-            <span>{t('doctor.cds.switchPatient', 'Đổi Bệnh Nhân')}</span>
+            <span>{t('doctor.cds.switchPatient', isVi ? 'Đổi BN' : 'Switch')}</span>
           </button>
           <button
             onClick={() => setIsChatModalOpen(true)}
             className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <MessageSquare className="w-4 h-4 text-[#0891B2]" />
-            <span>{t('doctor.cds.message', 'Nhắn Tin')}</span>
+            <span>{t('doctor.cds.message', isVi ? 'Nhắn Tin' : 'Message')}</span>
           </button>
           <button
             onClick={() => setIsReportModalOpen(true)}
             className="px-3.5 py-2 bg-gradient-to-r from-[#0891B2] to-[#0E7490] hover:from-[#0E7490] hover:to-[#0891B2] text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <Printer className="w-4 h-4" />
-            <span>{t('doctor.cds.printResult', 'In Phiếu Kết Quả')}</span>
+            <span>{t('doctor.cds.printResult', isVi ? 'In Kết Quả' : 'Print Report')}</span>
           </button>
         </div>
       </div>
@@ -557,6 +537,11 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
             onStartAnalysis={handleStartAnalysis}
             isAnalyzing={isAnalyzing}
             analysisProgress={analysisProgress}
+            analysisError={analysisErrorMsg || progressError}
+            onRetry={() => {
+              resetProgress();
+              setAnalysisErrorMsg(null);
+            }}
           />
         </div>
 
@@ -565,21 +550,28 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
           {isScreeningLoading ? (
             <div className="bg-white border border-[#CCFBF1] rounded-2xl p-8 shadow-medical-sm text-center flex flex-col items-center justify-center min-h-[380px] space-y-3">
               <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
-              <p className="text-xs text-slate-500 font-medium">{t('doctor.cds.loadingScreeningHistory', 'Đang tải lịch sử ca sàng lọc của bệnh nhân...')}</p>
+              <p className="text-xs text-slate-500 font-medium">{t('doctor.cds.loadingScreeningHistory', isVi ? 'Đang tải ca sàng lọc của bệnh nhân...' : 'Loading patient screening...')}</p>
             </div>
           ) : analysisResult ? (
-            <InteractiveCDSViewer analysisResult={analysisResult} selectedEye={isVi ? 'OD (Mắt Phải)' : 'OD (Right Eye)'} />
+            <InteractiveCDSViewer
+              analysisResult={analysisResult}
+              selectedEye={
+                analysisResult.eyePosition === 'Left_OS' || analysisResult.eyePosition === 'OS'
+                  ? (isVi ? 'OS (Mắt Trái)' : 'OS (Left Eye)')
+                  : (isVi ? 'OD (Mắt Phải)' : 'OD (Right Eye)')
+              }
+            />
           ) : (
-            <div className="bg-white border border-[#CCFBF1] rounded-2xl p-8 shadow-medical-sm text-center flex flex-col items-center justify-center min-h-[380px] space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600">
-                <Eye className="w-8 h-8" />
+            <div className="bg-white border border-[#CCFBF1] rounded-2xl p-8 shadow-medical-sm text-center flex flex-col items-center justify-center min-h-[380px] space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600">
+                <Eye className="w-7 h-7" />
               </div>
-              <div className="space-y-1.5 max-w-md">
-                <h3 className="text-base font-bold text-slate-800">{t('doctor.cds.noResultsYet', 'Chưa Có Kết Quả Sàng Lọc')}</h3>
+              <div className="space-y-1 max-w-md">
+                <h3 className="text-sm font-bold text-slate-800">{t('doctor.cds.noResultsYet', isVi ? 'Chưa Có Kết Quả Sàng Lọc' : 'No Screening Results')}</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
                   {isVi
-                    ? `Bệnh nhân ${activePatient.fullName || activePatient.mrn || 'này'} chưa có ca sàng lọc nào trong hệ thống. Bác sĩ có thể tải lên ảnh chụp đáy mắt ở bảng bên trái để thực hiện phân tích và đánh giá nguy cơ vi mạch.`
-                    : `Patient ${activePatient.fullName || activePatient.mrn || 'this patient'} has no screening records in the system yet. You can upload a retinal fundus scan on the left to analyze microvascular risks.`}
+                    ? `Bệnh nhân ${activePatient.fullName || activePatient.mrn || ''} chưa có ca khám. Tải ảnh ở cột bên trái để phân tích AI.`
+                    : `No screening records for patient ${activePatient.fullName || activePatient.mrn || ''}. Upload fundus scan on the left.`}
                 </p>
               </div>
             </div>

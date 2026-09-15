@@ -26,13 +26,13 @@ public class PatientAccessService {
   }
 
   public boolean canAccessPatient(AuraUserPrincipal principal, UUID patientId) {
-    if (principal == null || patientId == null) {
+    if (principal == null || patientId == null || principal.roles() == null || principal.roles().isEmpty()) {
       return false;
     }
     if (hasRole(principal, "ADMIN")) {
       return true;
     }
-    if (hasRole(principal, "USER") && principal.id().equals(patientId)) {
+    if ((hasRole(principal, "USER") || hasRole(principal, "PATIENT")) && principal.id().equals(patientId)) {
       return true;
     }
     if (hasRole(principal, "DOCTOR")) {

@@ -38,6 +38,7 @@ public class ScreeningService {
   private final com.aura.user.repository.UserRepository userRepository;
   private final GeminiRetinalAiService geminiAiService;
   private final com.aura.billing.service.BillingService billingService;
+  private final com.aura.patient.repository.PatientProfileRepository patientProfileRepository;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Value("${aura.signature.secret:AURA_REVIEW_SIGNATURE_SECRET_2026}")
@@ -53,7 +54,9 @@ public class ScreeningService {
       com.aura.user.repository.UserRepository userRepository,
       GeminiRetinalAiService geminiAiService,
       @org.springframework.beans.factory.annotation.Autowired(required = false)
-      com.aura.billing.service.BillingService billingService) {
+      com.aura.billing.service.BillingService billingService,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+      com.aura.patient.repository.PatientProfileRepository patientProfileRepository) {
     this.screeningRepository = screeningRepository;
     this.assignmentRepository = assignmentRepository;
     this.userNotificationService = userNotificationService;
@@ -62,6 +65,19 @@ public class ScreeningService {
     this.userRepository = userRepository;
     this.geminiAiService = geminiAiService;
     this.billingService = billingService;
+    this.patientProfileRepository = patientProfileRepository;
+  }
+
+  public ScreeningService(
+      ScreeningRepository screeningRepository,
+      com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      com.aura.notification.service.UserNotificationService userNotificationService,
+      com.aura.audit.service.AuditLogService auditLogService,
+      com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
+      com.aura.user.repository.UserRepository userRepository,
+      GeminiRetinalAiService geminiAiService,
+      com.aura.billing.service.BillingService billingService) {
+    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository, userRepository, geminiAiService, billingService, null);
   }
 
   public ScreeningService(
@@ -72,7 +88,7 @@ public class ScreeningService {
       com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
       com.aura.user.repository.UserRepository userRepository,
       GeminiRetinalAiService geminiAiService) {
-    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository, userRepository, geminiAiService, null);
+    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository, userRepository, geminiAiService, null, null);
   }
 
   public ScreeningService(
@@ -80,7 +96,7 @@ public class ScreeningService {
       com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
       com.aura.notification.service.UserNotificationService userNotificationService,
       GeminiRetinalAiService geminiAiService) {
-    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null);
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null, null);
   }
 
   public ScreeningService(
@@ -89,7 +105,7 @@ public class ScreeningService {
       com.aura.notification.service.UserNotificationService userNotificationService,
       GeminiRetinalAiService geminiAiService,
       Object ignoredRestClient) {
-    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null);
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null, null);
   }
 
   public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request) {
@@ -110,8 +126,8 @@ public class ScreeningService {
       screening.setClinicId(request.clinicId());
     }
 
-    // FR-11, FR-12: Kiểm tra hạn mức và trừ lượt khám đối với bệnh nhân cá nhân
-    if (billingService != null && request.clinicId() == null) {
+    // FR-11, FR-12: Kiểm tra hạn mức và trừ lượt khám đối với bệnh nhân cá nhân tự thực hiện sàng lọc
+    if (!isCallerClinicalStaff() && billingService != null && request.clinicId() == null) {
       boolean deducted = billingService.deductCredit(patientId);
       if (!deducted) {
         int remaining = billingService.getRemainingCredits(patientId);
@@ -140,7 +156,7 @@ public class ScreeningService {
     screening.setScanType("Fundus");
     screening.setDetectedAnomalies("[]");
 
-    if (billingService != null && screening.getClinicId() == null) {
+    if (!isCallerClinicalStaff() && billingService != null && screening.getClinicId() == null) {
       boolean deducted = billingService.deductCredit(patientId);
       if (!deducted) {
         int remaining = billingService.getRemainingCredits(patientId);
@@ -160,6 +176,21 @@ public class ScreeningService {
     sendAiReadyNotification(saved, patientId);
     logScreeningCreationAudit(saved, patientId);
     return saved;
+  }
+
+  private boolean isCallerClinicalStaff() {
+    try {
+      var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+      if (auth != null && auth.getPrincipal() instanceof com.aura.auth.security.AuraUserPrincipal principal) {
+        if (principal.roles() != null) {
+          return principal.roles().stream().anyMatch(r -> {
+            String up = r.toUpperCase();
+            return up.contains("DOCTOR") || up.contains("ADMIN") || up.contains("CLINIC");
+          });
+        }
+      }
+    } catch (Exception ignored) {}
+    return false;
   }
 
   private void resolveAndAssignDoctorAndClinic(Screening screening, UUID patientId) {
@@ -566,16 +597,71 @@ public class ScreeningService {
     return null;
   }
 
+  public boolean isUserScreeningOwner(Screening screening, UUID userId) {
+    if (screening == null || userId == null) {
+      return false;
+    }
+    if (screening.getPatientId() != null) {
+      if (screening.getPatientId().equals(userId)) {
+        return true;
+      }
+      if (patientProfileRepository != null) {
+        var profileByUserId = patientProfileRepository.findByUserId(userId);
+        if (profileByUserId.isPresent() && profileByUserId.get().getId().equals(screening.getPatientId())) {
+          return true;
+        }
+        var profileById = patientProfileRepository.findById(screening.getPatientId());
+        if (profileById.isPresent() && userId.equals(profileById.get().getUserId())) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  public boolean isDoctorAssignedToScreening(Screening screening, UUID userId) {
+    if (screening == null || userId == null) {
+      return false;
+    }
+    if (screening.getDoctorId() != null && screening.getDoctorId().equals(userId)) {
+      return true;
+    }
+    if (assignmentRepository != null && screening.getPatientId() != null) {
+      if (assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+          userId, screening.getPatientId(), com.aura.doctor.entity.AssignmentStatus.ACTIVE)) {
+        return true;
+      }
+      if (patientProfileRepository != null) {
+        var profile = patientProfileRepository.findById(screening.getPatientId());
+        if (profile.isPresent() && profile.get().getUserId() != null) {
+          if (assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+              userId, profile.get().getUserId(), com.aura.doctor.entity.AssignmentStatus.ACTIVE)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   @Transactional
   public void deleteScreening(UUID screeningId, UUID userId, boolean isAdmin) {
     Screening screening = getScreeningById(screeningId);
-    if (!isAdmin && (screening.getPatientId() == null || !screening.getPatientId().equals(userId))) {
+    boolean isOwner = isUserScreeningOwner(screening, userId);
+    boolean isDoctorAssigned = isDoctorAssignedToScreening(screening, userId);
+    boolean isClinicMember = false;
+    if (screening.getClinicId() != null && clinicMemberRepository != null && userId != null) {
+      isClinicMember = clinicMemberRepository.findByDoctorId(userId).stream()
+          .anyMatch(m -> m.getClinic() != null && m.getClinic().getId().equals(screening.getClinicId()));
+    }
+
+    if (!isAdmin && !isOwner && !isDoctorAssigned && !isClinicMember) {
       throw new AuthException(
           ErrorCode.ACCESS_DENIED,
-          "Bạn không có quyền xóa ca sàng lọc của bệnh nhân khác");
+          "Bạn không có quyền xóa ca sàng lọc này");
     }
     screeningRepository.delete(screening);
-    log.info("Đã xóa ca sàng lọc {} bởi người dùng {} (isAdmin={})", screeningId, userId, isAdmin);
+    log.info("Đã xóa ca sàng lọc {} bởi người dùng {} (isAdmin={}, isOwner={}, isDoctorAssigned={})", screeningId, userId, isAdmin, isOwner, isDoctorAssigned);
   }
 
   @Transactional
@@ -586,7 +672,15 @@ public class ScreeningService {
     List<Screening> toDelete = new ArrayList<>();
     for (UUID id : screeningIds) {
       screeningRepository.findById(id).ifPresent(screening -> {
-        if (isAdmin || (screening.getPatientId() != null && screening.getPatientId().equals(userId))) {
+        boolean isOwner = isUserScreeningOwner(screening, userId);
+        boolean isDoctorAssigned = isDoctorAssignedToScreening(screening, userId);
+        boolean isClinicMember = false;
+        if (screening.getClinicId() != null && clinicMemberRepository != null && userId != null) {
+          isClinicMember = clinicMemberRepository.findByDoctorId(userId).stream()
+              .anyMatch(m -> m.getClinic() != null && m.getClinic().getId().equals(screening.getClinicId()));
+        }
+
+        if (isAdmin || isOwner || isDoctorAssigned || isClinicMember) {
           toDelete.add(screening);
         }
       });

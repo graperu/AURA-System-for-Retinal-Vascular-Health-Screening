@@ -9,6 +9,8 @@ import {
   TrendingUp,
   BarChart3,
   RefreshCw,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { RiskBadge } from '../../components/ui/RiskBadge';
@@ -19,20 +21,33 @@ import { useLanguage } from '../../context/LanguageContext';
 
 interface DoctorRiskAnalyticsViewProps {
   assignedPatients: DoctorPatientSummary[];
+  initialScreenings?: any[];
   onSelectPatientForCDS: (patientId: string, screeningId?: string) => void;
   onNavigate?: (section: string) => void;
 }
 
 export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = ({
   assignedPatients,
+  initialScreenings,
   onSelectPatientForCDS,
 }) => {
   const { t, isVi } = useLanguage();
-  const [screenings, setScreenings] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [screenings, setScreenings] = useState<any[]>(initialScreenings || []);
+  const [loading, setLoading] = useState<boolean>(!initialScreenings);
   const [error, setError] = useState<string | null>(null);
   const [riskFilter, setRiskFilter] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW'>('ALL');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  // Multi-selection state for batch actions
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Delete modal state
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: 'single' | 'batch';
+    item?: any;
+    ids?: string[];
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const loadAnalyticsData = useCallback(async () => {
     setLoading(true);
@@ -159,6 +174,93 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
     });
   }, [screenings, riskFilter]);
 
+  // Selection handlers
+  const isAllFilteredSelected =
+    filteredScreenings.length > 0 &&
+    filteredScreenings.every((item) => selectedIds.has(String(item.id)));
+  const isSomeFilteredSelected =
+    filteredScreenings.some((item) => selectedIds.has(String(item.id))) &&
+    !isAllFilteredSelected;
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (filteredScreenings.length === 0) return;
+    if (isAllFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredScreenings.forEach((item) => next.delete(String(item.id)));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredScreenings.forEach((item) => next.add(String(item.id)));
+        return next;
+      });
+    }
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      if (deleteTarget.type === 'single' && deleteTarget.item) {
+        const screeningId = String(deleteTarget.item.id);
+        const res = await screeningApi.delete(screeningId);
+        if (res && res.success === false) {
+          throw new Error(res.message || (isVi ? 'Không thể xóa ca khám khỏi hệ thống' : 'Failed to delete screening case'));
+        }
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(screeningId);
+          return next;
+        });
+        setActionNotice(
+          isVi
+            ? 'Đã xóa ca khám thành công khỏi hệ thống'
+            : 'Screening case successfully deleted from system'
+        );
+      } else if (deleteTarget.type === 'batch' && deleteTarget.ids) {
+        const ids = deleteTarget.ids;
+        const res = await screeningApi.batchDelete(ids);
+        if (res && res.success === false) {
+          throw new Error(res.message || (isVi ? 'Không thể xóa các ca khám đã chọn' : 'Failed to delete selected screening cases'));
+        }
+        setSelectedIds(new Set());
+        setActionNotice(
+          isVi
+            ? `Đã xóa thành công ${ids.length} ca khám đã chọn`
+            : `Successfully deleted ${ids.length} selected screening cases`
+        );
+      }
+      await loadAnalyticsData();
+    } catch (err: any) {
+      console.error('Delete screening error:', err);
+      setActionNotice(
+        err.message ||
+          (isVi
+            ? 'Không thể xóa ca khám. Vui lòng kiểm tra quyền hạn và thử lại.'
+            : 'Failed to delete screening case. Please check permissions and try again.')
+      );
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
+      setTimeout(() => setActionNotice(null), 4000);
+    }
+  };
+
   // Ánh xạ thông tin bệnh nhân tương ứng cho mỗi ca khám
   const patientMap = useMemo(() => {
     const map = new Map<string, DoctorPatientSummary>();
@@ -167,6 +269,40 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
   }, [assignedPatients]);
 
   const columns: Column<any>[] = [
+    {
+      header: (
+        <div className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            checked={isAllFilteredSelected}
+            ref={(input) => {
+              if (input) input.indeterminate = isSomeFilteredSelected;
+            }}
+            onChange={handleToggleSelectAll}
+            aria-label={isVi ? 'Chọn tất cả ca khám' : 'Select all cases'}
+            className="w-4 h-4 rounded text-teal-700 focus:ring-teal-500 border-slate-300 cursor-pointer accent-teal-700"
+          />
+        </div>
+      ),
+      className: 'w-10 text-center px-2',
+      accessor: (row) => {
+        const rowId = String(row.id);
+        return (
+          <div
+            className="flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={selectedIds.has(rowId)}
+              onChange={() => handleToggleSelect(rowId)}
+              aria-label={isVi ? `Chọn ca khám ${rowId}` : `Select scan ${rowId}`}
+              className="w-4 h-4 rounded text-teal-700 focus:ring-teal-500 border-slate-300 cursor-pointer accent-teal-700"
+            />
+          </div>
+        );
+      },
+    },
     {
       header: isVi ? 'Mã Ca Khám / Ngày' : 'Scan ID / Date',
       accessor: (row) => {
@@ -268,17 +404,29 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
       header: t('doctor.worklist.columns.action', 'Thao Tác'),
       align: 'right',
       accessor: (row) => (
-        <button
-          type="button"
-          onClick={() => onSelectPatientForCDS(row.patientId, row.id)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0891B2] hover:bg-[#0e7490] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-        >
-          <Eye className="w-3.5 h-3.5" />
-          <span>{t('doctor.worklist.openCds', 'Mở CDS')}</span>
-        </button>
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => onSelectPatientForCDS(row.patientId, row.id)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0891B2] hover:bg-[#0e7490] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            title={t('doctor.worklist.openCds', 'Mở CDS')}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>{t('doctor.worklist.openCds', 'Mở CDS')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteTarget({ type: 'single', item: row })}
+            className="inline-flex items-center justify-center p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shadow-2xs cursor-pointer"
+            title={isVi ? 'Xóa ca khám này' : 'Delete this screening case'}
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+          </button>
+        </div>
       ),
     },
   ];
+
 
   return (
     <div className="space-y-6">
@@ -288,11 +436,11 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
           <div className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-brand-600" />
             <h1 className="text-lg font-bold text-clinical-text">
-              {t('doctor.riskAnalytics.title', 'Thống Kê Nguy Cơ & Hiệu Suất Lâm Sàng')}
+              {t('doctor.riskAnalytics.title', isVi ? 'Thống Kê Nguy Cơ & Hiệu Suất Lâm Sàng' : 'Clinical Risk & Performance Analytics')}
             </h1>
           </div>
           <p className="text-xs text-clinical-text-muted mt-1">
-            {t('doctor.riskAnalytics.subtitle', 'FR-21: Bảng tổng hợp các chỉ số nguy cơ vi mạch võng mạc, phân bố rủi ro và tỷ lệ đồng thuận với AI.')}
+            {t('doctor.riskAnalytics.subtitle', isVi ? 'Chỉ số nguy cơ vi mạch võng mạc, phân bố rủi ro và tỷ lệ đồng thuận AI.' : 'Retinal microvascular biomarkers, risk distribution and AI consensus.')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -627,6 +775,9 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
             <h3 className="text-sm font-bold text-slate-900">
               {t('doctor.riskAnalytics.recentScreeningsTitle', 'Danh Sách Ca Khám Phụ Trách Gần Nhất')}
             </h3>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200/80">
+              ({filteredScreenings.length})
+            </span>
             {riskFilter !== 'ALL' && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 font-semibold">
                 {isVi ? 'Lọc:' : 'Filter:'} {riskFilter}
@@ -648,9 +799,116 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
           data={filteredScreenings}
           keyExtractor={(row, idx) => row.id || idx}
           loading={loading}
+          pagination={{
+            pageSize: 10,
+            pageSizeOptions: [5, 10, 20, 50],
+            itemLabel: isVi ? 'ca khám' : 'screenings',
+          }}
           emptyMessage={t('doctor.riskAnalytics.emptyRecent', 'Không có ca sàng lọc nào phù hợp với bộ lọc hiện tại.')}
         />
       </div>
+
+      {/* Floating / Sticky Batch Actions Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky bottom-4 z-20 bg-slate-900/95 backdrop-blur text-white rounded-2xl p-4 shadow-2xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse" />
+            <span className="text-xs font-bold">
+              {isVi
+                ? `Đã chọn ${selectedIds.size} / ${filteredScreenings.length} ca khám`
+                : `Selected ${selectedIds.size} / ${filteredScreenings.length} cases`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleDeselectAll}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              {isVi ? 'Bỏ chọn' : 'Deselect all'}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setDeleteTarget({
+                  type: 'batch',
+                  ids: Array.from(selectedIds),
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isVi ? `Xóa Đã Chọn (${selectedIds.size})` : `Delete Selected (${selectedIds.size})`}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl shrink-0 border border-rose-100">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {deleteTarget.type === 'batch'
+                    ? isVi
+                      ? `Xác nhận xóa ${deleteTarget.ids?.length} ca khám đã chọn?`
+                      : `Confirm deletion of ${deleteTarget.ids?.length} selected screening cases?`
+                    : isVi
+                    ? 'Xác nhận xóa ca khám này?'
+                    : 'Confirm deletion of this screening case?'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  {isVi
+                    ? 'Hành động này sẽ xóa vĩnh viễn dữ liệu ảnh chụp võng mạc và các chỉ số vi mạch AI liên quan khỏi hệ thống. Thao tác không thể hoàn tác.'
+                    : 'This action will permanently delete retinal fundus scans and associated AI biomarkers from the system. This cannot be undone.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isVi ? 'Hủy bỏ' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{isVi ? 'Đang xóa...' : 'Deleting...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      {deleteTarget.type === 'batch'
+                        ? isVi
+                          ? `Xóa ${deleteTarget.ids?.length} ca khám`
+                          : `Delete ${deleteTarget.ids?.length} cases`
+                        : isVi
+                        ? 'Xóa ca khám'
+                        : 'Delete record'}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Medical Safety Disclaimer */}
       <MedicalDisclaimer variant="subtle" />

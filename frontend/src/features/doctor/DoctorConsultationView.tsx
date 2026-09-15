@@ -242,17 +242,17 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-[#0891B2]" />
             <h1 className="text-lg font-bold text-[#134E4A]">
-              {t('doctor.consultation.title', 'Kênh Tư Vấn & Trao Đổi Trực Tuyến Với Bệnh Nhân')}
+              {t('doctor.consultation.title', isVi ? 'Tư Vấn Bệnh Nhân Trực Tuyến' : 'Online Patient Consultation')}
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            {t('doctor.consultation.subtitle', 'FR-20: Trao đổi chuyên môn lâm sàng hai chiều thời gian thực qua giao thức WebSocket STOMP.')}
+            {t('doctor.consultation.subtitle', isVi ? 'Trao đổi chuyên môn lâm sàng hai chiều thời gian thực qua WebSocket.' : 'Real-time two-way clinical consultation via WebSocket.')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            {t('doctor.consultation.stompActive', 'STOMP Realtime Active')}
+            {t('doctor.consultation.stompActive', 'STOMP Realtime')}
           </span>
         </div>
       </div>
@@ -385,8 +385,8 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
               <div className="px-4 py-2 bg-amber-50 border-b border-amber-200/80 text-[11px] text-amber-900 flex items-center gap-2 shrink-0">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
-                  <strong>{t('doctor.consultation.safetyWarningTitle', 'Cảnh báo an toàn y khoa:')}</strong>{' '}
-                  {t('doctor.consultation.safetyWarningText', 'Kênh trao đổi chuyên môn y khoa thời gian thực (WebSocket). Không sử dụng cho các trường hợp cấp cứu khẩn cấp.')}
+                  <strong>{t('doctor.consultation.safetyWarningTitle', isVi ? 'Lưu ý y khoa:' : 'Clinical note:')}</strong>{' '}
+                  {t('doctor.consultation.safetyWarningText', isVi ? 'Kênh tư vấn trực tuyến. Không sử dụng cho cấp cứu khẩn cấp.' : 'Online consultation channel. Not for emergency cases.')}
                 </span>
               </div>
 

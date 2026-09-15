@@ -198,7 +198,7 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
       >
         <div className="mb-4 px-2 pt-1 pb-3 border-b border-clinical-border flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-bold text-brand-700 uppercase tracking-wider">
+            <div className="text-[11px] font-bold text-teal-700 uppercase tracking-wide">
               {isVi ? "Phân hệ làm việc" : "Workspace"}
             </div>
             <div className="text-xs font-bold text-clinical-text mt-0.5">
@@ -211,7 +211,7 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
           {navGroups.map((group, gIdx) => (
             <div key={gIdx} className="space-y-1">
               {group.groupTitle && (
-                <div className="px-3 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="px-3 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                   {group.groupTitle}
                 </div>
               )}

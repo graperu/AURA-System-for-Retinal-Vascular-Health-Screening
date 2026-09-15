@@ -24,8 +24,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.aura.patient.dto.DoctorOptionDto;
+import com.aura.patient.dto.RegisterExaminationRequest;
+
 @RestController
-@RequestMapping("/api/v1/patient/profile")
+@RequestMapping({"/api/v1/patient/profile", "/api/v1/patient"})
 @PreAuthorize("isAuthenticated()")
 public class PatientProfileController {
   private final PatientProfileService profileService;
@@ -36,6 +39,21 @@ public class PatientProfileController {
       PatientLabDocumentService labDocumentService) {
     this.profileService = profileService;
     this.labDocumentService = labDocumentService;
+  }
+
+  @GetMapping("/doctors")
+  public ApiResponse<List<DoctorOptionDto>> getDoctors() {
+    return ApiResponse.success("Lấy danh sách Bác sĩ chuyên khoa thành công",
+        profileService.getAvailableDoctors());
+  }
+
+  @PostMapping("/register-examination")
+  public ApiResponse<PatientProfileResponse> registerExamination(
+      @AuthenticationPrincipal AuraUserPrincipal principal,
+      @Valid @RequestBody(required = false) RegisterExaminationRequest request) {
+    requirePrincipal(principal);
+    return ApiResponse.success("Đăng ký khám sàng lọc thành công. Hồ sơ đã được chuyển đến Bác sĩ chuyên khoa phụ trách.",
+        profileService.registerExamination(principal.id(), request != null ? request : new RegisterExaminationRequest(null, null, null, null, null, null, null, null, null, null)));
   }
 
   @GetMapping

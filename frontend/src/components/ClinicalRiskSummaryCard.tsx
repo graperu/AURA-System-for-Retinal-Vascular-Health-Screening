@@ -78,6 +78,13 @@ const formatEtdrsGrade = (grade?: string | null, score?: number, level?: string,
 // Helper phân tách nhận định / khuyến nghị thành các ý rõ ràng, giảm tải chữ
 const parseClinicalPoints = (text?: string | null, defaultPoints: string[] = []): string[] => {
   if (!text || !text.trim()) return defaultPoints;
+  if (text.includes('•')) {
+    const bulletParts = text
+      .split('•')
+      .map((s) => s.trim().replace(/^[-*\d.]\s*/, ''))
+      .filter((s) => s.length > 0);
+    if (bulletParts.length > 0) return bulletParts;
+  }
   if (text.includes('\n')) {
     const lines = text
       .split('\n')
@@ -266,24 +273,24 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xs uppercase tracking-wider font-extrabold bg-white/20 px-3 py-1 rounded-full backdrop-blur-xs border border-white/20">
-                {isVi ? 'Tóm Tắt Nguy Cơ Vi Mạch Lâm Sàng' : 'Retinal Microvascular Risk Summary'}
+                {isVi ? 'Đánh Giá Nguy Cơ Vi Mạch' : 'Microvascular Risk Summary'}
               </span>
               {isDoctorReviewed ? (
                 <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/30 text-emerald-100 font-bold border border-emerald-400/40 flex items-center gap-1.5 backdrop-blur-xs">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
-                  {isVi ? 'Đã Thẩm Định Bởi Bác Sĩ Chuyên Khoa' : 'Reviewed by Attending Specialist'}
+                  {isVi ? 'Đã Thẩm Định Bởi Bác Sĩ' : 'Specialist Verified'}
                 </span>
               ) : (
                 <span className="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-100 font-bold border border-amber-400/30 flex items-center gap-1.5 backdrop-blur-xs">
                   <Clock className="w-3.5 h-3.5 text-amber-200" />
-                  {isVi ? 'Kết Quả Sơ Bộ AI - Chờ Bác Sĩ Thẩm Định' : 'Preliminary AI Result - Awaiting Review'}
+                  {isVi ? 'Chờ Bác Sĩ Thẩm Định' : 'Pending Doctor Review'}
                 </span>
               )}
             </div>
 
             <div className="flex items-baseline gap-3">
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-                {isVi ? 'Chỉ Số Nguy Cơ Vi Mạch:' : 'Microvascular Risk Score:'}
+                {isVi ? 'Chỉ Số Nguy Cơ:' : 'Risk Score:'}
               </h2>
               <span className="text-3xl sm:text-4xl font-black font-mono-data">
                 {score}
@@ -294,10 +301,10 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             <div className="flex items-center gap-3">
               <RiskBadge level={riskLevel} size="lg" className="shadow-xs font-bold" />
               <p className="text-xs text-white/90">
-                {riskLevel === 'Low' && (isVi ? 'Hệ vi mạch võng mạc bình thường, nguy cơ tim mạch và đột quỵ thấp.' : 'Normal retinal microvasculature, low cardiovascular and stroke risk.')}
-                {riskLevel === 'Moderate' && (isVi ? 'Phát hiện dấu hiệu co thắt nhẹ vi mạch hoặc thay đổi vi tuần hoàn võng mạc.' : 'Mild microvascular narrowing or subtle retinal microcirculatory changes detected.')}
-                {riskLevel === 'High' && (isVi ? 'Phát hiện tổn thương vi mạch rõ rệt, cần bác sĩ chuyên khoa khám xác định sớm.' : 'Significant microvascular lesions detected, early specialist evaluation indicated.')}
-                {riskLevel === 'Critical' && (isVi ? 'Nguy cơ biến chứng mạch máu cao, đề nghị chuyển khám chuyên khoa tim mạch / mắt khẩn cấp.' : 'High vascular complication risk, urgent ophthalmology / cardiology consultation recommended.')}
+                {riskLevel === 'Low' && (isVi ? 'Vi mạch võng mạc bình thường, nguy cơ tim mạch thấp.' : 'Normal microvasculature, low cardiovascular risk.')}
+                {riskLevel === 'Moderate' && (isVi ? 'Phát hiện co thắt nhẹ vi mạch hoặc thay đổi vi tuần hoàn.' : 'Mild microvascular narrowing detected.')}
+                {riskLevel === 'High' && (isVi ? 'Tổn thương vi mạch rõ rệt, cần bác sĩ khám sớm.' : 'Significant microvascular lesions detected.')}
+                {riskLevel === 'Critical' && (isVi ? 'Nguy cơ biến chứng mạch máu cao, đề nghị chuyển khám khẩn cấp.' : 'High vascular risk, urgent specialist consult recommended.')}
               </p>
             </div>
           </div>
@@ -310,7 +317,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               className="bg-white text-slate-900 hover:bg-slate-50 border-white/60 font-bold shadow-md text-xs sm:text-sm flex items-center justify-center gap-2"
             >
               <FileText className="w-4 h-4 text-brand-600" />
-              {isVi ? 'Xem & In Phiếu Báo Cáo Chi Tiết' : 'View & Print Detailed Report'}
+              {isVi ? 'In Báo Cáo' : 'Print Report'}
             </Button>
             {onConsultDoctor && (
               <Button
@@ -320,7 +327,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md text-xs sm:text-sm flex items-center justify-center gap-2"
               >
                 <MessageSquare className="w-4 h-4" />
-                {isVi ? 'Trao Đổi Với Bác Sĩ' : 'Consult with Doctor'}
+                {isVi ? 'Tư Vấn Bác Sĩ' : 'Consult Doctor'}
               </Button>
             )}
           </div>
@@ -506,10 +513,10 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             <div>
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                 <Activity className="w-4 h-4 text-brand-600" />
-                {isVi ? 'Chỉ Số Vi Mạch Chuyên Sâu' : 'Advanced Microvascular Biomarkers'}
+                {isVi ? 'Chỉ Số Vi Mạch' : 'Microvascular Biomarkers'}
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                {isVi ? 'Dành cho bác sĩ chuyên khoa tham khảo đánh giá tuần hoàn đáy mắt.' : 'Clinical reference for fundus microcirculation evaluation.'}
+                {isVi ? 'Thông số tham khảo đánh giá tuần hoàn đáy mắt.' : 'Clinical reference for fundus evaluation.'}
               </p>
             </div>
 
@@ -550,7 +557,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 onClick={() => setIsBiomarkersOpen(!isBiomarkersOpen)}
                 className="text-xs font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-200 transition-colors cursor-pointer"
               >
-                <span>{isBiomarkersOpen ? (isVi ? 'Thu Gọn Bảng Chỉ Số ▲' : 'Collapse Biomarkers ▲') : (isVi ? 'Xem Đầy Đủ 4 Chỉ Số ▼' : 'Expand All 4 Biomarkers ▼')}</span>
+                <span>{isBiomarkersOpen ? (isVi ? 'Thu gọn ▲' : 'Collapse ▲') : (isVi ? 'Xem 4 chỉ số ▼' : 'Expand ▼')}</span>
               </button>
             </div>
           </div>
@@ -1010,14 +1017,14 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 </span>
               </div>
 
-              <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+              <div className="space-y-2.5 text-sm sm:text-base text-black leading-relaxed">
                 {findingsItems.map((point, idx) => (
                   <div
                     key={idx}
-                    className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white border border-slate-200/60 shadow-2xs hover:border-sky-200 transition-colors"
+                    className="flex items-start gap-3 p-3 rounded-xl bg-white border border-slate-300 shadow-2xs hover:border-sky-300 transition-colors"
                   >
-                    <div className="w-2 h-2 rounded-full bg-sky-500 ring-4 ring-sky-100 shrink-0 mt-1.5" />
-                    <span className="leading-snug">{point}</span>
+                    <div className="w-2.5 h-2.5 rounded-full bg-sky-600 ring-4 ring-sky-100 shrink-0 mt-1.5" />
+                    <span className="leading-relaxed text-black font-medium">{point}</span>
                   </div>
                 ))}
               </div>
@@ -1044,14 +1051,14 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                 </span>
               </div>
 
-              <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+              <div className="space-y-2.5 text-sm sm:text-base text-black leading-relaxed">
                 {recommendationItems.map((rec, idx) => (
                   <div
                     key={idx}
-                    className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white border border-teal-200/60 shadow-2xs hover:border-teal-300 transition-colors"
+                    className="flex items-start gap-3 p-3 rounded-xl bg-white border border-teal-300 shadow-2xs hover:border-teal-400 transition-colors"
                   >
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span className="leading-snug">{rec}</span>
+                    <span className="leading-relaxed text-black font-medium">{rec}</span>
                   </div>
                 ))}
               </div>
@@ -1060,7 +1067,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
 
           {/* Ghi chú thẩm định từ Bác sĩ phụ trách */}
           {analysisResult.doctorNotes && (
-            <div className="p-4 sm:p-5 rounded-2xl border border-teal-200/80 bg-gradient-to-r from-teal-50/60 via-white to-cyan-50/40 space-y-2.5 shadow-xs border-l-4 border-l-teal-600">
+            <div className="p-4 sm:p-5 rounded-2xl border border-teal-300 bg-white space-y-2.5 shadow-xs border-l-4 border-l-teal-600">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-teal-100 text-teal-800">
@@ -1075,7 +1082,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
                   {analysisResult.doctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist')}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-700 italic pl-7 border-l-2 border-teal-300/60 ml-2 py-0.5 leading-relaxed">
+              <p className="text-sm sm:text-base text-black font-medium pl-7 border-l-3 border-teal-500 ml-2 py-1 leading-relaxed whitespace-pre-line">
                 "{analysisResult.doctorNotes}"
               </p>
             </div>
@@ -1094,7 +1101,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
             className="text-xs font-bold gap-2 shadow-xs"
           >
             <FileText className="w-4 h-4 text-brand-600" />
-            {isVi ? 'Xem & In Phiếu Báo Cáo Chi Tiết' : 'View & Print Detailed Report'}
+            {isVi ? 'In Báo Cáo' : 'Print Report'}
           </Button>
           {onConsultDoctor && (
             <Button
@@ -1104,7 +1111,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
               className="text-xs font-bold gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700"
             >
               <MessageSquare className="w-4 h-4" />
-              {isVi ? 'Trao Đổi Với Bác Sĩ' : 'Consult with Doctor'}
+              {isVi ? 'Tư Vấn Bác Sĩ' : 'Consult Doctor'}
             </Button>
           )}
         </div>

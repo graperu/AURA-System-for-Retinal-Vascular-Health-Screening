@@ -15,6 +15,8 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import { ClinicBatchJobItem } from '../types/cds';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
@@ -43,6 +45,8 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
 
   const { t, isVi } = useLanguage();
   const [heatmapDataUrl, setHeatmapDataUrl] = useState<string>('');
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const [downloadSuccessNotice, setDownloadSuccessNotice] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.70);
   const [viewMode, setViewMode] = useState<'sideBySide' | 'overlay'>('sideBySide');
@@ -162,12 +166,142 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
     setMousePos((prev) => ({ ...prev, active: false }));
   };
 
-  const handleDownloadHeatmap = () => {
-    if (!heatmapDataUrl) return;
-    const a = document.createElement('a');
-    a.href = heatmapDataUrl;
-    a.download = `GradCAM_${item.mrn}_${item.eye}.png`;
-    a.click();
+  const handleDownloadHeatmap = async () => {
+    setIsDownloading(true);
+    try {
+      const canvas = document.createElement('canvas');
+      const size = 512;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context not available');
+
+      const loadImage = (src: string): Promise<HTMLImageElement> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => {
+            // fallback without crossOrigin if CORS is restricted
+            const fallbackImg = new Image();
+            fallbackImg.onload = () => resolve(fallbackImg);
+            fallbackImg.onerror = (err) => reject(err);
+            fallbackImg.src = src;
+          };
+          img.src = src;
+        });
+      };
+
+      // 1. Draw base fundus background & photo
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0, 0, size, size);
+
+      if (baseImage) {
+        try {
+          const baseImgEl = await loadImage(baseImage);
+          ctx.drawImage(baseImgEl, 0, 0, size, size);
+        } catch (e) {
+          console.warn('Could not render baseImage onto canvas:', e);
+        }
+      }
+
+      // 2. Draw Grad-CAM heatmap overlay if present
+      if (heatmapDataUrl) {
+        try {
+          const heatmapImgEl = await loadImage(heatmapDataUrl);
+          ctx.globalAlpha = heatmapOpacity;
+          ctx.drawImage(heatmapImgEl, 0, 0, size, size);
+          ctx.globalAlpha = 1.0;
+        } catch (e) {
+          console.warn('Could not render heatmap overlay onto canvas:', e);
+        }
+      }
+
+      // 3. Draw Anatomy Markers if active
+      if (showAnatomyMarkers) {
+        ctx.save();
+        // Optic Disc marker
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(discX, discY, 32, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(isVi ? 'Gai Thị' : 'Optic Disc', discX - 22, discY + 46);
+
+        // Macula marker
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(maculaX, maculaY, 26, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText(isVi ? 'Hoàng Điểm' : 'Macula', maculaX - 30, maculaY + 40);
+        ctx.restore();
+      }
+
+      // 4. Draw Lesion Anomaly boxes if present
+      if (showRoiBoxes && anomalies.length > 0) {
+        ctx.save();
+        anomalies.forEach((ano) => {
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(ano.svgX, ano.svgY, ano.svgW, ano.svgH);
+          const textWidth = ctx.measureText(ano.label).width;
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
+          ctx.fillRect(ano.svgX, Math.max(0, ano.svgY - 16), Math.max(60, textWidth + 8), 16);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.fillText(ano.label, ano.svgX + 4, Math.max(12, ano.svgY - 4));
+        });
+        ctx.restore();
+      }
+
+      // 5. Clinical metadata header / footer
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillRect(0, size - 26, size, 26);
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '10px monospace';
+      ctx.fillText(
+        `AURA Clinical CDS • MRN: ${item.mrn || 'N/A'} • ${item.eye === 'OD' ? 'Mắt Phải (OD)' : 'Mắt Trái (OS)'} • Rủi ro: ${overallRisk}%`,
+        8,
+        size - 9
+      );
+      ctx.restore();
+
+      // 6. Download PNG
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      const cleanMrn = (item.mrn || 'MRN').replace(/[^a-zA-Z0-9-_]/g, '_');
+      a.download = `AURA_CDS_${cleanMrn}_${item.eye || 'OD'}_${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setDownloadSuccessNotice(true);
+      setTimeout(() => setDownloadSuccessNotice(false), 3000);
+    } catch (err) {
+      console.error('Error exporting PNG canvas:', err);
+      // Fallback: direct download of baseImage or heatmapDataUrl
+      const fallbackUrl = heatmapDataUrl || baseImage;
+      if (fallbackUrl) {
+        const a = document.createElement('a');
+        a.href = fallbackUrl;
+        a.download = `AURA_Fundus_${item.mrn || 'MRN'}_${item.eye || 'OD'}.png`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setDownloadSuccessNotice(true);
+        setTimeout(() => setDownloadSuccessNotice(false), 3000);
+      }
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Xác định tên vùng giải phẫu đang rà chuột
@@ -366,10 +500,28 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               <button
                 type="button"
                 onClick={handleDownloadHeatmap}
-                className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg text-slate-700 text-xs font-bold flex items-center gap-1 transition-all"
+                disabled={isDownloading}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-60 ${
+                  downloadSuccessNotice
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                    : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-700'
+                }`}
                 title={t('clinic.batchDetailModal.downloadPng')}
               >
-                <Download className="w-3.5 h-3.5 text-[#0891B2]" /> {t('clinic.batchDetailModal.downloadPng')}
+                {isDownloading ? (
+                  <Loader2 className="w-3.5 h-3.5 text-[#0891B2] animate-spin" />
+                ) : downloadSuccessNotice ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-[#0891B2]" />
+                )}
+                <span>
+                  {isDownloading
+                    ? (isVi ? 'Đang xuất...' : 'Exporting...')
+                    : downloadSuccessNotice
+                    ? (isVi ? 'Đã tải PNG' : 'Downloaded')
+                    : t('clinic.batchDetailModal.downloadPng')}
+                </span>
               </button>
             </div>
           </div>

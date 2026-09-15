@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
 import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
 import { ClinicCreditPackageSection } from '../components/ClinicCreditPackageSection';
@@ -9,7 +9,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { PageHeader } from '../components/ui/PageHeader';
 import { LoadingState } from '../components/ui/StateFeedback';
-import { MedicalDisclaimer } from '../components/ui/MedicalDisclaimer';
+import { Modal } from '../components/ui/Modal';
+import { Pagination } from '../components/ui/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { ClinicalSelect, ClinicalSelectOption } from '../components/ui/ClinicalSelect';
 import { useLanguage } from '../context/LanguageContext';
@@ -200,6 +201,43 @@ const ClinicDoctorsSection: React.FC = () => {
   const [assigning, setAssigning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const [selectedDoctorIds, setSelectedDoctorIds] = useState<Set<string>>(new Set());
+  const [doctorPage, setDoctorPage] = useState(1);
+  const [doctorPageSize, setDoctorPageSize] = useState(5);
+  const [doctorToDelete, setDoctorToDelete] = useState<any | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isBatchDelete, setIsBatchDelete] = useState(false);
+
+  const paginatedMembers = useMemo(() => {
+    const start = (doctorPage - 1) * doctorPageSize;
+    return members.slice(start, start + doctorPageSize);
+  }, [members, doctorPage, doctorPageSize]);
+
+  const toggleSelectDoctor = (id: string) => {
+    setSelectedDoctorIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (paginatedMembers.length > 0 && paginatedMembers.every((m: any) => selectedDoctorIds.has(m.id))) {
+      setSelectedDoctorIds((prev) => {
+        const next = new Set(prev);
+        paginatedMembers.forEach((m: any) => next.delete(m.id));
+        return next;
+      });
+    } else {
+      setSelectedDoctorIds((prev) => {
+        const next = new Set(prev);
+        paginatedMembers.forEach((m: any) => next.add(m.id));
+        return next;
+      });
+    }
+  };
+
   const loadMembers = async () => {
     setLoading(true);
     const res = await clinicApi.listMembers();
@@ -258,12 +296,26 @@ const ClinicDoctorsSection: React.FC = () => {
     }
   };
 
-  const handleRemove = async (doctorId: string) => {
-    if (!confirm(t('clinic.portal.doctors.confirmDelete'))) return;
-    const res = await clinicApi.removeMember(doctorId);
-    if (res.success) {
-      loadMembers();
+  const handleConfirmRemoveDoctor = async () => {
+    if (isBatchDelete) {
+      const ids = Array.from(selectedDoctorIds);
+      try {
+        await Promise.all(ids.map((id) => clinicApi.removeMember(id)));
+        setSelectedDoctorIds(new Set());
+        setMessage(isVi ? `Đã xóa ${ids.length} bác sĩ khỏi danh sách.` : `Removed ${ids.length} doctors from roster.`);
+        loadMembers();
+      } catch (e) {
+        console.error(e);
+      }
+    } else if (doctorToDelete) {
+      const res = await clinicApi.removeMember(doctorToDelete.id);
+      if (res.success) {
+        setMessage(isVi ? 'Đã xóa bác sĩ khỏi danh sách.' : 'Doctor removed from roster.');
+        loadMembers();
+      }
     }
+    setIsDeleteModalOpen(false);
+    setDoctorToDelete(null);
   };
 
   return (
@@ -295,46 +347,163 @@ const ClinicDoctorsSection: React.FC = () => {
           </div>
         )}
 
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-[#F8FAFC] border-b border-slate-200 text-slate-700 font-bold">
-              <tr>
-                <th className="p-3">{t('clinic.portal.doctors.colName')}</th>
-                <th className="p-3">{t('clinic.portal.doctors.colEmail')}</th>
-                <th className="p-3">{t('clinic.portal.doctors.colStatus')}</th>
-                <th className="p-3 text-right">{t('clinic.portal.doctors.colActions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {members.length === 0 ? (
+        <div className="space-y-4">
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-[#F8FAFC] border-b border-slate-200 text-slate-700 font-bold">
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-slate-400">{t('clinic.portal.doctors.noDoctors')}</td>
+                  <th className="p-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={paginatedMembers.length > 0 && paginatedMembers.every((m: any) => selectedDoctorIds.has(m.id))}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 cursor-pointer"
+                      aria-label={isVi ? 'Chọn tất cả' : 'Select all'}
+                    />
+                  </th>
+                  <th className="p-3">{t('clinic.portal.doctors.colName')}</th>
+                  <th className="p-3">{t('clinic.portal.doctors.colEmail')}</th>
+                  <th className="p-3">{t('clinic.portal.doctors.colStatus')}</th>
+                  <th className="p-3 text-right">{t('clinic.portal.doctors.colActions')}</th>
                 </tr>
-              ) : (
-                members.map((m) => (
-                  <tr key={m.id} className="hover:bg-slate-50/50">
-                    <td className="p-3 font-bold text-slate-900">{m.doctorName || m.fullName || m.name || (isVi ? 'Bác sĩ' : 'Doctor')}</td>
-                    <td className="p-3 text-slate-600">{m.doctorEmail || m.email}</td>
-                    <td className="p-3">
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        {t('clinic.portal.doctors.statusActive')}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => handleRemove(m.id)}
-                        className="text-red-600 hover:text-red-700 p-1 cursor-pointer"
-                        title={t('clinic.portal.doctors.deleteTitle')}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {members.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-6 text-center text-slate-400">{t('clinic.portal.doctors.noDoctors')}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  paginatedMembers.map((m: any) => {
+                    const isSelected = selectedDoctorIds.has(m.id);
+                    return (
+                      <tr key={m.id} className={`transition-colors ${isSelected ? 'bg-teal-50/40' : 'hover:bg-slate-50/50'}`}>
+                        <td className="p-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectDoctor(m.id)}
+                            className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 cursor-pointer"
+                            aria-label={`Select ${m.doctorName || m.email}`}
+                          />
+                        </td>
+                        <td className="p-3 font-bold text-slate-900">{m.doctorName || m.fullName || m.name || (isVi ? 'Bác sĩ' : 'Doctor')}</td>
+                        <td className="p-3 text-slate-600">{m.doctorEmail || m.email}</td>
+                        <td className="p-3">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {t('clinic.portal.doctors.statusActive')}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => {
+                              setDoctorToDelete(m);
+                              setIsBatchDelete(false);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            className="text-red-600 hover:text-red-700 p-1 cursor-pointer"
+                            title={t('clinic.portal.doctors.deleteTitle')}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {members.length > 0 && (
+            <Pagination
+              currentPage={doctorPage}
+              totalPages={Math.max(1, Math.ceil(members.length / doctorPageSize))}
+              totalItems={members.length}
+              pageSize={doctorPageSize}
+              onPageChange={setDoctorPage}
+              onPageSizeChange={(sz) => {
+                setDoctorPageSize(sz);
+                setDoctorPage(1);
+              }}
+              pageSizeOptions={[5, 10, 20, 50]}
+              itemLabel={isVi ? 'bác sĩ' : 'doctors'}
+            />
+          )}
         </div>
+
+        {/* Sticky Batch Floating Action Toolbar */}
+        {selectedDoctorIds.size > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 backdrop-blur text-white px-6 py-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+              <span className="text-xs font-semibold">
+                {isVi
+                  ? `Đã chọn ${selectedDoctorIds.size} / ${members.length} bác sĩ`
+                  : `Selected ${selectedDoctorIds.size} / ${members.length} doctors`}
+              </span>
+            </div>
+            <div className="h-4 w-[1px] bg-slate-700" />
+            <button
+              onClick={() => setSelectedDoctorIds(new Set())}
+              className="text-xs text-slate-300 hover:text-white font-medium cursor-pointer"
+            >
+              {isVi ? 'Bỏ chọn' : 'Deselect'}
+            </button>
+            <button
+              onClick={() => {
+                setIsBatchDelete(true);
+                setDoctorToDelete(null);
+                setIsDeleteModalOpen(true);
+              }}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {isVi ? `Xóa Đã Chọn (${selectedDoctorIds.size})` : `Delete Selected (${selectedDoctorIds.size})`}
+            </button>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setDoctorToDelete(null);
+          }}
+          title={isVi ? 'Xác nhận xóa bác sĩ khỏi phòng khám' : 'Confirm Remove Doctor from Clinic'}
+          maxWidth="sm"
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {isBatchDelete
+                ? (isVi
+                    ? `Bạn có chắc chắn muốn xóa ${selectedDoctorIds.size} bác sĩ đã chọn khỏi danh sách cơ sở?`
+                    : `Are you sure you want to remove ${selectedDoctorIds.size} selected doctors from the clinic roster?`)
+                : (isVi
+                    ? `Bạn có chắc chắn muốn xóa bác sĩ "${doctorToDelete?.doctorName || doctorToDelete?.email}" khỏi danh sách cơ sở?`
+                    : `Are you sure you want to remove doctor "${doctorToDelete?.doctorName || doctorToDelete?.email}" from the clinic roster?`)}
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setDoctorToDelete(null);
+                }}
+                className="px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl cursor-pointer"
+              >
+                {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
+              </button>
+              <button
+                onClick={handleConfirmRemoveDoctor}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {isVi ? 'Xác Nhận Xóa' : 'Confirm Delete'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       </Card>
 
       {/* Doctor-Patient Assignment Box */}
@@ -462,8 +631,6 @@ export const ClinicPortalPage: React.FC<{ activeView?: string }> = ({ activeView
       {activeView === 'campaign-analytics' && (
         <ClinicCampaignAnalytics />
       )}
-
-      <MedicalDisclaimer variant="compact" />
     </div>
   );
 };

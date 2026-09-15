@@ -405,17 +405,24 @@ export const adminUserApi = {
 export const adminRoleApi = {
   getRoles: () => apiFetch<any[]>("/api/v1/admin/roles", { method: "GET" }),
 
-  updateRole: (roleName: string, description: string) =>
-    apiFetch<any>(`/api/v1/admin/roles/${roleName}`, {
+  updateRole: (roleName: string, description: string) => {
+    const cleanRole = roleName.replace(/^ROLE_/, "").toUpperCase();
+    return apiFetch<any>(`/api/v1/admin/roles/${cleanRole}`, {
       method: "PUT",
       body: JSON.stringify({ description }),
-    }),
+    });
+  },
 
-  updatePermissions: (roleName: string, permissions: string[]) =>
-    apiFetch<any>(`/api/v1/admin/roles/${roleName}/permissions`, {
+  updatePermissions: (
+    roleName: string,
+    permissions: Array<{ id?: string; code?: string; enabled: boolean }>,
+  ) => {
+    const cleanRole = roleName.replace(/^ROLE_/, "").toUpperCase();
+    return apiFetch<any>(`/api/v1/admin/roles/${cleanRole}/permissions`, {
       method: "PUT",
       body: JSON.stringify({ permissions }),
-    }),
+    });
+  },
 };
 
 export const adminNotificationApi = {
@@ -468,10 +475,42 @@ export const adminNotificationApi = {
     }),
 };
 
+export interface DoctorOptionDto {
+  id: string;
+  fullName: string;
+  email: string;
+  specialty?: string;
+  title?: string;
+}
+
+export interface RegisterExaminationPayload {
+  doctorId?: string | null;
+  examinationReason?: string;
+  eyePosition?: 'OD' | 'OS' | 'OU';
+  systolicBp?: number | null;
+  diastolicBp?: number | null;
+  hba1c?: number | null;
+  hasDiabetes?: boolean | null;
+  hasHypertension?: boolean | null;
+  historyOfSmoking?: boolean | null;
+  symptomsNotes?: string;
+}
+
 export const patientApi = {
   getProfile: () =>
     apiFetch<any>("/api/v1/patient/profile", {
       method: "GET",
+    }),
+
+  getDoctors: () =>
+    apiFetch<DoctorOptionDto[]>("/api/v1/patient/doctors", {
+      method: "GET",
+    }),
+
+  registerExamination: (payload: RegisterExaminationPayload) =>
+    apiFetch<any>("/api/v1/patient/register-examination", {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 
   updateProfile: (profile: any) =>
@@ -564,6 +603,22 @@ export const doctorApi = {
     apiFetch<any>("/api/v1/doctor/patients", {
       method: "POST",
       body: JSON.stringify(patientData),
+    }),
+
+  deletePatient: (id: string) =>
+    apiFetch<void>(`/api/v1/doctor/patients/${id}`, {
+      method: "DELETE",
+    }),
+
+  delete: (id: string) =>
+    apiFetch<void>(`/api/v1/doctor/patients/${id}`, {
+      method: "DELETE",
+    }),
+
+  batchDelete: (patientIds: string[]) =>
+    apiFetch<number>("/api/v1/doctor/patients/batch-delete", {
+      method: "POST",
+      body: JSON.stringify({ patientIds }),
     }),
 };
 

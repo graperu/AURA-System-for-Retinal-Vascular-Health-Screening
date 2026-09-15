@@ -847,19 +847,19 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
 
             {isReviewed ? (
               <div className="space-y-2">
-                <p className="text-xs text-slate-800 leading-relaxed font-medium">
+                <p className="text-sm sm:text-base text-black leading-relaxed font-medium whitespace-pre-line">
                   {result.doctorNotes || (isVi ? 'Bác sĩ chuyên khoa đã xem xét và xác nhận kết quả phân tích hình ảnh võng mạc.' : 'Attending specialist has reviewed and confirmed retinal analysis findings.')}
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs text-slate-700 leading-relaxed italic">
+                <p className="text-sm sm:text-base text-black leading-relaxed font-normal whitespace-pre-line">
                   {result.recommendations ||
                     (result.xaiExplainability && result.xaiExplainability.length > 1
                       ? result.xaiExplainability[1].clinicalRationale
                       : (isVi ? 'Hệ thống khuyến nghị người bệnh đặt lịch hẹn tái khám tại cơ sở y tế chuyên khoa mắt hoặc tim mạch để bác sĩ thẩm định chi tiết.' : 'Clinical follow-up at an eye or cardiovascular clinic is recommended for comprehensive assessment.'))}
                 </p>
-                <p className="text-[11px] text-amber-700 font-medium">
+                <p className="text-xs text-amber-900 font-semibold pt-1">
                   {isVi
                     ? '* Lưu ý: Đây là đánh giá định hướng tự động của mô hình AURA AI, chưa phải kết luận lâm sàng chính thức từ bác sĩ.'
                     : '* Notice: This is an automated algorithmic preliminary evaluation by AURA AI, not a definitive clinical diagnosis.'}

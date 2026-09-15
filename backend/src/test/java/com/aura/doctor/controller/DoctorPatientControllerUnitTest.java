@@ -200,6 +200,55 @@ class DoctorPatientControllerUnitTest {
   }
 
   @Nested
+  @DisplayName("DELETE /api/v1/doctor/patients/{id} - Xóa hồ sơ bệnh nhân")
+  class DeletePatientTests {
+
+    @Test
+    @DisplayName("Thành công: Xóa hồ sơ bệnh nhân")
+    void deletePatient_success() {
+      UUID id = UUID.randomUUID();
+
+      ApiResponse<Void> response = controller.deletePatient(id);
+
+      assertThat(response).isNotNull();
+      assertThat(response.message()).isEqualTo("Xóa hồ sơ bệnh nhân thành công");
+      verify(profileService).deletePatient(eq(id));
+    }
+  }
+
+  @Nested
+  @DisplayName("POST /api/v1/doctor/patients/batch-delete - Xóa hàng loạt hồ sơ bệnh nhân")
+  class BatchDeletePatientsTests {
+
+    @Test
+    @DisplayName("Thành công: Xóa danh sách bệnh nhân đã chọn")
+    void batchDeletePatients_success() {
+      List<UUID> ids = List.of(UUID.randomUUID(), UUID.randomUUID());
+      DoctorPatientController.BatchDeletePatientRequest req = new DoctorPatientController.BatchDeletePatientRequest(ids);
+      when(profileService.batchDeletePatients(eq(ids))).thenReturn(2);
+
+      ApiResponse<Integer> response = controller.batchDeletePatients(req, null);
+
+      assertThat(response).isNotNull();
+      assertThat(response.message()).isEqualTo("Xóa thành công 2 hồ sơ bệnh nhân");
+      assertThat(response.data()).isEqualTo(2);
+      verify(profileService).batchDeletePatients(eq(ids));
+    }
+
+    @Test
+    @DisplayName("Rỗng: Request rỗng hoặc null -> Trả về 0")
+    void batchDeletePatients_whenEmpty_returnsZero() {
+      DoctorPatientController.BatchDeletePatientRequest req = new DoctorPatientController.BatchDeletePatientRequest(List.of());
+
+      ApiResponse<Integer> response = controller.batchDeletePatients(req, null);
+
+      assertThat(response).isNotNull();
+      assertThat(response.data()).isEqualTo(0);
+      verifyNoInteractions(profileService);
+    }
+  }
+
+  @Nested
   @DisplayName("GET /api/v1/doctor/patients/{patientId} - Chi tiết hồ sơ bệnh nhân (FR-13)")
   class GetPatientDetailsTests {
 
