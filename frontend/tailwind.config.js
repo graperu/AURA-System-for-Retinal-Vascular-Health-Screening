@@ -73,8 +73,24 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Arial', 'Helvetica', 'system-ui', 'sans-serif'],
-        mono: ['"Fira Code"', 'monospace'],
+        sans: [
+          '"Plus Jakarta Sans"',
+          'Inter',
+          '"Be Vietnam Pro"',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          'sans-serif',
+        ],
+        heading: [
+          '"Plus Jakarta Sans"',
+          'Inter',
+          'system-ui',
+          'sans-serif',
+        ],
+        mono: ['"Fira Code"', 'ui-monospace', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       letterSpacing: {
         normal: '0.01em',

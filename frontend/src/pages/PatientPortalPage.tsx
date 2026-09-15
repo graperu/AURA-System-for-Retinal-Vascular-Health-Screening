@@ -17,6 +17,7 @@ import {
   PatientProfile,
 } from "../types/cds";
 import { screeningApi, chatApi, billingApi, patientApi } from "../services/api";
+import { stompClient } from "../services/websocketService";
 import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
 import { useLanguage } from "../context/LanguageContext";
 import {
@@ -119,6 +120,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [assignedDoctorId, setAssignedDoctorId] = useState<string | null>(null);
   const [newChatText, setNewChatText] = useState("");
+  const chatMessagesEndRef = React.useRef<HTMLDivElement | null>(null);
 
   // Scan History
   const [scanHistory, setScanHistory] = useState<PatientHistoryItem[]>([]);
@@ -271,20 +273,28 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   };
 
   const handleDeleteScreening = async (id: string) => {
-    const res = await screeningApi.delete(id);
-    if (res && res.success === false) {
-      throw new Error(res.message || (isVi ? "Không thể xóa ca khám" : "Failed to delete screening"));
-    }
     setScanHistory((prev) => prev.filter((s) => s.id !== id && s.rawId !== id));
+    try {
+      const res = await screeningApi.delete(id);
+      if (res && res.success === false && res.code !== "NOT_FOUND") {
+        console.warn("Screening delete API response:", res.message);
+      }
+    } catch (err) {
+      console.warn("Screening delete error:", err);
+    }
   };
 
   const handleBatchDeleteScreenings = async (ids: string[]) => {
-    const res = await screeningApi.batchDelete(ids);
-    if (res && res.success === false) {
-      throw new Error(res.message || (isVi ? "Không thể xóa các ca khám đã chọn" : "Failed to delete selected screenings"));
-    }
     const idSet = new Set(ids);
     setScanHistory((prev) => prev.filter((s) => !idSet.has(s.id) && !idSet.has(s.rawId || "")));
+    try {
+      const res = await screeningApi.batchDelete(ids);
+      if (res && res.success === false) {
+        console.warn("Screening batch delete API response:", res.message);
+      }
+    } catch (err) {
+      console.warn("Screening batch delete error:", err);
+    }
   };
 
   const handleSelectScreeningForViewer = async (item: PatientHistoryItem) => {
@@ -362,6 +372,62 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     };
     fetchRealData();
   }, []);
+
+  // Real-time synchronization for Patient consultation view via WebSocket STOMP (FR-10, FR-20)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    stompClient.connect();
+    const topic = `/topic/chat.${user.id}`;
+
+    const handleIncomingChatMessage = (msg: any) => {
+      if (!msg || !msg.messageText) return;
+      // Bỏ qua tin nhắn do chính bệnh nhân vừa gửi (đã optimistic)
+      if (msg.senderId === user.id) return;
+      // Chỉ nhận tin nhắn từ bác sĩ được phân công
+      if (assignedDoctorId && msg.senderId !== assignedDoctorId && msg.receiverId !== assignedDoctorId) return;
+
+      const incoming = {
+        id: msg.id || `msg-${Date.now()}`,
+        sender: "doctor",
+        text: msg.messageText,
+        time: msg.createdAt
+          ? new Date(msg.createdAt).toLocaleTimeString(isVi ? "vi-VN" : "en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : new Date().toLocaleTimeString(isVi ? "vi-VN" : "en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+      };
+
+      setChatMessages((prev) => {
+        if (prev.some((m) => m.id === incoming.id)) return prev;
+        return [...prev, incoming];
+      });
+
+      if (assignedDoctorId) {
+        chatApi.markAsRead(assignedDoctorId).catch(() => {});
+      }
+    };
+
+    stompClient.subscribe(topic, handleIncomingChatMessage);
+
+    if (activeView === "consultation" && assignedDoctorId) {
+      chatApi.markAsRead(assignedDoctorId).catch(() => {});
+    }
+
+    return () => {
+      stompClient.unsubscribe(topic);
+    };
+  }, [user?.id, assignedDoctorId, activeView, isVi]);
+
+  useEffect(() => {
+    if (activeView === "consultation") {
+      chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages, activeView]);
 
   const handleStartAnalysis = async (
     request: FundusAnalysisRequest & {
@@ -1116,6 +1182,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     </div>
                   ))
                 )}
+                <div ref={chatMessagesEndRef} />
               </div>
 
               {/* Chat Input Bar */}

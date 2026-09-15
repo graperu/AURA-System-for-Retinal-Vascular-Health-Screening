@@ -615,6 +615,9 @@ public class ScreeningService {
           return true;
         }
       }
+    } else {
+      // Cho phép xóa nếu patientId là null (ca khám chưa gán hoặc phát sinh trong phiên người dùng)
+      return true;
     }
     return false;
   }
@@ -665,12 +668,25 @@ public class ScreeningService {
   }
 
   @Transactional
-  public int batchDeleteScreenings(List<UUID> screeningIds, UUID userId, boolean isAdmin) {
+  public int batchDeleteScreenings(List<String> screeningIds, UUID userId, boolean isAdmin) {
     if (screeningIds == null || screeningIds.isEmpty()) {
       return 0;
     }
+    List<UUID> validUuids = new ArrayList<>();
+    for (String idStr : screeningIds) {
+      if (idStr != null && !idStr.isBlank()) {
+        try {
+          validUuids.add(UUID.fromString(idStr.trim()));
+        } catch (IllegalArgumentException e) {
+          log.warn("Bỏ qua ID không đúng định dạng UUID khi xóa hàng loạt: {}", idStr);
+        }
+      }
+    }
+    if (validUuids.isEmpty()) {
+      return 0;
+    }
     List<Screening> toDelete = new ArrayList<>();
-    for (UUID id : screeningIds) {
+    for (UUID id : validUuids) {
       screeningRepository.findById(id).ifPresent(screening -> {
         boolean isOwner = isUserScreeningOwner(screening, userId);
         boolean isDoctorAssigned = isDoctorAssignedToScreening(screening, userId);

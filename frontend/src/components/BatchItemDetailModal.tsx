@@ -402,181 +402,131 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
     return t('clinic.batchDetailModal.zonePosteriorPole');
   };
 
+  const displayFileName = item.fileName && item.fileName.length > 28
+    ? item.fileName.slice(0, 16) + '...' + item.fileName.slice(-8)
+    : (item.fileName || 'scan.jpg');
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
-      <div className="bg-white border border-[#CCFBF1] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden animate-modal-enter">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-fade-in">
+      <div className="bg-white border border-[#CCFBF1] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden animate-modal-enter">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#134E4A] via-[#0E7490] to-[#0891B2] text-white p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20">
+        <div className="bg-gradient-to-r from-[#134E4A] via-[#0E7490] to-[#0891B2] text-white p-4 sm:p-5 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
               <Eye className="w-5 h-5 text-cyan-200" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-extrabold">{item.patientName}</h3>
-                <span className="font-mono-data text-xs bg-white/20 px-2 py-0.5 rounded-full">
-                  {item.mrn}
-                </span>
-                <span className="text-[11px] font-mono-data bg-cyan-900/40 text-cyan-200 px-2.5 py-0.5 rounded-full border border-cyan-400/30">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-bold truncate">
+                  {item.patientName || (isVi ? 'Bệnh nhân' : 'Patient')}
+                </h3>
+                {item.mrn && item.patientName !== item.mrn && (
+                  <span className="font-mono-data text-xs bg-white/20 px-2 py-0.5 rounded-full shrink-0">
+                    {item.mrn}
+                  </span>
+                )}
+                <span className="text-[11px] font-mono-data bg-cyan-900/50 text-cyan-200 px-2.5 py-0.5 rounded-full border border-cyan-400/30 shrink-0">
                   {item.eye === 'OD' ? t('eyeLaterality.rightEye') : t('eyeLaterality.leftEye')}
                 </span>
               </div>
-              <p className="text-xs text-cyan-100 flex items-center gap-2 mt-0.5">
-                <span>{t('clinic.batchDetailModal.deidHipaa')} <strong className="font-mono-data">{item.pseudonymId || 'ANO-PAT-DEID'}</strong></span>
+              <p className="text-xs text-cyan-100/90 flex items-center gap-2 mt-0.5 truncate">
+                <span>{t('clinic.batchDetailModal.deidHipaa')}: <strong className="font-mono-data">{item.pseudonymId || 'ANO-PAT-DEID'}</strong></span>
                 <span>&bull;</span>
-                <span>{t('clinic.batchDetailModal.fileLabel')} <strong className="font-mono-data">{item.fileName}</strong></span>
+                <span className="truncate" title={item.fileName}>{t('clinic.batchDetailModal.fileLabel')}: <strong className="font-mono-data">{displayFileName}</strong></span>
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer shrink-0 ml-2"
+            title={t('common.close', 'Đóng')}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 flex-1 overflow-y-auto space-y-5">
-          {/* Top Triage & Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
-            <div className={`p-3.5 rounded-2xl border ${riskBadgeClass} flex flex-col justify-between`}>
-              <span className="text-[11px] font-bold uppercase tracking-wider">{t('clinic.batchDetailModal.overallVascularRisk')}</span>
-              <div className="flex items-baseline gap-1 my-1">
-                <span className="text-2xl font-extrabold font-mono-data">{overallRisk}%</span>
-                <span className="text-xs font-semibold">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4 sm:space-y-5">
+          {/* Top 4 Risk Summary Cards (Clean & Balanced) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Card 1: Tổng thể */}
+            <div className={`p-3.5 rounded-2xl border ${riskBadgeClass} flex flex-col justify-between shadow-2xs`}>
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider truncate">{t('clinic.batchDetailModal.overallVascularRisk')}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-white/80 shrink-0 shadow-2xs">
                   {riskTierLabel}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-500">{t('clinic.batchDetailModal.modelName')}</span>
+              <div className="my-1.5">
+                <span className="text-2xl font-extrabold font-mono-data">{overallRisk}%</span>
+              </div>
+              <div className="w-full bg-slate-200/70 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${overallRisk}%`,
+                    backgroundColor: overallRisk >= 70 ? '#ef4444' : overallRisk >= 40 ? '#f59e0b' : '#10b981',
+                  }}
+                />
+              </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 text-rose-500" /> {t('clinic.batchDetailModal.cardiovascularRisk')}
+            {/* Card 2: Tim mạch */}
+            <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/80 flex flex-col justify-between shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 truncate">
+                <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" /> {t('clinic.batchDetailModal.cardiovascularRisk')}
               </span>
-              <div className="flex items-baseline gap-1 my-1">
-                <span className="text-xl font-extrabold font-mono-data text-slate-800">{cardioScore}%</span>
-                <span className="text-xs text-slate-500">{t('clinic.batchDetailModal.score2Ai')}</span>
+              <div className="my-1.5 flex items-baseline justify-between">
+                <span className="text-2xl font-extrabold font-mono-data text-slate-900">{cardioScore}%</span>
+                <span className="text-[11px] font-medium text-slate-500">{t('clinic.batchDetailModal.score2Ai')}</span>
               </div>
-              <span className="text-[10px] text-slate-500">{t('clinic.batchDetailModal.arteriolarNarrowing')}</span>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                <div className="h-full bg-rose-500 rounded-full" style={{ width: `${cardioScore}%` }} />
+              </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-amber-500" /> {t('clinic.batchDetailModal.drRisk')}
+            {/* Card 3: Võng mạc ĐTĐ */}
+            <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/80 flex flex-col justify-between shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 truncate">
+                <Activity className="w-3.5 h-3.5 text-amber-500 shrink-0" /> {t('clinic.batchDetailModal.drRisk')}
               </span>
-              <div className="flex items-baseline gap-1 my-1">
-                <span className="text-xl font-extrabold font-mono-data text-slate-800">{drScore}%</span>
-                <span className="text-xs text-slate-500">{t('clinic.batchDetailModal.icdrGrade')}</span>
+              <div className="my-1.5 flex items-baseline justify-between">
+                <span className="text-2xl font-extrabold font-mono-data text-slate-900">{drScore}%</span>
+                <span className="text-[11px] font-medium text-slate-500">{t('clinic.batchDetailModal.icdrGrade')}</span>
               </div>
-              <span className="text-[10px] text-slate-500">{t('clinic.batchDetailModal.microaneurysms')}</span>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 rounded-full" style={{ width: `${drScore}%` }} />
+              </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 text-orange-500" /> {t('clinic.batchDetailModal.threeYearStroke')}
+            {/* Card 4: Đột quỵ 3 năm */}
+            <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/80 flex flex-col justify-between shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 truncate">
+                <AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /> {t('clinic.batchDetailModal.threeYearStroke')}
               </span>
-              <div className="flex items-baseline gap-1 my-1">
-                <span className="text-xl font-extrabold font-mono-data text-slate-800">{strokeRisk}%</span>
-                <span className="text-xs text-slate-500">{t('clinic.batchDetailModal.strokeProjection')}</span>
+              <div className="my-1.5 flex items-baseline justify-between">
+                <span className="text-2xl font-extrabold font-mono-data text-slate-900">{strokeRisk}%</span>
+                <span className="text-[11px] font-medium text-slate-500">{t('clinic.batchDetailModal.strokeProjection')}</span>
               </div>
-              <span className="text-[10px] text-slate-500">{t('clinic.batchDetailModal.gunnSign')}</span>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                <div className="h-full bg-orange-500 rounded-full" style={{ width: `${Math.min(100, strokeRisk * 3)}%` }} />
+              </div>
             </div>
           </div>
 
-          {/* Interactive Heatmap Controls Bar */}
-          <div className="bg-[#F0FDFA] p-3 rounded-2xl border border-[#CCFBF1] flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
-              <span className="font-bold text-[#134E4A] flex items-center gap-1.5">
-                <Sliders className="w-4 h-4 text-[#0891B2]" />
-                {t('clinic.batchDetailModal.heatmapOpacityLabel')}
-              </span>
-              <input
-                type="range"
-                min="0.05"
-                max="1"
-                step="0.05"
-                value={heatmapOpacity}
-                onChange={(e) => setHeatmapOpacity(parseFloat(e.target.value))}
-                className="w-28 accent-[#0891B2] cursor-pointer"
-              />
-              <span className="font-mono-data font-bold text-[#0891B2]">
-                {Math.round(heatmapOpacity * 100)}%
-              </span>
-            </div>
-
-            {/* Zoom Controls & Pan Guide */}
-            <div className="flex items-center gap-2">
-              {zoomLevel > 1.0 && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 font-medium">
-                  <Move className="w-3 h-3 text-teal-600 shrink-0" />
-                  <span>{isVi ? 'Kéo ảnh để di chuyển' : 'Drag to pan'}</span>
-                </span>
-              )}
-              <div className="flex items-center bg-white rounded-lg p-1 border border-slate-200 shadow-xs">
-                <button
-                  type="button"
-                  onClick={() => handleZoomChange((z) => z - 0.2)}
-                  className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors cursor-pointer"
-                  title={t('clinic.batchDetailModal.zoomOutTitle')}
-                >
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
-                <span className="text-[11px] font-mono-data px-2 font-semibold text-slate-700">
-                  {(zoomLevel * 100).toFixed(0)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleZoomChange((z) => z + 0.2)}
-                  className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors cursor-pointer"
-                  title={t('clinic.batchDetailModal.zoomInTitle')}
-                >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetZoom}
-                  className="p-1 text-slate-400 hover:text-slate-700 transition-colors ml-1 border-l border-slate-200 pl-1 cursor-pointer"
-                  title={t('clinic.batchDetailModal.resetZoomTitle')}
-                >
-                  <RotateCcw className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowRoiBoxes(!showRoiBoxes)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
-                  showRoiBoxes
-                    ? 'bg-[#0891B2] text-white border-[#0891B2]'
-                    : 'bg-white text-slate-600 border-slate-300'
-                }`}
-              >
-                {t('clinic.batchDetailModal.lesionBoxesRoi')}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowAnatomyMarkers(!showAnatomyMarkers)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
-                  showAnatomyMarkers
-                    ? 'bg-teal-700 text-white border-teal-700'
-                    : 'bg-white text-slate-600 border-slate-300'
-                }`}
-              >
-                {t('clinic.batchDetailModal.anatomyMarkers')}
-              </button>
-
-              <div className="inline-flex bg-slate-200 p-0.5 rounded-lg">
+          {/* Controls Bar - Sleek & Modern */}
+          <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
+            {/* View Mode Switcher + Opacity */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Segmented View Mode */}
+              <div className="inline-flex bg-slate-200/70 p-1 rounded-xl">
                 <button
                   type="button"
                   onClick={() => setViewMode('sideBySide')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                     viewMode === 'sideBySide'
-                      ? 'bg-white text-[#134E4A] shadow-xs'
+                      ? 'bg-white text-teal-800 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -585,9 +535,9 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 <button
                   type="button"
                   onClick={() => setViewMode('overlay')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                     viewMode === 'overlay'
-                      ? 'bg-white text-[#134E4A] shadow-xs'
+                      ? 'bg-white text-teal-800 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -595,23 +545,109 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 </button>
               </div>
 
+              {/* Opacity slider */}
+              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                <Sliders className="w-3.5 h-3.5 text-teal-600" />
+                <span className="text-slate-600 font-medium text-[11px] whitespace-nowrap">
+                  {t('clinic.batchDetailModal.heatmapOpacityLabel')}
+                </span>
+                <input
+                  type="range"
+                  min="0.05"
+                  max="1"
+                  step="0.05"
+                  value={heatmapOpacity}
+                  onChange={(e) => setHeatmapOpacity(parseFloat(e.target.value))}
+                  className="w-20 sm:w-24 accent-teal-600 cursor-pointer"
+                />
+                <span className="font-mono-data font-bold text-teal-700 text-[11px] w-8 text-right">
+                  {Math.round(heatmapOpacity * 100)}%
+                </span>
+              </div>
+            </div>
+
+            {/* Overlays toggles + Zoom + Export */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Toggles */}
+              <button
+                type="button"
+                onClick={() => setShowRoiBoxes(!showRoiBoxes)}
+                className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                  showRoiBoxes
+                    ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {t('clinic.batchDetailModal.lesionBoxesRoi')}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAnatomyMarkers(!showAnatomyMarkers)}
+                className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                  showAnatomyMarkers
+                    ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {t('clinic.batchDetailModal.anatomyMarkers')}
+              </button>
+
+              {/* Zoom Controls */}
+              <div className="flex items-center bg-white rounded-xl p-0.5 border border-slate-200 shadow-2xs">
+                {zoomLevel > 1.0 && (
+                  <span className="hidden lg:inline-flex items-center gap-1 text-[10px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg border border-teal-200 font-medium mr-1">
+                    <Move className="w-2.5 h-2.5 text-teal-600 shrink-0" />
+                    <span>{isVi ? 'Kéo để di chuyển' : 'Drag to pan'}</span>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleZoomChange((z) => z - 0.2)}
+                  className="p-1.5 text-slate-600 hover:text-teal-600 transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
+                  title={t('clinic.batchDetailModal.zoomOutTitle')}
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-mono-data px-1.5 font-semibold text-slate-700">
+                  {(zoomLevel * 100).toFixed(0)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleZoomChange((z) => z + 0.2)}
+                  className="p-1.5 text-slate-600 hover:text-teal-600 transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
+                  title={t('clinic.batchDetailModal.zoomInTitle')}
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetZoom}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors border-l border-slate-200 ml-0.5 cursor-pointer rounded-r-lg hover:bg-slate-100"
+                  title={t('clinic.batchDetailModal.resetZoomTitle')}
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Export PNG */}
               <button
                 type="button"
                 onClick={handleDownloadHeatmap}
                 disabled={isDownloading}
-                className={`px-3 py-1.5 border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-60 ${
+                className={`px-3 py-1.5 border rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs disabled:opacity-60 ${
                   downloadSuccessNotice
                     ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                    : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-700'
+                    : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
                 }`}
                 title={t('clinic.batchDetailModal.downloadPng')}
               >
                 {isDownloading ? (
-                  <Loader2 className="w-3.5 h-3.5 text-[#0891B2] animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin" />
                 ) : downloadSuccessNotice ? (
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
                 ) : (
-                  <Download className="w-3.5 h-3.5 text-[#0891B2]" />
+                  <Download className="w-3.5 h-3.5 text-teal-600" />
                 )}
                 <span>
                   {isDownloading
@@ -627,25 +663,25 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
           {/* Visual Analysis & Interactive Heatmap Viewport */}
           {viewMode === 'sideBySide' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Left Pane: Original Uploaded Fundus Photo */}
+              {/* Left Pane: Original Fundus */}
               <div
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className={`border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 relative group flex flex-col items-center justify-center p-3 shadow-2xl select-none ${
+                className={`border border-slate-800/80 rounded-2xl overflow-hidden bg-slate-950 relative flex flex-col items-center justify-center p-3 shadow-xl select-none ${
                   zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
                 }`}
               >
                 <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1 pointer-events-none">
-                  <span className="font-bold flex items-center gap-1.5 text-cyan-300">
-                    <Eye className="w-3.5 h-3.5" /> {t('clinic.batchDetailModal.nativeFundusTitle')}
+                  <span className="font-semibold flex items-center gap-1.5 text-teal-300">
+                    <Eye className="w-3.5 h-3.5 text-teal-400" /> {t('clinic.batchDetailModal.nativeFundusTitle')}
                   </span>
                   <span className="text-[10px] font-mono-data text-slate-400">{t('clinic.batchDetailModal.nativeResolution')}</span>
                 </div>
 
                 <div
-                  className="w-full aspect-square max-w-[380px] rounded-full overflow-hidden border-4 border-slate-800 shadow-2xl relative bg-black flex items-center justify-center"
+                  className="w-full aspect-square max-w-[360px] rounded-full overflow-hidden border-2 border-slate-700/80 shadow-2xl relative bg-black flex items-center justify-center"
                   style={{
                     transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                     transformOrigin: 'center center',
@@ -663,53 +699,46 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   {showAnatomyMarkers && (
                     <>
                       <div
-                        className="absolute w-8 h-8 border-2 border-yellow-400/80 rounded-full animate-ping pointer-events-none"
-                        style={{
-                          left: isOD ? '70%' : '23%',
-                          top: '47%',
-                        }}
-                      />
-                      <div
-                        className="absolute bg-yellow-400/30 backdrop-blur-xs text-yellow-200 text-[9px] font-mono-data px-1.5 py-0.5 rounded border border-yellow-400/70 z-10 pointer-events-none"
+                        className="absolute bg-yellow-400/20 backdrop-blur-xs text-yellow-200 text-[9px] font-mono-data px-1.5 py-0.5 rounded border border-yellow-400/60 z-10 pointer-events-none"
                         style={{
                           left: isOD ? '68%' : '21%',
                           top: '45%',
                         }}
                       >
-                        Disc
+                        {isVi ? 'Gai thị' : 'Optic Disc'}
                       </div>
                       <div
-                        className="absolute bg-amber-900/70 backdrop-blur-xs text-amber-200 text-[9px] font-mono-data px-1.5 py-0.5 rounded border border-amber-500/70 z-10 pointer-events-none"
+                        className="absolute bg-amber-900/60 backdrop-blur-xs text-amber-200 text-[9px] font-mono-data px-1.5 py-0.5 rounded border border-amber-500/60 z-10 pointer-events-none"
                         style={{
                           left: isOD ? '40%' : '53%',
                           top: '50%',
                         }}
                       >
-                        Macula
+                        {isVi ? 'Hoàng điểm' : 'Macula'}
                       </div>
                     </>
                   )}
                 </div>
 
-                <div className="w-full flex items-center justify-between text-[10px] font-mono-data text-slate-400 mt-2 px-2">
+                <div className="w-full flex items-center justify-between text-[10px] font-mono-data text-slate-400 mt-2.5 px-2">
                   <span>{item.eye} &bull; Native View</span>
                   <span>{t('clinic.batchDetailModal.formatLabel')} {item.fileName.endsWith('.dcm') ? 'DICOM' : 'High-Res Color'}</span>
                 </div>
               </div>
 
-              {/* Right Pane: Individualized Grad-CAM Heatmap Layered Over Patient Image with Hover Effects */}
+              {/* Right Pane: AI Heatmap */}
               <div
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className={`border border-cyan-800/80 rounded-2xl overflow-hidden bg-slate-950 relative group flex flex-col items-center justify-center p-3 shadow-2xl ring-1 ring-cyan-500/20 select-none ${
+                className={`border border-teal-900/60 rounded-2xl overflow-hidden bg-slate-950 relative flex flex-col items-center justify-center p-3 shadow-xl select-none ${
                   zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
                 }`}
               >
                 <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1 pointer-events-none">
-                  <span className="font-bold flex items-center gap-1.5 text-cyan-300">
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> {t('clinic.batchDetailModal.heatmapLesionTitle')}
+                  <span className="font-semibold flex items-center gap-1.5 text-teal-300">
+                    <Sparkles className="w-3.5 h-3.5 text-teal-400" /> {t('clinic.batchDetailModal.heatmapLesionTitle')}
                   </span>
                   <span className="text-[10px] font-semibold flex items-center gap-1">
                     {heatmapDataUrl ? (
@@ -723,7 +752,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 </div>
 
                 <div
-                  className="w-full aspect-square max-w-[380px] rounded-full overflow-hidden border-4 border-cyan-600 shadow-2xl relative bg-black flex items-center justify-center cursor-crosshair"
+                  className="w-full aspect-square max-w-[360px] rounded-full overflow-hidden border-2 border-teal-600/80 shadow-2xl relative bg-black flex items-center justify-center"
                   style={{
                     transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                     transformOrigin: 'center center',
@@ -732,7 +761,6 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
                 >
-                  {/* Lớp nền ảnh gốc bệnh nhân */}
                   <img
                     src={baseImage}
                     alt="Patient Base"
@@ -740,7 +768,6 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                     draggable={false}
                   />
 
-                  {/* Lớp nhiệt Grad-CAM nếu có từ mô hình thực tế */}
                   {heatmapDataUrl ? (
                     <img
                       src={heatmapDataUrl}
@@ -756,42 +783,8 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                     </div>
                   )}
 
-                  {/* Lớp tương tác SVG ROI & Hiệu ứng ngắm tọa độ (Crosshair HUD) */}
+                  {/* SVG ROI */}
                   <svg viewBox="0 0 512 512" className="absolute inset-0 w-full h-full pointer-events-auto">
-                    {/* Đường ngắm Crosshair Laser khi di chuyển chuột */}
-                    {mousePos.active && (
-                      <g className="pointer-events-none transition-all duration-75">
-                        <line
-                          x1="0"
-                          y1={mousePos.y}
-                          x2="512"
-                          y2={mousePos.y}
-                          stroke="rgba(6, 182, 212, 0.45)"
-                          strokeDasharray="3 3"
-                          strokeWidth="1"
-                        />
-                        <line
-                          x1={mousePos.x}
-                          y1="0"
-                          x2={mousePos.x}
-                          y2="512"
-                          stroke="rgba(6, 182, 212, 0.45)"
-                          strokeDasharray="3 3"
-                          strokeWidth="1"
-                        />
-                        <circle
-                          cx={mousePos.x}
-                          cy={mousePos.y}
-                          r="8"
-                          fill="none"
-                          stroke="#22d3ee"
-                          strokeWidth="1.5"
-                          className="animate-pulse"
-                        />
-                        <circle cx={mousePos.x} cy={mousePos.y} r="2" fill="#ef4444" />
-                      </g>
-                    )}
-
                     {/* Các mốc giải phẫu Gai Thị & Hoàng Điểm */}
                     {showAnatomyMarkers && (
                       <g className="pointer-events-none">
@@ -803,7 +796,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                           stroke="#facc15"
                           strokeWidth="2"
                           strokeDasharray="4 2"
-                          className="animate-ping opacity-60"
+                          className="opacity-70"
                         />
                         <rect
                           x={discX - 22}
@@ -860,7 +853,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                       </g>
                     )}
 
-                    {/* Các hộp tổn thương ROI với hiệu ứng Hover chuyên nghiệp */}
+                    {/* Các hộp tổn thương ROI */}
                     {showRoiBoxes &&
                       anomalies.map((ano) => {
                         const isSelected = activeAnomalyId === ano.id;
@@ -882,43 +875,12 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                               height={ano.svgH}
                               fill={isSelected ? 'rgba(239, 68, 68, 0.35)' : 'rgba(234, 179, 8, 0.25)'}
                               stroke={isSelected ? '#ef4444' : '#facc15'}
-                              strokeWidth={isSelected ? '3' : '2'}
+                              strokeWidth={isSelected ? '2.5' : '1.5'}
                               strokeDasharray="4 2"
                               rx="4"
-                              className="animate-pulse transition-all group-hover/ano:stroke-red-500 group-hover/ano:fill-red-500/40"
+                              className="transition-all"
                             />
-                            {/* Pin đèn định vị */}
-                            <circle cx={ano.svgX + 4} cy={ano.svgY + 4} r="3.5" fill="#ef4444" />
-                            {/* Khung ngắm Reticle khi rê chuột */}
-                            {isSelected && (
-                              <>
-                                <path
-                                  d={`M ${ano.svgX - 5} ${ano.svgY + 6} L ${ano.svgX - 5} ${ano.svgY - 5} L ${ano.svgX + 6} ${ano.svgY - 5}`}
-                                  fill="none"
-                                  stroke="#ef4444"
-                                  strokeWidth="2.5"
-                                />
-                                <path
-                                  d={`M ${ano.svgX + ano.svgW + 5} ${ano.svgY + 6} L ${ano.svgX + ano.svgW + 5} ${ano.svgY - 5} L ${ano.svgX + ano.svgW - 6} ${ano.svgY - 5}`}
-                                  fill="none"
-                                  stroke="#ef4444"
-                                  strokeWidth="2.5"
-                                />
-                                <path
-                                  d={`M ${ano.svgX - 5} ${ano.svgY + ano.svgH - 6} L ${ano.svgX - 5} ${ano.svgY + ano.svgH + 5} L ${ano.svgX + 6} ${ano.svgY + ano.svgH + 5}`}
-                                  fill="none"
-                                  stroke="#ef4444"
-                                  strokeWidth="2.5"
-                                />
-                                <path
-                                  d={`M ${ano.svgX + ano.svgW + 5} ${ano.svgY + ano.svgH - 6} L ${ano.svgX + ano.svgW + 5} ${ano.svgY + ano.svgH + 5} L ${ano.svgX + ano.svgW - 6} ${ano.svgY + ano.svgH + 5}`}
-                                  fill="none"
-                                  stroke="#ef4444"
-                                  strokeWidth="2.5"
-                                />
-                              </>
-                            )}
-                            {/* Nhãn tổn thương */}
+                            <circle cx={ano.svgX + 4} cy={ano.svgY + 4} r="3" fill="#ef4444" />
                             <rect
                               x={ano.svgX}
                               y={ano.svgY - 18}
@@ -945,14 +907,13 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   </svg>
                 </div>
 
-                {/* Thanh trạng thái HUD live tracking */}
-                <div className="w-full flex items-center justify-between text-[10px] font-mono-data text-slate-400 mt-2 px-2">
+                <div className="w-full flex items-center justify-between text-[10px] font-mono-data text-slate-400 mt-2.5 px-2">
                   <span>
                     {mousePos.active
-                      ? `HUD: X: ${mousePos.x} | Y: ${mousePos.y} &bull; ${getAnatomyZone(mousePos.x, mousePos.y)}`
+                      ? `${getAnatomyZone(mousePos.x, mousePos.y)}`
                       : t('clinic.batchDetailModal.hudHoverHint')}
                   </span>
-                  <span className="text-amber-300">Grad-CAM Overlay</span>
+                  <span className="text-teal-300 font-semibold">Grad-CAM Overlay</span>
                 </div>
               </div>
             </div>
@@ -963,13 +924,13 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className={`border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 p-4 shadow-2xl flex flex-col items-center justify-center select-none ${
+              className={`border border-slate-800/80 rounded-2xl overflow-hidden bg-slate-950 p-4 shadow-xl flex flex-col items-center justify-center select-none ${
                 zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
               }`}
             >
               <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1 pointer-events-none">
-                <span className="font-bold flex items-center gap-1.5 text-cyan-300">
-                  <Layers className="w-4 h-4" /> {t('clinic.batchDetailModal.directOverlayTitle')}
+                <span className="font-semibold flex items-center gap-1.5 text-teal-300">
+                  <Layers className="w-4 h-4 text-teal-400" /> {t('clinic.batchDetailModal.directOverlayTitle')}
                 </span>
                 <span className="text-[11px] text-slate-400">
                   {t('clinic.batchDetailModal.directOverlaySubtitle')}
@@ -977,7 +938,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               </div>
 
               <div
-                className="w-full aspect-square max-w-[440px] rounded-full overflow-hidden border-4 border-cyan-600 shadow-2xl relative bg-black flex items-center justify-center cursor-crosshair"
+                className="w-full aspect-square max-w-[420px] rounded-full overflow-hidden border-2 border-teal-600/80 shadow-2xl relative bg-black flex items-center justify-center"
                 style={{
                   transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                   transformOrigin: 'center center',
@@ -1023,12 +984,12 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                           height={ano.svgH}
                           fill={activeAnomalyId === ano.id ? 'rgba(239, 68, 68, 0.35)' : 'rgba(234, 179, 8, 0.25)'}
                           stroke={activeAnomalyId === ano.id ? '#ef4444' : '#facc15'}
-                          strokeWidth="2.5"
+                          strokeWidth="2"
                           strokeDasharray="4 2"
                           rx="4"
-                          className="animate-pulse transition-all group-hover/ano:stroke-red-500 group-hover/ano:fill-red-500/40"
+                          className="transition-all"
                         />
-                        <circle cx={ano.svgX + 4} cy={ano.svgY + 4} r="3.5" fill="#ef4444" />
+                        <circle cx={ano.svgX + 4} cy={ano.svgY + 4} r="3" fill="#ef4444" />
                         <rect
                           x={ano.svgX}
                           y={ano.svgY - 18}
@@ -1056,114 +1017,132 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
             </div>
           )}
 
-          {/* Interactive ROI Anomalies Selection Cards */}
-          <div className="pt-1">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-xs font-bold text-[#134E4A] uppercase tracking-wider font-mono-data flex items-center gap-1.5">
-                <Target className="w-4 h-4 text-[#0891B2]" />
-                {t('clinic.batchDetailModal.detectedAnomaliesTitle')}
-              </h4>
-              <span className="text-[11px] text-slate-500">
-                {anomalies.length > 0
-                  ? t('clinic.batchDetailModal.detectedAnomaliesHint')
-                  : t('clinic.batchDetailModal.noFocalLesions')}
-              </span>
-            </div>
-
-            {anomalies.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {anomalies.map((ano) => (
-                  <div
-                    key={ano.id}
-                    onMouseEnter={() => setActiveAnomalyId(ano.id)}
-                    onMouseLeave={() => setActiveAnomalyId(null)}
-                    onClick={() => setActiveAnomalyId(ano.id)}
-                    className={`p-3 rounded-2xl border cursor-pointer transition-all ${
-                      activeAnomalyId === ano.id
-                        ? 'bg-[#F0FDFA] border-[#0891B2] ring-2 ring-[#0891B2]/30 shadow-md translate-y-[-2px]'
-                        : 'bg-slate-50 border-slate-200 hover:border-[#0891B2] hover:bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-[#134E4A] flex items-center gap-1.5">
-                        <Target className="w-3.5 h-3.5 text-[#DC2626]" />
-                        {ano.label}
-                      </span>
-                      <span className="text-[11px] font-mono-data font-semibold text-[#0891B2]">
-                        Conf: {(ano.confidence * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">{ano.description}</p>
+          {/* Bottom Insights: 2-Column Grid (Biomarkers & Lesions on Left, AI Explainability on Right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Left Column: Quantitative Biomarkers & Detected Anomalies */}
+            <div className="space-y-3">
+              {/* Biomarkers */}
+              <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-teal-600" />
+                    {t('clinic.batchDetailModal.biomarkersTitle')}
+                  </h4>
+                  <span className="text-[10px] text-slate-500 font-medium">{t('clinic.batchDetailModal.biomarkers')}</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col justify-between shadow-2xs">
+                    <span className="text-[10px] font-semibold text-slate-500 truncate">{t('clinic.batchDetailModal.avrLabel')}</span>
+                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">{avRatio}</span>
+                    <span className="text-[9px] text-amber-600 font-medium truncate">{t('clinic.batchDetailModal.avrNormal')}</span>
                   </div>
-                ))}
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col justify-between shadow-2xs">
+                    <span className="text-[10px] font-semibold text-slate-500 truncate">{t('clinic.batchDetailModal.tortuosityLabel')}</span>
+                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">{tortuosity}</span>
+                    <span className="text-[9px] text-slate-500 font-medium truncate">{t('clinic.batchDetailModal.tortuosityDesc')}</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col justify-between shadow-2xs">
+                    <span className="text-[10px] font-semibold text-slate-500 truncate">{t('clinic.batchDetailModal.vesselDensityLabel')}</span>
+                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">{vesselDensity}%</span>
+                    <span className="text-[9px] text-slate-500 font-medium truncate">{t('clinic.batchDetailModal.vesselDensityDesc')}</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col justify-between shadow-2xs">
+                    <span className="text-[10px] font-semibold text-slate-500 truncate">{t('clinic.batchDetailModal.cdrLabel')}</span>
+                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">{opticCdr}</span>
+                    <span className="text-[9px] text-emerald-600 font-medium truncate">{t('clinic.batchDetailModal.cdrNormal')}</span>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="p-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 text-xs text-slate-500 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{t('clinic.batchDetailModal.noLesionsDesc')}</span>
-              </div>
-            )}
-          </div>
 
-          {/* Quantitative Biomarkers Table */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
-            <h4 className="text-xs font-bold text-[#134E4A] uppercase tracking-wider flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-[#0891B2]" />
-              {t('clinic.batchDetailModal.biomarkersTitle')}
-            </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">{t('clinic.batchDetailModal.avrLabel')}</span>
-                <span className="text-base font-bold font-mono-data text-slate-800">{avRatio}</span>
-                <span className="text-[9px] text-amber-600 block mt-0.5">{t('clinic.batchDetailModal.avrNormal')}</span>
+              {/* Detected Anomalies / Lesions */}
+              <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5 space-y-2 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5 text-rose-500" />
+                    {t('clinic.batchDetailModal.detectedAnomaliesTitle')}
+                  </h4>
+                  <span className="text-[10px] text-slate-500">
+                    {anomalies.length > 0
+                      ? t('clinic.batchDetailModal.detectedAnomaliesHint')
+                      : t('clinic.batchDetailModal.noFocalLesions')}
+                  </span>
+                </div>
+
+                {anomalies.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {anomalies.map((ano) => (
+                      <div
+                        key={ano.id}
+                        onMouseEnter={() => setActiveAnomalyId(ano.id)}
+                        onMouseLeave={() => setActiveAnomalyId(null)}
+                        onClick={() => setActiveAnomalyId(ano.id)}
+                        className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                          activeAnomalyId === ano.id
+                            ? 'bg-teal-50/80 border-teal-500 ring-2 ring-teal-500/20 shadow-xs'
+                            : 'bg-white border-slate-200/80 hover:border-teal-400'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                            <Target className="w-3 h-3 text-rose-500 shrink-0" />
+                            {ano.label}
+                          </span>
+                          <span className="text-[10px] font-mono-data font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                            {(ano.confidence * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 line-clamp-2 leading-tight">{ano.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl border border-dashed border-slate-200 bg-white text-xs text-slate-600 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{t('clinic.batchDetailModal.noLesionsDesc')}</span>
+                  </div>
+                )}
               </div>
-              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">{t('clinic.batchDetailModal.tortuosityLabel')}</span>
-                <span className="text-base font-bold font-mono-data text-slate-800">{tortuosity}</span>
-                <span className="text-[9px] text-slate-500 block mt-0.5">{t('clinic.batchDetailModal.tortuosityDesc')}</span>
+            </div>
+
+            {/* Right Column: AI Explainability Rationales & Medical Disclaimer */}
+            <div className="flex flex-col justify-between bg-teal-50/40 border border-teal-100 rounded-2xl p-3.5 space-y-3 shadow-2xs">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                    {t('clinic.batchDetailModal.rationalesTitle')}
+                  </h4>
+                  <span className="text-[10px] font-semibold text-teal-700 bg-teal-100/70 px-2 py-0.5 rounded-full">
+                    AURA CDS Insight
+                  </span>
+                </div>
+                <ul className="space-y-1.5 text-xs text-slate-700">
+                  {rationales.map((rat, i) => (
+                    <li key={i} className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-teal-100/60 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span className="leading-relaxed font-medium">{rat}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">{t('clinic.batchDetailModal.vesselDensityLabel')}</span>
-                <span className="text-base font-bold font-mono-data text-slate-800">{vesselDensity}%</span>
-                <span className="text-[9px] text-slate-500 block mt-0.5">{t('clinic.batchDetailModal.vesselDensityDesc')}</span>
-              </div>
-              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">{t('clinic.batchDetailModal.cdrLabel')}</span>
-                <span className="text-base font-bold font-mono-data text-slate-800">{opticCdr}</span>
-                <span className="text-[9px] text-emerald-600 block mt-0.5">{t('clinic.batchDetailModal.cdrNormal')}</span>
+
+              {/* Medical Disclaimer */}
+              <div className="pt-2">
+                <MedicalDisclaimer variant="compact" />
               </div>
             </div>
           </div>
-
-          {/* AI Explainability Rationales */}
-          <div className="border border-cyan-100 bg-[#F0FDFA]/50 rounded-2xl p-4 space-y-1.5">
-            <h4 className="text-xs font-bold text-[#134E4A] flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-[#0891B2]" />
-              {t('clinic.batchDetailModal.rationalesTitle')}
-            </h4>
-            <ul className="space-y-1 text-xs text-slate-700">
-              {rationales.map((rat, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>{rat}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Medical Disclaimer */}
-          <MedicalDisclaimer variant="compact" />
         </div>
 
         {/* Footer */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           <div className="text-xs text-slate-500 flex items-center gap-2">
             <Clock className="w-4 h-4 text-slate-400" />
-            <span>{t('clinic.batchDetailModal.processingDuration')} <strong>{item.durationMs || 1420} ms</strong></span>
+            <span>{t('clinic.batchDetailModal.processingDuration')} <strong className="font-mono-data text-slate-700">{item.durationMs || 1420} ms</strong></span>
           </div>
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+            className="px-6 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
           >
             {t('clinic.batchDetailModal.closeButton')}
           </button>

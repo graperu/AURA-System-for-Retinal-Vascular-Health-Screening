@@ -133,17 +133,17 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
     // 2. Đánh dấu các tin nhắn của bệnh nhân này là đã đọc
     chatApi.markAsRead(selectedPatientId).catch(() => {});
 
-    // 3. Kết nối WebSocket STOMP và lắng nghe tin nhắn đến
+    // 3. Kết nối WebSocket STOMP và lắng nghe tin nhắn đến qua kênh của Bác sĩ
     stompClient.connect();
 
-    // Subscribe cả topic của bệnh nhân và topic của bác sĩ
-    const patientTopic = `/topic/chat.${selectedPatientId}`;
     const doctorTopic = currentUserId ? `/topic/chat.${currentUserId}` : null;
 
     const handleIncomingMessage = (msg: any) => {
       if (!isMounted || !msg || !msg.messageText) return;
       // Bỏ qua tin nhắn do chính bác sĩ vừa gửi qua websocket (đã optimistic UI)
       if (currentUserId && msg.senderId === currentUserId) return;
+      // Chỉ nhận tin nhắn thuộc về cuộc hội thoại với bệnh nhân đang được chọn
+      if (selectedPatientId && msg.senderId !== selectedPatientId && msg.receiverId !== selectedPatientId) return;
 
       const patientDisplayName = activePatient?.fullName || (isVi ? 'Bệnh nhân' : 'Patient');
       const incoming: ChatMessage = {
@@ -166,16 +166,19 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
         if (prev.some((m) => m.id === incoming.id)) return prev;
         return [...prev, incoming];
       });
+
+      // Tự động đánh dấu đã đọc tin nhắn mới nhận từ bệnh nhân đang tương tác
+      if (selectedPatientId) {
+        chatApi.markAsRead(selectedPatientId).catch(() => {});
+      }
     };
 
-    stompClient.subscribe(patientTopic, handleIncomingMessage);
-    if (doctorTopic && doctorTopic !== patientTopic) {
+    if (doctorTopic) {
       stompClient.subscribe(doctorTopic, handleIncomingMessage);
     }
 
     return () => {
       isMounted = false;
-      stompClient.unsubscribe(patientTopic);
       if (doctorTopic) {
         stompClient.unsubscribe(doctorTopic);
       }

@@ -41,13 +41,18 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
   const { t, isVi } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
+  const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const resolvedDoctorName = React.useMemo(
     () => partnerName || doctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Specialist Doctor'),
     [partnerName, doctorName, isVi]
   );
 
-  // 1. Fetch real chat history from DB on open
+  // 1. Fetch real chat history from DB on open & mark as read
   useEffect(() => {
     if (!isOpen || !partnerUserId) return;
 
@@ -55,13 +60,16 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
       try {
         const res = await chatApi.getConversation(partnerUserId);
         if (res.success && Array.isArray(res.data)) {
-          const mapped: ChatMessage[] = res.data.map((item: any) => ({
-            id: item.id,
-            sender: item.senderId === currentUserId ? (currentUserRole === 'doctor' ? 'doctor' : 'patient') : (currentUserRole === 'doctor' ? 'patient' : 'doctor'),
-            senderName: item.senderId === currentUserId ? (currentUserRole === 'doctor' ? resolvedDoctorName : patientName) : (currentUserRole === 'doctor' ? patientName : resolvedDoctorName),
-            text: item.messageText,
-            timestamp: item.createdAt ? new Date(item.createdAt).toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }) : '',
-          }));
+          const mapped: ChatMessage[] = res.data.map((item: any) => {
+            const isMe = item.senderId === currentUserId;
+            return {
+              id: item.id || `msg-${Math.random()}`,
+              sender: isMe ? (currentUserRole === 'doctor' ? 'doctor' : 'patient') : (currentUserRole === 'doctor' ? 'patient' : 'doctor'),
+              senderName: isMe ? (currentUserRole === 'doctor' ? resolvedDoctorName : patientName) : (currentUserRole === 'doctor' ? patientName : resolvedDoctorName),
+              text: item.messageText,
+              timestamp: item.createdAt ? new Date(item.createdAt).toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }) : '',
+            };
+          });
           setMessages(mapped);
         }
       } catch (err) {
@@ -70,6 +78,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
     };
 
     loadHistory();
+    chatApi.markAsRead(partnerUserId).catch(() => {});
 
     // 2. Connect WebSocket / STOMP for Realtime updates
     if (currentUserId) {
@@ -79,6 +88,8 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
         if (msg && msg.messageText) {
           // Bỏ qua tin nhắn do chính mình gửi qua websocket vì đã được cập nhật qua optimistic UI
           if (msg.senderId === currentUserId) return;
+          // Chỉ nhận tin nhắn thuộc về cuộc trò chuyện với partner hiện tại
+          if (partnerUserId && msg.senderId !== partnerUserId && msg.receiverId !== partnerUserId) return;
 
           const incoming: ChatMessage = {
             id: msg.id || String(Date.now()),
@@ -91,6 +102,8 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
             if (prev.some((m) => m.id === incoming.id)) return prev;
             return [...prev, incoming];
           });
+          // Đánh dấu tin nhắn vừa nhận là đã đọc
+          chatApi.markAsRead(partnerUserId).catch(() => {});
         }
       });
 
@@ -257,6 +270,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
                   );
                 })
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Quick Responses */}

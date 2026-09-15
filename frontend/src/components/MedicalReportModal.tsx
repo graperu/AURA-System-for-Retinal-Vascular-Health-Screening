@@ -67,6 +67,19 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
   const odData = resultOD || result;
   const osData = resultOS || result;
 
+  // Danh sách các điểm tổn thương vi mạch AI phát hiện
+  const odAnomalies = (odData.annotatedMap?.detectedAnomalies || (odData as any).anomalies || []) as VesselAnomalyRegion[];
+  const osAnomalies = (osData.annotatedMap?.detectedAnomalies || (osData as any).anomalies || []) as VesselAnomalyRegion[];
+  const singleAnomalies = (result.annotatedMap?.detectedAnomalies || (result as any).anomalies || []) as VesselAnomalyRegion[];
+
+  // Tổng hợp toàn bộ điểm tổn thương vi mạch phục vụ bảng tra cứu và in ấn
+  const allReportAnomalies = hasDualData
+    ? [
+        ...odAnomalies.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)', eyeCode: 'OD', pinIndex: i + 1 })),
+        ...osAnomalies.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)', eyeCode: 'OS', pinIndex: i + 1 })),
+      ]
+    : singleAnomalies.map((a, i) => ({ ...a, eyeLabel: result.eyePosition || 'OD', eyeCode: 'OD', pinIndex: i + 1 }));
+
   // Kiểm tra điều kiện thẩm định và chữ ký số bác sĩ
   const isReviewed = result.status === 'REVIEWED' && Boolean(result.digitalSignature);
   const verifiedDoctorName = isReviewed
@@ -136,57 +149,86 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
 
     const csvContent = hasDualData
       ? [
-          ['TUYEN BO MIEN TRU TRACH NHIEM Y TE', MEDICAL_DISCLAIMER],
-          ['Tieu de', isVi ? 'Mat Phai (OD)' : 'Right Eye (OD)', isVi ? 'Mat Trai (OS)' : 'Left Eye (OS)', isVi ? 'Nguong chuan' : 'Reference Range', isVi ? 'Danh gia lam sang' : 'Clinical Evaluation'],
-          ['Ma bao cao', odData.analysisId, osData.analysisId, 'HL7/FHIR', ''],
-          ['Ho va ten', sanitizeCsvCell(patient.fullName || ''), sanitizeCsvCell(patient.fullName || ''), '', ''],
-          ['Ma benh nhan (MRN)', sanitizeCsvCell(patient.mrn || ''), sanitizeCsvCell(patient.mrn || ''), '', ''],
-          ['Tuoi / Gioi tinh', `${patient.age ?? ''} ${isVi ? 'tuoi' : 'yrs'} - ${patient.gender ?? ''}`, '', '', ''],
-          ['Huyet ap / HbA1c', `${patient.systolicBp ?? ''}/${patient.diastolicBp ?? ''} mmHg`, `${patient.hba1c ?? ''}%`, '', ''],
-          ['Ngay gio kham', examDateTimeStr, examDateTimeStr, '', ''],
-          ['Diem nguy co mach mau tong hop', `${odData.overallVascularRiskScore}/100`, `${osData.overallVascularRiskScore}/100`, '< 45/100', ''],
-          ['Nguy co tim mach 3 nam', `${odData.cardiovascularRisk.score}%`, `${osData.cardiovascularRisk.score}%`, '< 40%', ''],
-          ['Nguy co dot quy 3 nam', `${odData.cardiovascularRisk.threeYearStrokeRiskPercent}%`, `${osData.cardiovascularRisk.threeYearStrokeRiskPercent}%`, '< 10%', ''],
-          ['Giai doan tang huyet ap', odData.cardiovascularRisk.hypertensionStage, osData.cardiovascularRisk.hypertensionStage, isVi ? 'Binh thuong' : 'Normal', ''],
-          ['Nguy co benh vong mac tieu duong', `${odData.diabeticRetinopathyRisk.score}%`, `${osData.diabeticRetinopathyRisk.score}%`, '< 30%', ''],
-          ['Ty le A/V Ratio', (odData.annotatedMap?.arteryVeinRatio ?? 0).toString(), (osData.annotatedMap?.arteryVeinRatio ?? 0).toString(), '>= 0.67', `OD: ${evaluateAvRatio(odData.annotatedMap?.arteryVeinRatio ?? 0).text} | OS: ${evaluateAvRatio(osData.annotatedMap?.arteryVeinRatio ?? 0).text}`],
-          ['Mat do vi mach (Vessel Density)', `${odData.annotatedMap?.vesselDensityPercentage ?? 0}%`, `${osData.annotatedMap?.vesselDensityPercentage ?? 0}%`, '15.5% - 19.0%', `OD: ${evaluateVesselDensity(odData.annotatedMap?.vesselDensityPercentage ?? 0).text} | OS: ${evaluateVesselDensity(osData.annotatedMap?.vesselDensityPercentage ?? 0).text}`],
-          ['Do uon luon (Tortuosity)', (odData.annotatedMap?.tortuosityIndex ?? 0).toString(), (osData.annotatedMap?.tortuosityIndex ?? 0).toString(), '< 1.25', `OD: ${evaluateTortuosity(odData.annotatedMap?.tortuosityIndex ?? 0).text} | OS: ${evaluateTortuosity(osData.annotatedMap?.tortuosityIndex ?? 0).text}`],
-          ['Ty le Cup/Disc (CDR)', (odData.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), (osData.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), '< 0.50', `OD: ${evaluateVcdr(odData.annotatedMap?.opticCupToDiscRatio ?? 0).text} | OS: ${evaluateVcdr(osData.annotatedMap?.opticCupToDiscRatio ?? 0).text}`],
-          ['Ma chan doan ICD-10', icdCodes.join('; ') || (isVi ? 'Chua ghi nhan' : 'Not recorded'), '', '', ''],
-          ['Trang thai tham dinh', isReviewed ? (isVi ? 'Da duyet lam sang' : 'Clinically reviewed') : (isVi ? 'Cho bac si tham dinh' : 'Pending review'), '', '', ''],
-          ['Bac si phu trach', isReviewed ? (verifiedDoctorName || (isVi ? 'Bac si chuyen khoa' : 'Attending Specialist')) : (isVi ? 'Chua co bac si tham dinh' : 'No doctor assigned'), '', '', ''],
-          ['Chu ky so SHA-256', isReviewed ? (result.digitalSignature || (isVi ? 'Da ky so' : 'Signed')) : (isVi ? 'Chua ky so' : 'Unsigned'), '', '', ''],
-          ['Thoi diem ky', isReviewed && result.signedAt ? new Date(result.signedAt).toLocaleString(locale) : (isVi ? 'Chua ky' : 'Unsigned'), '', '', ''],
+          [isVi ? 'BÁO CÁO KẾT QUẢ SÀNG LỌC VI MẠCH VÕNG MẠC - HỆ THỐNG AURA' : 'AURA RETINAL VASCULAR SCREENING REPORT', '', '', '', ''],
+          [isVi ? 'Chỉ số phân tích / Thông tin' : 'Clinical Metric / Info', isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)', isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)', isVi ? 'Ngưỡng chuẩn' : 'Reference Range', isVi ? 'Đánh giá lâm sàng' : 'Clinical Evaluation'],
+          [isVi ? 'Mã phiếu khám' : 'Report ID', odData.analysisId, osData.analysisId, 'HL7/FHIR', ''],
+          [isVi ? 'Họ và tên bệnh nhân' : 'Patient Name', sanitizeCsvCell(patient.fullName || ''), sanitizeCsvCell(patient.fullName || ''), '', ''],
+          [isVi ? 'Mã bệnh nhân (MRN)' : 'MRN', sanitizeCsvCell(patient.mrn || ''), sanitizeCsvCell(patient.mrn || ''), '', ''],
+          [isVi ? 'Tuổi / Giới tính' : 'Age / Gender', `${patient.age ?? ''} ${isVi ? 'tuổi' : 'yrs'} - ${patient.gender ?? ''}`, '', '', ''],
+          [isVi ? 'Huyết áp / HbA1c' : 'Blood Pressure / HbA1c', `${patient.systolicBp ?? ''}/${patient.diastolicBp ?? ''} mmHg`, `${patient.hba1c ?? ''}%`, '', ''],
+          [isVi ? 'Ngày giờ khám' : 'Exam Date/Time', examDateTimeStr, examDateTimeStr, '', ''],
+          [isVi ? 'Điểm nguy cơ mạch máu tổng hợp' : 'Overall Vascular Risk Score', `${odData.overallVascularRiskScore}/100`, `${osData.overallVascularRiskScore}/100`, '< 45/100', ''],
+          [isVi ? 'Nguy cơ tim mạch 3 năm' : '3-Year Cardiovascular Risk', `${odData.cardiovascularRisk.score}%`, `${osData.cardiovascularRisk.score}%`, '< 40%', ''],
+          [isVi ? 'Nguy cơ đột quỵ 3 năm' : '3-Year Stroke Risk', `${odData.cardiovascularRisk.threeYearStrokeRiskPercent}%`, `${osData.cardiovascularRisk.threeYearStrokeRiskPercent}%`, '< 10%', ''],
+          [isVi ? 'Giai đoạn tăng huyết áp' : 'Hypertension Stage', odData.cardiovascularRisk.hypertensionStage, osData.cardiovascularRisk.hypertensionStage, isVi ? 'Bình thường' : 'Normal', ''],
+          [isVi ? 'Nguy cơ bệnh võng mạc tiểu đường' : 'Diabetic Retinopathy Risk', `${odData.diabeticRetinopathyRisk.score}%`, `${osData.diabeticRetinopathyRisk.score}%`, '< 30%', ''],
+          [isVi ? 'Tỷ lệ A/V Ratio' : 'A/V Ratio', (odData.annotatedMap?.arteryVeinRatio ?? 0).toString(), (osData.annotatedMap?.arteryVeinRatio ?? 0).toString(), '>= 0.67', `OD: ${evaluateAvRatio(odData.annotatedMap?.arteryVeinRatio ?? 0).text} | OS: ${evaluateAvRatio(osData.annotatedMap?.arteryVeinRatio ?? 0).text}`],
+          [isVi ? 'Mật độ vi mạch (Vessel Density)' : 'Vessel Density', `${odData.annotatedMap?.vesselDensityPercentage ?? 0}%`, `${osData.annotatedMap?.vesselDensityPercentage ?? 0}%`, '15.5% - 19.0%', `OD: ${evaluateVesselDensity(odData.annotatedMap?.vesselDensityPercentage ?? 0).text} | OS: ${evaluateVesselDensity(osData.annotatedMap?.vesselDensityPercentage ?? 0).text}`],
+          [isVi ? 'Độ uốn lượn (Tortuosity)' : 'Tortuosity Index', (odData.annotatedMap?.tortuosityIndex ?? 0).toString(), (osData.annotatedMap?.tortuosityIndex ?? 0).toString(), '< 1.25', `OD: ${evaluateTortuosity(odData.annotatedMap?.tortuosityIndex ?? 0).text} | OS: ${evaluateTortuosity(osData.annotatedMap?.tortuosityIndex ?? 0).text}`],
+          [isVi ? 'Tỷ lệ Cup/Disc (CDR)' : 'Cup-to-Disc Ratio (CDR)', (odData.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), (osData.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), '< 0.50', `OD: ${evaluateVcdr(odData.annotatedMap?.opticCupToDiscRatio ?? 0).text} | OS: ${evaluateVcdr(osData.annotatedMap?.opticCupToDiscRatio ?? 0).text}`],
+          [isVi ? 'Mã chẩn đoán ICD-10' : 'ICD-10 Code', icdCodes.join('; ') || (isVi ? 'Chưa ghi nhận' : 'Not recorded'), '', '', ''],
+          [isVi ? 'Trạng thái thẩm định' : 'Review Status', isReviewed ? (isVi ? 'Đã duyệt lâm sàng' : 'Clinically reviewed') : (isVi ? 'Chờ bác sĩ thẩm định' : 'Pending review'), '', '', ''],
+          [isVi ? 'Bác sĩ phụ trách' : 'Attending Specialist', isReviewed ? (verifiedDoctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist')) : (isVi ? 'Chưa có bác sĩ thẩm định' : 'No doctor assigned'), '', '', ''],
+          [isVi ? 'Chữ ký số SHA-256' : 'Digital Signature SHA-256', isReviewed ? (result.digitalSignature || (isVi ? 'Đã ký số' : 'Signed')) : (isVi ? 'Chưa ký số' : 'Unsigned'), '', '', ''],
+          [isVi ? 'Thời điểm ký' : 'Signed At', isReviewed && result.signedAt ? new Date(result.signedAt).toLocaleString(locale) : (isVi ? 'Chưa ký' : 'Unsigned'), '', '', ''],
+          [isVi ? 'Tuyên bố miễn trừ trách nhiệm' : 'Medical Disclaimer', isVi ? 'Hệ thống CDS hỗ trợ sàng lọc sơ bộ AI theo tiêu chuẩn Bộ Y Tế. Kết quả cần bác sĩ chuyên khoa thẩm định.' : 'AI decision support system; requires specialist clinical verification.', '', '', ''],
         ]
       : [
-          ['TUYEN BO MIEN TRU TRACH NHIEM Y TE', MEDICAL_DISCLAIMER],
-          ['Tieu de', isVi ? 'Gia tri' : 'Value', isVi ? 'Nguong chuan' : 'Reference Range', isVi ? 'Danh gia lam sang' : 'Clinical Evaluation'],
-          ['Ma bao cao', result.analysisId, 'HL7/FHIR', ''],
-          ['Ho va ten', sanitizeCsvCell(patient.fullName || ''), '', ''],
-          ['Ma benh nhan (MRN)', sanitizeCsvCell(patient.mrn || ''), '', ''],
-          ['Tuoi / Gioi tinh', `${patient.age ?? ''} ${isVi ? 'tuoi' : 'yrs'} - ${patient.gender ?? ''}`, '', ''],
-          ['Huyet ap / HbA1c', `${patient.systolicBp ?? ''}/${patient.diastolicBp ?? ''} mmHg`, `${patient.hba1c ?? ''}%`, ''],
-          ['Ngay gio kham', examDateTimeStr, '', ''],
-          ['Diem nguy co mach mau tong hop', `${result.overallVascularRiskScore}/100`, '< 45/100', ''],
-          ['Nguy co tim mach 3 nam', `${result.cardiovascularRisk.score}%`, '< 40%', ''],
-          ['Nguy co dot quy 3 nam', `${result.cardiovascularRisk.threeYearStrokeRiskPercent}%`, '< 10%', ''],
-          ['Giai doan tang huyet ap', result.cardiovascularRisk.hypertensionStage, isVi ? 'Binh thuong' : 'Normal', ''],
-          ['Nguy co benh vong mac tieu duong', `${result.diabeticRetinopathyRisk.score}%`, '< 30%', ''],
-          ['Ty le A/V Ratio', (result.annotatedMap?.arteryVeinRatio ?? 0).toString(), '>= 0.67', evaluateAvRatio(result.annotatedMap?.arteryVeinRatio ?? 0).text],
-          ['Mat do mach mau', `${result.annotatedMap?.vesselDensityPercentage ?? 0}%`, '15.5% - 19.0%', evaluateVesselDensity(result.annotatedMap?.vesselDensityPercentage ?? 0).text],
-          ['Do uon luon Tortuosity', (result.annotatedMap?.tortuosityIndex ?? 0).toString(), '< 1.25', evaluateTortuosity(result.annotatedMap?.tortuosityIndex ?? 0).text],
-          ['Ty le Cup/Disc (CDR)', (result.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), '< 0.50', evaluateVcdr(result.annotatedMap?.opticCupToDiscRatio ?? 0).text],
-          ['Ma chan doan ICD-10', icdCodes.join('; ') || (isVi ? 'Chua ghi nhan' : 'Not recorded'), '', ''],
-          ['Trang thai tham dinh', isReviewed ? (isVi ? 'Da duyet lam sang' : 'Clinically reviewed') : (isVi ? 'Cho bac si tham dinh' : 'Pending review'), '', ''],
-          ['Bac si phu trach', isReviewed ? (verifiedDoctorName || (isVi ? 'Bac si chuyen khoa' : 'Attending Specialist')) : (isVi ? 'Chua co bac si tham dinh' : 'No doctor assigned'), '', ''],
-          ['Chu ky so SHA-256', isReviewed ? (result.digitalSignature || (isVi ? 'Da ky so' : 'Signed')) : (isVi ? 'Chua ky so' : 'Unsigned'), '', ''],
-          ['Thoi diem ky', isReviewed && result.signedAt ? new Date(result.signedAt).toLocaleString(locale) : (isVi ? 'Chua ky' : 'Unsigned'), '', ''],
+          [isVi ? 'BÁO CÁO KẾT QUẢ SÀNG LỌC VI MẠCH VÕNG MẠC - HỆ THỐNG AURA' : 'AURA RETINAL VASCULAR SCREENING REPORT', '', '', ''],
+          [isVi ? 'Chỉ số phân tích / Thông tin' : 'Clinical Metric / Info', isVi ? 'Giá trị' : 'Value', isVi ? 'Ngưỡng chuẩn' : 'Reference Range', isVi ? 'Đánh giá lâm sàng' : 'Clinical Evaluation'],
+          [isVi ? 'Mã phiếu khám' : 'Report ID', result.analysisId, 'HL7/FHIR', ''],
+          [isVi ? 'Họ và tên bệnh nhân' : 'Patient Name', sanitizeCsvCell(patient.fullName || ''), '', ''],
+          [isVi ? 'Mã bệnh nhân (MRN)' : 'MRN', sanitizeCsvCell(patient.mrn || ''), '', ''],
+          [isVi ? 'Tuổi / Giới tính' : 'Age / Gender', `${patient.age ?? ''} ${isVi ? 'tuổi' : 'yrs'} - ${patient.gender ?? ''}`, '', ''],
+          [isVi ? 'Huyết áp / HbA1c' : 'Blood Pressure / HbA1c', `${patient.systolicBp ?? ''}/${patient.diastolicBp ?? ''} mmHg`, `${patient.hba1c ?? ''}%`, ''],
+          [isVi ? 'Ngày giờ khám' : 'Exam Date/Time', examDateTimeStr, '', ''],
+          [isVi ? 'Điểm nguy cơ mạch máu tổng hợp' : 'Overall Vascular Risk Score', `${result.overallVascularRiskScore}/100`, '< 45/100', ''],
+          [isVi ? 'Nguy cơ tim mạch 3 năm' : '3-Year Cardiovascular Risk', `${result.cardiovascularRisk.score}%`, '< 40%', ''],
+          [isVi ? 'Nguy cơ đột quỵ 3 năm' : '3-Year Stroke Risk', `${result.cardiovascularRisk.threeYearStrokeRiskPercent}%`, '< 10%', ''],
+          [isVi ? 'Giai đoạn tăng huyết áp' : 'Hypertension Stage', result.cardiovascularRisk.hypertensionStage, isVi ? 'Bình thường' : 'Normal', ''],
+          [isVi ? 'Nguy cơ bệnh võng mạc tiểu đường' : 'Diabetic Retinopathy Risk', `${result.diabeticRetinopathyRisk.score}%`, '< 30%', ''],
+          [isVi ? 'Tỷ lệ A/V Ratio' : 'A/V Ratio', (result.annotatedMap?.arteryVeinRatio ?? 0).toString(), '>= 0.67', evaluateAvRatio(result.annotatedMap?.arteryVeinRatio ?? 0).text],
+          [isVi ? 'Mật độ vi mạch (Vessel Density)' : 'Vessel Density', `${result.annotatedMap?.vesselDensityPercentage ?? 0}%`, '15.5% - 19.0%', evaluateVesselDensity(result.annotatedMap?.vesselDensityPercentage ?? 0).text],
+          [isVi ? 'Độ uốn lượn (Tortuosity)' : 'Tortuosity Index', (result.annotatedMap?.tortuosityIndex ?? 0).toString(), '< 1.25', evaluateTortuosity(result.annotatedMap?.tortuosityIndex ?? 0).text],
+          [isVi ? 'Tỷ lệ Cup/Disc (CDR)' : 'Cup-to-Disc Ratio (CDR)', (result.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), '< 0.50', evaluateVcdr(result.annotatedMap?.opticCupToDiscRatio ?? 0).text],
+          [isVi ? 'Mã chẩn đoán ICD-10' : 'ICD-10 Code', icdCodes.join('; ') || (isVi ? 'Chưa ghi nhận' : 'Not recorded'), '', ''],
+          [isVi ? 'Trạng thái thẩm định' : 'Review Status', isReviewed ? (isVi ? 'Đã duyệt lâm sàng' : 'Clinically reviewed') : (isVi ? 'Chờ bác sĩ thẩm định' : 'Pending review'), '', ''],
+          [isVi ? 'Bác sĩ phụ trách' : 'Attending Specialist', isReviewed ? (verifiedDoctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist')) : (isVi ? 'Chưa có bác sĩ thẩm định' : 'No doctor assigned'), '', ''],
+          [isVi ? 'Chữ ký số SHA-256' : 'Digital Signature SHA-256', isReviewed ? (result.digitalSignature || (isVi ? 'Đã ký số' : 'Signed')) : (isVi ? 'Chưa ký số' : 'Unsigned'), '', ''],
+          [isVi ? 'Thời điểm ký' : 'Signed At', isReviewed && result.signedAt ? new Date(result.signedAt).toLocaleString(locale) : (isVi ? 'Chưa ký' : 'Unsigned'), '', ''],
+          [isVi ? 'Tuyên bố miễn trừ trách nhiệm' : 'Medical Disclaimer', isVi ? 'Hệ thống CDS hỗ trợ sàng lọc sơ bộ AI theo tiêu chuẩn Bộ Y Tế. Kết quả cần bác sĩ chuyên khoa thẩm định.' : 'AI decision support system; requires specialist clinical verification.', '', ''],
         ];
+
+    // Bổ sung danh sách điểm tổn thương vi mạch AI vào tệp CSV xuất bản
+    if (allReportAnomalies.length > 0) {
+      csvContent.push(['']);
+      csvContent.push([isVi ? 'DANH SÁCH ĐIỂM TỔN THƯƠNG VI MẠCH AI ĐỊNH VỊ' : 'AI-DETECTED ANOMALY FINDINGS & COORDINATES']);
+      csvContent.push([
+        '#',
+        isVi ? 'Mắt' : 'Eye',
+        isVi ? 'Loại tổn thương' : 'Anomaly Type',
+        isVi ? 'Tọa độ X (%)' : 'Coord X (%)',
+        isVi ? 'Tọa độ Y (%)' : 'Coord Y (%)',
+        isVi ? 'Độ tin cậy' : 'Confidence',
+        isVi ? 'Mô tả lâm sàng' : 'Clinical Description',
+      ]);
+      allReportAnomalies.forEach((a, idx) => {
+        const confText = `${Math.round(a.confidence != null ? (a.confidence <= 1 ? a.confidence * 100 : a.confidence) : 90)}%`;
+        csvContent.push([
+          (a.pinIndex || idx + 1).toString(),
+          a.eyeCode || 'OD',
+          sanitizeCsvCell(getAnomalyName(a.type, t)),
+          (a.coordinates?.x ?? 0).toString(),
+          (a.coordinates?.y ?? 0).toString(),
+          confText,
+          sanitizeCsvCell(a.description || ''),
+        ]);
+      });
+    }
 
     const csvRawString = csvContent
       .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','))
-      .join('\n');
+      .join('\r\n');
 
     const csvWithBom = '\uFEFF' + csvRawString;
     const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
@@ -405,12 +447,44 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                           <DynamicHeatmapCanvas
                             imageSrc={odData.imageUrl || '/assets/images/fundus_original.png'}
                             riskScore={odData.overallVascularRiskScore || 35}
-                            anomalies={odData.annotatedMap?.detectedAnomalies}
+                            anomalies={odAnomalies}
                             selectedEye="OD"
                             opacity={0.85}
                             className="h-full w-full object-cover absolute inset-0"
                           />
                         )}
+
+                        {/* Điểm định vị tổn thương vi mạch AI (OD Pin Markers) */}
+                        {odAnomalies.map((ano, idx) => {
+                          const isRed = ['Hemorrhage', 'AV_Nipping', 'Focal_Narrowing'].includes(ano.type);
+                          const pinName = getAnomalyName(ano.type, t);
+                          return (
+                            <div
+                              key={ano.id || `od-pin-${idx}`}
+                              className="absolute z-20 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                              style={{
+                                left: `${Math.max(6, Math.min(94, ano.coordinates?.x ?? 50))}%`,
+                                top: `${Math.max(6, Math.min(94, ano.coordinates?.y ?? 50))}%`,
+                              }}
+                              title={`OD #${idx + 1} - ${pinName}`}
+                            >
+                              <span
+                                className={`absolute rounded-full opacity-70 animate-ping ${
+                                  isRed ? 'bg-rose-500' : 'bg-amber-400'
+                                }`}
+                                style={{ width: '22px', height: '22px' }}
+                              />
+                              <span
+                                className={`relative z-10 flex items-center justify-center rounded-full text-[10px] font-black text-white shadow-lg border-2 border-white ${
+                                  isRed ? 'bg-rose-600' : 'bg-amber-500'
+                                }`}
+                                style={{ width: '20px', height: '20px' }}
+                              >
+                                {idx + 1}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                       <p className="mt-1.5 text-[10px] font-semibold text-cyan-200">
                         {isVi ? 'Bản Đồ Nhiệt AI (OD)' : 'AI Heatmap (OD)'}
@@ -461,12 +535,44 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                           <DynamicHeatmapCanvas
                             imageSrc={osData.imageUrl || '/assets/images/fundus_original.png'}
                             riskScore={osData.overallVascularRiskScore || 35}
-                            anomalies={osData.annotatedMap?.detectedAnomalies}
+                            anomalies={osAnomalies}
                             selectedEye="OS"
                             opacity={0.85}
                             className="h-full w-full object-cover absolute inset-0"
                           />
                         )}
+
+                        {/* Điểm định vị tổn thương vi mạch AI (OS Pin Markers) */}
+                        {osAnomalies.map((ano, idx) => {
+                          const isRed = ['Hemorrhage', 'AV_Nipping', 'Focal_Narrowing'].includes(ano.type);
+                          const pinName = getAnomalyName(ano.type, t);
+                          return (
+                            <div
+                              key={ano.id || `os-pin-${idx}`}
+                              className="absolute z-20 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                              style={{
+                                left: `${Math.max(6, Math.min(94, ano.coordinates?.x ?? 50))}%`,
+                                top: `${Math.max(6, Math.min(94, ano.coordinates?.y ?? 50))}%`,
+                              }}
+                              title={`OS #${idx + 1} - ${pinName}`}
+                            >
+                              <span
+                                className={`absolute rounded-full opacity-70 animate-ping ${
+                                  isRed ? 'bg-rose-500' : 'bg-amber-400'
+                                }`}
+                                style={{ width: '22px', height: '22px' }}
+                              />
+                              <span
+                                className={`relative z-10 flex items-center justify-center rounded-full text-[10px] font-black text-white shadow-lg border-2 border-white ${
+                                  isRed ? 'bg-rose-600' : 'bg-amber-500'
+                                }`}
+                                style={{ width: '20px', height: '20px' }}
+                              >
+                                {idx + 1}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                       <p className="mt-1.5 text-[10px] font-semibold text-teal-200">
                         {isVi ? 'Bản Đồ Nhiệt AI (OS)' : 'AI Heatmap (OS)'}
@@ -508,12 +614,44 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                       <DynamicHeatmapCanvas
                         imageSrc={result.imageUrl || '/assets/images/fundus_original.png'}
                         riskScore={result.overallVascularRiskScore ?? result.riskScore ?? 35}
-                        anomalies={result.annotatedMap?.detectedAnomalies}
+                        anomalies={singleAnomalies}
                         selectedEye={result.eyePosition || 'OD'}
                         opacity={0.85}
                         className="h-full w-full object-cover absolute inset-0"
                       />
                     )}
+
+                    {/* Điểm định vị tổn thương vi mạch AI (Single Eye Pin Markers) */}
+                    {singleAnomalies.map((ano, idx) => {
+                      const isRed = ['Hemorrhage', 'AV_Nipping', 'Focal_Narrowing'].includes(ano.type);
+                      const pinName = getAnomalyName(ano.type, t);
+                      return (
+                        <div
+                          key={ano.id || `single-pin-${idx}`}
+                          className="absolute z-20 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                          style={{
+                            left: `${Math.max(6, Math.min(94, ano.coordinates?.x ?? 50))}%`,
+                            top: `${Math.max(6, Math.min(94, ano.coordinates?.y ?? 50))}%`,
+                          }}
+                          title={`#${idx + 1} - ${pinName}`}
+                        >
+                          <span
+                            className={`absolute rounded-full opacity-70 animate-ping ${
+                              isRed ? 'bg-rose-500' : 'bg-amber-400'
+                            }`}
+                            style={{ width: '22px', height: '22px' }}
+                          />
+                          <span
+                            className={`relative z-10 flex items-center justify-center rounded-full text-[10px] font-black text-white shadow-lg border-2 border-white ${
+                              isRed ? 'bg-rose-600' : 'bg-amber-500'
+                            }`}
+                            style={{ width: '20px', height: '20px' }}
+                          >
+                            {idx + 1}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                   <p className="mt-2 text-[11px] font-semibold text-cyan-200">
                     {isVi ? 'Bản Đồ Nhiệt Grad-CAM' : 'Grad-CAM Attention Heatmap'}
@@ -521,6 +659,125 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Bảng Chi Tiết Điểm Tổn Thương Vi Mạch AI Định Vị */}
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-cyan-800 shrink-0" />
+                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                    {isVi
+                      ? 'Danh Sách Điểm Tổn Thương Vi Mạch AI Định Vị'
+                      : 'AI-Detected Microvascular Anomaly Coordinates & Findings'}
+                  </span>
+                  <span className="rounded-full bg-cyan-100 text-cyan-900 px-2 py-0.5 text-[10px] font-bold border border-cyan-200 font-mono-data">
+                    {allReportAnomalies.length} {isVi ? 'điểm' : 'points'}
+                  </span>
+                </div>
+
+                {/* Chú giải nhanh màu sắc tổn thương */}
+                <div className="flex items-center gap-2.5 text-[10px] font-medium text-slate-600 flex-wrap">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-rose-600 inline-block" />
+                    <span>{isVi ? 'Xuất huyết / Co thắt / Bắt chéo' : 'Hemorrhage / Narrowing / Nipping'}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                    <span>{isVi ? 'Vi phình mạch / Xuất tiết' : 'Microaneurysm / Exudate'}</span>
+                  </span>
+                </div>
+              </div>
+
+              {allReportAnomalies.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-500 text-[11px] font-semibold bg-white/70">
+                        <th className="py-2 px-2 text-center w-12">#</th>
+                        {hasDualData && <th className="py-2 px-2.5 w-20">{isVi ? 'Mắt' : 'Eye'}</th>}
+                        <th className="py-2 px-2.5">{isVi ? 'Loại Tổn Thương' : 'Anomaly Type'}</th>
+                        <th className="py-2 px-2.5 text-center">{isVi ? 'Tọa Độ (X, Y)' : 'Coordinates (X, Y)'}</th>
+                        <th className="py-2 px-2.5 text-center">{isVi ? 'Độ Tin Cậy' : 'Confidence'}</th>
+                        <th className="py-2 px-3">{isVi ? 'Mô Tả Lâm Sàng & Khuyến Nghị' : 'Clinical Description & Recommendation'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200/80 font-normal">
+                      {allReportAnomalies.map((ano, index) => {
+                        const isRed = ['Hemorrhage', 'AV_Nipping', 'Focal_Narrowing'].includes(ano.type);
+                        const anomalyName = getAnomalyName(ano.type, t);
+                        const confVal =
+                          ano.confidence != null
+                            ? ano.confidence <= 1
+                              ? Math.round(ano.confidence * 100)
+                              : Math.round(ano.confidence)
+                            : 90;
+                        return (
+                          <tr key={ano.id || index} className="hover:bg-cyan-50/40 transition-colors">
+                            <td className="py-2 px-2 text-center">
+                              <span
+                                className={`inline-flex items-center justify-center rounded-full text-[10px] font-black text-white shadow-xs ${
+                                  isRed ? 'bg-rose-600' : 'bg-amber-500'
+                                }`}
+                                style={{ width: '20px', height: '20px' }}
+                              >
+                                {ano.pinIndex || index + 1}
+                              </span>
+                            </td>
+                            {hasDualData && (
+                              <td className="py-2 px-2.5">
+                                <span
+                                  className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold font-mono-data ${
+                                    ano.eyeCode === 'OD'
+                                      ? 'bg-cyan-100 text-cyan-800 border border-cyan-300'
+                                      : 'bg-teal-100 text-teal-800 border border-teal-300'
+                                  }`}
+                                >
+                                  {ano.eyeCode}
+                                </span>
+                              </td>
+                            )}
+                            <td className="py-2 px-2.5">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold border ${
+                                  isRed
+                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                    : 'bg-amber-50 text-amber-900 border-amber-200'
+                                }`}
+                              >
+                                {anomalyName}
+                              </span>
+                            </td>
+                            <td className="py-2 px-2.5 text-center font-mono-data text-[11px] text-slate-700">
+                              X: {ano.coordinates?.x ?? 0}% • Y: {ano.coordinates?.y ?? 0}%
+                            </td>
+                            <td className="py-2 px-2.5 text-center">
+                              <span className="font-mono-data font-bold text-cyan-800 text-[11px] bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">
+                                {confVal}%
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-black text-[11px] sm:text-xs leading-relaxed font-medium">
+                              {ano.description ||
+                                (isVi
+                                  ? 'Vùng vi mạch có biểu hiện tổn thương khu trú cần theo dõi định kỳ.'
+                                  : 'Focal microvascular lesion site requiring routine surveillance.')}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 rounded-lg bg-emerald-50/90 border border-emerald-200 p-2.5 text-xs text-emerald-900">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <p className="leading-snug">
+                    {isVi
+                      ? 'Không phát hiện tổn thương vi phình mạch hoặc xuất huyết khu trú đơn độc (0 điểm tổn thương). Hệ thống mạch máu võng mạc không có dấu hiệu dị thường khu trú.'
+                      : 'No isolated focal microaneurysms or hemorrhages detected (0 focal lesion points). Retinal microvasculature shows no isolated focal abnormalities.'}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 2. Clinical Risk Gauges */}

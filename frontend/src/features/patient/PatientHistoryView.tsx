@@ -241,7 +241,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     setSelectedIds(new Set());
   };
 
-  // Export to CSV
+  // Export to CSV / Excel
   const handleExportCsv = (itemsToExport?: PatientHistoryItem[]) => {
     const targetItems =
       itemsToExport ||
@@ -254,54 +254,85 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       return;
     }
 
+    const sanitizeCsvCell = (val: unknown): string => {
+      if (val === null || val === undefined) return '""';
+      let str = String(val).trim();
+      // Chống lỗ hổng CSV Injection / Formula Injection (OWASP)
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const formatDateTime = (dateStr?: string) => {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const formatRiskLevel = (lvl?: string) => {
+      const u = (lvl || '').toUpperCase();
+      if (u.includes('LOW') || u.includes('THẤP') || u.includes('THAP')) return isVi ? 'Nguy cơ Thấp' : 'Low Risk';
+      if (u.includes('MODERATE') || u.includes('TRUNG')) return isVi ? 'Nguy cơ Trung bình' : 'Moderate Risk';
+      if (u.includes('HIGH') || u.includes('CAO')) return isVi ? 'Nguy cơ Cao' : 'High Risk';
+      if (u.includes('CRITICAL') || u.includes('NGUY KỊCH') || u.includes('NGUY KICH')) return isVi ? 'Nguy kịch' : 'Critical Risk';
+      return lvl || (isVi ? 'Chưa xác định' : 'Undetermined');
+    };
+
     const headers = [
-      'Mã Ca Khám (ID)',
-      'Thời Gian Khám',
-      'Mắt Khám',
-      'Loại Ảnh',
-      'Điểm Nguy Cơ (0-100)',
-      'Mức Độ Nguy Cơ',
-      'Trạng Thái',
-      'Bác Sĩ Thẩm Định',
-      'Ghi Chú & Kết Luận',
-      'Mã Bệnh ICD-10',
+      'STT',
+      isVi ? 'Mã Ca Khám' : 'Screening ID',
+      isVi ? 'Thời Gian Khám' : 'Exam Date/Time',
+      isVi ? 'Mắt Khám' : 'Eye Laterality',
+      isVi ? 'Loại Ảnh' : 'Image Type',
+      isVi ? 'Điểm Nguy Cơ (0-100)' : 'Risk Score (0-100)',
+      isVi ? 'Phân Tầng Nguy Cơ' : 'Risk Classification',
+      isVi ? 'Trạng Thái Khám' : 'Review Status',
+      isVi ? 'Bác Sĩ Thẩm Định' : 'Attending Doctor',
+      isVi ? 'Mã Bệnh ICD-10' : 'ICD-10 Code',
+      isVi ? 'Kết Luận / Ghi Chú' : 'Clinical Notes',
     ];
 
-    const rows = targetItems.map((item) => {
-      const dateStr = item.createdAt
-        ? new Date(item.createdAt).toLocaleString(isVi ? 'vi-VN' : 'en-US')
-        : '';
+    const rows = targetItems.map((item, idx) => {
+      const dateStr = formatDateTime(item.createdAt);
       const eyeStr =
         item.eyePosition === 'OS' || item.eyePosition?.toUpperCase().includes('LEFT')
-          ? 'Mắt Trái (OS)'
-          : 'Mắt Phải (OD)';
-      const riskLevelStr = item.riskLevel || 'Chưa xác định';
+          ? (isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)')
+          : (isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)');
+      const riskLevelStr = formatRiskLevel(item.riskLevel);
       const statusStr =
         item.status === 'REVIEWED' || item.doctorReviewed
-          ? 'Đã duyệt lâm sàng'
+          ? (isVi ? 'Đã duyệt lâm sàng' : 'Clinically Reviewed')
           : item.status === 'FAILED'
-          ? 'Thất bại'
-          : 'Đã phân tích AI';
+          ? (isVi ? 'Thất bại' : 'Failed')
+          : (isVi ? 'Đã phân tích AI' : 'AI Analyzed');
       const doctorStr =
-        item.doctorName || (item.doctorReviewed ? 'Bác sĩ chuyên khoa' : 'Chưa thẩm định');
-      const notesStr = (item.doctorNotes || item.notes || '').replace(/"/g, '""');
+        item.doctorName || (item.doctorReviewed ? (isVi ? 'Bác sĩ chuyên khoa' : 'Specialist') : (isVi ? 'Chưa thẩm định' : 'Unreviewed'));
+      const notesStr = (item.doctorNotes || item.notes || '').replace(/[\r\n]+/g, ' ');
       const icdStr = (item.icd10Codes || []).join('; ');
 
       return [
-        `"${item.id}"`,
-        `"${dateStr}"`,
-        `"${eyeStr}"`,
-        `"${item.scanType || 'Fundus'}"`,
-        `"${item.riskScore ?? 0}"`,
-        `"${riskLevelStr}"`,
-        `"${statusStr}"`,
-        `"${doctorStr}"`,
-        `"${notesStr}"`,
-        `"${icdStr}"`,
+        sanitizeCsvCell(idx + 1),
+        sanitizeCsvCell(item.rawId || item.id),
+        sanitizeCsvCell(dateStr),
+        sanitizeCsvCell(eyeStr),
+        sanitizeCsvCell(item.scanType || (isVi ? 'Chụp đáy mắt (Fundus)' : 'Fundus')),
+        sanitizeCsvCell(item.riskScore ?? 0),
+        sanitizeCsvCell(riskLevelStr),
+        sanitizeCsvCell(statusStr),
+        sanitizeCsvCell(doctorStr),
+        sanitizeCsvCell(icdStr || (isVi ? 'Không' : 'None')),
+        sanitizeCsvCell(notesStr || (isVi ? 'Không có ghi chú' : 'None')),
       ].join(',');
     });
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    const csvContent = '\uFEFF' + [headers.map((h) => sanitizeCsvCell(h)).join(','), ...rows].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -696,28 +727,30 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap justify-start sm:justify-end">
           <button
             type="button"
             onClick={() => handleExportCsv(filteredData)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs transition-all cursor-pointer"
-            title={isVi ? 'Xuất toàn bộ danh sách ra CSV' : 'Export all to CSV'}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-teal-50/60 text-slate-700 hover:text-teal-700 text-xs font-semibold border border-slate-200 shadow-2xs transition-all cursor-pointer shrink-0"
+            title={isVi ? 'Xuất toàn bộ danh sách ra file Excel / CSV' : 'Export all records to Excel / CSV'}
           >
-            <Download className="w-3.5 h-3.5 text-slate-600" />
-            <span>{isVi ? 'Xuất CSV' : 'Export CSV'}</span>
+            <Download className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span className="whitespace-nowrap">{isVi ? 'Xuất CSV' : 'Export CSV'}</span>
           </button>
 
-          <span className="text-xs text-slate-500 shrink-0 font-medium">
-            {isVi ? 'Sắp xếp:' : 'Sort by:'}
-          </span>
-          <ClinicalSelect<SortByType>
-            value={sortBy}
-            onChange={setSortBy}
-            options={sortOptions}
-            size="sm"
-            className="w-48"
-            align="right"
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
+              {isVi ? 'Sắp xếp:' : 'Sort by:'}
+            </span>
+            <ClinicalSelect<SortByType>
+              value={sortBy}
+              onChange={setSortBy}
+              options={sortOptions}
+              size="sm"
+              className="w-44 sm:w-48"
+              align="right"
+            />
+          </div>
         </div>
       </div>
 

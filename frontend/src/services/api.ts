@@ -212,7 +212,12 @@ export const chatApi = {
   sendMessage: (receiverId: string, content: string, screeningId?: string) =>
     apiFetch<any>("/api/v1/chat/messages", {
       method: "POST",
-      body: JSON.stringify({ receiverId, content, screeningId }),
+      body: JSON.stringify({
+        receiverId,
+        messageText: content,
+        content,
+        screeningId: screeningId || undefined,
+      }),
     }),
 
   getConversation: (otherUserId: string) =>
