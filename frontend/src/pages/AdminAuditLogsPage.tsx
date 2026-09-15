@@ -114,6 +114,37 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   // ==========================================
   // FR-31: USER MANAGEMENT STATE & HANDLERS
   // ==========================================
+  const normalizeRole = (r?: string): string => {
+    if (!r) return "ROLE_USER";
+    const clean = String(r).toUpperCase().trim();
+    if (clean.startsWith("ROLE_")) return clean;
+    return `ROLE_${clean}`;
+  };
+
+  const getDepartment = (roleStr?: string) => {
+    const norm = normalizeRole(roleStr);
+    if (norm === "ROLE_DOCTOR") return isVi ? "Khoa Mắt & Tim Mạch" : "Ophthalmology & Cardiology";
+    if (norm === "ROLE_CLINIC") return isVi ? "Phòng Khám Đa Khoa" : "General Clinic";
+    if (norm === "ROLE_ADMIN") return isVi ? "Ban Quản Trị Hệ Thống" : "System Administration";
+    return isVi ? "Cổng Bệnh Nhân" : "Patient Portal";
+  };
+
+  const formatRoleLabel = (roleStr?: string) => {
+    const norm = normalizeRole(roleStr);
+    if (norm === "ROLE_ADMIN") return isVi ? "Quản trị viên" : "Administrator";
+    if (norm === "ROLE_DOCTOR") return isVi ? "Bác sĩ chuyên khoa" : "Specialist Doctor";
+    if (norm === "ROLE_CLINIC") return isVi ? "Phòng khám" : "Clinic";
+    return isVi ? "Bệnh nhân" : "Patient";
+  };
+
+  const getRoleBadgeClass = (roleStr?: string) => {
+    const norm = normalizeRole(roleStr);
+    if (norm === "ROLE_ADMIN") return "bg-purple-100 text-purple-800 border border-purple-200";
+    if (norm === "ROLE_DOCTOR") return "bg-blue-100 text-blue-800 border border-blue-200";
+    if (norm === "ROLE_CLINIC") return "bg-emerald-100 text-emerald-800 border border-emerald-200";
+    return "bg-slate-100 text-slate-700 border border-slate-200";
+  };
+
   const [usersList, setUsersList] = useState<any[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState("ALL");
@@ -139,26 +170,24 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
         userSearchQuery || undefined,
         roleParam,
       );
-      if (userRes.success && userRes.data?.items) {
+      const rawItems = userRes?.data?.items || (Array.isArray(userRes?.data) ? userRes.data : Array.isArray(userRes) ? userRes : []);
+      if (rawItems && rawItems.length > 0) {
         setUsersList(
-          userRes.data.items.map((u: any) => ({
-            id: u.id,
-            name: u.fullName || u.email,
-            email: u.email,
-            role: u.roles?.[0] || "ROLE_USER",
-            status: u.active ? "ACTIVE" : "SUSPENDED",
-            phoneNumber: u.phoneNumber || "",
-            address: u.address || "",
-            department:
-              u.roles?.[0] === "ROLE_DOCTOR"
-                ? (isVi ? "Khoa Mắt & Tim Mạch" : "Ophthalmology & Cardiology")
-                : u.roles?.[0] === "ROLE_CLINIC"
-                  ? (isVi ? "Phòng Khám Đa Khoa" : "General Clinic")
-                  : u.roles?.[0] === "ROLE_ADMIN"
-                    ? (isVi ? "Ban Quản Trị Hệ Thống" : "System Administration")
-                    : (isVi ? "Cổng Bệnh Nhân" : "Patient Portal"),
-            exams: u.totalScreenings || 0,
-          })),
+          rawItems.map((u: any) => {
+            const rawRole = (Array.isArray(u.roles) && u.roles[0]) || u.role || "ROLE_USER";
+            const normRole = normalizeRole(rawRole);
+            return {
+              id: u.id,
+              name: u.fullName || u.name || u.email,
+              email: u.email,
+              role: normRole,
+              status: u.active === false ? "SUSPENDED" : (u.status || "ACTIVE"),
+              phoneNumber: u.phoneNumber || "",
+              address: u.address || "",
+              department: getDepartment(normRole),
+              exams: u.totalScreenings || 0,
+            };
+          }),
         );
       }
     } catch (e) {
@@ -168,7 +197,9 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
 
   const filteredUsers = useMemo(() => {
     return usersList.filter((u) => {
-      const matchRole = userRoleFilter === "ALL" || u.role === userRoleFilter;
+      const uRole = normalizeRole(u.role);
+      const filterRole = userRoleFilter !== "ALL" ? normalizeRole(userRoleFilter) : "ALL";
+      const matchRole = filterRole === "ALL" || uRole === filterRole;
       const q = userSearchQuery.toLowerCase().trim();
       const matchQuery =
         !q ||
@@ -265,21 +296,41 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
 
   const handleSaveUserRole = async () => {
     if (!roleChangeUser) return;
+    const normNewRole = normalizeRole(selectedNewRole);
     try {
+      // Optimistic instant UI update
+      setUsersList((prev) =>
+        prev.map((u) =>
+          u.id === roleChangeUser.id
+            ? {
+                ...u,
+                role: normNewRole,
+                department: getDepartment(normNewRole),
+              }
+            : u
+        )
+      );
+
       const res = await adminUserApi.updateRole(
         roleChangeUser.id,
-        selectedNewRole,
+        normNewRole,
       );
       if (res.success) {
         setUserActionNotice(
-          t('admin.userManagement.roleUpdatedSuccess', isVi ? `Đã thay đổi vai trò tài khoản thành ${selectedNewRole}.` : `User role changed to ${selectedNewRole}.`),
+          t('admin.userManagement.roleUpdatedSuccess', isVi ? `Đã thay đổi vai trò tài khoản thành ${formatRoleLabel(normNewRole)}.` : `User role changed to ${formatRoleLabel(normNewRole)}.`),
         );
-        setTimeout(() => setUserActionNotice(null), 4000);
-        setRoleChangeUser(null);
-        loadUsers();
+      } else {
+        setUserActionNotice(res.message || (isVi ? "Không thể thay đổi vai trò." : "Failed to change user role."));
       }
-    } catch (e) {
+      setTimeout(() => setUserActionNotice(null), 4000);
+      setRoleChangeUser(null);
+      await loadUsers();
+    } catch (e: any) {
       console.warn("Could not update user role:", e);
+      setUserActionNotice(e?.message || (isVi ? "Đã xảy ra lỗi khi đổi vai trò." : "Error changing user role."));
+      setTimeout(() => setUserActionNotice(null), 4000);
+      setRoleChangeUser(null);
+      await loadUsers();
     }
   };
 
@@ -463,7 +514,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       descEn: "Activate, suspend, reset passwords, and assign roles to accounts.",
     },
     ROLE_MANAGE: {
-      nameVi: "Cấu hình ma trận phân quyền hệ thống (RBAC)",
+      nameVi: "Cấu hình ma trận phân quyền hệ thống",
       nameEn: "Configure System RBAC Permission Matrix",
       groupVi: "Quản trị",
       groupEn: "Administration",
@@ -471,7 +522,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       descEn: "Enable or disable granular access permissions for each user role.",
     },
     ROLE_CONFIG: {
-      nameVi: "Cấu hình ma trận phân quyền RBAC",
+      nameVi: "Cấu hình ma trận phân quyền hệ thống",
       nameEn: "Configure RBAC Permission Matrix",
       groupVi: "Quản trị",
       groupEn: "Administration",
@@ -479,7 +530,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       descEn: "Configure access permissions for each user role in the system.",
     },
     CLINIC_VERIFY: {
-      nameVi: "Phê duyệt hồ sơ pháp nhân phòng khám (FR-22)",
+      nameVi: "Phê duyệt hồ sơ pháp nhân phòng khám",
       nameEn: "Verify & Approve Clinic Legal Profiles",
       groupVi: "Quản trị",
       groupEn: "Administration",
@@ -499,7 +550,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       nameEn: "AI Parameters & Sensitivity Configuration",
       groupVi: "Quản trị",
       groupEn: "Administration",
-      descVi: "Điều chỉnh ngưỡng cắt phân loại Glaucoma, DR và ngưỡng cảnh báo tỷ lệ A/V.",
+      descVi: "Điều chỉnh ngưỡng phân loại bệnh lý mắt và cảnh báo mạch máu.",
       descEn: "Tune cut-off thresholds for Glaucoma, DR, and AVR alert levels.",
     },
     AI_THRESHOLD_UPDATE: {
@@ -511,16 +562,16 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       descEn: "Configure risk classification thresholds and automatic retraining triggers.",
     },
     AUDIT_VIEW: {
-      nameVi: "Xem & Giám sát nhật ký kiểm toán HIPAA",
-      nameEn: "View & Monitor HIPAA Security Audit Logs",
+      nameVi: "Xem & Giám sát nhật ký bảo mật hệ thống",
+      nameEn: "View & Monitor Security Audit Logs",
       groupVi: "Bảo mật",
       groupEn: "Security",
-      descVi: "Giám sát chi tiết mọi thao tác truy cập dữ liệu y tế nhạy cảm (PHI).",
-      descEn: "Monitor PHI access trails and security events in real-time.",
+      descVi: "Giám sát chi tiết mọi thao tác truy cập dữ liệu y tế nhạy cảm.",
+      descEn: "Monitor access trails and security events in real-time.",
     },
     AUDIT_EXPORT: {
-      nameVi: "Xuất báo cáo nhật ký kiểm toán HIPAA (CSV)",
-      nameEn: "Export HIPAA Audit Trail Reports (CSV)",
+      nameVi: "Xuất báo cáo nhật ký bảo mật hệ thống",
+      nameEn: "Export Audit Trail Reports (CSV)",
       groupVi: "Bảo mật",
       groupEn: "Security",
       descVi: "Xuất file CSV chứa toàn bộ nhật ký truy cập và thao tác hệ thống.",
@@ -1664,23 +1715,9 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                           </td>
                           <td className="p-3.5">
                             <span
-                              className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold ${
-                                u.role === "ROLE_ADMIN"
-                                  ? "bg-purple-100 text-purple-800 border border-purple-200"
-                                  : u.role === "ROLE_DOCTOR"
-                                    ? "bg-blue-100 text-blue-800 border border-blue-200"
-                                    : u.role === "ROLE_CLINIC"
-                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                      : "bg-slate-100 text-slate-700 border border-slate-200"
-                              }`}
+                              className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold ${getRoleBadgeClass(u.role)}`}
                             >
-                              {u.role === "ROLE_ADMIN"
-                                ? (isVi ? "Quản trị viên" : "Administrator")
-                                : u.role === "ROLE_DOCTOR"
-                                  ? (isVi ? "Bác sĩ" : "Doctor")
-                                  : u.role === "ROLE_CLINIC"
-                                    ? (isVi ? "Phòng khám" : "Clinic")
-                                    : (isVi ? "Bệnh nhân" : "Patient")}
+                              {formatRoleLabel(u.role)}
                             </span>
                           </td>
                           <td className="p-3.5 text-slate-600">{u.department}</td>
@@ -1710,7 +1747,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                                   address: u.address || "",
                                 });
                               }}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs"
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs cursor-pointer"
                               title={isVi ? "Chỉnh sửa thông tin" : "Edit details"}
                             >
                               {t('admin.userManagement.editUser', isVi ? 'Sửa' : 'Edit')}
@@ -1718,16 +1755,16 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                             <button
                               onClick={() => {
                                 setRoleChangeUser(u);
-                                setSelectedNewRole(u.role);
+                                setSelectedNewRole(normalizeRole(u.role));
                               }}
-                              className="px-2.5 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 font-bold rounded-lg text-xs"
+                              className="px-2.5 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 font-bold rounded-lg text-xs cursor-pointer"
                               title={isVi ? "Chuyển đổi vai trò" : "Change user role"}
                             >
                               {t('admin.userManagement.changeRoleBtn', isVi ? 'Đổi Vai Trò' : 'Change Role')}
                             </button>
                             <button
                               onClick={() => handleToggleUserStatus(u.id, u.status)}
-                              className={`px-2.5 py-1.5 font-bold rounded-lg text-xs text-white ${
+                              className={`px-2.5 py-1.5 font-bold rounded-lg text-xs text-white cursor-pointer ${
                                 u.status === "ACTIVE"
                                   ? "bg-rose-600 hover:bg-rose-700"
                                   : "bg-emerald-600 hover:bg-emerald-700"
@@ -1981,7 +2018,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-cyan-700" /> {t('admin.rbac.rolePermissionMatrix', isVi ? 'Ma trận phân quyền (RBAC)' : 'RBAC Matrix')}
+                  <ShieldCheck className="w-5 h-5 text-cyan-700" /> {t('admin.rbac.rolePermissionMatrix', isVi ? 'Ma trận phân quyền hệ thống' : 'Role Permissions')}
                 </h2>
                 <p className="text-xs text-slate-500">
                   {t('admin.rbac.subtitle', isVi ? 'Thiết lập quyền truy cập cho từng vai trò người dùng trong hệ thống.' : 'Configure access permissions for each user role.')}

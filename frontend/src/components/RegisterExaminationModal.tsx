@@ -120,13 +120,13 @@ export const RegisterExaminationModal: React.FC<RegisterExaminationModalProps> =
       sublabel: isVi ? 'Kiểm tra mạch máu đáy mắt và nguy cơ vi mạch' : 'Check fundus vessels & vascular health',
     },
     {
-      value: isVi ? 'Tầm soát bệnh võng mạc đái tháo đường (DR)' : 'Diabetic Retinopathy (DR) Screening',
-      label: isVi ? 'Tầm soát võng mạc đái tháo đường (DR)' : 'Diabetic Retinopathy (DR) Screening',
+      value: isVi ? 'Tầm soát bệnh võng mạc đái tháo đường' : 'Diabetic Retinopathy Screening',
+      label: isVi ? 'Tầm soát võng mạc đái tháo đường' : 'Diabetic Retinopathy Screening',
       sublabel: isVi ? 'Đánh giá tổn thương vi phình mạch, xuất huyết' : 'Assess microaneurysms and hemorrhages',
     },
     {
-      value: isVi ? 'Đánh giá tổn thương vi mạch do tăng huyết áp (HTR)' : 'Hypertensive Retinopathy Assessment',
-      label: isVi ? 'Đánh giá do tăng huyết áp (HTR)' : 'Hypertensive Retinopathy Assessment',
+      value: isVi ? 'Đánh giá tổn thương vi mạch do tăng huyết áp' : 'Hypertensive Retinopathy Assessment',
+      label: isVi ? 'Tổn thương do tăng huyết áp' : 'Hypertensive Retinopathy Assessment',
       sublabel: isVi ? 'Kiểm tra co thắt & xơ vữa tiểu động mạch' : 'Check arteriolar narrowing & sclerosis',
     },
     {
@@ -255,7 +255,7 @@ export const RegisterExaminationModal: React.FC<RegisterExaminationModalProps> =
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)'}
+                {isVi ? 'Mắt Phải' : 'Right Eye'}
               </button>
               <button
                 type="button"
@@ -266,7 +266,7 @@ export const RegisterExaminationModal: React.FC<RegisterExaminationModalProps> =
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)'}
+                {isVi ? 'Mắt Trái' : 'Left Eye'}
               </button>
               <button
                 type="button"
@@ -277,7 +277,7 @@ export const RegisterExaminationModal: React.FC<RegisterExaminationModalProps> =
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {isVi ? 'Cả hai mắt (OU)' : 'Both Eyes (OU)'}
+                {isVi ? 'Cả hai mắt' : 'Both Eyes'}
               </button>
             </div>
           </FormField>

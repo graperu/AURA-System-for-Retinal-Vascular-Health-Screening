@@ -96,88 +96,115 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
   const loadPatientDetails = useCallback(
     async (
       patientId: string,
-      summaryFallback?: DoctorPatientSummary,
+      summaryFallback?: DoctorPatientSummary | PatientProfile | any,
       specificScreeningId?: string
     ) => {
       setAnalysisResult(null);
       setIsScreeningLoading(true);
       setAnalysisErrorMsg(null);
 
+      // 1. Gán ngay thông tin bệnh nhân fallback vào activePatient để giao diện phản hồi tức thì
+      if (summaryFallback) {
+        setActivePatient({
+          id: summaryFallback.userId || summaryFallback.id || summaryFallback.patientId || patientId,
+          userId: summaryFallback.userId || summaryFallback.id || summaryFallback.patientId || patientId,
+          mrn: summaryFallback.mrn || null,
+          fullName: summaryFallback.fullName || null,
+          email: summaryFallback.email || null,
+          dateOfBirth: summaryFallback.dateOfBirth || null,
+          gender: summaryFallback.gender || null,
+          age: summaryFallback.age ?? null,
+          phoneNumber: summaryFallback.phoneNumber || summaryFallback.phone || null,
+          address: summaryFallback.address || null,
+          bloodType: summaryFallback.bloodType || null,
+          systolicBp: summaryFallback.systolicBp ?? null,
+          diastolicBp: summaryFallback.diastolicBp ?? null,
+          hba1c: summaryFallback.hba1c ?? null,
+          hasDiabetes: summaryFallback.hasDiabetes ?? null,
+          diabetesType: summaryFallback.diabetesType || null,
+          diabetesDurationYears: summaryFallback.diabetesDurationYears ?? null,
+          hasHypertension: summaryFallback.hasHypertension ?? null,
+          historyOfSmoking: summaryFallback.historyOfSmoking ?? null,
+          historyOfHeartDisease: summaryFallback.historyOfHeartDisease ?? null,
+          historyOfStroke: summaryFallback.historyOfStroke ?? null,
+          currentMedications: summaryFallback.currentMedications || null,
+          allergies: summaryFallback.allergies || null,
+          emergencyContactName: summaryFallback.emergencyContactName || null,
+          emergencyContactPhone: summaryFallback.emergencyContactPhone || null,
+          assignedDoctor: summaryFallback.assignedDoctor || doctorDisplayName,
+        });
+      }
+
       try {
-        // 1. Fetch official Patient Profile from Backend
-        const profileRes = await doctorApi.getPatientById(patientId);
-        if (profileRes.success && profileRes.data) {
-          const d = profileRes.data;
-          const mapped: PatientProfile = {
-            id: d.userId || patientId,
-            userId: d.userId || patientId,
-            mrn: d.mrn || null,
-            fullName: d.fullName || null,
-            email: d.email || summaryFallback?.email || null,
-            dateOfBirth: d.dateOfBirth || null,
-            age: d.age ?? summaryFallback?.age ?? null,
-            gender: d.gender || null,
-            phoneNumber: d.phoneNumber || summaryFallback?.phoneNumber || null,
-            address: d.address || summaryFallback?.address || null,
-            bloodType: d.bloodType || null,
-            systolicBp: d.systolicBp ?? summaryFallback?.systolicBp ?? null,
-            diastolicBp: d.diastolicBp ?? summaryFallback?.diastolicBp ?? null,
-            hba1c: d.hba1c ?? summaryFallback?.hba1c ?? null,
-            hasDiabetes: d.hasDiabetes ?? summaryFallback?.hasDiabetes ?? null,
-            diabetesType: d.diabetesType || null,
-            diabetesDurationYears: d.diabetesDurationYears ?? null,
-            hasHypertension: d.hasHypertension ?? summaryFallback?.hasHypertension ?? null,
-            historyOfSmoking: d.historyOfSmoking ?? null,
-            historyOfHeartDisease: d.historyOfHeartDisease ?? null,
-            historyOfStroke: d.historyOfStroke ?? null,
-            currentMedications: d.currentMedications || null,
-            allergies: d.allergies || null,
-            emergencyContactName: d.emergencyContactName || null,
-            emergencyContactPhone: d.emergencyContactPhone || null,
-            assignedDoctor: d.assignedDoctor || doctorDisplayName,
-          };
-          setActivePatient(mapped);
-        } else if (summaryFallback) {
-          setActivePatient({
-            id: summaryFallback.patientId,
-            userId: summaryFallback.patientId,
-            mrn: summaryFallback.mrn || null,
-            fullName: summaryFallback.fullName || null,
-            email: summaryFallback.email || null,
-            gender: summaryFallback.gender || null,
-            age: summaryFallback.age ?? null,
-            systolicBp: summaryFallback.systolicBp ?? null,
-            diastolicBp: summaryFallback.diastolicBp ?? null,
-            hba1c: summaryFallback.hba1c ?? null,
-            hasDiabetes: summaryFallback.hasDiabetes ?? null,
-            hasHypertension: summaryFallback.hasHypertension ?? null,
-            assignedDoctor: doctorDisplayName,
-          });
+        // 2. Tải hồ sơ bệnh nhân chính thức từ Backend (ưu tiên chi tiết lâm sàng đầy đủ)
+        const effectiveId = patientId || summaryFallback?.userId || summaryFallback?.id || summaryFallback?.patientId;
+        if (effectiveId) {
+          try {
+            const profileRes = await doctorApi.getPatientById(effectiveId);
+            if (profileRes.success && profileRes.data) {
+              const d = profileRes.data;
+              const mapped: PatientProfile = {
+                id: d.userId || d.id || effectiveId,
+                userId: d.userId || d.id || effectiveId,
+                mrn: d.mrn || summaryFallback?.mrn || null,
+                fullName: d.fullName || summaryFallback?.fullName || null,
+                email: d.email || summaryFallback?.email || null,
+                dateOfBirth: d.dateOfBirth || summaryFallback?.dateOfBirth || null,
+                age: d.age ?? summaryFallback?.age ?? null,
+                gender: d.gender || summaryFallback?.gender || null,
+                phoneNumber: d.phoneNumber || summaryFallback?.phoneNumber || summaryFallback?.phone || null,
+                address: d.address || summaryFallback?.address || null,
+                bloodType: d.bloodType || summaryFallback?.bloodType || null,
+                systolicBp: d.systolicBp ?? summaryFallback?.systolicBp ?? null,
+                diastolicBp: d.diastolicBp ?? summaryFallback?.diastolicBp ?? null,
+                hba1c: d.hba1c ?? summaryFallback?.hba1c ?? null,
+                hasDiabetes: d.hasDiabetes ?? summaryFallback?.hasDiabetes ?? null,
+                diabetesType: d.diabetesType || summaryFallback?.diabetesType || null,
+                diabetesDurationYears: d.diabetesDurationYears ?? summaryFallback?.diabetesDurationYears ?? null,
+                hasHypertension: d.hasHypertension ?? summaryFallback?.hasHypertension ?? null,
+                historyOfSmoking: d.historyOfSmoking ?? summaryFallback?.historyOfSmoking ?? null,
+                historyOfHeartDisease: d.historyOfHeartDisease ?? summaryFallback?.historyOfHeartDisease ?? null,
+                historyOfStroke: d.historyOfStroke ?? summaryFallback?.historyOfStroke ?? null,
+                currentMedications: d.currentMedications || summaryFallback?.currentMedications || null,
+                allergies: d.allergies || summaryFallback?.allergies || null,
+                emergencyContactName: d.emergencyContactName || summaryFallback?.emergencyContactName || null,
+                emergencyContactPhone: d.emergencyContactPhone || summaryFallback?.emergencyContactPhone || null,
+                assignedDoctor: d.assignedDoctor || summaryFallback?.assignedDoctor || doctorDisplayName,
+              };
+              setActivePatient(mapped);
+            }
+          } catch (profileErr) {
+            console.warn('Notice loading patient profile by ID:', profileErr);
+          }
         }
 
-        // 2. Fetch Patient Screenings
-        const screeningsRes = await doctorApi.getPatientScreenings(patientId);
-        if (screeningsRes.success && Array.isArray(screeningsRes.data) && screeningsRes.data.length > 0) {
-          const targetScreening = specificScreeningId
-            ? screeningsRes.data.find((s: any) => String(s.id) === String(specificScreeningId)) || screeningsRes.data[0]
-            : screeningsRes.data[0];
-          setAnalysisResult(mapScreeningToAIRiskResult(targetScreening, targetScreening.imageUrl));
+        // 3. Tải lịch sử các ca sàng lọc của bệnh nhân
+        if (effectiveId) {
+          try {
+            const screeningsRes = await doctorApi.getPatientScreenings(effectiveId);
+            if (screeningsRes.success && Array.isArray(screeningsRes.data) && screeningsRes.data.length > 0) {
+              const targetScreening = specificScreeningId
+                ? screeningsRes.data.find((s: any) => String(s.id) === String(specificScreeningId)) || screeningsRes.data[0]
+                : screeningsRes.data[0];
+              setAnalysisResult(mapScreeningToAIRiskResult(targetScreening, targetScreening.imageUrl));
+            } else {
+              setAnalysisResult(null);
+            }
+          } catch (screeningErr) {
+            console.warn('Notice loading screenings for patient:', screeningErr);
+            setAnalysisResult(null);
+          }
         } else {
           setAnalysisResult(null);
         }
       } catch (err) {
-        console.warn('Error loading patient details:', err);
+        console.warn('Error in loadPatientDetails flow:', err);
         setAnalysisResult(null);
-        setAnalysisErrorMsg(
-          isVi
-            ? 'Không thể tải kết quả sàng lọc của bệnh nhân.'
-            : 'Unable to load screening results for patient.'
-        );
       } finally {
         setIsScreeningLoading(false);
       }
     },
-    [doctorDisplayName, isVi]
+    [doctorDisplayName]
   );
 
   const fetchAssignedPatients = useCallback(async () => {
@@ -200,8 +227,9 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         setAssignedPatients(patientList);
         if (patientList.length > 0) {
           const first = patientList[0];
-          setSelectedPatientId(first.patientId);
-          await loadPatientDetails(first.patientId, first);
+          const pid = first.patientId || first.userId || first.id;
+          setSelectedPatientId(pid);
+          await loadPatientDetails(pid, first);
         } else {
           setSelectedPatientId(null);
           setActivePatient(null);
@@ -231,9 +259,20 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
   }, [fetchAssignedPatients]);
 
   const handleSelectPatientForCDS = useCallback(
-    async (patientId: string, screeningId?: string) => {
+    async (
+      patientId: string,
+      screeningId?: string,
+      directPatient?: DoctorPatientSummary | PatientProfile | any
+    ) => {
       setSelectedPatientId(patientId);
-      const summaryFallback = assignedPatients.find((p) => p.patientId === patientId);
+      const summaryFallback =
+        directPatient ||
+        assignedPatients.find(
+          (p) =>
+            String(p.patientId) === String(patientId) ||
+            String((p as any).id) === String(patientId) ||
+            String((p as any).userId) === String(patientId)
+        );
       await loadPatientDetails(patientId, summaryFallback, screeningId);
       onNavigate?.('cds-viewer');
     },
@@ -248,7 +287,8 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       mimeType?: string;
     },
   ) => {
-    if (!selectedPatientId || !activePatient) {
+    const targetPatientId = selectedPatientId || activePatient?.userId || activePatient?.id;
+    if (!targetPatientId || !activePatient) {
       setAnalysisErrorMsg(
         t(
           'doctor.cds.selectPatientFirst',
@@ -263,7 +303,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
 
     try {
       // Call doctor-specific screening endpoint
-      const res = await doctorApi.createScreeningForPatient(selectedPatientId, {
+      const res = await doctorApi.createScreeningForPatient(targetPatientId, {
         imageUrl: request.imageUrl,
         eyePosition: request.eyePosition || request.eye || 'Right_OD',
         eye: request.eye || request.eyePosition || 'Right_OD',
@@ -334,10 +374,12 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
     return (
       <DoctorPatientListPage
         onSelectPatientForCDS={(patient) => {
-          setActivePatient(patient);
           const pid = patient.userId || patient.id;
           if (pid) {
-            handleSelectPatientForCDS(pid);
+            handleSelectPatientForCDS(pid, undefined, patient);
+          } else {
+            setActivePatient(patient);
+            onNavigate?.('cds-viewer');
           }
         }}
         onNavigate={onNavigate}
@@ -350,7 +392,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
     return (
       <DoctorRiskAnalyticsView
         assignedPatients={assignedPatients}
-        onSelectPatientForCDS={handleSelectPatientForCDS}
+        onSelectPatientForCDS={(pid, sid, pt) => handleSelectPatientForCDS(pid, sid, pt)}
         onNavigate={onNavigate}
       />
     );
@@ -361,7 +403,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
     return (
       <DoctorReportsView
         assignedPatients={assignedPatients}
-        onReviewAndSign={handleSelectPatientForCDS}
+        onReviewAndSign={(pid, sid, pt) => handleSelectPatientForCDS(pid, sid, pt)}
         doctorName={doctorDisplayName}
       />
     );
@@ -375,8 +417,8 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         initialSelectedPatientId={selectedPatientId}
         currentUserId={currentUser?.id}
         doctorName={doctorDisplayName}
-        onSelectPatientForCDS={(patientId) => {
-          handleSelectPatientForCDS(patientId);
+        onSelectPatientForCDS={(patientId, pt) => {
+          handleSelectPatientForCDS(patientId, undefined, pt);
         }}
       />
     );

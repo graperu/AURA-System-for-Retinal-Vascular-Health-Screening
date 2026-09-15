@@ -57,34 +57,34 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
   const scanTypeOptions: ClinicalSelectOption<'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan'>[] = useMemo(() => [
     {
       value: 'Fundus_Macula',
-      label: isVi ? 'Ảnh màu hoàng điểm' : 'Macula Fundus',
+      label: isVi ? 'Ảnh chụp hoàng điểm' : 'Macula Fundus',
       sublabel: isVi
-        ? 'Tập trung vùng hoàng điểm & vi mạch trung tâm'
-        : 'Macula & central microvasculature',
+        ? 'Chụp vùng trung tâm võng mạc'
+        : 'Macula & central retina',
       icon: <Target className="w-4 h-4 text-[#0891B2]" />,
     },
     {
       value: 'Fundus_OpticDisc',
-      label: isVi ? 'Ảnh màu gai thị' : 'Optic Disc Fundus',
+      label: isVi ? 'Ảnh chụp gai thị' : 'Optic Disc Fundus',
       sublabel: isVi
-        ? 'Tập trung gai thị & tỷ lệ cup/disc'
-        : 'Optic disc & cup-to-disc ratio',
+        ? 'Chụp vùng thần kinh thị giác'
+        : 'Optic disc & cup-to-disc',
       icon: <CircleDot className="w-4 h-4 text-[#0891B2]" />,
     },
     {
       value: 'OCT_Scan',
       label: isVi ? 'Chụp cắt lớp OCT' : 'OCT Scan',
       sublabel: isVi
-        ? 'Phân tích lớp cắt võng mạc chuyên sâu'
+        ? 'Ảnh cắt lớp võng mạc chuyên sâu'
         : 'Cross-sectional retinal imaging',
       icon: <Layers className="w-4 h-4 text-[#0891B2]" />,
     },
   ], [isVi]);
 
   const eyeOptions = useMemo(() => [
-    { id: 'Right_OD' as const, label: isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)' },
-    { id: 'Left_OS' as const, label: isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)' },
-  ], [isVi]);
+    { id: 'Right_OD' as const, label: 'Mắt Phải' },
+    { id: 'Left_OS' as const, label: 'Mắt Trái' },
+  ], []);
 
   const [eyeMode, setEyeMode] = useState<'Right_OD' | 'Left_OS'>('Right_OD');
   const [scanType, setScanType] = useState<'Fundus_Macula' | 'Fundus_OpticDisc' | 'OCT_Scan'>('Fundus_Macula');
@@ -307,19 +307,11 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     const hasOS = Boolean(osFile || osPreviewUrl);
 
     if (eyeMode === 'Right_OD' && !hasOD) {
-      setUploadError(
-        isVi
-          ? 'Vui lòng chọn tệp ảnh chụp võng mạc cho Mắt Phải (OD) trước khi bắt đầu phân tích AI.'
-          : 'Please select a retinal scan image for Right Eye (OD) before starting AI analysis.'
-      );
+      setUploadError('Vui lòng chọn ảnh chụp cho Mắt Phải trước khi bắt đầu phân tích.');
       return;
     }
     if (eyeMode === 'Left_OS' && !hasOS) {
-      setUploadError(
-        isVi
-          ? 'Vui lòng chọn tệp ảnh chụp võng mạc cho Mắt Trái (OS) trước khi bắt đầu phân tích AI.'
-          : 'Please select a retinal scan image for Left Eye (OS) before starting AI analysis.'
-      );
+      setUploadError('Vui lòng chọn ảnh chụp cho Mắt Trái trước khi bắt đầu phân tích.');
       return;
     }
 
@@ -369,12 +361,12 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         <div>
           <h2 className="text-base sm:text-lg font-bold text-clinical-text flex items-center gap-2">
             <UploadCloud className="w-5 h-5 text-[#0891B2] shrink-0" />
-            <span>{isVi ? 'Tải Ảnh Võng Mạc' : 'Upload Retinal Scan'}</span>
+            <span>{isVi ? 'Tải Ảnh Mắt' : 'Upload Eye Scan'}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
             {isVi
-              ? 'Hỗ trợ PNG, JPG, DICOM (tối đa 15MB). Mã hóa an toàn.'
-              : 'Supports PNG, JPG, DICOM (max 15MB). Securely encrypted.'}
+              ? 'Hỗ trợ ảnh PNG, JPG, DICOM (tối đa 15MB).'
+              : 'Supports PNG, JPG, DICOM (max 15MB).'}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap pt-0.5">
@@ -388,11 +380,11 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             icon={<Sparkles className="w-3.5 h-3.5 text-[#0891B2]" />}
             className="text-xs font-semibold py-1.5 px-3"
           >
-            {isLoadingDemo ? (isVi ? 'Đang nạp...' : 'Loading...') : (isVi ? 'Ảnh mẫu' : 'Sample scan')}
+            {isLoadingDemo ? (isVi ? 'Đang nạp...' : 'Loading...') : (isVi ? 'Dùng ảnh mẫu' : 'Sample scan')}
           </Button>
           <div className="flex items-center gap-1.5 text-xs bg-[#F0FDFA] text-[#0891B2] px-2.5 py-1.5 rounded-xl border border-[#CCFBF1] font-semibold whitespace-nowrap">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{isVi ? 'Chuẩn HIPAA' : 'HIPAA Compliant'}</span>
+            <span>{isVi ? 'Bảo mật HIPAA' : 'HIPAA Compliant'}</span>
           </div>
         </div>
       </div>
@@ -404,7 +396,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             <AlertCircle className="w-5 h-5 shrink-0 text-red-600 mt-0.5" />
             <div className="space-y-1">
               <h4 className="font-bold text-red-900 text-sm">
-                {analysisError ? 'Không thể hoàn tất phân tích AI' : 'Lỗi kiểm tra tệp ảnh'}
+                {analysisError ? 'Không thể phân tích ảnh' : 'Lỗi tệp ảnh'}
               </h4>
               <p className="text-red-700 leading-relaxed">
                 {analysisError || uploadError}
@@ -445,7 +437,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
           {/* Eye Selection Mode */}
           <div>
             <label className="block text-xs font-semibold text-clinical-text mb-1.5">
-              {isVi ? 'Chọn mắt sàng lọc' : 'Select Eye for Screening'}
+              {isVi ? 'Chọn mắt chụp' : 'Select Eye for Screening'}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {eyeOptions.map((opt) => (
@@ -490,11 +482,11 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-clinical-text flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#0891B2]" />
-                  {isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)'}
+                  Mắt Phải
                 </span>
                 {odFile && (
                   <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> {isVi ? 'Đã chọn' : 'Selected'}
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Đã chọn
                   </span>
                 )}
               </div>
@@ -534,13 +526,13 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                   <div className="space-y-3">
                     <img
                       src={odPreviewUrl}
-                      alt={isVi ? 'Xem trước mắt phải' : 'Right eye preview'}
+                      alt="Xem trước mắt phải"
                       className="max-h-56 mx-auto rounded-lg object-contain border border-clinical-border shadow-xs"
                     />
                     <div className="text-xs text-slate-600 flex items-center justify-center gap-2">
                       <FileCheck className="w-4 h-4 text-emerald-600" />
                       <span className="font-medium truncate max-w-[240px]">
-                        {odFile?.name || (isVi ? 'Ảnh Mắt Phải (OD)' : 'Right Eye Scan (OD)')}
+                        {odFile?.name || 'Ảnh Mắt Phải'}
                       </span>
                       <button
                         type="button"
@@ -550,7 +542,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                           setOdPreviewUrl('');
                         }}
                         className="text-red-600 hover:text-red-700 p-1 rounded-md hover:bg-red-50"
-                        title={isVi ? 'Xóa ảnh này' : 'Remove this image'}
+                        title="Xóa ảnh này"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -562,9 +554,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                       <FileImage className="w-6 h-6" />
                     </div>
                     <div className="text-xs font-semibold text-clinical-text">
-                      {isVi
-                        ? 'Kéo thả ảnh Mắt Phải (OD) hoặc bấm tải lên'
-                        : 'Drag & drop Right Eye (OD) image or click to upload'}
+                      Kéo thả ảnh Mắt Phải hoặc bấm tải lên
                     </div>
                     <p className="text-[11px] text-clinical-text-muted">
                       PNG, JPG, DICOM (tối đa 15MB)
@@ -581,11 +571,11 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-clinical-text flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-600" />
-                  {isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)'}
+                  Mắt Trái
                 </span>
                 {osFile && (
                   <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> {isVi ? 'Đã chọn' : 'Selected'}
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Đã chọn
                   </span>
                 )}
               </div>
@@ -630,7 +620,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                     <div className="text-xs text-slate-600 flex items-center justify-center gap-2">
                       <FileCheck className="w-4 h-4 text-emerald-600" />
                       <span className="font-medium truncate max-w-[240px]">
-                        {osFile?.name || (isVi ? 'Ảnh Mắt Trái (OS)' : 'Left Eye Scan (OS)')}
+                        {osFile?.name || 'Ảnh Mắt Trái'}
                       </span>
                       <button
                         type="button"
@@ -640,7 +630,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                           setOsPreviewUrl('');
                         }}
                         className="text-red-600 hover:text-red-700 p-1 rounded-md hover:bg-red-50"
-                        title={isVi ? 'Xóa ảnh này' : 'Remove this image'}
+                        title="Xóa ảnh này"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -652,9 +642,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                       <FileImage className="w-6 h-6" />
                     </div>
                     <div className="text-xs font-semibold text-clinical-text">
-                      {isVi
-                        ? 'Kéo thả ảnh Mắt Trái (OS) hoặc bấm tải lên'
-                        : 'Drag & drop Left Eye (OS) image or click to upload'}
+                      Kéo thả ảnh Mắt Trái hoặc bấm tải lên
                     </div>
                     <p className="text-[11px] text-clinical-text-muted">
                       PNG, JPG, DICOM (tối đa 15MB)
@@ -672,7 +660,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             <div className="flex items-center justify-between text-xs sm:text-sm">
               <span className="font-bold text-slate-800 flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-[#0891B2]" />
-                {analysisProgress.status || 'Đang thực hiện phân tích vi mạch AI...'}
+                {analysisProgress.status || (isVi ? 'Đang phân tích ảnh mắt...' : 'Analyzing eye scan...')}
               </span>
               <span className="font-mono-data font-black text-[#0891B2] bg-white px-3 py-1 rounded-xl border border-cyan-200 shadow-xs text-sm">
                 {Math.min(100, Math.max(0, analysisProgress.percent))}%
@@ -685,11 +673,11 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
               />
             </div>
             <div className="flex justify-between items-center text-[11px] text-slate-500 font-medium">
-              <span>0% {isVi ? 'Khởi tạo' : 'Init'}</span>
-              <span>25% Multimodal Vision</span>
-              <span>60% Biomarkers</span>
-              <span>85% Grad-CAM</span>
-              <span>100% {isVi ? 'Hoàn tất' : 'Complete'}</span>
+              <span>0% {isVi ? 'Bắt đầu' : 'Start'}</span>
+              <span>25% AI Vision</span>
+              <span>60% Chỉ số</span>
+              <span>85% Bản đồ</span>
+              <span>100% {isVi ? 'Xong' : 'Done'}</span>
             </div>
           </div>
         )}
@@ -699,7 +687,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
           {userCredits !== undefined ? (
             <div className="flex items-center gap-2 text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
               <span className="text-slate-500">
-                {t('uploader.availableQuota', isVi ? 'Lượt khám khả dụng:' : 'Available screening quota:')}
+                {t('uploader.availableQuota', isVi ? 'Lượt còn lại:' : 'Remaining:')}
               </span>
               <span
                 className={`font-black font-mono-data px-2 py-0.5 rounded-md border text-xs ${
@@ -735,8 +723,8 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             icon={<Sparkles className="w-4 h-4" />}
           >
             {isAnalyzing
-              ? (isVi ? 'Đang phân tích vi mạch AI...' : 'Analyzing with AI...')
-              : (isVi ? 'Bắt đầu phân tích AI' : 'Start AI Analysis')}
+              ? (isVi ? 'Đang phân tích...' : 'Analyzing...')
+              : (isVi ? 'Phân tích ngay' : 'Analyze Now')}
           </Button>
         </div>
       </form>

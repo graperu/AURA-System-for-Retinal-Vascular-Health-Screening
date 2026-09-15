@@ -303,8 +303,8 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       const dateStr = formatDateTime(item.createdAt);
       const eyeStr =
         item.eyePosition === 'OS' || item.eyePosition?.toUpperCase().includes('LEFT')
-          ? (isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)')
-          : (isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)');
+          ? (isVi ? 'Mắt Trái' : 'Left Eye')
+          : (isVi ? 'Mắt Phải' : 'Right Eye');
       const riskLevelStr = formatRiskLevel(item.riskLevel);
       const statusStr =
         item.status === 'REVIEWED' || item.doctorReviewed
@@ -877,6 +877,21 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* EHR Immutability & HIPAA Compliance Banner */}
+      <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center gap-3 text-xs text-slate-600">
+        <ShieldCheck className="w-5 h-5 text-teal-600 shrink-0" />
+        <div>
+          <span className="font-semibold text-slate-800">
+            {isVi ? 'Hồ sơ bệnh án điện tử (EMR) chuẩn HIPAA & Bộ Y Tế' : 'Electronic Medical Records (EMR) HIPAA & MoH Standards'}
+          </span>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            {isVi
+              ? 'Dữ liệu chẩn đoán hình ảnh và lịch sử khám sàng lọc được lưu trữ bảo mật, bảo đảm tính toàn vẹn và bất biến y tế.'
+              : 'Diagnostic imaging data and screening history are securely preserved ensuring medical integrity and immutability.'}
+          </p>
+        </div>
+      </div>
 
       <MedicalDisclaimer variant="compact" />
     </div>

@@ -21,9 +21,9 @@ export const EyeBadge: React.FC<EyeBadgeProps> = ({
   className = '',
 }) => {
   const norm = (position || '').toUpperCase();
-  const isOD = norm.includes('OD') || norm.includes('RIGHT') || norm === 'R';
-  const isOS = norm.includes('OS') || norm.includes('LEFT') || norm === 'L';
   const isBoth = norm.includes('BOTH') || norm.includes('OU') || norm.includes('2');
+  const isOS = !isBoth && (norm.includes('OS') || norm.includes('LEFT') || norm === 'L');
+  const isOD = !isBoth && (norm.includes('OD') || norm.includes('RIGHT') || norm === 'R');
 
   let label = 'Chưa xác định';
   let colorClasses = 'bg-slate-50 text-slate-700 border-slate-200';

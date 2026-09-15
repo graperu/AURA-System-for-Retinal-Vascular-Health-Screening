@@ -75,8 +75,8 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
   // Tổng hợp toàn bộ điểm tổn thương vi mạch phục vụ bảng tra cứu và in ấn
   const allReportAnomalies = hasDualData
     ? [
-        ...odAnomalies.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)', eyeCode: 'OD', pinIndex: i + 1 })),
-        ...osAnomalies.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)', eyeCode: 'OS', pinIndex: i + 1 })),
+        ...odAnomalies.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Phải' : 'Right Eye', eyeCode: 'OD', pinIndex: i + 1 })),
+        ...osAnomalies.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Trái' : 'Left Eye', eyeCode: 'OS', pinIndex: i + 1 })),
       ]
     : singleAnomalies.map((a, i) => ({ ...a, eyeLabel: result.eyePosition || 'OD', eyeCode: 'OD', pinIndex: i + 1 }));
 
@@ -150,7 +150,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
     const csvContent = hasDualData
       ? [
           [isVi ? 'BÁO CÁO KẾT QUẢ SÀNG LỌC VI MẠCH VÕNG MẠC - HỆ THỐNG AURA' : 'AURA RETINAL VASCULAR SCREENING REPORT', '', '', '', ''],
-          [isVi ? 'Chỉ số phân tích / Thông tin' : 'Clinical Metric / Info', isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)', isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)', isVi ? 'Ngưỡng chuẩn' : 'Reference Range', isVi ? 'Đánh giá lâm sàng' : 'Clinical Evaluation'],
+          [isVi ? 'Chỉ số phân tích / Thông tin' : 'Clinical Metric / Info', isVi ? 'Mắt Phải' : 'Right Eye', isVi ? 'Mắt Trái' : 'Left Eye', isVi ? 'Ngưỡng chuẩn' : 'Reference Range', isVi ? 'Đánh giá lâm sàng' : 'Clinical Evaluation'],
           [isVi ? 'Mã phiếu khám' : 'Report ID', odData.analysisId, osData.analysisId, 'HL7/FHIR', ''],
           [isVi ? 'Họ và tên bệnh nhân' : 'Patient Name', sanitizeCsvCell(patient.fullName || ''), sanitizeCsvCell(patient.fullName || ''), '', ''],
           [isVi ? 'Mã bệnh nhân (MRN)' : 'MRN', sanitizeCsvCell(patient.mrn || ''), sanitizeCsvCell(patient.mrn || ''), '', ''],
@@ -397,7 +397,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
               </span>
               {hasDualData && (
                 <span className="text-[11px] font-bold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
-                  {t('doctor.reportModal.dualComparisonHeader', 'Đối chiếu đồng thời 2 mắt: Mắt Phải (OD) & Mắt Trái (OS)')}
+                  {t('doctor.reportModal.dualComparisonHeader', 'Đối chiếu đồng thời 2 mắt: Mắt Phải & Mắt Trái')}
                 </span>
               )}
             </h3>
@@ -405,12 +405,12 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             {hasDualData ? (
               /* DUAL EYE DISPLAY: 4 IMAGES */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Right Eye (OD) Block */}
+                {/* Right Eye Block */}
                 <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-cyan-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-cyan-900 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-cyan-600"></span>
-                      {isVi ? 'MẮT PHẢI (OD)' : 'RIGHT EYE (OD)'}
+                      {isVi ? 'MẮT PHẢI' : 'RIGHT EYE'}
                     </span>
                     <span className="text-[11px] font-mono-data font-bold text-cyan-700 bg-white px-2 py-0.5 rounded border border-cyan-200">
                       {isVi ? 'Nguy cơ' : 'Risk'}: {odData.overallVascularRiskScore}% • A/V: {odData.annotatedMap.arteryVeinRatio}
@@ -421,12 +421,12 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                       <div className="relative aspect-square w-full rounded-full overflow-hidden border border-slate-800">
                         <img
                           src={odData.imageUrl || '/assets/images/fundus_original.png'}
-                          alt={isVi ? 'Ảnh đáy mắt OD gốc' : 'Original OD fundus scan'}
+                          alt={isVi ? 'Ảnh đáy mắt phải gốc' : 'Original right fundus scan'}
                           className="h-full w-full object-cover"
                         />
                       </div>
                       <p className="mt-1.5 text-[10px] font-semibold text-slate-300">
-                        {isVi ? 'Ảnh Gốc (OD)' : 'Original (OD)'}
+                        {isVi ? 'Ảnh Gốc' : 'Original'}
                       </p>
                     </div>
 
@@ -487,18 +487,18 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                         })}
                       </div>
                       <p className="mt-1.5 text-[10px] font-semibold text-cyan-200">
-                        {isVi ? 'Bản Đồ Nhiệt AI (OD)' : 'AI Heatmap (OD)'}
+                        {isVi ? 'Bản Đồ Nhiệt AI' : 'AI Heatmap'}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Left Eye (OS) Block */}
+                {/* Left Eye Block */}
                 <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-teal-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-teal-600"></span>
-                      {isVi ? 'MẮT TRÁI (OS)' : 'LEFT EYE (OS)'}
+                      {isVi ? 'MẮT TRÁI' : 'LEFT EYE'}
                     </span>
                     <span className="text-[11px] font-mono-data font-bold text-teal-700 bg-white px-2 py-0.5 rounded border border-teal-200">
                       {isVi ? 'Nguy cơ' : 'Risk'}: {osData.overallVascularRiskScore}% • A/V: {osData.annotatedMap.arteryVeinRatio}
@@ -509,12 +509,12 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                       <div className="relative aspect-square w-full rounded-full overflow-hidden border border-slate-800">
                         <img
                           src={osData.imageUrl || '/assets/images/fundus_original.png'}
-                          alt={isVi ? 'Ảnh đáy mắt OS gốc' : 'Original OS fundus scan'}
+                          alt={isVi ? 'Ảnh đáy mắt trái gốc' : 'Original left fundus scan'}
                           className="h-full w-full object-cover"
                         />
                       </div>
                       <p className="mt-1.5 text-[10px] font-semibold text-slate-300">
-                        {isVi ? 'Ảnh Gốc (OS)' : 'Original (OS)'}
+                        {isVi ? 'Ảnh Gốc' : 'Original'}
                       </p>
                     </div>
 
@@ -522,7 +522,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                       <div className="relative aspect-square w-full rounded-full overflow-hidden border border-teal-600 bg-black">
                         <img
                           src={osData.imageUrl || '/assets/images/fundus_original.png'}
-                          alt={isVi ? 'Ảnh nền OS' : 'OS background'}
+                          alt={isVi ? 'Ảnh nền mắt trái' : 'Left background'}
                           className="h-full w-full object-cover absolute inset-0"
                         />
                         {osData.annotatedMap?.heatmapUrl && osData.annotatedMap.heatmapUrl !== '/assets/images/fundus_heatmap.png' ? (
@@ -575,7 +575,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                         })}
                       </div>
                       <p className="mt-1.5 text-[10px] font-semibold text-teal-200">
-                        {isVi ? 'Bản Đồ Nhiệt AI (OS)' : 'AI Heatmap (OS)'}
+                        {isVi ? 'Bản Đồ Nhiệt AI' : 'AI Heatmap'}
                       </p>
                     </div>
                   </div>
@@ -789,7 +789,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* CVD Card */}
               {(() => {
-                const cvdScore = Math.max(odData.cardiovascularRisk.score, osData.cardiovascularRisk.score);
+                const cvdScore = Math.max(odData?.cardiovascularRisk?.score ?? 0, osData?.cardiovascularRisk?.score ?? 0);
                 const cvdLevel = isVi
                   ? (cvdScore >= 80 ? 'Nguy kịch' : cvdScore >= 65 ? 'Cao' : cvdScore >= 40 ? 'Trung bình' : 'Thấp')
                   : (cvdScore >= 80 ? 'Critical' : cvdScore >= 65 ? 'High' : cvdScore >= 40 ? 'Moderate' : 'Low');
@@ -803,8 +803,8 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     : 'bg-emerald-100 text-emerald-800 border-emerald-300';
                 const cvdDesc = hasDualData
                   ? (isVi
-                      ? `OD: ${odData.cardiovascularRisk.score}% • OS: ${osData.cardiovascularRisk.score}% (Điểm cao nhất giữa 2 mắt).`
-                      : `OD: ${odData.cardiovascularRisk.score}% • OS: ${osData.cardiovascularRisk.score}% (Worst score across eyes).`)
+                      ? `OD: ${odData?.cardiovascularRisk?.score ?? 0}% • OS: ${osData?.cardiovascularRisk?.score ?? 0}% (Điểm cao nhất giữa 2 mắt).`
+                      : `OD: ${odData?.cardiovascularRisk?.score ?? 0}% • OS: ${osData?.cardiovascularRisk?.score ?? 0}% (Worst score across eyes).`)
                   : cvdScore >= 65
                   ? (isVi
                       ? 'Tỷ lệ A/V hẹp rõ rệt, nguy cơ xơ cứng mạch máu và biến cố mạch vành cao.'
@@ -837,7 +837,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
 
               {/* DR Card */}
               {(() => {
-                const drScore = Math.max(odData.diabeticRetinopathyRisk.score, osData.diabeticRetinopathyRisk.score);
+                const drScore = Math.max(odData?.diabeticRetinopathyRisk?.score ?? 0, osData?.diabeticRetinopathyRisk?.score ?? 0);
                 const drLevel = isVi
                   ? (drScore >= 80 ? 'Nguy kịch' : drScore >= 65 ? 'Cao' : drScore >= 40 ? 'Trung bình' : 'Thấp')
                   : (drScore >= 80 ? 'Critical' : drScore >= 65 ? 'High' : drScore >= 40 ? 'Moderate' : 'Low');
@@ -850,7 +850,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     ? 'bg-amber-100 text-amber-800 border-amber-300'
                     : 'bg-emerald-100 text-emerald-800 border-emerald-300';
                 const drDesc = hasDualData
-                  ? `OD: ${odData.diabeticRetinopathyRisk.score}% • OS: ${osData.diabeticRetinopathyRisk.score}%`
+                  ? `OD: ${odData?.diabeticRetinopathyRisk?.score ?? 0}% • OS: ${osData?.diabeticRetinopathyRisk?.score ?? 0}%`
                   : drScore >= 60
                   ? (isVi
                       ? 'Phát hiện tổn thương vi mạch, xuất huyết hoặc xuất tiết võng mạc rõ rệt.'
@@ -883,7 +883,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
 
               {/* Glaucoma Card */}
               {(() => {
-                const glaucomaScore = Math.max(odData.glaucomaRisk.score, osData.glaucomaRisk.score);
+                const glaucomaScore = Math.max(odData?.glaucomaRisk?.score ?? 0, osData?.glaucomaRisk?.score ?? 0);
                 const glaucomaLevel = isVi
                   ? (glaucomaScore >= 80 ? 'Nguy kịch' : glaucomaScore >= 65 ? 'Cao' : glaucomaScore >= 40 ? 'Trung bình' : 'Thấp')
                   : (glaucomaScore >= 80 ? 'Critical' : glaucomaScore >= 65 ? 'High' : glaucomaScore >= 40 ? 'Moderate' : 'Low');
@@ -941,8 +941,8 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <th className="p-2.5">{t('doctor.reportModal.colBiomarker', 'Chỉ số sinh học')}</th>
                     {hasDualData ? (
                       <>
-                        <th className="p-2.5 text-[#0891B2]">{t('doctor.reportModal.colOD', 'Mắt Phải (OD)')}</th>
-                        <th className="p-2.5 text-[#0D9488]">{t('doctor.reportModal.colOS', 'Mắt Trái (OS)')}</th>
+                        <th className="p-2.5 text-[#0891B2]">{t('doctor.reportModal.colOD', 'Mắt Phải')}</th>
+                        <th className="p-2.5 text-[#0D9488]">{t('doctor.reportModal.colOS', 'Mắt Trái')}</th>
                       </>
                     ) : (
                       <th className="p-2.5">{t('doctor.reportModal.colMeasured', 'Giá trị đo')}</th>
@@ -956,24 +956,24 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <td className="p-2.5 font-medium">{t('doctor.reportModal.bmAvr', 'Tỷ lệ Động/Tĩnh mạch')}</td>
                     {hasDualData ? (
                       <>
-                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData.annotatedMap.arteryVeinRatio}</td>
-                        <td className="p-2.5 font-bold font-mono-data text-teal-800">{osData.annotatedMap.arteryVeinRatio}</td>
+                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData?.annotatedMap?.arteryVeinRatio ?? '--'}</td>
+                        <td className="p-2.5 font-bold font-mono-data text-teal-800">{osData?.annotatedMap?.arteryVeinRatio ?? '--'}</td>
                         <td className="p-2.5 text-slate-500 font-mono-data">≥ 0.67</td>
                         <td className="p-2.5 space-y-0.5">
-                          <span className={`block ${evaluateAvRatio(odData.annotatedMap.arteryVeinRatio).color}`}>
-                            OD: {evaluateAvRatio(odData.annotatedMap.arteryVeinRatio).text}
+                          <span className={`block ${evaluateAvRatio(odData?.annotatedMap?.arteryVeinRatio ?? 0).color}`}>
+                            OD: {evaluateAvRatio(odData?.annotatedMap?.arteryVeinRatio ?? 0).text}
                           </span>
-                          <span className={`block ${evaluateAvRatio(osData.annotatedMap.arteryVeinRatio).color}`}>
-                            OS: {evaluateAvRatio(osData.annotatedMap.arteryVeinRatio).text}
+                          <span className={`block ${evaluateAvRatio(osData?.annotatedMap?.arteryVeinRatio ?? 0).color}`}>
+                            OS: {evaluateAvRatio(osData?.annotatedMap?.arteryVeinRatio ?? 0).text}
                           </span>
                         </td>
                       </>
                     ) : (
                       <>
-                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{result.annotatedMap.arteryVeinRatio}</td>
+                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{result?.annotatedMap?.arteryVeinRatio ?? '--'}</td>
                         <td className="p-2.5 text-slate-500 font-mono-data">≥ 0.67</td>
-                        <td className={`p-2.5 ${evaluateAvRatio(result.annotatedMap.arteryVeinRatio).color}`}>
-                          {evaluateAvRatio(result.annotatedMap.arteryVeinRatio).text}
+                        <td className={`p-2.5 ${evaluateAvRatio(result?.annotatedMap?.arteryVeinRatio ?? 0).color}`}>
+                          {evaluateAvRatio(result?.annotatedMap?.arteryVeinRatio ?? 0).text}
                         </td>
                       </>
                     )}
@@ -982,24 +982,24 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <td className="p-2.5 font-medium">{t('doctor.reportModal.bmDensity', 'Mật độ tưới máu vi mạch')}</td>
                     {hasDualData ? (
                       <>
-                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData.annotatedMap.vesselDensityPercentage}%</td>
-                        <td className="p-2.5 font-bold font-mono-data text-teal-800">{osData.annotatedMap.vesselDensityPercentage}%</td>
+                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData?.annotatedMap?.vesselDensityPercentage ?? '--'}%</td>
+                        <td className="p-2.5 font-bold font-mono-data text-teal-800">{osData?.annotatedMap?.vesselDensityPercentage ?? '--'}%</td>
                         <td className="p-2.5 text-slate-500 font-mono-data">15.5% - 19.0%</td>
                         <td className="p-2.5 space-y-0.5">
-                          <span className={`block ${evaluateVesselDensity(odData.annotatedMap.vesselDensityPercentage).color}`}>
-                            OD: {evaluateVesselDensity(odData.annotatedMap.vesselDensityPercentage).text}
+                          <span className={`block ${evaluateVesselDensity(odData?.annotatedMap?.vesselDensityPercentage ?? 0).color}`}>
+                            OD: {evaluateVesselDensity(odData?.annotatedMap?.vesselDensityPercentage ?? 0).text}
                           </span>
-                          <span className={`block ${evaluateVesselDensity(osData.annotatedMap.vesselDensityPercentage).color}`}>
-                            OS: {evaluateVesselDensity(osData.annotatedMap.vesselDensityPercentage).text}
+                          <span className={`block ${evaluateVesselDensity(osData?.annotatedMap?.vesselDensityPercentage ?? 0).color}`}>
+                            OS: {evaluateVesselDensity(osData?.annotatedMap?.vesselDensityPercentage ?? 0).text}
                           </span>
                         </td>
                       </>
                     ) : (
                       <>
-                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{result.annotatedMap.vesselDensityPercentage}%</td>
+                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{result?.annotatedMap?.vesselDensityPercentage ?? '--'}%</td>
                         <td className="p-2.5 text-slate-500 font-mono-data">15.5% - 19.0%</td>
-                        <td className={`p-2.5 ${evaluateVesselDensity(result.annotatedMap.vesselDensityPercentage).color}`}>
-                          {evaluateVesselDensity(result.annotatedMap.vesselDensityPercentage).text}
+                        <td className={`p-2.5 ${evaluateVesselDensity(result?.annotatedMap?.vesselDensityPercentage ?? 0).color}`}>
+                          {evaluateVesselDensity(result?.annotatedMap?.vesselDensityPercentage ?? 0).text}
                         </td>
                       </>
                     )}
@@ -1008,24 +1008,24 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <td className="p-2.5 font-medium">{t('doctor.reportModal.bmTortuosity', 'Độ uốn lượn mạch máu (Tortuosity)')}</td>
                     {hasDualData ? (
                       <>
-                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData.annotatedMap.tortuosityIndex}</td>
-                        <td className="p-2.5 font-bold font-mono-data text-teal-800">{osData.annotatedMap.tortuosityIndex}</td>
+                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData?.annotatedMap?.tortuosityIndex ?? '--'}</td>
+                        <td className="p-2.5 font-bold font-mono-data text-teal-800">{osData?.annotatedMap?.tortuosityIndex ?? '--'}</td>
                         <td className="p-2.5 text-slate-500 font-mono-data">&lt; 1.25</td>
                         <td className="p-2.5 space-y-0.5">
-                          <span className={`block ${evaluateTortuosity(odData.annotatedMap.tortuosityIndex).color}`}>
-                            OD: {evaluateTortuosity(odData.annotatedMap.tortuosityIndex).text}
+                          <span className={`block ${evaluateTortuosity(odData?.annotatedMap?.tortuosityIndex ?? 0).color}`}>
+                            OD: {evaluateTortuosity(odData?.annotatedMap?.tortuosityIndex ?? 0).text}
                           </span>
-                          <span className={`block ${evaluateTortuosity(osData.annotatedMap.tortuosityIndex).color}`}>
-                            OS: {evaluateTortuosity(osData.annotatedMap.tortuosityIndex).text}
+                          <span className={`block ${evaluateTortuosity(osData?.annotatedMap?.tortuosityIndex ?? 0).color}`}>
+                            OS: {evaluateTortuosity(osData?.annotatedMap?.tortuosityIndex ?? 0).text}
                           </span>
                         </td>
                       </>
                     ) : (
                       <>
-                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{result.annotatedMap.tortuosityIndex}</td>
+                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{result?.annotatedMap?.tortuosityIndex ?? '--'}</td>
                         <td className="p-2.5 text-slate-500 font-mono-data">&lt; 1.25</td>
-                        <td className={`p-2.5 ${evaluateTortuosity(result.annotatedMap.tortuosityIndex).color}`}>
-                          {evaluateTortuosity(result.annotatedMap.tortuosityIndex).text}
+                        <td className={`p-2.5 ${evaluateTortuosity(result?.annotatedMap?.tortuosityIndex ?? 0).color}`}>
+                          {evaluateTortuosity(result?.annotatedMap?.tortuosityIndex ?? 0).text}
                         </td>
                       </>
                     )}
@@ -1034,24 +1034,24 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <td className="p-2.5 font-medium">{t('doctor.reportModal.bmCdr', 'Tỷ lệ lõm gai thị')}</td>
                     {hasDualData ? (
                       <>
-                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData.annotatedMap.opticCupToDiscRatio}</td>
-                        <td className="p-2.5 font-bold font-mono-data text-teal-800">{osData.annotatedMap.opticCupToDiscRatio}</td>
+                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{odData?.annotatedMap?.opticCupToDiscRatio ?? '--'}</td>
+                        <td className="p-2.5 font-bold font-mono-data text-teal-800">{osData?.annotatedMap?.opticCupToDiscRatio ?? '--'}</td>
                         <td className="p-2.5 text-slate-500 font-mono-data">&lt; 0.50</td>
                         <td className="p-2.5 space-y-0.5">
-                          <span className={`block ${evaluateVcdr(odData.annotatedMap.opticCupToDiscRatio).color}`}>
-                            OD: {evaluateVcdr(odData.annotatedMap.opticCupToDiscRatio).text}
+                          <span className={`block ${evaluateVcdr(odData?.annotatedMap?.opticCupToDiscRatio ?? 0).color}`}>
+                            OD: {evaluateVcdr(odData?.annotatedMap?.opticCupToDiscRatio ?? 0).text}
                           </span>
-                          <span className={`block ${evaluateVcdr(osData.annotatedMap.opticCupToDiscRatio).color}`}>
-                            OS: {evaluateVcdr(osData.annotatedMap.opticCupToDiscRatio).text}
+                          <span className={`block ${evaluateVcdr(osData?.annotatedMap?.opticCupToDiscRatio ?? 0).color}`}>
+                            OS: {evaluateVcdr(osData?.annotatedMap?.opticCupToDiscRatio ?? 0).text}
                           </span>
                         </td>
                       </>
                     ) : (
                       <>
-                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{result.annotatedMap.opticCupToDiscRatio}</td>
+                        <td className="p-2.5 font-bold font-mono-data text-cyan-800">{result?.annotatedMap?.opticCupToDiscRatio ?? '--'}</td>
                         <td className="p-2.5 text-slate-500 font-mono-data">&lt; 0.50</td>
-                        <td className={`p-2.5 ${evaluateVcdr(result.annotatedMap.opticCupToDiscRatio).color}`}>
-                          {evaluateVcdr(result.annotatedMap.opticCupToDiscRatio).text}
+                        <td className={`p-2.5 ${evaluateVcdr(result?.annotatedMap?.opticCupToDiscRatio ?? 0).color}`}>
+                          {evaluateVcdr(result?.annotatedMap?.opticCupToDiscRatio ?? 0).text}
                         </td>
                       </>
                     )}

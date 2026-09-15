@@ -63,10 +63,10 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
   })();
 
   const roleTitles: Record<UserRole, string> = {
-    patient: t("navigation.workspacePatient", "Không gian Bệnh nhân"),
-    doctor: t("navigation.workspaceDoctor", "Bàn làm việc Bác sĩ"),
-    clinic: t("navigation.workspaceClinic", "Không gian Phòng khám"),
-    admin: t("navigation.workspaceAdmin", "Quản trị Hệ thống"),
+    patient: t("navigation.workspacePatient", "Bệnh nhân"),
+    doctor: t("navigation.workspaceDoctor", "Bác sĩ"),
+    clinic: t("navigation.workspaceClinic", "Phòng khám"),
+    admin: t("navigation.workspaceAdmin", "Quản trị viên"),
   };
 
   const navGroups: NavGroup[] = useMemo(() => {
@@ -76,28 +76,28 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
           {
             groupTitle: t("navigation.groupOverview", "TỔNG QUAN"),
             items: [
-              { id: "dashboard", label: t("navigation.dashboard", "Tổng quan sức khỏe"), icon: LayoutDashboard },
+              { id: "dashboard", label: t("navigation.dashboard", "Trang chủ"), icon: LayoutDashboard },
             ],
           },
           {
-            groupTitle: t("navigation.groupScreening", "SÀNG LỌC VÕNG MẠC"),
+            groupTitle: t("navigation.groupScreening", "SÀNG LỌC"),
             items: [
-              { id: "upload-scan", label: t("navigation.newScan", "Phân tích ảnh mới"), icon: UploadCloud },
-              { id: "cds-viewer", label: t("navigation.cdsWorkspace", "Bản đồ nhiệt & XAI"), icon: Eye },
-              { id: "scan-history", label: t("navigation.historyReports", "Lịch sử & Báo cáo"), icon: History },
+              { id: "upload-scan", label: t("navigation.newScan", "Tải ảnh mắt"), icon: UploadCloud },
+              { id: "cds-viewer", label: t("navigation.cdsWorkspace", "Bản đồ nhiệt AI"), icon: Eye },
+              { id: "scan-history", label: t("navigation.historyReports", "Lịch sử khám"), icon: History },
             ],
           },
           {
-            groupTitle: t("navigation.groupCare", "CHĂM SÓC & TƯ VẤN"),
+            groupTitle: t("navigation.groupCare", "TƯ VẤN & HỒ SƠ"),
             items: [
-              { id: "consultation", label: t("navigation.consultation", "Tư vấn Bác sĩ"), icon: MessageSquare },
-              { id: "medical-profile", label: t("navigation.medicalProfile", "Hồ sơ y tế & Tiền sử"), icon: UserCog },
+              { id: "consultation", label: t("navigation.consultation", "Nhắn tin Bác sĩ"), icon: MessageSquare },
+              { id: "medical-profile", label: t("navigation.medicalProfile", "Hồ sơ sức khỏe"), icon: UserCog },
             ],
           },
           {
-            groupTitle: t("navigation.groupBilling", "TÀI KHOẢN & DỊCH VỤ"),
+            groupTitle: t("navigation.groupBilling", "GÓI DỊCH VỤ"),
             items: [
-              { id: "billing", label: t("navigation.billingCredits", "Nạp lượt & Giao dịch"), icon: CreditCard },
+              { id: "billing", label: t("navigation.billingCredits", "Lượt khám & Gói cước"), icon: CreditCard },
             ],
           },
         ];
@@ -105,23 +105,23 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
       case "doctor":
         return [
           {
-            groupTitle: t("navigation.groupClinical", "CHẨN ĐOÁN LÂM SÀNG"),
+            groupTitle: t("navigation.groupClinical", "CHẨN ĐOÁN"),
             items: [
-              { id: "cds-viewer", label: t("navigation.cdsWorkspace", "Bàn chẩn đoán ảnh CDS"), icon: Eye },
+              { id: "cds-viewer", label: t("navigation.cdsWorkspace", "Bàn chẩn đoán ảnh"), icon: Eye },
               { id: "patient-list", label: t("navigation.patientList", "Danh sách bệnh nhân"), icon: Users },
             ],
           },
           {
-            groupTitle: t("navigation.groupAnalytics", "PHÂN TÍCH & BÁO CÁO"),
+            groupTitle: t("navigation.groupAnalytics", "BÁO CÁO"),
             items: [
               { id: "risk-analytics", label: t("navigation.riskAnalytics", "Thống kê nguy cơ"), icon: Activity },
-              { id: "reports", label: t("navigation.medicalReportsSignoff", "Báo cáo y khoa & Ký duyệt"), icon: FileSpreadsheet },
+              { id: "reports", label: t("navigation.medicalReportsSignoff", "Báo cáo & Ký duyệt"), icon: FileSpreadsheet },
             ],
           },
           {
-            groupTitle: t("navigation.groupCommunication", "GIAO TIẾP"),
+            groupTitle: t("navigation.groupCommunication", "TƯ VẤN"),
             items: [
-              { id: "consultation", label: t("navigation.consultation", "Trao đổi với bệnh nhân"), icon: MessageSquare },
+              { id: "consultation", label: t("navigation.consultation", "Nhắn tin bệnh nhân"), icon: MessageSquare },
             ],
           },
         ];
@@ -129,17 +129,17 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
       case "clinic":
         return [
           {
-            groupTitle: t("navigation.groupCampaign", "CHIẾN DỊCH TẦM SOÁT"),
+            groupTitle: t("navigation.groupCampaign", "CHIẾN DỊCH"),
             items: [
-              { id: "bulk-batch", label: t("navigation.bulkScreening", "Sàng lọc hàng loạt (≥100)"), icon: UploadCloud },
+              { id: "bulk-batch", label: t("navigation.bulkScreening", "Sàng lọc theo lô"), icon: UploadCloud },
               { id: "campaign-analytics", label: t("navigation.campaignAnalytics", "Báo cáo chiến dịch"), icon: LayoutDashboard },
             ],
           },
           {
-            groupTitle: t("navigation.groupFacility", "NHÂN SỰ & CƠ SỞ"),
+            groupTitle: t("navigation.groupFacility", "CƠ SỞ"),
             items: [
-              { id: "doctors-manage", label: t("navigation.doctorManagement", "Bác sĩ & Phân công"), icon: Users },
-              { id: "credit-package", label: t("navigation.creditPackage", "Gói cước cơ sở"), icon: CreditCard },
+              { id: "doctors-manage", label: t("navigation.doctorManagement", "Quản lý Bác sĩ"), icon: Users },
+              { id: "credit-package", label: t("navigation.creditPackage", "Gói cước phòng khám"), icon: CreditCard },
             ],
           },
         ];
@@ -147,20 +147,20 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
       case "admin":
         return [
           {
-            groupTitle: t("navigation.groupUserAdmin", "QUẢN TRỊ TÀI KHOẢN"),
+            groupTitle: t("navigation.groupUserAdmin", "NGƯỜI DÙNG"),
             items: [
-              { id: "user-management", label: t("navigation.userManagement", "Quản lý tài khoản"), icon: Users },
-              { id: "rbac-matrix", label: t("navigation.rbacPermissions", "Phân quyền vai trò"), icon: ShieldCheck },
-              { id: "clinic-approvals", label: t("navigation.clinicApprovals", "Phê duyệt phòng khám"), icon: UserCog },
-              { id: "package-management", label: t("navigation.packageManagement", "Quản lý gói dịch vụ"), icon: CreditCard },
+              { id: "user-management", label: t("navigation.userManagement", "Tài khoản"), icon: Users },
+              { id: "rbac-matrix", label: t("navigation.rbacPermissions", "Phân quyền truy cập"), icon: ShieldCheck },
+              { id: "clinic-approvals", label: t("navigation.clinicApprovals", "Duyệt phòng khám"), icon: UserCog },
+              { id: "package-management", label: t("navigation.packageManagement", "Gói dịch vụ"), icon: CreditCard },
             ],
           },
           {
-            groupTitle: t("navigation.groupConfigAudit", "CẤU HÌNH & KIỂM TOÁN"),
+            groupTitle: t("navigation.groupConfigAudit", "HỆ THỐNG"),
             items: [
-              { id: "ai-thresholds", label: t("navigation.aiConfiguration", "Cấu hình tham số AI"), icon: Settings },
-              { id: "notification-config", label: t("navigation.notificationConfig", "Mẫu thông báo & CS"), icon: MessageSquare },
-              { id: "audit-logs", label: t("navigation.auditLogs", "Nhật ký kiểm toán HIPAA"), icon: FileText },
+              { id: "ai-thresholds", label: t("navigation.aiConfiguration", "Cấu hình AI"), icon: Settings },
+              { id: "notification-config", label: t("navigation.notificationConfig", "Mẫu thông báo"), icon: MessageSquare },
+              { id: "audit-logs", label: t("navigation.auditLogs", "Nhật ký hệ thống"), icon: FileText },
             ],
           },
         ];
@@ -249,10 +249,10 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
         <div className="mt-auto border-t border-clinical-border pt-3">
           <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-center">
             <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-brand-700">
-              <Sparkles className="w-3.5 h-3.5 text-brand-600" /> AURA Clinical AI v1.0
+              <Sparkles className="w-3.5 h-3.5 text-brand-600" /> Hệ thống AI AURA v1.0
             </div>
             <p className="text-[10px] text-clinical-text-muted mt-0.5">
-              {isVi ? "Hỗ trợ sàng lọc • Không thay thế BS" : "Screening Aid • Not a Diagnosis"}
+              Hỗ trợ sàng lọc • Không thay thế Bác sĩ
             </p>
           </div>
         </div>

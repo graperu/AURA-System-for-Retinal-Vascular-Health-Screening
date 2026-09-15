@@ -370,7 +370,10 @@ export const adminUserApi = {
   getUsers: (page = 0, size = 20, q?: string, role?: string) => {
     let url = `/api/v1/admin/users?page=${page}&size=${size}`;
     if (q) url += `&q=${encodeURIComponent(q)}`;
-    if (role) url += `&role=${role}`;
+    if (role && role !== "ALL") {
+      const cleanRole = role.replace(/^ROLE_/, "").toUpperCase();
+      url += `&role=${cleanRole}`;
+    }
     return apiFetch<any>(url, { method: "GET" });
   },
 
@@ -390,7 +393,7 @@ export const adminUserApi = {
     }),
 
   updateRole: (userId: string, roleName: string) => {
-    const cleanRole = (roleName || "").replace(/^ROLE_/, "");
+    const cleanRole = (roleName || "").replace(/^ROLE_/, "").toUpperCase();
     return apiFetch<any>(`/api/v1/admin/users/${userId}/role`, {
       method: "PUT",
       body: JSON.stringify({ role: cleanRole, roleName: cleanRole }),

@@ -22,7 +22,7 @@ import { useLanguage } from '../../context/LanguageContext';
 interface DoctorRiskAnalyticsViewProps {
   assignedPatients: DoctorPatientSummary[];
   initialScreenings?: any[];
-  onSelectPatientForCDS: (patientId: string, screeningId?: string) => void;
+  onSelectPatientForCDS: (patientId: string, screeningId?: string, directPatient?: DoctorPatientSummary | any) => void;
   onNavigate?: (section: string) => void;
 }
 
@@ -264,7 +264,11 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
   // Ánh xạ thông tin bệnh nhân tương ứng cho mỗi ca khám
   const patientMap = useMemo(() => {
     const map = new Map<string, DoctorPatientSummary>();
-    assignedPatients.forEach((p) => map.set(p.patientId, p));
+    assignedPatients.forEach((p) => {
+      if (p.patientId) map.set(String(p.patientId), p);
+      if ((p as any).id) map.set(String((p as any).id), p);
+      if ((p as any).userId) map.set(String((p as any).userId), p);
+    });
     return map;
   }, [assignedPatients]);
 
@@ -328,7 +332,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
     {
       header: t('doctor.worklist.columns.patient', 'Bệnh Nhân'),
       accessor: (row) => {
-        const patient = patientMap.get(row.patientId);
+        const patient = patientMap.get(String(row.patientId));
         return (
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#F0FDFA] text-[#0891B2] font-bold flex items-center justify-center border border-[#CCFBF1] shrink-0 text-xs">
@@ -407,7 +411,10 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={() => onSelectPatientForCDS(row.patientId, row.id)}
+            onClick={() => {
+              const p = patientMap.get(String(row.patientId));
+              onSelectPatientForCDS(row.patientId, row.id, p);
+            }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0891B2] hover:bg-[#0e7490] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             title={t('doctor.worklist.openCds', 'Mở CDS')}
           >
@@ -705,7 +712,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
             {/* A/V Ratio */}
             <div className="p-3.5 rounded-xl bg-slate-50/80 border border-clinical-border space-y-1">
               <span className="text-[11px] text-clinical-text-secondary font-medium block">
-                {t('doctor.riskAnalytics.avRatioLabel', 'Tỷ lệ động-tĩnh mạch (A/V)')}
+                {t('doctor.riskAnalytics.avRatioLabel', 'Tỷ lệ động/tĩnh mạch')}
               </span>
               <div className="text-2xl font-bold text-clinical-text font-mono-data text-right mt-1">
                 {biomarkerAverages.avgAvRatio}
@@ -731,7 +738,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
             {/* Độ xoắn vặn mạch */}
             <div className="p-3.5 rounded-xl bg-slate-50/80 border border-clinical-border space-y-1">
               <span className="text-[11px] text-clinical-text-secondary font-medium block">
-                {t('doctor.riskAnalytics.tortuosityLabel', 'Độ Xoắn Vặn (Tortuosity)')}
+                {t('doctor.riskAnalytics.tortuosityLabel', 'Độ xoắn vặn mạch máu')}
               </span>
               <div className="text-2xl font-bold text-clinical-text font-mono-data text-right mt-1">
                 {biomarkerAverages.avgTortuosity}
@@ -744,7 +751,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
             {/* Vertical CDR */}
             <div className="p-3.5 rounded-xl bg-slate-50/80 border border-clinical-border space-y-1">
               <span className="text-[11px] text-clinical-text-secondary font-medium block">
-                {t('doctor.riskAnalytics.cdrLabel', 'Lõm Gai Thị (CDR)')}
+                {t('doctor.riskAnalytics.cdrLabel', 'Tỷ lệ lõm gai thị')}
               </span>
               <div className="text-2xl font-bold text-clinical-text font-mono-data text-right mt-1">
                 {biomarkerAverages.avgCdr}

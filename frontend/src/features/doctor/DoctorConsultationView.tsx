@@ -29,7 +29,7 @@ interface DoctorConsultationViewProps {
   initialSelectedPatientId?: string | null;
   currentUserId?: string;
   doctorName?: string;
-  onSelectPatientForCDS: (patientId: string) => void;
+  onSelectPatientForCDS: (patientId: string, directPatient?: DoctorPatientSummary | any) => void;
 }
 
 export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
@@ -43,7 +43,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
   const { t, isVi } = useLanguage();
   const currentDoctorName = doctorName || user?.name || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist');
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
-    initialSelectedPatientId || (assignedPatients.length > 0 ? assignedPatients[0].patientId : null)
+    initialSelectedPatientId || (assignedPatients.length > 0 ? (assignedPatients[0].patientId || (assignedPatients[0] as any).userId || (assignedPatients[0] as any).id) : null)
   );
   const prevInitialPatientIdRef = useRef(initialSelectedPatientId);
   const [searchPatient, setSearchPatient] = useState<string>('');
@@ -55,7 +55,17 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
 
   // Tìm bệnh nhân đang được chọn
   const activePatient = useMemo(() => {
-    return assignedPatients.find((p) => p.patientId === selectedPatientId) || assignedPatients[0] || null;
+    if (!selectedPatientId) return assignedPatients[0] || null;
+    return (
+      assignedPatients.find(
+        (p) =>
+          String(p.patientId) === String(selectedPatientId) ||
+          String((p as any).id) === String(selectedPatientId) ||
+          String((p as any).userId) === String(selectedPatientId)
+      ) ||
+      assignedPatients[0] ||
+      null
+    );
   }, [assignedPatients, selectedPatientId]);
 
   // Cập nhật selectedPatientId khi initialSelectedPatientId từ component cha thay đổi hoặc khi danh sách nạp lần đầu
@@ -375,7 +385,12 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => onSelectPatientForCDS(activePatient.patientId)}
+                    onClick={() => {
+                      const pid = activePatient.patientId || (activePatient as any).userId || (activePatient as any).id;
+                      if (pid) {
+                        onSelectPatientForCDS(pid, activePatient);
+                      }
+                    }}
                     icon={<Stethoscope className="w-3.5 h-3.5" />}
                     title={t('doctor.consultation.openCdsTitle', 'Mở ảnh đáy mắt của bệnh nhân này trên bàn chẩn đoán CDS')}
                   >

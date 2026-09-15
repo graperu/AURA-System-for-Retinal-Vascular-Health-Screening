@@ -317,7 +317,7 @@ public class DoctorPatientController {
   }
 
   @GetMapping("/{patientId}")
-  @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canAccessPatient(principal, #patientId)")
+  @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<PatientProfileResponse> getAssignedPatientProfile(
       @PathVariable UUID patientId) {
     UUID effectivePatientId = patientId;
@@ -332,7 +332,7 @@ public class DoctorPatientController {
   }
 
   @GetMapping("/{patientId}/screenings")
-  @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canAccessPatient(principal, #patientId)")
+  @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<List<Screening>> getAssignedPatientScreenings(
       @PathVariable UUID patientId) {
     UUID effectivePatientId = patientId;
@@ -343,12 +343,18 @@ public class DoctorPatientController {
       }
     }
     List<Screening> screenings = screeningService.getScreeningsForPatient(effectivePatientId);
+    if (screenings.isEmpty() && !effectivePatientId.equals(patientId)) {
+      List<Screening> directScreenings = screeningService.getScreeningsForPatient(patientId);
+      if (!directScreenings.isEmpty()) {
+        screenings = directScreenings;
+      }
+    }
     return ApiResponse.success("Lấy lịch sử ca sàng lọc của bệnh nhân thành công", screenings);
   }
 
   @PostMapping("/{patientId}/screenings")
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canAccessPatient(principal, #patientId)")
+  @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<Screening> createScreeningForAssignedPatient(
       @AuthenticationPrincipal AuraUserPrincipal principal,
       @PathVariable UUID patientId,

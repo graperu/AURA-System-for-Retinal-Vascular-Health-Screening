@@ -734,11 +734,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <div>
               <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Eye className="w-5 h-5 text-[#0891B2]" />
-                {isVi ? "Bản Đồ Vi Mạch Võng Mạc" : "Retinal Lesion Map"}
+                {isVi ? "Bản Đồ Nhiệt AI" : "AI Heatmap"}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isVi
-                  ? "Kéo thanh trượt để so sánh ảnh chụp gốc với bản đồ nhiệt bất thường."
+                  ? "So sánh ảnh chụp mắt với vùng tổn thương AI phát hiện."
                   : "Compare original fundus scan with AI anomaly heatmap."}
               </p>
             </div>
@@ -747,12 +747,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 onClick={() => setIsReportModalOpen(true)}
                 className="px-3.5 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <Download className="w-4 h-4" /> {t('patient.history.exportReport', isVi ? "Xuất Báo Cáo" : "Export Report")}
+                <Download className="w-4 h-4" /> {t('patient.history.exportReport', isVi ? "Xuất Phiếu" : "Export Report")}
               </button>
             </div>
           </div>
 
-          {/* Banner Trạng Thái Thẩm Định Bác Sĩ (Yêu cầu nghiệp vụ bắt buộc) */}
+          {/* Banner Trạng Thái Thẩm Định Bác Sĩ */}
           {analysisResult && (
             analysisResult.status === 'REVIEWED' ? (
               <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-start gap-3 shadow-xs">
@@ -762,7 +762,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 <div className="space-y-0.5 flex-1">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <h4 className="font-bold text-xs sm:text-sm text-emerald-900">
-                      {isVi ? 'Đã Được Bác Sĩ Thẩm Định & Ký Duyệt' : 'Clinically Verified & Signed'}
+                      {isVi ? 'Bác sĩ đã xem và ký duyệt' : 'Doctor Reviewed & Approved'}
                     </h4>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-bold shrink-0">
                       {isVi ? 'Đã duyệt' : 'Approved'}
@@ -770,8 +770,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </div>
                   <p className="text-xs text-emerald-800 leading-snug">
                     {isVi
-                      ? `Bác sĩ ${analysisResult.doctorName || formatDoctorName(patient.assignedDoctor) || 'phụ trách'} đã xác nhận toàn bộ chỉ số vi mạch. Bạn có thể xuất phiếu báo cáo y khoa.`
-                      : `Attending physician has verified and confirmed all biomarkers.`}
+                      ? `Bác sĩ ${analysisResult.doctorName || formatDoctorName(patient.assignedDoctor) || 'phụ trách'} đã duyệt kết quả. Bạn có thể tải hoặc in phiếu khám.`
+                      : `Doctor has approved your results. You can now download the report.`}
                   </p>
                 </div>
               </div>
@@ -783,7 +783,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 <div className="space-y-0.5 flex-1">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <h4 className="font-bold text-xs sm:text-sm text-amber-900">
-                      {isVi ? 'Kết Quả Sơ Bộ AI - Chờ Bác Sĩ Thẩm Định' : 'Preliminary AI - Pending Doctor Review'}
+                      {isVi ? 'Đang chờ Bác sĩ duyệt' : 'Pending Doctor Review'}
                     </h4>
                     <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-bold shrink-0">
                       {isVi ? 'Chờ duyệt' : 'Pending'}
@@ -791,8 +791,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </div>
                   <p className="text-xs text-amber-800 leading-snug">
                     {isVi
-                      ? `Hệ thống đã phân tích ảnh vi mạch và chuyển tới Bác sĩ ${formatDoctorName(patient.assignedDoctor) ? `(${formatDoctorName(patient.assignedDoctor)})` : 'phụ trách'}. Báo cáo y khoa chính thức sẽ mở khóa sau khi ký duyệt.`
-                      : `AI scanning complete. Official report will be unlocked once attending physician completes review.`}
+                      ? `Kết quả đã được gửi tới Bác sĩ. Báo cáo chính thức sẽ có ngay sau khi Bác sĩ ký duyệt.`
+                      : `Results sent to doctor. Official report will be available once reviewed.`}
                   </p>
                 </div>
               </div>
@@ -1223,12 +1223,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">
-                    {isVi ? "Gói Dịch Vụ & Lượt Khám" : "Service Packages & Credits"}
+                    {isVi ? "Gói Cước & Lượt Khám" : "Packages & Credits"}
                   </h2>
                   <p className="text-xs text-slate-500">
                     {isVi
-                      ? "Theo dõi số lượt phân tích AI, gói cước và lịch sử thanh toán."
-                      : "Track AI screening quota, active packages and payment history."}
+                      ? "Xem số lượt khám còn lại và lịch sử mua gói."
+                      : "View remaining credits and purchase history."}
                   </p>
                 </div>
               </div>
@@ -1236,7 +1236,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 onClick={() => setIsCreditModalOpen(true)}
                 className="px-5 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer"
               >
-                <CreditCard className="w-4 h-4" /> {isVi ? "Mua / Gia Hạn Gói" : "Purchase Package"}
+                <CreditCard className="w-4 h-4" /> {isVi ? "Mua Thêm Lượt" : "Buy Credits"}
               </button>
             </div>
 
@@ -1244,7 +1244,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-50 to-teal-50 border border-teal-200/80">
                 <span className="text-xs font-bold text-cyan-900 uppercase tracking-wider">
-                  {isVi ? "Lượt Khám Khả Dụng" : "Available Credits"}
+                  {isVi ? "Lượt Còn Lại" : "Available Credits"}
                 </span>
                 <div className="mt-2 text-3xl font-extrabold text-teal-700 font-mono-data">
                   {userCredits}{" "}
@@ -1253,13 +1253,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  {isVi ? "Áp dụng cho ảnh chụp võng mạc OD/OS" : "Applicable for all bilateral OD/OS retinal scans"}
+                  {isVi ? "Áp dụng cho mọi ảnh chụp mắt" : "Applicable for all eye scans"}
                 </p>
               </div>
 
               <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  {isVi ? "Gói Hoạt Động" : "Active Packages"}
+                  {isVi ? "Gói Đang Dùng" : "Active Packages"}
                 </span>
                 <div className="mt-2 text-2xl font-extrabold text-slate-800 font-mono-data">
                   {subscriptions.filter((s) => s.status === "ACTIVE").length}{" "}
@@ -1268,7 +1268,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-emerald-600 font-semibold">
-                  {isVi ? "Tự động cộng dồn khi gia hạn" : "Accumulates on renewal"}
+                  {isVi ? "Cộng dồn khi mua thêm" : "Accumulates on purchase"}
                 </p>
               </div>
 
@@ -1283,7 +1283,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] text-slate-500">
-                  {isVi ? "Kích hoạt tức thì sau giao dịch" : "Instantly activated"}
+                  {isVi ? "Kích hoạt tức thì sau chuyển khoản" : "Instantly activated"}
                 </p>
               </div>
             </div>
@@ -1291,7 +1291,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             {/* Active Subscriptions Sub-table */}
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-500" /> {isVi ? "Danh Sách Gói Thuê Bao Đã Mua" : "Purchased Subscription Packages"}
+                <Zap className="w-4 h-4 text-amber-500" /> {isVi ? "Gói Đang Sử Dụng" : "Active Packages"}
               </h3>
               <div className="overflow-hidden rounded-2xl border border-slate-200">
                 <table className="w-full text-left text-xs">
@@ -1311,8 +1311,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                           className="p-6 text-center text-slate-400"
                         >
                           {isVi
-                            ? "Chưa đăng ký gói dịch vụ nào. Hãy nhấn Mua Thêm Gói để nạp lượt phân tích."
-                            : "No active subscription packages. Click Purchase Package to recharge screening credits."}
+                            ? "Chưa có gói dịch vụ nào. Hãy bấm Mua Thêm Lượt để nạp thêm."
+                            : "No active packages. Click Buy Credits to top up."}
                         </td>
                       </tr>
                     ) : (
@@ -1352,11 +1352,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               </div>
             </div>
 
-            {/* Payment Transactions History (FR-12) */}
+            {/* Payment Transactions History */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <History className="w-4 h-4 text-cyan-700" /> {isVi ? "Lịch Sử Thanh Toán & Giao Dịch Hóa Đơn" : "Payment & Billing Transaction History"}
+                  <History className="w-4 h-4 text-cyan-700" /> {isVi ? "Lịch Sử Nạp Tiền" : "Payment History"}
                 </h3>
                 <button
                   onClick={loadBillingData}

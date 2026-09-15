@@ -113,7 +113,7 @@ export const getClinicalFeatures = (scansCount: number, isVi: boolean): string[]
   }
   return [
     isVi ? `${scansCount} lượt phân tích ảnh võng mạc AI` : `${scansCount} AI retinal scan analyses`,
-    isVi ? "Bản đồ nhiệt Grad-CAM & phân tích vi mạch" : "Grad-CAM heatmap & microvascular analysis",
+    isVi ? "Bản đồ nhiệt vi mạch & phân tích tổn thương" : "AI Heatmap & microvascular analysis",
     isVi ? "Báo cáo lâm sàng số hóa tiêu chuẩn" : "Standardized digital clinical report",
   ];
 };

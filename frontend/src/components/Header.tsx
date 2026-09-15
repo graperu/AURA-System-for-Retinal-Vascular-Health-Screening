@@ -260,11 +260,11 @@ export const Header: React.FC<HeaderProps> = ({
                 AURA
               </span>
               <span className="hidden rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 sm:inline border border-brand-100">
-                Clinical AI
+                AI Y Tế
               </span>
             </div>
             <p className="truncate text-xs text-clinical-text-muted">
-              {t('header.tagline', 'Sàng lọc vi mạch võng mạc & tim mạch')}
+              {t('header.tagline', 'Tầm soát mạch máu võng mạc & tim mạch')}
             </p>
           </div>
         </div>
@@ -273,7 +273,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-3">
           <div className="hidden items-center gap-1.5 rounded-full bg-brand-50 border border-brand-100 px-3.5 py-1.5 text-xs font-bold text-brand-700 xl:flex">
             <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-            {t('header.hipaaStandard', 'Chuẩn bảo mật HIPAA')}
+            {t('header.hipaaStandard', 'Bảo mật chuẩn y tế')}
           </div>
 
           {/* Notifications Dropdown */}

@@ -353,7 +353,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
       ctx.fillStyle = '#f8fafc';
       ctx.font = '10px monospace';
       ctx.fillText(
-        `AURA Clinical CDS • MRN: ${item.mrn || 'N/A'} • ${item.eye === 'OD' ? 'Mắt Phải (OD)' : 'Mắt Trái (OS)'} • Rủi ro: ${overallRisk}%`,
+        `Hệ thống AI AURA • Mã BN: ${item.mrn || 'N/A'} • ${item.eye === 'OD' ? 'Mắt Phải' : 'Mắt Trái'} • Rủi ro: ${overallRisk}%`,
         8,
         size - 9
       );

@@ -113,7 +113,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
     endDrag();
   };
 
-  const displayEye = selectedEye || (isVi ? 'OD (Mắt Phải)' : 'OD (Right Eye)');
+  const displayEye = selectedEye || (isVi ? 'Mắt Phải' : 'Right Eye');
   const rawImage = result.imageUrl || '/assets/images/fundus_original.png';
   const hasCustomHeatmap = Boolean(
     result.annotatedMap?.heatmapUrl &&
@@ -135,7 +135,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
               <div className="flex items-center gap-2">
                 <span className="font-bold text-white flex items-center gap-1.5">
                   <Eye className="w-4 h-4 text-[#22D3EE]" />
-                  {isVi ? 'Ảnh Võng Mạc & Grad-CAM Heatmap' : 'Retinal Scan & Grad-CAM Heatmap'}
+                  {isVi ? 'Ảnh Võng Mạc & Grad-CAM Heatmap' : 'Retinal Scan & Heatmap'}
                 </span>
                 <span className="px-2 py-0.5 rounded-md bg-slate-800 text-cyan-300 font-mono-data text-[11px] font-bold border border-slate-700">
                   {displayEye}
@@ -153,7 +153,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  {isVi ? 'Lớp phủ AI' : 'AI Overlay'}
+                  {isVi ? 'Chồng lớp' : 'Overlay'}
                 </button>
                 <button
                   type="button"
@@ -164,7 +164,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Heatmap
+                  {isVi ? 'Bản đồ nhiệt' : 'Heatmap'}
                 </button>
                 <button
                   type="button"
@@ -350,7 +350,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     <Heart className="w-4 h-4 text-red-500" />
-                    {isVi ? 'Nguy cơ Tim Mạch 3 năm' : '3-Year Cardiovascular Risk'}
+                    {isVi ? 'Nguy cơ tim mạch' : 'Cardiovascular Risk'}
                   </span>
                   <span className="font-mono-data font-bold text-slate-900 text-sm">
                     {result.cardiovascularRisk.score}%
@@ -365,7 +365,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     <Eye className="w-4 h-4 text-[#0891B2]" />
-                    {isVi ? 'Bệnh Võng Mạc ĐTĐ' : 'Diabetic Retinopathy'}
+                    {isVi ? 'Võng mạc tiểu đường' : 'Diabetic Retinopathy'}
                   </span>
                   <span className="font-mono-data font-bold text-slate-900 text-sm">
                     {result.diabeticRetinopathyRisk.score}%
@@ -380,14 +380,14 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     <BrainCircuit className="w-4 h-4 text-amber-500" />
-                    {isVi ? 'Nguy Cơ Đột Quỵ 3 năm' : '3-Year Stroke Risk'}
+                    {isVi ? 'Dự báo đột quỵ' : '3-Year Stroke Risk'}
                   </span>
                   <span className="font-mono-data font-bold text-slate-900 text-sm">
                     {result.cardiovascularRisk.threeYearStrokeRiskPercent}%
                   </span>
                 </div>
                 <span className="text-[11px] text-slate-500 block">
-                  {isVi ? 'Ước tính thuật toán vi mạch hoàng điểm' : 'Macular microvascular algorithmic estimate'}
+                  {isVi ? 'Ước tính trong 3 năm' : '3-year projection'}
                 </span>
               </div>
             </div>
@@ -395,29 +395,29 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
             {/* Retinal Biomarkers 4-Grid */}
             <div className="pt-2 border-t border-slate-100 space-y-2">
               <span className="text-xs font-bold text-slate-700 block">
-                {t('patient.results.microvascularBiomarkers', isVi ? 'Chỉ số sinh học vi mạch võng mạc' : 'Retinal Microvascular Biomarkers')}
+                {t('patient.results.microvascularBiomarkers', isVi ? 'Chỉ số mạch máu mắt' : 'Vascular Biomarkers')}
               </span>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.avr.label', isVi ? 'Tỷ lệ động-tĩnh mạch (A/V)' : 'Arteriovenous Ratio (A/V)')}</span>
+                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.avr.label', isVi ? 'Tỷ lệ động/tĩnh mạch' : 'Arteriovenous Ratio')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.arteryVeinRatio}
                   </span>
                 </div>
                 <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.vesselDensity.label', isVi ? 'Mật độ vi mạch' : 'Vessel Density')}</span>
+                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.vesselDensity.label', isVi ? 'Mật độ mạch máu' : 'Vessel Density')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.vesselDensityPercentage}%
                   </span>
                 </div>
                 <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.tortuosity.label', isVi ? 'Độ uốn lượn' : 'Vessel Tortuosity')}</span>
+                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.tortuosity.label', isVi ? 'Độ xoắn mạch máu' : 'Vessel Tortuosity')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.tortuosityIndex}
                   </span>
                 </div>
                 <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl">
-                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.cdr.label', isVi ? 'Tỷ lệ Cup/Disc' : 'Optic Cup-to-Disc Ratio (CDR)')}</span>
+                  <span className="text-[10px] text-slate-500 block">{t('biomarkers.cdr.label', isVi ? 'Tỷ lệ lõm gai thị' : 'Cup-to-Disc Ratio')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.opticCupToDiscRatio}
                   </span>
@@ -431,12 +431,12 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
             <div className="flex gap-2 pt-2">
               {onOpenReportModal && (
                 <Button variant="primary" size="md" className="flex-1" onClick={onOpenReportModal}>
-                  {t('patient.results.print', isVi ? 'Xem Báo Cáo PDF' : 'View PDF Report')}
+                  {t('patient.results.print', isVi ? 'In kết quả' : 'Print Report')}
                 </Button>
               )}
               {onOpenChatModal && (
                 <Button variant="secondary" size="md" className="flex-1" onClick={onOpenChatModal}>
-                  {t('patient.results.askDoctor', isVi ? 'Tư Vấn Bác Sĩ' : 'Consult Doctor')}
+                  {t('patient.results.askDoctor', isVi ? 'Nhắn tin Bác sĩ' : 'Consult Doctor')}
                 </Button>
               )}
             </div>

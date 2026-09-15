@@ -17,12 +17,31 @@ public class PatientAccessService {
 
   private final DoctorPatientAssignmentRepository assignmentRepository;
   private final ScreeningRepository screeningRepository;
+  private final com.aura.patient.repository.PatientProfileRepository patientProfileRepository;
+  private final com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository;
+  private final com.aura.user.repository.UserRepository userRepository;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public PatientAccessService(
+      DoctorPatientAssignmentRepository assignmentRepository,
+      ScreeningRepository screeningRepository,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+      com.aura.patient.repository.PatientProfileRepository patientProfileRepository,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+      com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+      com.aura.user.repository.UserRepository userRepository) {
+    this.assignmentRepository = assignmentRepository;
+    this.screeningRepository = screeningRepository;
+    this.patientProfileRepository = patientProfileRepository;
+    this.patientMedicalProfileRepository = patientMedicalProfileRepository;
+    this.userRepository = userRepository;
+  }
 
   public PatientAccessService(
       DoctorPatientAssignmentRepository assignmentRepository,
       ScreeningRepository screeningRepository) {
-    this.assignmentRepository = assignmentRepository;
-    this.screeningRepository = screeningRepository;
+    this(assignmentRepository, screeningRepository, null, null, null);
   }
 
   public boolean canAccessPatient(AuraUserPrincipal principal, UUID patientId) {
@@ -36,8 +55,54 @@ public class PatientAccessService {
       return true;
     }
     if (hasRole(principal, "DOCTOR")) {
-      return assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
-          principal.id(), patientId, AssignmentStatus.ACTIVE);
+      if (assignmentRepository != null && assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+          principal.id(), patientId, AssignmentStatus.ACTIVE)) {
+        return true;
+      }
+
+      String doctorFullName = (userRepository != null)
+          ? userRepository.findById(principal.id()).map(com.aura.user.entity.User::getFullName).orElse(null)
+          : null;
+
+      if (patientProfileRepository != null) {
+        var profileOpt = patientProfileRepository.findById(patientId)
+            .or(() -> patientProfileRepository.findByUserId(patientId));
+        if (profileOpt.isPresent()) {
+          var p = profileOpt.get();
+          if (p.getUserId() != null && assignmentRepository != null && assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+              principal.id(), p.getUserId(), AssignmentStatus.ACTIVE)) {
+            return true;
+          }
+          if (doctorFullName != null && !doctorFullName.isBlank() && p.getAssignedDoctor() != null &&
+              doctorFullName.trim().equalsIgnoreCase(p.getAssignedDoctor().trim())) {
+            return true;
+          }
+        }
+      }
+
+      if (patientMedicalProfileRepository != null) {
+        var medOpt = patientMedicalProfileRepository.findById(patientId)
+            .or(() -> patientMedicalProfileRepository.findByUserId(patientId));
+        if (medOpt.isPresent()) {
+          var med = medOpt.get();
+          if (med.getUser() != null && assignmentRepository != null && assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+              principal.id(), med.getUser().getId(), AssignmentStatus.ACTIVE)) {
+            return true;
+          }
+          if (doctorFullName != null && !doctorFullName.isBlank() && med.getAssignedDoctor() != null &&
+              doctorFullName.trim().equalsIgnoreCase(med.getAssignedDoctor().trim())) {
+            return true;
+          }
+        }
+      }
+
+      if (screeningRepository != null) {
+        boolean hasDoctorScreening = screeningRepository.findByPatientIdOrderByCreatedAtDesc(patientId).stream()
+            .anyMatch(s -> principal.id().equals(s.getDoctorId()));
+        if (hasDoctorScreening) {
+          return true;
+        }
+      }
     }
     return false;
   }

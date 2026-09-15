@@ -26,7 +26,7 @@ import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
 
 interface DoctorReportsViewProps {
   assignedPatients: DoctorPatientSummary[];
-  onReviewAndSign: (patientId: string, screeningId: string) => void;
+  onReviewAndSign: (patientId: string, screeningId: string, directPatient?: DoctorPatientSummary | any) => void;
   doctorName?: string;
 }
 
@@ -93,7 +93,11 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
   // Ánh xạ patientId -> DoctorPatientSummary
   const patientMap = useMemo(() => {
     const map = new Map<string, DoctorPatientSummary>();
-    assignedPatients.forEach((p) => map.set(p.patientId, p));
+    assignedPatients.forEach((p) => {
+      if (p.patientId) map.set(String(p.patientId), p);
+      if ((p as any).id) map.set(String((p as any).id), p);
+      if ((p as any).userId) map.set(String((p as any).userId), p);
+    });
     return map;
   }, [assignedPatients]);
 
@@ -283,7 +287,10 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
             {/* Nút Thẩm Định / Ký Số */}
             <button
               type="button"
-              onClick={() => onReviewAndSign(row.patientId, row.id)}
+              onClick={() => {
+                const p = patientMap.get(String(row.patientId));
+                onReviewAndSign(row.patientId, row.id, p);
+              }}
               title={isVi ? 'Mở ảnh đáy mắt trên bàn chẩn đoán CDS để ký duyệt lâm sàng' : 'Open fundus scan in CDS desk for clinical review & sign-off'}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >

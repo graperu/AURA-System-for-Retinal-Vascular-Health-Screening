@@ -950,9 +950,82 @@ class ScreeningServiceOptimizedTest {
 
     Screening saved = screeningService.createScreening(patientId, req);
 
-    assertThat(saved.getVesselMaskUrl()).isEqualTo("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...");
-
     com.aura.screening.dto.ScreeningResponse response = com.aura.screening.dto.ScreeningResponse.fromEntity(saved);
     assertThat(response.vesselMaskUrl()).isEqualTo("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...");
+  }
+
+  @Test
+  @DisplayName("Batch Delete: Người dùng sở hữu ca khám (thông qua PatientMedicalProfile) xóa thành công")
+  void testBatchDelete_patientMedicalProfileOwner_success() {
+    UUID authUserId = UUID.randomUUID();
+    UUID medicalProfileId = UUID.randomUUID();
+    UUID screeningId1 = UUID.randomUUID();
+    UUID screeningId2 = UUID.randomUUID();
+
+    User mockUser = new User("patient@aura.test", "Patient Name", "hashedPass123");
+    ReflectionTestUtils.setField(mockUser, "id", authUserId);
+
+    com.aura.patient.entity.PatientMedicalProfile medProfile = new com.aura.patient.entity.PatientMedicalProfile(mockUser, "MRN-2026-DEL");
+    ReflectionTestUtils.setField(medProfile, "id", medicalProfileId);
+
+    Screening s1 = new Screening(medicalProfileId, "https://cdn.aura.test/s1.png");
+    ReflectionTestUtils.setField(s1, "id", screeningId1);
+    Screening s2 = new Screening(medicalProfileId, "https://cdn.aura.test/s2.png");
+    ReflectionTestUtils.setField(s2, "id", screeningId2);
+
+    com.aura.patient.repository.PatientMedicalProfileRepository medRepo = org.mockito.Mockito.mock(com.aura.patient.repository.PatientMedicalProfileRepository.class);
+    when(medRepo.findByUserId(authUserId)).thenReturn(Optional.of(medProfile));
+    when(medRepo.findById(medicalProfileId)).thenReturn(Optional.of(medProfile));
+
+    when(screeningRepository.findById(screeningId1)).thenReturn(Optional.of(s1));
+    when(screeningRepository.findById(screeningId2)).thenReturn(Optional.of(s2));
+
+    ScreeningService svc = new ScreeningService(
+        screeningRepository,
+        assignmentRepository,
+        userNotificationService,
+        auditLogService,
+        clinicMemberRepository,
+        userRepository,
+        geminiAiService,
+        billingService,
+        null,
+        medRepo
+    );
+
+    int deleted = svc.batchDeleteScreenings(List.of(screeningId1.toString(), screeningId2.toString()), authUserId, false);
+
+    assertThat(deleted).isEqualTo(2);
+    verify(screeningRepository).deleteAll(any());
+    verify(screeningRepository).flush();
+  }
+
+  @Test
+  @DisplayName("Single Delete: Bác sĩ được phân công xóa ca sàng lọc của bệnh nhân")
+  void testDeleteScreening_assignedDoctor_success() {
+    UUID doctorId = UUID.randomUUID();
+    UUID patientUserId = UUID.randomUUID();
+    UUID screeningId = UUID.randomUUID();
+
+    Screening s = new Screening(patientUserId, "https://cdn.aura.test/s_doc.png");
+    ReflectionTestUtils.setField(s, "id", screeningId);
+
+    when(screeningRepository.findById(screeningId)).thenReturn(Optional.of(s));
+    when(assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(doctorId, patientUserId, AssignmentStatus.ACTIVE)).thenReturn(true);
+
+    screeningService.deleteScreening(screeningId, doctorId, false);
+
+    verify(screeningRepository).delete(s);
+    verify(screeningRepository).flush();
+  }
+
+  @Test
+  @DisplayName("Batch Delete: Bỏ qua ID không hợp lệ và trả về 0 khi rỗng")
+  void testBatchDelete_emptyOrInvalid() {
+    int count1 = screeningService.batchDeleteScreenings(null, UUID.randomUUID(), false);
+    assertThat(count1).isZero();
+
+    int count2 = screeningService.batchDeleteScreenings(List.of("invalid-uuid-1", "invalid-uuid-2"), UUID.randomUUID(), false);
+    assertThat(count2).isZero();
   }
 }

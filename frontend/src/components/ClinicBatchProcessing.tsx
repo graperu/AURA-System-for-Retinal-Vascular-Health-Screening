@@ -31,8 +31,8 @@ const BATCH_RISK_OPTIONS: ClinicalSelectOption<string>[] = [
 
 const BATCH_EYE_OPTIONS: ClinicalSelectOption<string>[] = [
   { value: 'ALL', label: 'Tất cả Mắt' },
-  { value: 'OD', label: 'Mắt Phải (OD)' },
-  { value: 'OS', label: 'Mắt Trái (OS)' },
+  { value: 'OD', label: 'Mắt Phải' },
+  { value: 'OS', label: 'Mắt Trái' },
 ];
 
 const BATCH_SORT_OPTIONS: ClinicalSelectOption<string>[] = [

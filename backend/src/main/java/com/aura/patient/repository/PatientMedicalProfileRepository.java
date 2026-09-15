@@ -21,4 +21,8 @@ public interface PatientMedicalProfileRepository extends JpaRepository<PatientMe
 
   @Query("SELECT p FROM PatientMedicalProfile p JOIN FETCH p.user WHERE p.user.id = :userId")
   Optional<PatientMedicalProfile> findByUserIdWithUser(@Param("userId") UUID userId);
+
+  java.util.List<PatientMedicalProfile> findByAssignedDoctor(String assignedDoctor);
+
+  java.util.List<PatientMedicalProfile> findByAssignedDoctorIgnoreCase(String assignedDoctor);
 }

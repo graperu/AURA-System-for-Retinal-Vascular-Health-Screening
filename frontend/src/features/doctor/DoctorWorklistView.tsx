@@ -105,8 +105,8 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
     setSelectedIds(new Set());
     setActionNotice(
       isVi
-        ? 'Đã đặt lại toàn bộ bộ lọc và ô tìm kiếm về mặc định'
-        : 'All filters and search reset to default'
+        ? 'Đã đặt lại bộ lọc về mặc định'
+        : 'Filters reset to default'
     );
     setTimeout(() => setActionNotice(null), 3500);
   };
@@ -603,7 +603,7 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
         <div className="flex items-center gap-2.5">
           <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Stethoscope className="w-5 h-5 text-[#0891B2]" />
-            {t('doctor.worklist.title', 'Danh sách ca khám phân công')}
+            {t('doctor.worklist.title', 'Danh sách bệnh nhân')}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200/80">
             ({filteredPatients.length})
@@ -611,8 +611,8 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
         </div>
         <p className="text-xs text-slate-500">
           {isVi
-            ? `Tổng cộng ${patients.length} bệnh nhân trong danh sách phụ trách.`
-            : `Total ${patients.length} patients in assigned directory.`}
+            ? `Tổng cộng ${patients.length} bệnh nhân.`
+            : `Total ${patients.length} patients.`}
         </p>
       </div>
 
@@ -627,7 +627,7 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
           pageSizeOptions: [5, 10, 20, 50],
           itemLabel: isVi ? 'bệnh nhân' : 'patients',
         }}
-        emptyMessage={t('doctor.worklist.emptyFiltered', 'Không tìm thấy bệnh nhân nào phù hợp với bộ lọc.')}
+        emptyMessage={t('doctor.worklist.emptyFiltered', 'Không có bệnh nhân nào phù hợp.')}
       />
 
       {/* Delete Confirmation Modal */}
@@ -635,7 +635,7 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
         isOpen={deleteModalState.isOpen}
         onClose={() => !isDeleting && setDeleteModalState({ isOpen: false, mode: 'single' })}
         maxWidth="sm"
-        title={isVi ? 'Xác nhận xóa hồ sơ bệnh nhân' : 'Confirm Patient Deletion'}
+        title={isVi ? 'Xác nhận xóa bệnh nhân' : 'Confirm Deletion'}
       >
         <div className="space-y-4 text-xs">
           <div className="flex items-start gap-3 p-3.5 bg-red-50/80 rounded-xl border border-red-200/80">
@@ -644,16 +644,16 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
               <p className="font-bold">
                 {deleteModalState.mode === 'single'
                   ? (isVi
-                      ? `Xóa hồ sơ bệnh nhân "${deleteModalState.targetPatient?.fullName || deleteModalState.targetPatient?.mrn || 'N/A'}"?`
-                      : `Delete patient record "${deleteModalState.targetPatient?.fullName || deleteModalState.targetPatient?.mrn || 'N/A'}"?`)
+                      ? `Xóa bệnh nhân "${deleteModalState.targetPatient?.fullName || deleteModalState.targetPatient?.mrn || 'N/A'}"?`
+                      : `Delete patient "${deleteModalState.targetPatient?.fullName || deleteModalState.targetPatient?.mrn || 'N/A'}"?`)
                   : (isVi
-                      ? `Xóa ${selectedIds.size} hồ sơ bệnh nhân đã chọn?`
-                      : `Delete ${selectedIds.size} selected patient records?`)}
+                      ? `Xóa ${selectedIds.size} bệnh nhân đã chọn?`
+                      : `Delete ${selectedIds.size} selected patients?`)}
               </p>
               <p className="text-red-700 leading-relaxed">
                 {isVi
-                  ? 'Hồ sơ bệnh nhân và các thông tin liên quan sẽ bị xóa khỏi danh sách theo dõi. Thao tác này không thể hoàn tác.'
-                  : 'Patient profiles and associated data will be removed from your active worklist. This action cannot be undone.'}
+                  ? 'Hồ sơ này sẽ bị xóa khỏi danh sách. Thao tác không thể hoàn tác.'
+                  : 'This record will be removed from your list. This cannot be undone.'}
               </p>
             </div>
           </div>

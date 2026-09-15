@@ -22,10 +22,10 @@ export const ClinicCampaignAnalytics: React.FC = () => {
       if (res.success) {
         setData(res.data);
       } else {
-        setError(res.message || t('clinic.campaignAnalytics.errorTitle'));
+        setError(res.message || t('clinic.campaignAnalytics.errorTitle', 'Lỗi tải dữ liệu chiến dịch'));
       }
     } catch (err: any) {
-      setError(err?.message || t('clinic.campaignAnalytics.errorMessage'));
+      setError(err?.message || t('clinic.campaignAnalytics.errorMessage', 'Không thể tải dữ liệu báo cáo'));
     } finally {
       setLoading(false);
     }
@@ -40,13 +40,13 @@ export const ClinicCampaignAnalytics: React.FC = () => {
   };
 
   if (loading) {
-    return <LoadingState message={t('clinic.campaignAnalytics.loadingMessage')} />;
+    return <LoadingState message={t('clinic.campaignAnalytics.loadingMessage', 'Đang tải dữ liệu báo cáo chiến dịch lâm sàng...')} />;
   }
 
   if (error) {
     return (
       <ErrorState
-        title={t('clinic.campaignAnalytics.errorTitle')}
+        title={t('clinic.campaignAnalytics.errorTitle', 'Lỗi tải dữ liệu chiến dịch')}
         message={error}
         onRetry={fetchData}
       />
@@ -57,14 +57,14 @@ export const ClinicCampaignAnalytics: React.FC = () => {
     return (
       <div className="space-y-6">
         <PageHeader
-          title={t('clinic.campaignAnalytics.campaignTitle')}
-          subtitle={t('clinic.campaignAnalytics.pageSubtitle')}
+          title={t('clinic.campaignAnalytics.campaignTitle', 'Báo cáo & Phân tích chiến dịch tầm soát')}
+          subtitle={t('clinic.campaignAnalytics.pageSubtitle', 'Thống kê tổng quan và chỉ số rủi ro vi mạch theo chiến dịch')}
         />
         <EmptyState
           icon={<Building2 className="w-10 h-10 text-slate-400" />}
-          title={t('clinic.campaignAnalytics.emptyTitle')}
-          description={t('clinic.campaignAnalytics.emptyDescription')}
-          actionLabel={t('clinic.campaignAnalytics.reloadButton')}
+          title={t('clinic.campaignAnalytics.emptyTitle', 'Chưa có dữ liệu chiến dịch')}
+          description={t('clinic.campaignAnalytics.emptyDescription', 'Hãy tạo chiến dịch mới hoặc tải lên các lô ảnh để xem báo cáo thống kê')}
+          actionLabel={t('clinic.campaignAnalytics.reloadButton', 'Tải lại dữ liệu')}
           onAction={fetchData}
         />
       </div>
@@ -74,8 +74,8 @@ export const ClinicCampaignAnalytics: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t('clinic.campaignAnalytics.campaignTitle')}
-        subtitle={t('clinic.campaignAnalytics.pageSubtitle')}
+        title={t('clinic.campaignAnalytics.campaignTitle', 'Báo cáo & Phân tích chiến dịch tầm soát')}
+        subtitle={t('clinic.campaignAnalytics.pageSubtitle', 'Thống kê tổng quan và chỉ số rủi ro vi mạch theo chiến dịch')}
         actions={
           <Button
             variant="primary"
@@ -83,7 +83,7 @@ export const ClinicCampaignAnalytics: React.FC = () => {
             onClick={handleExport}
             icon={<Download className="w-4 h-4" />}
           >
-            {t('clinic.campaignAnalytics.exportCsvButton')}
+            {t('clinic.campaignAnalytics.exportCsvButton', 'Xuất dữ liệu CSV')}
           </Button>
         }
       />
@@ -92,7 +92,7 @@ export const ClinicCampaignAnalytics: React.FC = () => {
         <Card padding="lg" className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-clinical-text-secondary uppercase tracking-wider">
-              {t('clinic.campaignAnalytics.totalCampaignsCard')}
+              {t('clinic.campaignAnalytics.totalCampaignsCard', 'Tổng số chiến dịch')}
             </span>
             <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
               <Building2 className="w-4 h-4" />
@@ -102,14 +102,14 @@ export const ClinicCampaignAnalytics: React.FC = () => {
             {data?.totalCampaigns || 0}
           </div>
           <p className="text-xs text-clinical-text-muted">
-            {t('clinic.campaignAnalytics.totalCampaignsSub')}
+            {t('clinic.campaignAnalytics.totalCampaignsSub', 'Chiến dịch sàng lọc')}
           </p>
         </Card>
 
         <Card padding="lg" className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-clinical-text-secondary uppercase tracking-wider">
-              {t('clinic.campaignAnalytics.totalImagesCard')}
+              {t('clinic.campaignAnalytics.totalImagesCard', 'Tổng số ca phân tích')}
             </span>
             <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
               <Layers className="w-4 h-4" />
@@ -119,14 +119,14 @@ export const ClinicCampaignAnalytics: React.FC = () => {
             {data?.totalImages || 0}
           </div>
           <p className="text-xs text-clinical-text-muted">
-            {t('clinic.campaignAnalytics.totalImagesSub')}
+            {t('clinic.campaignAnalytics.totalImagesSub', 'Ảnh đáy mắt đã xử lý')}
           </p>
         </Card>
 
         <Card padding="lg" className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">
-              {t('clinic.campaignAnalytics.highRiskCard')}
+              {t('clinic.campaignAnalytics.highRiskCard', 'Phát hiện nguy cơ cao')}
             </span>
             <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
               <AlertTriangle className="w-4 h-4" />
@@ -136,7 +136,7 @@ export const ClinicCampaignAnalytics: React.FC = () => {
             {data?.highRiskPatients || 0}
           </div>
           <p className="text-xs text-clinical-text-muted">
-            {t('clinic.campaignAnalytics.highRiskSub')}
+            {t('clinic.campaignAnalytics.highRiskSub', 'Cần ưu tiên hội chẩn chuyên khoa')}
           </p>
         </Card>
       </div>
