@@ -204,7 +204,7 @@ export const screeningApi = {
   batchDelete: (ids: string[]) =>
     apiFetch<number>("/api/v1/screenings/batch-delete", {
       method: "POST",
-      body: JSON.stringify({ ids, screeningIds: ids }),
+      body: JSON.stringify({ screeningIds: ids }),
     }),
 };
 

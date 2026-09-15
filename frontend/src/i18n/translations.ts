@@ -368,6 +368,26 @@ export interface ClinicalTranslationSchema {
       showPassword: string;
       hidePassword: string;
     };
+    googleModal: {
+      title: string;
+      subtitle: string;
+      continueWithGoogle: string;
+      presetAccountsTitle: string;
+      useOtherAccount: string;
+      otherAccountTitle: string;
+      emailLabel: string;
+      emailPlaceholder: string;
+      nameLabel: string;
+      namePlaceholder: string;
+      signInBtn: string;
+      cancelBtn: string;
+      privacyNotice: string;
+      roleDoctor: string;
+      rolePatient: string;
+      roleClinic: string;
+      roleAdmin: string;
+      loggingIn: string;
+    };
   };
   patient: {
     dashboard: {
@@ -1818,6 +1838,26 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
       passwordInput: {
         showPassword: "Hiện mật khẩu",
         hidePassword: "Ẩn mật khẩu",
+      },
+      googleModal: {
+        title: "Đăng nhập bằng Google",
+        subtitle: "Chọn tài khoản để tiếp tục với Hệ thống AURA",
+        continueWithGoogle: "Tiếp tục với tài khoản Google",
+        presetAccountsTitle: "Tài khoản mẫu được xác thực",
+        useOtherAccount: "Sử dụng tài khoản Google khác",
+        otherAccountTitle: "Nhập thông tin tài khoản Google",
+        emailLabel: "Địa chỉ Email Google",
+        emailPlaceholder: "ten.ban@gmail.com",
+        nameLabel: "Họ và tên hiển thị",
+        namePlaceholder: "Nguyễn Văn A",
+        signInBtn: "Đăng nhập ngay",
+        cancelBtn: "Hủy bỏ",
+        privacyNotice: "Để tiếp tục, Google sẽ chia sẻ tên, địa chỉ email và ảnh hồ sơ của bạn với AURA theo Chính sách Quyền riêng tư.",
+        roleDoctor: "Bác sĩ Chuyên khoa Mắt",
+        rolePatient: "Bệnh nhân Tầm soát Võng mạc",
+        roleClinic: "Quản trị viên Phòng khám",
+        roleAdmin: "Quản trị viên Cấp cao",
+        loggingIn: "Đang kết nối Google...",
       },
     },
     patient: {
@@ -3296,6 +3336,26 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
       passwordInput: {
         showPassword: "Show",
         hidePassword: "Hide",
+      },
+      googleModal: {
+        title: "Sign in with Google",
+        subtitle: "Choose an account to continue to AURA Screening",
+        continueWithGoogle: "Continue with Google Account",
+        presetAccountsTitle: "Verified Sample Accounts",
+        useOtherAccount: "Use another Google account",
+        otherAccountTitle: "Enter Google Account Details",
+        emailLabel: "Google Email Address",
+        emailPlaceholder: "your.name@gmail.com",
+        nameLabel: "Display Full Name",
+        namePlaceholder: "John Doe",
+        signInBtn: "Sign In Now",
+        cancelBtn: "Cancel",
+        privacyNotice: "To continue, Google will share your name, email address, and profile picture with AURA in accordance with our Privacy Policy.",
+        roleDoctor: "Ophthalmology Specialist",
+        rolePatient: "Retinal Screening Patient",
+        roleClinic: "Clinic Administrator",
+        roleAdmin: "System Administrator",
+        loggingIn: "Connecting with Google...",
       },
     },
     patient: {

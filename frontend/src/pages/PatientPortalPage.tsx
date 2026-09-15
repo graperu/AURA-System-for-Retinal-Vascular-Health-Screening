@@ -278,9 +278,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       const res = await screeningApi.delete(id);
       if (res && res.success === false && res.code !== "NOT_FOUND") {
         console.warn("Screening delete API response:", res.message);
+        throw new Error(res.message || (isVi ? "Không thể xóa ca khám" : "Failed to delete screening"));
       }
     } catch (err) {
       console.warn("Screening delete error:", err);
+      throw err;
     }
   };
 
@@ -291,9 +293,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       const res = await screeningApi.batchDelete(ids);
       if (res && res.success === false) {
         console.warn("Screening batch delete API response:", res.message);
+        throw new Error(res.message || (isVi ? "Không thể xóa các ca khám đã chọn" : "Failed to delete selected screenings"));
       }
     } catch (err) {
       console.warn("Screening batch delete error:", err);
+      throw err;
     }
   };
 
