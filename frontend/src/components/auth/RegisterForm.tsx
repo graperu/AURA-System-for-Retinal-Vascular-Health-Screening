@@ -55,12 +55,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     if (result.success) {
       setStep('otp');
       setCooldown(60);
-      const devOtp = (result.data as any)?.devOtp;
-      if (devOtp) {
-        setOtp(devOtp);
-      } else {
-        setOtp('');
-      }
+      setOtp('');
     } else {
       setErrors({ form: result.message || (isVi ? 'Không thể gửi mã OTP. Vui lòng thử lại.' : 'Could not send OTP code. Please try again.') });
     }
@@ -75,10 +70,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     setSubmitting(false);
     if (result.success) {
       setCooldown(60);
-      const devOtp = (result.data as any)?.devOtp;
-      if (devOtp) {
-        setOtp(devOtp);
-      }
+      setOtp('');
     } else {
       setErrors({ form: result.message || (isVi ? 'Gửi lại mã OTP thất bại.' : 'Resending OTP failed.') });
     }
@@ -109,7 +101,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     setSubmitting(false);
 
     if (result.success) {
-      // User is logged in automatically via AuthContext
+      onLogin(email.trim(), isVi ? 'Đăng ký và xác thực tài khoản thành công!' : 'Account registered and verified successfully!');
     } else {
       setErrors({ otp: result.message || (isVi ? 'Xác thực mã OTP thất bại. Vui lòng kiểm tra lại.' : 'OTP verification failed. Please check again.') });
     }
@@ -149,7 +141,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
     setSocialLoading(null);
   };
 
-  // OTP Verification Screen
+  // OTP Verification Screen (Clean, NO yellow test box, NO autofill)
   if (step === 'otp') {
     return (
       <form onSubmit={handleVerifyOtp} noValidate className="mt-4 space-y-4">
@@ -165,6 +157,12 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
             <br />
             <span className="font-semibold text-slate-800">{email}</span>
           </p>
+        </div>
+
+        <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-3 text-xs text-blue-900 text-center leading-relaxed">
+          {isVi
+            ? '💡 Vui lòng kiểm tra email của bạn (hoặc log hệ thống backend) để lấy mã xác thực 6 chữ số.'
+            : '💡 Please check your email inbox (or backend logs) for the 6-digit verification code.'}
         </div>
 
         {errors.form && (
@@ -231,7 +229,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
         <div className="pt-1 text-center">
           <button
             type="button"
-            onClick={() => { setStep('form'); setErrors({}); }}
+            onClick={() => { setStep('form'); setErrors({}); setOtp(''); }}
             className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition hover:text-slate-800"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> {t('auth.registerForm.changeEmailBtn', isVi ? 'Thay đổi thông tin email' : 'Change email address')}
@@ -353,7 +351,7 @@ export const RegisterForm: React.FC<Props> = ({ onLogin }) => {
         {submitting ? (
           <><Loader2 className="h-5 w-5 animate-spin mr-2" />{t('auth.registerForm.sendingOtp', isVi ? 'Đang gửi mã OTP…' : 'Sending OTP code...')}</>
         ) : (
-          t('auth.registerForm.registerButton', isVi ? 'Tạo tài khoản' : 'Create Account')
+          t('auth.registerForm.continueBtn', isVi ? 'Tiếp tục' : 'Continue')
         )}
       </button>
     </form>

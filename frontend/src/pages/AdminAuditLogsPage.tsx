@@ -29,6 +29,7 @@ import {
   X,
   Send,
   Check,
+  Loader2,
 } from "lucide-react";
 import {
   auditApi,
@@ -783,8 +784,39 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   const [drConfidence, setDrConfidence] = useState(70);
   const [retrainThreshold, setRetrainThreshold] = useState(60);
   const [isSavedAI, setIsSavedAI] = useState(false);
+  const [isSavingAI, setIsSavingAI] = useState(false);
+  const [aiConfigNotice, setAiConfigNotice] = useState<string | null>(null);
   const [auditWorkspaceLogs, setAuditWorkspaceLogs] = useState<AuditLogItem[]>([]);
   const [isAuditLoading, setIsAuditLoading] = useState(false);
+
+  const handleSaveAiConfig = async () => {
+    setIsSavingAI(true);
+    try {
+      const payload = {
+        sensitivityThreshold: glaucomaSensitivity,
+        confidenceThreshold: drConfidence,
+        avrWarningThreshold: retrainThreshold,
+        autoRetrainEnabled: true,
+      };
+      const res = await adminUserApi.updateAiConfig(payload);
+      if (res.success) {
+        setIsSavedAI(true);
+        setAiConfigNotice(t('admin.aiConfig.saveSuccess', isVi ? 'Đã lưu cấu hình tham số & độ nhạy AI thành công!' : 'AI model parameters saved successfully!'));
+        setTimeout(() => {
+          setIsSavedAI(false);
+          setAiConfigNotice(null);
+        }, 4000);
+      } else {
+        setAiConfigNotice(t('admin.aiConfig.saveError', isVi ? 'Lưu cấu hình thất bại: ' + (res.message || 'Lỗi không xác định') : 'Failed to save config'));
+        setTimeout(() => setAiConfigNotice(null), 5000);
+      }
+    } catch (e: any) {
+      setAiConfigNotice(t('admin.aiConfig.saveError', isVi ? 'Lỗi kết nối máy chủ khi lưu cấu hình AI.' : 'Server connection error while saving AI config.'));
+      setTimeout(() => setAiConfigNotice(null), 5000);
+    } finally {
+      setIsSavingAI(false);
+    }
+  };
 
   const loadAuditData = async () => {
     setIsAuditLoading(true);
@@ -2378,6 +2410,42 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               <p className="text-[11px] text-slate-500">
                 {t('admin.aiConfig.retrainHint', isVi ? 'Kích hoạt cảnh báo nguy cơ tăng huyết áp khi A/V Ratio dưới ngưỡng.' : 'Triggers hypertensive microvascular alert when A/V Ratio is below threshold.')}
               </p>
+            </div>
+          </div>
+
+          {/* VULN-10 FIX: Nút hành động Lưu Cấu Hình & Thông Báo Phản Hồi */}
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+            <div>
+              {aiConfigNotice && (
+                <div className={`text-xs font-semibold px-3 py-1.5 rounded-xl inline-flex items-center gap-1.5 ${
+                  isSavedAI ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                }`}>
+                  {isSavedAI ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
+                  <span>{aiConfigNotice}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setGlaucomaSensitivity(85);
+                  setDrConfidence(70);
+                  setRetrainThreshold(60);
+                }}
+                className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                {t('admin.aiConfig.resetBtn', isVi ? 'Khôi Phục Mặc Định' : 'Reset to Defaults')}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAiConfig}
+                disabled={isSavingAI}
+                className="px-5 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold text-xs rounded-xl shadow-xs inline-flex items-center gap-2 transition-all cursor-pointer disabled:opacity-60"
+              >
+                {isSavingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>{isSavingAI ? t('common.saving', isVi ? 'Đang lưu...' : 'Saving...') : t('admin.aiConfig.saveBtn', isVi ? 'Lưu Cấu Hình Tham Số AI' : 'Save AI Config')}</span>
+              </button>
             </div>
           </div>
         </div>

@@ -20,4 +20,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
   List<ChatMessage> findByScreeningIdOrderByCreatedAtAsc(UUID screeningId);
 
   List<ChatMessage> findByReceiverIdAndIsReadFalse(UUID receiverId);
+
+  List<ChatMessage> findByReceiverIdAndSenderIdAndIsReadFalse(UUID receiverId, UUID senderId);
 }

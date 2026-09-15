@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/patient/profile")
+@PreAuthorize("isAuthenticated()")
 public class PatientProfileController {
   private final PatientProfileService profileService;
   private final PatientLabDocumentService labDocumentService;

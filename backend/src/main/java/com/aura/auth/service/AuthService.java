@@ -58,6 +58,10 @@ public class AuthService {
     Map<String, Object> map = new java.util.HashMap<>();
     map.put("email", email);
     map.put("expiresInSeconds", expiresIn);
+    String debugOtp = otpService.getLatestOtpForDebug(email);
+    if (debugOtp != null) {
+      map.put("devOtp", debugOtp);
+    }
     return map;
   }
 
@@ -129,7 +133,15 @@ public class AuthService {
     String email = null;
     String name = null;
 
-    if (q.idToken() != null && q.idToken().contains(".")) {
+    if ("google".equalsIgnoreCase(provider) && q.idToken() != null && !q.idToken().isBlank()) {
+      var verifiedGoogleUser = verifyGoogleIdToken(q.idToken());
+      if (verifiedGoogleUser != null) {
+        email = verifiedGoogleUser.email();
+        name = verifiedGoogleUser.name();
+      }
+    }
+
+    if (email == null && q.idToken() != null && q.idToken().contains(".")) {
       try {
         String[] parts = q.idToken().split("\\.");
         if (parts.length >= 2) {
@@ -196,6 +208,40 @@ public class AuthService {
     }
 
     return result(user, names);
+  }
+
+  private record VerifiedSocialUser(String email, String name) {}
+
+  private VerifiedSocialUser verifyGoogleIdToken(String idToken) {
+    if (idToken == null || idToken.isBlank() || !idToken.contains(".")) {
+      return null;
+    }
+    try {
+      java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+          .connectTimeout(java.time.Duration.ofSeconds(3))
+          .build();
+      String verifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + java.net.URLEncoder.encode(idToken, java.nio.charset.StandardCharsets.UTF_8);
+      java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+          .uri(java.net.URI.create(verifyUrl))
+          .timeout(java.time.Duration.ofSeconds(4))
+          .GET()
+          .build();
+
+      java.net.http.HttpResponse<String> response = httpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+      if (response.statusCode() == 200) {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var node = mapper.readTree(response.body());
+        boolean emailVerified = node.has("email_verified") &&
+            ("true".equalsIgnoreCase(node.get("email_verified").asText()) || node.get("email_verified").asBoolean());
+        if (emailVerified && node.has("email")) {
+          String verifiedEmail = node.get("email").asText().trim().toLowerCase(Locale.ROOT);
+          String verifiedName = node.has("name") ? node.get("name").asText().trim() : null;
+          return new VerifiedSocialUser(verifiedEmail, verifiedName);
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return null;
   }
 
   public LoginResult refresh(String raw) {

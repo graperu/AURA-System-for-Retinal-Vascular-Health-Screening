@@ -84,18 +84,19 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
           }
         } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
           String destination = accessor.getDestination();
-          if (destination != null && destination.startsWith("/topic/chat.")) {
-            String targetUserId = destination.substring("/topic/chat.".length());
+          if (destination != null && (destination.startsWith("/topic/chat.") || destination.startsWith("/topic/notifications."))) {
+            String prefix = destination.startsWith("/topic/chat.") ? "/topic/chat." : "/topic/notifications.";
+            String targetUserId = destination.substring(prefix.length());
             Object userObj = accessor.getUser();
             if (!(userObj instanceof UsernamePasswordAuthenticationToken auth
                 && auth.getPrincipal() instanceof AuraUserPrincipal principal)) {
               log.warn("Unauthenticated subscription attempt to {}", destination);
-              throw new AccessDeniedException("Yêu cầu đăng nhập để đăng ký kênh tin nhắn tư vấn");
+              throw new AccessDeniedException("Yêu cầu đăng nhập để đăng ký kênh thông tin riêng tư");
             }
             boolean isAdmin = principal.roles() != null && principal.roles().contains("ADMIN");
             if (!isAdmin && !principal.id().toString().equalsIgnoreCase(targetUserId)) {
               log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
-              throw new AccessDeniedException("Unauthorized subscription to private chat channel");
+              throw new AccessDeniedException("Unauthorized subscription to private channel");
             }
           }
         }

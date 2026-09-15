@@ -13,13 +13,15 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface DoctorPatientAssignmentRepository extends JpaRepository<DoctorPatientAssignment, UUID> {
 
-  List<DoctorPatientAssignment> findByDoctorIdAndStatus(UUID doctorId, AssignmentStatus status);
+  @Query("SELECT d FROM DoctorPatientAssignment d JOIN FETCH d.patient WHERE d.doctor.id = :doctorId AND d.status = :status")
+  List<DoctorPatientAssignment> findByDoctorIdAndStatus(@Param("doctorId") UUID doctorId, @Param("status") AssignmentStatus status);
 
   List<DoctorPatientAssignment> findByPatientId(UUID patientId);
 
   List<DoctorPatientAssignment> findByStatus(AssignmentStatus status);
 
-  List<DoctorPatientAssignment> findByPatientIdAndStatus(UUID patientId, AssignmentStatus status);
+  @Query("SELECT d FROM DoctorPatientAssignment d JOIN FETCH d.doctor WHERE d.patient.id = :patientId AND d.status = :status")
+  List<DoctorPatientAssignment> findByPatientIdAndStatus(@Param("patientId") UUID patientId, @Param("status") AssignmentStatus status);
 
   boolean existsByDoctorIdAndPatientIdAndStatus(UUID doctorId, UUID patientId, AssignmentStatus status);
 

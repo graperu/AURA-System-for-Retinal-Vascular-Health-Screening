@@ -164,7 +164,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 w-full max-w-[1536px] 2xl:max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         {/* Left Branding */}
         <div className="flex min-w-0 items-center gap-3">
           <button

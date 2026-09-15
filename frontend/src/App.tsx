@@ -9,6 +9,7 @@ import { AdminAuditLogsPage } from './pages/AdminAuditLogsPage';
 import { useAuth } from './context/AuthContext';
 import { useLanguage } from './context/LanguageContext';
 import { LoadingState } from './components/ui/StateFeedback';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export const App: React.FC = () => {
   const { user: currentUser, loading, logout } = useAuth();
@@ -72,7 +73,9 @@ export const App: React.FC = () => {
       onSelectSection={handleSelectSection}
       onLogout={() => void logout()}
     >
-      {portalContent}
+      <ErrorBoundary fallbackTitle={isVi ? "Sự cố hiển thị màn hình làm việc lâm sàng" : "Clinical Portal Display Error"}>
+        {portalContent}
+      </ErrorBoundary>
     </AppLayout>
   );
 };

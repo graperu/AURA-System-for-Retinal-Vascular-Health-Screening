@@ -338,11 +338,13 @@ class AuthServiceComprehensiveTest {
     }
 
     @Test
-    @DisplayName("getOtpDataResponse returns normalized email and seconds")
+    @DisplayName("getOtpDataResponse returns normalized email and seconds and devOtp if present")
     void getOtpDataResponse_ReturnsExpectedMap() {
+      when(otpService.getLatestOtpForDebug("test@example.com")).thenReturn("123456");
       var map = authService.getOtpDataResponse("  TEST@Example.com  ", 300L);
       assertThat(map.get("email")).isEqualTo("test@example.com");
       assertThat(map.get("expiresInSeconds")).isEqualTo(300L);
+      assertThat(map.get("devOtp")).isEqualTo("123456");
     }
   }
 

@@ -1,3 +1,11 @@
+/**
+ * @deprecated
+ * FILE NÀY ĐÃ ĐƯỢC ĐÁNH DẤU DEPRECATED VÀ VÔ HIỆU HÓA HOÀN TOÀN TRONG PRODUCTION (SRS AUDIT COMPLIANCE).
+ * Toàn bộ hệ thống AURA đã chuyển đổi 100% sang REST API thật tại Backend Spring Boot và AI Vision Service.
+ * Tệp này chỉ được lưu lại làm tài liệu tham chiếu cấu trúc (Stub) cho các bộ Unit Test ngoại tuyến cũ.
+ * KHÔNG ĐƯỢC IMPORT HOẶC SỬ DỤNG TRONG BẤT KỲ LUỒNG VẬN HÀNH NÀO CỦA ỨNG DỤNG.
+ */
+
 import {
   AIRiskResult,
   ClinicBatchJob,
