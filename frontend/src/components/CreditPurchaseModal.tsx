@@ -383,39 +383,6 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
         icon: <QrCode className="w-5 h-5 text-teal-600" />,
         tag: isVi ? "Khuyên Dùng" : "Recommended",
       },
-      {
-        id: "MOMO" as const,
-        name: isVi ? "Ví Điện Tử MoMo" : "MoMo E-Wallet",
-        badge: isVi ? "Thanh toán 1 chạm" : "1-Tap Checkout",
-        description: isVi
-          ? "Quét mã MoMo QR hoặc chuyển hướng sang ứng dụng MoMo xác nhận"
-          : "Scan MoMo QR or redirect to MoMo application to complete",
-        color: "border-pink-500 bg-pink-50/40 text-pink-800",
-        icon: <Wallet className="w-5 h-5 text-pink-600" />,
-        tag: isVi ? "Nhanh chóng" : "Fast",
-      },
-      {
-        id: "VNPAY" as const,
-        name: isVi ? "Cổng Thanh Toán VNPAY-QR" : "VNPAY Payment Gateway",
-        badge: isVi ? "Hỗ trợ Thẻ & Internet Banking" : "ATM & Online Banking",
-        description: isVi
-          ? "Thanh toán qua cổng VNPay hỗ trợ thẻ ATM nội địa và quét QR liên ngân hàng"
-          : "Pay via VNPay gateway with domestic ATM cards and interbank QR",
-        color: "border-blue-500 bg-blue-50/40 text-blue-800",
-        icon: <Building2 className="w-5 h-5 text-blue-600" />,
-        tag: isVi ? "Phổ biến" : "Popular",
-      },
-      {
-        id: "CREDIT_CARD" as const,
-        name: isVi ? "Thẻ Quốc Tế Visa / MasterCard" : "International Cards",
-        badge: isVi ? "Bảo mật PCI-DSS 256-bit" : "PCI-DSS 256-bit Security",
-        description: isVi
-          ? "Hỗ trợ thẻ tín dụng & ghi nợ quốc tế phát hành toàn cầu"
-          : "Worldwide credit & debit cards supported",
-        color: "border-indigo-500 bg-indigo-50/40 text-indigo-800",
-        icon: <CreditCard className="w-5 h-5 text-indigo-600" />,
-        tag: isVi ? "Quốc tế" : "Global",
-      },
     ],
     [isVi]
   );

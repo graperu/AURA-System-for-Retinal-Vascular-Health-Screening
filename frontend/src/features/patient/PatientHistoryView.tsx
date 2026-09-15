@@ -9,10 +9,13 @@ import {
   XCircle,
   RefreshCw,
   RotateCcw,
-  ChevronDown,
-  ArrowUpDown,
   X,
   ShieldCheck,
+  Trash2,
+  FileSpreadsheet,
+  AlertTriangle,
+  Loader2,
+  Download,
 } from 'lucide-react';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { RiskBadge } from '../../components/ui/RiskBadge';
@@ -21,6 +24,7 @@ import { ScanTypeBadge } from '../../components/ui/ScanTypeBadge';
 import { ClinicalSelect, ClinicalSelectOption } from '../../components/ui/ClinicalSelect';
 import { MedicalDisclaimer } from '../../components/ui/MedicalDisclaimer';
 import { useLanguage } from '../../context/LanguageContext';
+import { screeningApi } from '../../services/api';
 
 export interface PatientHistoryItem {
   id: string;
@@ -48,11 +52,19 @@ export interface PatientHistoryViewProps {
   onSelectScreening?: (item: PatientHistoryItem) => void;
   onOpenReportModal?: (item: PatientHistoryItem) => void;
   onRefresh?: () => void;
+  onDeleteScreening?: (id: string) => Promise<boolean | void>;
+  onBatchDeleteScreenings?: (ids: string[]) => Promise<boolean | void>;
 }
 
 type EyeFilterType = 'ALL' | 'OD' | 'OS' | 'BOTH';
 type RiskFilterType = 'ALL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
 type SortByType = 'NEWEST' | 'OLDEST' | 'SCORE_DESC' | 'SCORE_ASC';
+
+interface DeleteTarget {
+  type: 'single' | 'batch';
+  item?: PatientHistoryItem;
+  ids?: string[];
+}
 
 export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
   screenings,
@@ -60,6 +72,8 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
   onSelectScreening,
   onOpenReportModal,
   onRefresh,
+  onDeleteScreening,
+  onBatchDeleteScreenings,
 }) => {
   const { t, isVi } = useLanguage();
 
@@ -101,11 +115,19 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Multi-selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Delete modal state
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
   const handleRefreshClick = async () => {
     if (onRefresh) {
       setIsRefreshing(true);
       try {
         await onRefresh();
+        setSelectedIds(new Set());
         setActionNotice(
           isVi
             ? `Đã làm mới danh sách (${screenings.length} ca khám)`
@@ -125,6 +147,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     setEyeFilter('ALL');
     setRiskFilter('ALL');
     setSortBy('NEWEST');
+    setSelectedIds(new Set());
     setActionNotice(
       t(
         'patient.history.filters.resetFiltersNotice',
@@ -181,6 +204,172 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     });
   }, [screenings, searchTerm, eyeFilter, riskFilter, sortBy]);
 
+  // Selection handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (filteredData.length === 0) return;
+    const allFilteredSelected = filteredData.every((item) => selectedIds.has(item.id));
+    if (allFilteredSelected) {
+      // Bỏ chọn các phần tử trong filteredData
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredData.forEach((item) => next.delete(item.id));
+        return next;
+      });
+    } else {
+      // Chọn tất cả phần tử trong filteredData
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredData.forEach((item) => next.add(item.id));
+        return next;
+      });
+    }
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Export to CSV
+  const handleExportCsv = (itemsToExport?: PatientHistoryItem[]) => {
+    const targetItems =
+      itemsToExport ||
+      (selectedIds.size > 0
+        ? filteredData.filter((item) => selectedIds.has(item.id))
+        : filteredData);
+
+    if (targetItems.length === 0) {
+      setActionNotice(isVi ? 'Không có ca khám nào để xuất' : 'No records to export');
+      return;
+    }
+
+    const headers = [
+      'Mã Ca Khám (ID)',
+      'Thời Gian Khám',
+      'Mắt Khám',
+      'Loại Ảnh',
+      'Điểm Nguy Cơ (0-100)',
+      'Mức Độ Nguy Cơ',
+      'Trạng Thái',
+      'Bác Sĩ Thẩm Định',
+      'Ghi Chú & Kết Luận',
+      'Mã Bệnh ICD-10',
+    ];
+
+    const rows = targetItems.map((item) => {
+      const dateStr = item.createdAt
+        ? new Date(item.createdAt).toLocaleString(isVi ? 'vi-VN' : 'en-US')
+        : '';
+      const eyeStr =
+        item.eyePosition === 'OS' || item.eyePosition?.toUpperCase().includes('LEFT')
+          ? 'Mắt Trái (OS)'
+          : 'Mắt Phải (OD)';
+      const riskLevelStr = item.riskLevel || 'Chưa xác định';
+      const statusStr =
+        item.status === 'REVIEWED' || item.doctorReviewed
+          ? 'Đã duyệt lâm sàng'
+          : item.status === 'FAILED'
+          ? 'Thất bại'
+          : 'Đã phân tích AI';
+      const doctorStr =
+        item.doctorName || (item.doctorReviewed ? 'Bác sĩ chuyên khoa' : 'Chưa thẩm định');
+      const notesStr = (item.doctorNotes || item.notes || '').replace(/"/g, '""');
+      const icdStr = (item.icd10Codes || []).join('; ');
+
+      return [
+        `"${item.id}"`,
+        `"${dateStr}"`,
+        `"${eyeStr}"`,
+        `"${item.scanType || 'Fundus'}"`,
+        `"${item.riskScore ?? 0}"`,
+        `"${riskLevelStr}"`,
+        `"${statusStr}"`,
+        `"${doctorStr}"`,
+        `"${notesStr}"`,
+        `"${icdStr}"`,
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `aura_lich_su_kham_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setActionNotice(
+      isVi
+        ? `Đã xuất thành công ${targetItems.length} ca khám ra file CSV`
+        : `Successfully exported ${targetItems.length} records to CSV`
+    );
+    setTimeout(() => setActionNotice(null), 3500);
+  };
+
+  // Delete handlers
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      if (deleteTarget.type === 'single' && deleteTarget.item) {
+        const id = deleteTarget.item.rawId || deleteTarget.item.id;
+        if (onDeleteScreening) {
+          await onDeleteScreening(id);
+        } else {
+          await screeningApi.delete(id);
+        }
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(deleteTarget.item!.id);
+          return next;
+        });
+        setActionNotice(isVi ? 'Đã xóa ca khám thành công' : 'Screening record deleted successfully');
+      } else if (deleteTarget.type === 'batch' && deleteTarget.ids) {
+        const ids = deleteTarget.ids;
+        if (onBatchDeleteScreenings) {
+          await onBatchDeleteScreenings(ids);
+        } else {
+          await screeningApi.batchDelete(ids);
+        }
+        setSelectedIds(new Set());
+        setActionNotice(
+          isVi
+            ? `Đã xóa thành công ${ids.length} ca khám`
+            : `Successfully deleted ${ids.length} screening records`
+        );
+      }
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err: any) {
+      console.error('Delete screening error:', err);
+      setActionNotice(
+        err.message || (isVi ? 'Không thể xóa ca khám. Vui lòng thử lại.' : 'Failed to delete screening.')
+      );
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
+      setTimeout(() => setActionNotice(null), 4000);
+    }
+  };
+
   const getScoreBadgeClass = (score: number) => {
     if (score < 45) {
       return 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
@@ -228,7 +417,44 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     );
   };
 
+  const isAllFilteredSelected =
+    filteredData.length > 0 && filteredData.every((item) => selectedIds.has(item.id));
+  const isSomeFilteredSelected =
+    filteredData.some((item) => selectedIds.has(item.id)) && !isAllFilteredSelected;
+
   const columns: Column<PatientHistoryItem>[] = [
+    // Cột 0: Chọn checkbox
+    {
+      header: (
+        <div className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            checked={isAllFilteredSelected}
+            ref={(input) => {
+              if (input) input.indeterminate = isSomeFilteredSelected;
+            }}
+            onChange={handleToggleSelectAll}
+            aria-label={isVi ? 'Chọn tất cả' : 'Select all'}
+            className="w-4 h-4 rounded text-teal-700 focus:ring-teal-500 border-slate-300 cursor-pointer accent-teal-700"
+          />
+        </div>
+      ),
+      className: 'w-10 text-center px-2',
+      accessor: (row) => (
+        <div
+          className="flex items-center justify-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={selectedIds.has(row.id)}
+            onChange={() => handleToggleSelect(row.id)}
+            aria-label={isVi ? `Chọn ca khám ${row.id}` : `Select scan ${row.id}`}
+            className="w-4 h-4 rounded text-teal-700 focus:ring-teal-500 border-slate-300 cursor-pointer accent-teal-700"
+          />
+        </div>
+      ),
+    },
     // Cột 1: Ngày & Giờ khám
     {
       header: t('patient.history.columns.date', isVi ? 'Ngày & Giờ Khám' : 'Date & Time'),
@@ -244,7 +470,9 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
                     month: '2-digit',
                     year: 'numeric',
                   })
-                : (isVi ? 'Chưa có ngày' : 'No date')}
+                : isVi
+                ? 'Chưa có ngày'
+                : 'No date'}
             </span>
             <span className="text-[11px] text-slate-400 block font-mono-data">
               {isValidDate
@@ -299,29 +527,37 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       header: isVi ? 'Thao Tác' : 'Action',
       align: 'right',
       accessor: (row) => (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           {onSelectScreening && (
             <button
               type="button"
               onClick={() => onSelectScreening(row)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold border border-teal-200/80 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold border border-teal-200/80 transition-colors shadow-2xs cursor-pointer"
               title={isVi ? 'Xem bản đồ nhiệt Grad-CAM' : 'View Grad-CAM Heatmap'}
             >
               <Eye className="w-3.5 h-3.5 text-teal-700" />
-              <span>{isVi ? 'Xem Heatmap' : 'View Heatmap'}</span>
+              <span className="hidden sm:inline">{isVi ? 'Heatmap' : 'Heatmap'}</span>
             </button>
           )}
           {onOpenReportModal && (
             <button
               type="button"
               onClick={() => onOpenReportModal(row)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200/80 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200/80 transition-colors shadow-2xs cursor-pointer"
               title={isVi ? 'Xuất báo cáo y khoa chuẩn PDF/CSV' : 'Export standard medical report PDF/CSV'}
             >
               <FileText className="w-3.5 h-3.5 text-emerald-700" />
-              <span>{isVi ? 'Xuất Báo Cáo' : 'Export Report'}</span>
+              <span className="hidden sm:inline">{isVi ? 'Báo Cáo' : 'Report'}</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setDeleteTarget({ type: 'single', item: row })}
+            className="inline-flex items-center justify-center p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shadow-2xs cursor-pointer"
+            title={isVi ? 'Xóa ca khám khỏi lịch sử' : 'Delete screening record'}
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+          </button>
         </div>
       ),
     },
@@ -407,7 +643,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
               )}
             >
               <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span>{t('patient.history.filters.resetFilters', isVi ? 'Đặt lại bộ lọc' : 'Reset filters')}</span>
+              <span>{t('patient.history.filters.resetFilters', isVi ? 'Đặt lại' : 'Reset')}</span>
             </button>
           </div>
         </div>
@@ -422,7 +658,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
             <button
               type="button"
               onClick={() => setActionNotice(null)}
-              className="text-teal-700 hover:text-teal-950 text-xs font-bold px-2 py-0.5"
+              className="text-teal-700 hover:text-teal-950 text-xs font-bold px-2 py-0.5 cursor-pointer"
             >
               ✕
             </button>
@@ -437,8 +673,8 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
           {t(
             'patient.history.immutabilityNotice',
             isVi
-              ? 'Hồ sơ bệnh án điện tử (EMR) được lưu trữ bất biến theo quy chuẩn an toàn y tế HIPAA & Bộ Y Tế nhằm phục vụ theo dõi diễn tiến sức khỏe trọn đời.'
-              : 'Electronic Medical Records (EMR) are immutably preserved per HIPAA and MoH clinical standards for lifelong health tracking.'
+              ? 'Hồ sơ bệnh án điện tử (EMR) được lưu trữ an toàn theo quy chuẩn y tế HIPAA & Bộ Y Tế nhằm phục vụ theo dõi diễn tiến sức khỏe trọn đời.'
+              : 'Electronic Medical Records (EMR) are securely preserved per HIPAA and MoH clinical standards for lifelong health tracking.'
           )}
         </span>
       </div>
@@ -454,7 +690,17 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => handleExportCsv(filteredData)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs transition-all cursor-pointer"
+            title={isVi ? 'Xuất toàn bộ danh sách ra CSV' : 'Export all filtered to CSV'}
+          >
+            <Download className="w-3.5 h-3.5 text-slate-600" />
+            <span>{isVi ? 'Xuất CSV Tất Cả' : 'Export All CSV'}</span>
+          </button>
+
           <span className="text-xs text-slate-500 shrink-0 font-medium">
             {isVi ? 'Sắp xếp:' : 'Sort by:'}
           </span>
@@ -463,7 +709,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
             onChange={setSortBy}
             options={sortOptions}
             size="sm"
-            className="w-52"
+            className="w-48"
             align="right"
           />
         </div>
@@ -475,8 +721,118 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
         data={filteredData}
         keyExtractor={(item) => item.id}
         loading={loading}
-        emptyMessage={isVi ? 'Chưa có ca khám sàng lọc nào phù hợp với bộ lọc.' : 'No screening records found matching current filters.'}
+        emptyMessage={
+          isVi
+            ? 'Chưa có ca khám sàng lọc nào phù hợp với bộ lọc.'
+            : 'No screening records found matching current filters.'
+        }
       />
+
+      {/* Floating / Sticky Batch Actions Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky bottom-4 z-20 bg-slate-900/95 backdrop-blur text-white rounded-2xl p-4 shadow-2xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse" />
+            <span className="text-xs font-bold">
+              {isVi
+                ? `Đã chọn ${selectedIds.size} / ${filteredData.length} ca khám`
+                : `Selected ${selectedIds.size} / ${filteredData.length} records`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleDeselectAll}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              {isVi ? 'Bỏ chọn' : 'Deselect all'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExportCsv()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>{isVi ? `Xuất CSV (${selectedIds.size})` : `Export CSV (${selectedIds.size})`}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setDeleteTarget({
+                  type: 'batch',
+                  ids: Array.from(selectedIds),
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isVi ? `Xóa Đã Chọn (${selectedIds.size})` : `Delete Selected (${selectedIds.size})`}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl shrink-0 border border-rose-100">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {deleteTarget.type === 'batch'
+                    ? isVi
+                      ? `Xác nhận xóa ${deleteTarget.ids?.length} ca khám đã chọn?`
+                      : `Confirm deletion of ${deleteTarget.ids?.length} selected scans?`
+                    : isVi
+                    ? 'Xác nhận xóa ca khám này?'
+                    : 'Confirm deletion of this screening record?'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  {isVi
+                    ? 'Hành động này sẽ xóa vĩnh viễn dữ liệu ảnh chụp võng mạc và các chỉ số phân tích AI liên quan khỏi hệ thống. Thao tác không thể hoàn tác.'
+                    : 'This action will permanently remove retinal fundus scans and associated AI biomarkers from the system. This cannot be undone.'}
+                </p>
+              </div>
+            </div>
+
+            {deleteTarget.type === 'single' && deleteTarget.item && (
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1 font-mono-data">
+                <div className="text-slate-700">
+                  <strong>ID:</strong> {deleteTarget.item.id}
+                </div>
+                <div className="text-slate-600">
+                  <strong>{isVi ? 'Thời gian:' : 'Date:'}</strong>{' '}
+                  {new Date(deleteTarget.item.createdAt).toLocaleString(isVi ? 'vi-VN' : 'en-US')} •{' '}
+                  <strong>{isVi ? 'Mắt:' : 'Eye:'}</strong> {deleteTarget.item.eyePosition}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isVi ? 'Hủy bỏ' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isVi ? 'Xác nhận xóa' : 'Confirm Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <MedicalDisclaimer variant="compact" />
     </div>

@@ -244,9 +244,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         const latest = res.data[0];
         if (latest && latest.status !== "FAILED") {
           setAnalysisResult(mapScreeningToAIRiskResult(latest, latest.imageUrl));
+        } else if (!latest) {
+          setAnalysisResult(null);
         }
       } else {
         setScanHistory([]);
+        setAnalysisResult(null);
       }
     } catch (e) {
       console.warn("Could not fetch screenings from DB:", e);

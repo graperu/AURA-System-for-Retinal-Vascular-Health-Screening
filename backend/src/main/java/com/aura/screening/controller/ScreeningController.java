@@ -5,6 +5,7 @@ import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.auth.service.PatientAccessService;
 import com.aura.common.response.ApiResponse;
 import com.aura.common.response.ErrorCode;
+import com.aura.screening.dto.BatchDeleteScreeningsRequest;
 import com.aura.screening.dto.CreateScreeningRequest;
 import com.aura.screening.dto.ReviewScreeningRequest;
 import com.aura.screening.dto.ScreeningResponse;
@@ -124,5 +125,29 @@ public class ScreeningController {
       request.adjustedDrRisk(),
       request.icd10Codes());
     return ApiResponse.success("Lưu đánh giá chẩn đoán của bác sĩ thành công", updated);
+  }
+
+  @DeleteMapping("/{id}")
+  public ApiResponse<Void> deleteScreening(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    if (principal == null) {
+      throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để thực hiện xóa ca sàng lọc");
+    }
+    boolean isAdmin = hasRole(principal, "ADMIN");
+    screeningService.deleteScreening(id, principal.id(), isAdmin);
+    return ApiResponse.success("Xóa ca sàng lọc thành công", null);
+  }
+
+  @PostMapping("/batch-delete")
+  public ApiResponse<Integer> batchDeleteScreenings(
+      @Valid @RequestBody BatchDeleteScreeningsRequest request,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    if (principal == null) {
+      throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để thực hiện xóa ca sàng lọc");
+    }
+    boolean isAdmin = hasRole(principal, "ADMIN");
+    int deletedCount = screeningService.batchDeleteScreenings(request.screeningIds(), principal.id(), isAdmin);
+    return ApiResponse.success("Đã xóa thành công " + deletedCount + " ca sàng lọc", deletedCount);
   }
 }

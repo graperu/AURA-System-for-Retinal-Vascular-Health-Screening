@@ -195,6 +195,17 @@ export const screeningApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  delete: (id: string) =>
+    apiFetch<void>(`/api/v1/screenings/${id}`, {
+      method: "DELETE",
+    }),
+
+  batchDelete: (ids: string[]) =>
+    apiFetch<number>("/api/v1/screenings/batch-delete", {
+      method: "POST",
+      body: JSON.stringify({ ids, screeningIds: ids }),
+    }),
 };
 
 export const chatApi = {

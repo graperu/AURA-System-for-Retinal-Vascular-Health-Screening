@@ -244,7 +244,7 @@ runTest('CPM-3.2: Kiểm tra sự hiện diện của DTO và API checkout & get
   assert.strictEqual(typeof billingApi.purchase, 'function', 'billingApi.purchase must be maintained for backward compatibility');
 });
 
-runTest('CPM-3.3: Step 2 hiển thị danh sách phương thức thanh toán an toàn (VietQR, MoMo, VNPay, Credit Card)', () => {
+runTest('CPM-3.3: Step 2 hiển thị phương thức thanh toán an toàn VietQR Napas 24/7 duy nhất', () => {
   const html = renderToStaticMarkup(
     React.createElement(
       LanguageProvider,
@@ -259,9 +259,6 @@ runTest('CPM-3.3: Step 2 hiển thị danh sách phương thức thanh toán an 
   );
 
   assert.ok(html.includes('VietQR Napas 24/7'));
-  assert.ok(html.includes('MoMo'));
-  assert.ok(html.includes('VNPAY'));
-  assert.ok(html.includes('Visa / MasterCard'));
   assert.ok(html.includes('200.000 VNĐ'));
 });
 

@@ -1,6 +1,8 @@
 package com.aura.screening.service;
 
+import com.aura.auth.exception.AuthException;
 import com.aura.common.exception.ResourceNotFoundException;
+import com.aura.common.response.ErrorCode;
 import com.aura.screening.entity.RiskLevel;
 import com.aura.screening.entity.ReviewDecision;
 import com.aura.screening.entity.Screening;
@@ -562,5 +564,37 @@ public class ScreeningService {
       return number.doubleValue();
     }
     return null;
+  }
+
+  @Transactional
+  public void deleteScreening(UUID screeningId, UUID userId, boolean isAdmin) {
+    Screening screening = getScreeningById(screeningId);
+    if (!isAdmin && (screening.getPatientId() == null || !screening.getPatientId().equals(userId))) {
+      throw new AuthException(
+          ErrorCode.ACCESS_DENIED,
+          "Bạn không có quyền xóa ca sàng lọc của bệnh nhân khác");
+    }
+    screeningRepository.delete(screening);
+    log.info("Đã xóa ca sàng lọc {} bởi người dùng {} (isAdmin={})", screeningId, userId, isAdmin);
+  }
+
+  @Transactional
+  public int batchDeleteScreenings(List<UUID> screeningIds, UUID userId, boolean isAdmin) {
+    if (screeningIds == null || screeningIds.isEmpty()) {
+      return 0;
+    }
+    List<Screening> toDelete = new ArrayList<>();
+    for (UUID id : screeningIds) {
+      screeningRepository.findById(id).ifPresent(screening -> {
+        if (isAdmin || (screening.getPatientId() != null && screening.getPatientId().equals(userId))) {
+          toDelete.add(screening);
+        }
+      });
+    }
+    if (!toDelete.isEmpty()) {
+      screeningRepository.deleteAll(toDelete);
+      log.info("Đã xóa hàng loạt {} ca sàng lọc bởi người dùng {} (isAdmin={})", toDelete.size(), userId, isAdmin);
+    }
+    return toDelete.size();
   }
 }
