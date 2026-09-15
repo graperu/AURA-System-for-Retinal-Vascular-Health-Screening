@@ -5,7 +5,6 @@ import { useLanguage } from '../../context/LanguageContext';
 import { PasswordInput } from './PasswordInput';
 import googleLogo from '../../assets/sso/google.png';
 import { isFirebaseConfigured, signInWithGoogleFirebase, sendMagicLinkFirebase } from '../../config/firebase';
-import { GoogleAccountModal, type GoogleAuthPayload } from './GoogleAccountModal';
 
 interface Props {
   initialEmail: string;
@@ -23,7 +22,6 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
   const [submitting, setSubmitting] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
-  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -43,46 +41,25 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
 
   const handleGoogleAuth = async () => {
     if (submitting || socialLoading) return;
+    setSocialLoading('google');
     setErrors({});
 
-    // 1. If Firebase is fully configured, try live popup first
-    if (isFirebaseConfigured()) {
-      setSocialLoading('google');
-      try {
-        const { idToken, email: fbEmail, fullName: fbName, picture } = await signInWithGoogleFirebase();
-        const result = await loginWithSocial({
-          provider: 'google',
-          idToken,
-          email: fbEmail,
-          fullName: fbName,
-          picture,
-        });
-        if (!result.success) {
-          setErrors({ form: result.message || (isVi ? 'Đăng nhập Google qua Firebase thất bại.' : 'Firebase Google sign-in failed.') });
-        }
-        return;
-      } catch (err: any) {
-        if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-          setIsGoogleModalOpen(true);
-        }
-        return;
-      } finally {
-        setSocialLoading(null);
-      }
-    }
-
-    // 2. Open Google Account Chooser modal (supports both verified presets and custom Google accounts)
-    setIsGoogleModalOpen(true);
-  };
-
-  const handleSelectGoogleAccount = async (payload: GoogleAuthPayload) => {
-    setSocialLoading('google');
     try {
-      const result = await loginWithSocial(payload);
+      const { idToken, email: fbEmail, fullName: fbName, picture } = await signInWithGoogleFirebase();
+      const result = await loginWithSocial({
+        provider: 'google',
+        idToken,
+        email: fbEmail,
+        fullName: fbName,
+        picture,
+      });
       if (!result.success) {
-        return { success: false, message: result.message || (isVi ? 'Đăng nhập Google thất bại.' : 'Google sign-in failed.') };
+        setErrors({ form: result.message || (isVi ? 'Đăng nhập Google qua Firebase thất bại.' : 'Firebase Google sign-in failed.') });
       }
-      return { success: true };
+    } catch (err: any) {
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setErrors({ form: err.message || (isVi ? 'Lỗi xác thực Google.' : 'Google authentication error.') });
+      }
     } finally {
       setSocialLoading(null);
     }
@@ -220,13 +197,6 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
           t('auth.loginForm.loginButton', isVi ? 'Đăng nhập' : 'Sign In')
         )}
       </button>
-
-      {/* Google Identity Chooser Modal */}
-      <GoogleAccountModal
-        isOpen={isGoogleModalOpen}
-        onClose={() => setIsGoogleModalOpen(false)}
-        onSelectAccount={handleSelectGoogleAccount}
-      />
     </form>
   );
 };
