@@ -293,7 +293,7 @@ export const billingApi = {
       },
     ),
 
-  purchase: (packageId: number, paymentMethod = "VNPAY") =>
+  purchase: (packageId: number, paymentMethod = "VIETQR") =>
     apiFetch<PaymentTransactionResponse>(
       `/api/v1/me/packages/${packageId}/purchase?paymentMethod=${paymentMethod}`,
       {
@@ -301,7 +301,7 @@ export const billingApi = {
       },
     ),
 
-  purchasePackage: (packageId: number, paymentMethod = "VNPAY") =>
+  purchasePackage: (packageId: number, paymentMethod = "VIETQR") =>
     billingApi.purchase(packageId, paymentMethod),
 
   getTransactionStatus: (transactionId: number) =>

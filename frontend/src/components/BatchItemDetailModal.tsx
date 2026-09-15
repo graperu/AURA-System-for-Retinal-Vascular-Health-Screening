@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Loader2,
   Check,
+  Move,
 } from 'lucide-react';
 import { ClinicBatchJobItem } from '../types/cds';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
@@ -53,12 +54,98 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
   const [showRoiBoxes, setShowRoiBoxes] = useState<boolean>(true);
   const [showAnatomyMarkers, setShowAnatomyMarkers] = useState<boolean>(true);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const startPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isMovedRef = useRef<boolean>(false);
   const [activeAnomalyId, setActiveAnomalyId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number; active: boolean }>({
     x: 0,
     y: 0,
     active: false,
   });
+
+  const handleZoomChange = (updater: (prev: number) => number) => {
+    setZoomLevel((prev) => {
+      const next = updater(prev);
+      const clamped = Math.min(2.5, Math.max(0.8, Number(next.toFixed(1))));
+      if (clamped <= 1.0) {
+        setPanOffset({ x: 0, y: 0 });
+      }
+      return clamped;
+    });
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1.0);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  const startDrag = (clientX: number, clientY: number) => {
+    if (zoomLevel <= 1.0) return;
+    setIsDragging(true);
+    isMovedRef.current = false;
+    dragStartRef.current = { x: clientX, y: clientY };
+    startPanRef.current = { ...panOffset };
+  };
+
+  const updateDrag = (clientX: number, clientY: number) => {
+    if (!isDragging || zoomLevel <= 1.0) return;
+    const deltaX = clientX - dragStartRef.current.x;
+    const deltaY = clientY - dragStartRef.current.y;
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      isMovedRef.current = true;
+    }
+    const maxPanX = Math.max(120, (zoomLevel - 1) * 350);
+    const maxPanY = Math.max(120, (zoomLevel - 1) * 280);
+    const nextX = Math.max(-maxPanX, Math.min(maxPanX, startPanRef.current.x + deltaX));
+    const nextY = Math.max(-maxPanY, Math.min(maxPanY, startPanRef.current.y + deltaY));
+    setPanOffset({ x: nextX, y: nextY });
+  };
+
+  const endDrag = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const onWindowMouseMove = (e: MouseEvent) => {
+      updateDrag(e.clientX, e.clientY);
+    };
+    const onWindowMouseUp = () => {
+      endDrag();
+    };
+
+    window.addEventListener('mousemove', onWindowMouseMove);
+    window.addEventListener('mouseup', onWindowMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onWindowMouseMove);
+      window.removeEventListener('mouseup', onWindowMouseUp);
+    };
+  }, [isDragging, zoomLevel]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel <= 1.0) return;
+    if ((e.target as HTMLElement).closest('button, input, a, [role="button"]')) return;
+    e.preventDefault();
+    startDrag(e.clientX, e.clientY);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (zoomLevel <= 1.0 || e.touches.length !== 1) return;
+    if ((e.target as HTMLElement).closest('button, input, a, [role="button"]')) return;
+    startDrag(e.touches[0].clientX, e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || zoomLevel <= 1.0 || e.touches.length !== 1) return;
+    updateDrag(e.touches[0].clientX, e.touches[0].clientY);
+  };
+
+  const handleTouchEnd = () => {
+    endDrag();
+  };
 
   const ai = item.aiResult;
   const overallRisk = ai?.overallVascularRiskScore ?? item.riskScore ?? 45;
@@ -419,32 +506,43 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               </span>
             </div>
 
-            {/* Zoom Controls */}
-            <div className="flex items-center bg-white rounded-lg p-1 border border-slate-200 shadow-xs">
-              <button
-                onClick={() => setZoomLevel((z) => Math.max(0.8, Number((z - 0.2).toFixed(1))))}
-                className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors"
-                title={t('clinic.batchDetailModal.zoomOutTitle')}
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <span className="text-[11px] font-mono-data px-2 font-semibold text-slate-700">
-                {(zoomLevel * 100).toFixed(0)}%
-              </span>
-              <button
-                onClick={() => setZoomLevel((z) => Math.min(2.0, Number((z + 0.2).toFixed(1))))}
-                className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors"
-                title={t('clinic.batchDetailModal.zoomInTitle')}
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setZoomLevel(1.0)}
-                className="p-1 text-slate-400 hover:text-slate-700 transition-colors ml-1 border-l border-slate-200 pl-1"
-                title={t('clinic.batchDetailModal.resetZoomTitle')}
-              >
-                <RotateCcw className="w-3 h-3" />
-              </button>
+            {/* Zoom Controls & Pan Guide */}
+            <div className="flex items-center gap-2">
+              {zoomLevel > 1.0 && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 font-medium">
+                  <Move className="w-3 h-3 text-teal-600 shrink-0" />
+                  <span>{isVi ? 'Kéo ảnh để di chuyển' : 'Drag to pan'}</span>
+                </span>
+              )}
+              <div className="flex items-center bg-white rounded-lg p-1 border border-slate-200 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => handleZoomChange((z) => z - 0.2)}
+                  className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors cursor-pointer"
+                  title={t('clinic.batchDetailModal.zoomOutTitle')}
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-mono-data px-2 font-semibold text-slate-700">
+                  {(zoomLevel * 100).toFixed(0)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleZoomChange((z) => z + 0.2)}
+                  className="p-1 text-slate-600 hover:text-[#0891B2] transition-colors cursor-pointer"
+                  title={t('clinic.batchDetailModal.zoomInTitle')}
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetZoom}
+                  className="p-1 text-slate-400 hover:text-slate-700 transition-colors ml-1 border-l border-slate-200 pl-1 cursor-pointer"
+                  title={t('clinic.batchDetailModal.resetZoomTitle')}
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -530,8 +628,16 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
           {viewMode === 'sideBySide' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Left Pane: Original Uploaded Fundus Photo */}
-              <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 relative group flex flex-col items-center justify-center p-3 shadow-2xl">
-                <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1">
+              <div
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className={`border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 relative group flex flex-col items-center justify-center p-3 shadow-2xl select-none ${
+                  zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+                }`}
+              >
+                <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1 pointer-events-none">
                   <span className="font-bold flex items-center gap-1.5 text-cyan-300">
                     <Eye className="w-3.5 h-3.5" /> {t('clinic.batchDetailModal.nativeFundusTitle')}
                   </span>
@@ -539,13 +645,18 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 </div>
 
                 <div
-                  className="w-full aspect-square max-w-[380px] rounded-full overflow-hidden border-4 border-slate-800 shadow-2xl relative bg-black flex items-center justify-center transition-transform duration-200"
-                  style={{ transform: `scale(${zoomLevel})` }}
+                  className="w-full aspect-square max-w-[380px] rounded-full overflow-hidden border-4 border-slate-800 shadow-2xl relative bg-black flex items-center justify-center"
+                  style={{
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                    transformOrigin: 'center center',
+                    transition: isDragging ? 'none' : 'transform 150ms ease-out',
+                  }}
                 >
                   <img
                     src={baseImage}
                     alt="Original fundus"
-                    className="w-full h-full object-cover select-none"
+                    className="w-full h-full object-cover select-none pointer-events-none"
+                    draggable={false}
                   />
 
                   {/* Anatomy Indicators */}
@@ -587,8 +698,16 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               </div>
 
               {/* Right Pane: Individualized Grad-CAM Heatmap Layered Over Patient Image with Hover Effects */}
-              <div className="border border-cyan-800/80 rounded-2xl overflow-hidden bg-slate-950 relative group flex flex-col items-center justify-center p-3 shadow-2xl ring-1 ring-cyan-500/20">
-                <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1">
+              <div
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className={`border border-cyan-800/80 rounded-2xl overflow-hidden bg-slate-950 relative group flex flex-col items-center justify-center p-3 shadow-2xl ring-1 ring-cyan-500/20 select-none ${
+                  zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+                }`}
+              >
+                <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1 pointer-events-none">
                   <span className="font-bold flex items-center gap-1.5 text-cyan-300">
                     <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> {t('clinic.batchDetailModal.heatmapLesionTitle')}
                   </span>
@@ -604,8 +723,12 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 </div>
 
                 <div
-                  className="w-full aspect-square max-w-[380px] rounded-full overflow-hidden border-4 border-cyan-600 shadow-2xl relative bg-black flex items-center justify-center transition-transform duration-200 cursor-crosshair"
-                  style={{ transform: `scale(${zoomLevel})` }}
+                  className="w-full aspect-square max-w-[380px] rounded-full overflow-hidden border-4 border-cyan-600 shadow-2xl relative bg-black flex items-center justify-center cursor-crosshair"
+                  style={{
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                    transformOrigin: 'center center',
+                    transition: isDragging ? 'none' : 'transform 150ms ease-out',
+                  }}
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
                 >
@@ -613,7 +736,8 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   <img
                     src={baseImage}
                     alt="Patient Base"
-                    className="w-full h-full object-cover absolute inset-0 select-none"
+                    className="w-full h-full object-cover absolute inset-0 select-none pointer-events-none"
+                    draggable={false}
                   />
 
                   {/* Lớp nhiệt Grad-CAM nếu có từ mô hình thực tế */}
@@ -621,8 +745,9 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                     <img
                       src={heatmapDataUrl}
                       alt="Grad-CAM Heatmap"
-                      className="w-full h-full object-cover absolute inset-0 transition-opacity duration-200 select-none"
+                      className="w-full h-full object-cover absolute inset-0 transition-opacity duration-200 select-none pointer-events-none"
                       style={{ opacity: Math.max(0.05, heatmapOpacity) }}
+                      draggable={false}
                     />
                   ) : (
                     <div className="absolute top-3 left-3 z-10 bg-slate-900/85 backdrop-blur-xs text-amber-300 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-amber-500/40 flex items-center gap-1.5 shadow-sm pointer-events-none">
@@ -744,7 +869,10 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                             key={ano.id}
                             onMouseEnter={() => setActiveAnomalyId(ano.id)}
                             onMouseLeave={() => setActiveAnomalyId(null)}
-                            onClick={() => setActiveAnomalyId(ano.id)}
+                            onClick={() => {
+                              if (isMovedRef.current) return;
+                              setActiveAnomalyId(ano.id);
+                            }}
                             className="cursor-pointer group/ano"
                           >
                             <rect
@@ -830,8 +958,16 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
             </div>
           ) : (
             /* Single Large Direct Overlay Mode */
-            <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 p-4 shadow-2xl flex flex-col items-center justify-center">
-              <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1">
+            <div
+              onMouseDown={handleMouseDown}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className={`border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 p-4 shadow-2xl flex flex-col items-center justify-center select-none ${
+                zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+              }`}
+            >
+              <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1 pointer-events-none">
                 <span className="font-bold flex items-center gap-1.5 text-cyan-300">
                   <Layers className="w-4 h-4" /> {t('clinic.batchDetailModal.directOverlayTitle')}
                 </span>
@@ -841,22 +977,28 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               </div>
 
               <div
-                className="w-full aspect-square max-w-[440px] rounded-full overflow-hidden border-4 border-cyan-600 shadow-2xl relative bg-black flex items-center justify-center cursor-crosshair transition-transform duration-200"
-                style={{ transform: `scale(${zoomLevel})` }}
+                className="w-full aspect-square max-w-[440px] rounded-full overflow-hidden border-4 border-cyan-600 shadow-2xl relative bg-black flex items-center justify-center cursor-crosshair"
+                style={{
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                  transformOrigin: 'center center',
+                  transition: isDragging ? 'none' : 'transform 150ms ease-out',
+                }}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
               >
                 <img
                   src={baseImage}
                   alt="Base Fundus"
-                  className="w-full h-full object-cover absolute inset-0 select-none"
+                  className="w-full h-full object-cover absolute inset-0 select-none pointer-events-none"
+                  draggable={false}
                 />
                 {heatmapDataUrl ? (
                   <img
                     src={heatmapDataUrl}
                     alt="AI Grad-CAM Overlay"
-                    className="w-full h-full object-cover absolute inset-0 transition-opacity duration-200 select-none"
+                    className="w-full h-full object-cover absolute inset-0 transition-opacity duration-200 select-none pointer-events-none"
                     style={{ opacity: heatmapOpacity }}
+                    draggable={false}
                   />
                 ) : (
                   <div className="absolute top-3 left-3 z-10 bg-slate-900/85 backdrop-blur-xs text-amber-300 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-amber-500/40 flex items-center gap-1.5 shadow-sm pointer-events-none">

@@ -28,6 +28,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         currentUser={currentUser}
         onLogout={onLogout}
         onOpenMenu={() => setIsMobileMenuOpen(true)}
+        onNavigate={onSelectSection}
       />
 
       <div className="mx-auto flex w-full max-w-[1536px] 2xl:max-w-[1600px] flex-1">

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { PatientProfile, AIRiskResult } from '../types/cds';
+import { PatientProfile, AIRiskResult, VesselAnomalyRegion } from '../types/cds';
 import {
   X,
   Printer,
@@ -12,11 +12,14 @@ import {
   AlertTriangle,
   FileBadge,
   Clock,
+  Target,
+  Info,
 } from 'lucide-react';
 import { parseIcd10Codes } from '../services/screeningMapper';
 import { MedicalDisclaimer, MANDATORY_MEDICAL_DISCLAIMER_VI, MANDATORY_MEDICAL_DISCLAIMER_EN } from './ui/MedicalDisclaimer';
 import { useLanguage } from '../context/LanguageContext';
 import { DynamicHeatmapCanvas } from './DynamicHeatmapCanvas';
+import { getAnomalyName, getAnomalyMedicalTheme } from './InteractiveCDSViewer';
 
 interface MedicalReportModalProps {
   isOpen: boolean;

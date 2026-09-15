@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Eye, Layers, Sliders, Target, ZoomIn, ZoomOut, RotateCcw, ShieldCheck, Heart, BrainCircuit, Activity, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Eye, Layers, Sliders, Target, ZoomIn, ZoomOut, RotateCcw, ShieldCheck, Heart, BrainCircuit, Activity, AlertCircle, Move } from 'lucide-react';
 import { AIRiskResult, VesselAnomalyRegion } from '../../types/cds';
 import { Card } from '../../components/ui/Card';
 import { RiskBadge } from '../../components/ui/RiskBadge';
@@ -25,7 +25,93 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
   const [activeTab, setActiveTab] = useState<'OVERLAY' | 'HEATMAP' | 'ORIGINAL'>('OVERLAY');
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.65);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const startPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isMovedRef = useRef<boolean>(false);
   const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
+
+  const handleZoomChange = (updater: (prev: number) => number) => {
+    setZoomLevel((prev) => {
+      const next = updater(prev);
+      const clamped = Math.min(2.5, Math.max(0.8, Number(next.toFixed(1))));
+      if (clamped <= 1.0) {
+        setPanOffset({ x: 0, y: 0 });
+      }
+      return clamped;
+    });
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1.0);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  const startDrag = (clientX: number, clientY: number) => {
+    if (zoomLevel <= 1.0) return;
+    setIsDragging(true);
+    isMovedRef.current = false;
+    dragStartRef.current = { x: clientX, y: clientY };
+    startPanRef.current = { ...panOffset };
+  };
+
+  const updateDrag = (clientX: number, clientY: number) => {
+    if (!isDragging || zoomLevel <= 1.0) return;
+    const deltaX = clientX - dragStartRef.current.x;
+    const deltaY = clientY - dragStartRef.current.y;
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      isMovedRef.current = true;
+    }
+    const maxPanX = Math.max(120, (zoomLevel - 1) * 350);
+    const maxPanY = Math.max(120, (zoomLevel - 1) * 280);
+    const nextX = Math.max(-maxPanX, Math.min(maxPanX, startPanRef.current.x + deltaX));
+    const nextY = Math.max(-maxPanY, Math.min(maxPanY, startPanRef.current.y + deltaY));
+    setPanOffset({ x: nextX, y: nextY });
+  };
+
+  const endDrag = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const onWindowMouseMove = (e: MouseEvent) => {
+      updateDrag(e.clientX, e.clientY);
+    };
+    const onWindowMouseUp = () => {
+      endDrag();
+    };
+
+    window.addEventListener('mousemove', onWindowMouseMove);
+    window.addEventListener('mouseup', onWindowMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onWindowMouseMove);
+      window.removeEventListener('mouseup', onWindowMouseUp);
+    };
+  }, [isDragging, zoomLevel]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel <= 1.0) return;
+    if ((e.target as HTMLElement).closest('button, input, a, [role="button"]')) return;
+    e.preventDefault();
+    startDrag(e.clientX, e.clientY);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (zoomLevel <= 1.0 || e.touches.length !== 1) return;
+    if ((e.target as HTMLElement).closest('button, input, a, [role="button"]')) return;
+    startDrag(e.touches[0].clientX, e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || zoomLevel <= 1.0 || e.touches.length !== 1) return;
+    updateDrag(e.touches[0].clientX, e.touches[0].clientY);
+  };
+
+  const handleTouchEnd = () => {
+    endDrag();
+  };
 
   const displayEye = selectedEye || (isVi ? 'OD (Mắt Phải)' : 'OD (Right Eye)');
   const rawImage = result.imageUrl || '/assets/images/fundus_original.png';
@@ -113,48 +199,69 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setZoomLevel((z) => Math.max(0.8, z - 0.2))}
-                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  title={t('common.zoomOut', isVi ? 'Thu nhỏ' : 'Zoom out')}
-                >
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
-                <span className="font-mono-data text-[11px] px-1 text-slate-300">
-                  {(zoomLevel * 100).toFixed(0)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
-                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  title={t('common.zoomIn', isVi ? 'Phóng to' : 'Zoom in')}
-                >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setZoomLevel(1.0)}
-                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  title={t('common.resetZoom', isVi ? 'Đặt lại' : 'Reset')}
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
+              <div className="flex items-center gap-2">
+                {zoomLevel > 1.0 && (
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded-md border border-cyan-800 font-medium">
+                    <Move className="w-3 h-3 text-cyan-400 shrink-0" />
+                    <span>{isVi ? 'Kéo để di chuyển' : 'Drag to pan'}</span>
+                  </span>
+                )}
+                <div className="flex items-center gap-1 bg-slate-800/80 p-0.5 rounded-lg border border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => handleZoomChange((z) => z - 0.2)}
+                    className="p-1 rounded hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                    title={t('common.zoomOut', isVi ? 'Thu nhỏ' : 'Zoom out')}
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="font-mono-data text-[11px] px-1 text-slate-300 min-w-[36px] text-center font-bold">
+                    {(zoomLevel * 100).toFixed(0)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleZoomChange((z) => z + 0.2)}
+                    className="p-1 rounded hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                    title={t('common.zoomIn', isVi ? 'Phóng to' : 'Zoom in')}
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetZoom}
+                    className="p-1 rounded hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                    title={t('common.resetZoom', isVi ? 'Đặt lại' : 'Reset')}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Medical Imaging Canvas */}
-            <div className="relative rounded-xl overflow-hidden bg-black flex items-center justify-center min-h-[380px] sm:min-h-[440px] border border-slate-800">
+            <div
+              onMouseDown={handleMouseDown}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className={`relative rounded-xl overflow-hidden bg-black flex items-center justify-center min-h-[380px] sm:min-h-[440px] border border-slate-800 select-none ${
+                zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+              }`}
+            >
               <div
-                className="relative transition-transform duration-150 flex items-center justify-center p-2"
-                style={{ transform: `scale(${zoomLevel})` }}
+                className="relative flex items-center justify-center p-2"
+                style={{
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                  transformOrigin: 'center center',
+                  transition: isDragging ? 'none' : 'transform 150ms ease-out',
+                }}
               >
                 {/* Base Fundus Image */}
                 <img
                   src={rawImage}
                   alt={isVi ? 'Ảnh chụp võng mạc' : 'Retinal fundus image'}
-                  className="max-h-[380px] w-auto object-contain rounded-lg"
+                  className="max-h-[380px] w-auto object-contain rounded-lg select-none pointer-events-none"
+                  draggable={false}
                 />
 
                 {/* Heatmap Overlay */}
@@ -163,10 +270,11 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                     <img
                       src={result.annotatedMap!.heatmapUrl}
                       alt="AI Attention Heatmap"
-                      className="absolute inset-0 m-auto max-h-[380px] w-auto object-contain rounded-lg pointer-events-none cds-canvas-overlay transition-opacity duration-150"
+                      className="absolute inset-0 m-auto max-h-[380px] w-auto object-contain rounded-lg pointer-events-none cds-canvas-overlay transition-opacity duration-150 select-none"
                       style={{
                         opacity: activeTab === 'HEATMAP' ? 1.0 : heatmapOpacity,
                       }}
+                      draggable={false}
                     />
                   ) : (
                     <DynamicHeatmapCanvas
@@ -183,8 +291,12 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 {anomalies.map((ano) => (
                   <button
                     key={ano.id}
-                    onClick={() => setActiveAnomaly(ano)}
-                    className="absolute z-20 flex items-center justify-center rounded-full border-2 border-amber-400 bg-amber-500/30 text-white transition-transform hover:scale-125"
+                    onClick={(e) => {
+                      if (isMovedRef.current) return;
+                      e.stopPropagation();
+                      setActiveAnomaly(ano);
+                    }}
+                    className="absolute z-20 flex items-center justify-center rounded-full border-2 border-amber-400 bg-amber-500/30 text-white transition-transform hover:scale-125 cursor-pointer"
                     style={{
                       left: `${ano.coordinates.x}%`,
                       top: `${ano.coordinates.y}%`,

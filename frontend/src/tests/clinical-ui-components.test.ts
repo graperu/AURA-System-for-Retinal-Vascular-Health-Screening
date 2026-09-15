@@ -481,7 +481,7 @@ runTest('VIEWER-4: Bộ điều khiển Zoom có phóng to, thu nhỏ, đặt l�
   assert.ok(html.includes('lucide-zoom-in'), 'Có icon ZoomIn');
   assert.ok(html.includes('lucide-rotate-ccw'), 'Có icon RotateCcw đặt lại');
   assert.ok(html.includes('100%'), 'Mức zoom ban đầu hiển thị 100%');
-  assert.ok(html.includes('style="transform:scale(1)"'), 'Ảnh nhận biến đổi transform: scale(1)');
+  assert.ok(html.includes('scale(1)'), 'Ảnh nhận biến đổi transform: scale(1)');
 });
 
 runTest('VIEWER-5: Hiển thị tọa độ tổn thương vi mạch (Vessel Anomalies) và dịch chuẩn tiếng Việt', () => {

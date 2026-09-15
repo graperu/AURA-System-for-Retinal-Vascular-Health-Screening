@@ -548,43 +548,51 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             <span>{isDarkRoom ? t('common.darkRoomOn', 'Buồng tối: BẬT') : t('common.darkRoomOff', 'Buồng tối')}</span>
           </button>
 
-          {/* Phóng to / Thu nhỏ */}
-          <div
-            className={`flex items-center rounded-xl p-0.5 border gap-0.5 ${
-              isDarkRoom ? 'bg-darkroom-surface border-darkroom-border' : 'bg-slate-50 border-slate-200'
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => setZoomLevel((z) => Math.max(0.8, z - 0.2))}
-              className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
-              title={t('common.zoomOut', 'Thu nhỏ')}
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <span
-              className={`text-xs font-semibold px-1.5 min-w-[40px] text-center font-mono ${
-                isDarkRoom ? 'text-slate-200' : 'text-slate-800'
+          {/* Phóng to / Thu nhỏ & Kéo di chuyển */}
+          <div className="flex items-center gap-2">
+            {zoomLevel > 1.0 && (
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-teal-700 dark:text-cyan-300 bg-teal-50 dark:bg-cyan-950/80 px-2.5 py-1 rounded-lg border border-teal-200 dark:border-cyan-800/60 font-medium animate-fade-in">
+                <Move className="w-3 h-3 text-teal-600 dark:text-cyan-400 shrink-0" />
+                <span>{isVi ? 'Kéo ảnh để di chuyển' : 'Drag to pan'}</span>
+              </span>
+            )}
+            <div
+              className={`flex items-center rounded-xl p-0.5 border gap-0.5 ${
+                isDarkRoom ? 'bg-darkroom-surface border-darkroom-border' : 'bg-slate-50 border-slate-200'
               }`}
             >
-              {(zoomLevel * 100).toFixed(0)}%
-            </span>
-            <button
-              type="button"
-              onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
-              className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
-              title={t('common.zoomIn', 'Phóng to')}
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setZoomLevel(1.0)}
-              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
-              title={t('common.resetZoom', 'Kích thước chuẩn')}
-            >
-              <RotateCcw className="w-3 h-3" />
-            </button>
+              <button
+                type="button"
+                onClick={() => handleZoomChange((z) => z - 0.2)}
+                className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
+                title={t('common.zoomOut', 'Thu nhỏ')}
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <span
+                className={`text-xs font-semibold px-1.5 min-w-[40px] text-center font-mono ${
+                  isDarkRoom ? 'text-slate-200' : 'text-slate-800'
+                }`}
+              >
+                {(zoomLevel * 100).toFixed(0)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => handleZoomChange((z) => z + 0.2)}
+                className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
+                title={t('common.zoomIn', 'Phóng to')}
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                title={t('common.resetZoom', 'Kích thước chuẩn')}
+              >
+                <RotateCcw className="w-3 h-3" />
+              </button>
+            </div>
           </div>
 
           {/* Nút Lớp mạch máu */}
@@ -681,23 +689,32 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Ảnh Gốc */}
         <div
-          className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] ${
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] select-none ${
             isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
-          }`}
+          } ${zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
         >
-          <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700">
+          <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 pointer-events-none">
             {t('cdsViewer.rawFundus', isVi ? 'Ảnh chụp đáy mắt gốc' : 'True Color Fundus Scan')}
           </div>
 
           <div
-            className="transition-transform duration-150 flex items-center justify-center p-2 w-full h-full overflow-hidden"
-            style={{ transform: `scale(${zoomLevel})` }}
+            className="flex items-center justify-center p-2 w-full h-full overflow-hidden"
+            style={{
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+              transformOrigin: 'center center',
+              transition: isDragging ? 'none' : 'transform 150ms ease-out',
+            }}
           >
-            <div className="relative inline-flex items-center justify-center max-h-[340px] max-w-full">
+            <div className="relative inline-flex items-center justify-center max-h-[340px] max-w-full pointer-events-none">
               <img
                 src={rawImage}
                 alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                className="max-h-[340px] w-auto max-w-full object-contain rounded-lg shadow-md block"
+                className="max-h-[340px] w-auto max-w-full object-contain rounded-lg shadow-md block select-none pointer-events-none"
+                draggable={false}
               />
             </div>
           </div>
@@ -705,11 +722,15 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
 
         {/* Bản Đồ AI */}
         <div
-          className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] ${
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] select-none ${
             isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
-          }`}
+          } ${zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
         >
-          <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5">
+          <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5 pointer-events-none">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
             {hasRealHeatmap 
               ? t('cdsViewer.aiAttentionLayer', isVi ? 'Bản đồ nhiệt Grad-CAM (Neural)' : 'Grad-CAM Heatmap (Neural)')
@@ -717,8 +738,12 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
           </div>
 
           <div
-            className="transition-transform duration-150 flex items-center justify-center p-2 w-full h-full overflow-hidden"
-            style={{ transform: `scale(${zoomLevel})` }}
+            className="flex items-center justify-center p-2 w-full h-full overflow-hidden"
+            style={{
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+              transformOrigin: 'center center',
+              transition: isDragging ? 'none' : 'transform 150ms ease-out',
+            }}
           >
             {/* Khung Wrapper khớp tỷ lệ 1:1 với kích thước ảnh gốc */}
             <div className="relative inline-flex items-center justify-center max-h-[340px] max-w-full">
@@ -727,8 +752,9 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                 ref={rawImageRef}
                 src={rawImage}
                 alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                className="max-h-[340px] w-auto max-w-full object-contain rounded-lg block"
+                className="max-h-[340px] w-auto max-w-full object-contain rounded-lg block select-none pointer-events-none"
                 crossOrigin="anonymous"
+                draggable={false}
                 onLoad={() => setIsImageLoaded(true)}
               />
 
@@ -752,6 +778,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                   alt="AI Grad-CAM Heatmap"
                   className="absolute inset-0 w-full h-full object-contain rounded-lg pointer-events-none cds-canvas-overlay mix-blend-screen transition-opacity duration-150 select-none"
                   style={{ opacity: heatmapOpacity }}
+                  draggable={false}
                 />
               ) : (
                 <div
@@ -808,8 +835,12 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                       {/* Nút Marker Target */}
                       <button
                         type="button"
-                        onClick={() => setActiveAnomaly(anomaly)}
-                        className={`relative flex items-center justify-center rounded-full border-2 transition-all hover:scale-125 focus:outline-hidden focus:ring-2 focus:ring-white shadow-md ${
+                        onClick={(e) => {
+                          if (isMovedRef.current) return;
+                          e.stopPropagation();
+                          setActiveAnomaly(anomaly);
+                        }}
+                        className={`relative flex items-center justify-center rounded-full border-2 transition-all hover:scale-125 focus:outline-hidden focus:ring-2 focus:ring-white shadow-md cursor-pointer ${
                           theme.border
                         } ${theme.bg} ${theme.text} ${isSelected ? 'scale-125 ring-2 ring-white' : ''}`}
                         style={{

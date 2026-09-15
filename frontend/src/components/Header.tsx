@@ -22,6 +22,7 @@ interface HeaderProps {
   onLogout: () => void;
   onOpenMenu: () => void;
   onOpenChat?: () => void;
+  onNavigate?: (section: string) => void;
 }
 
 const roleLabels: Record<string, string> = {
@@ -35,8 +36,9 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onLogout,
   onOpenMenu,
+  onNavigate,
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language, isVi } = useLanguage();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -120,11 +122,87 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const resolveTargetSection = (notif: any): string => {
+    const rawLink = String(notif?.linkUrl || '').trim();
+    const cleanLink = rawLink.replace(/^\//, '').toLowerCase();
+
+    if (cleanLink === 'cds-viewer' || cleanLink === 'cds' || cleanLink === 'viewer') {
+      return 'cds-viewer';
+    }
+    if (cleanLink === 'scan-history' || cleanLink === 'history' || cleanLink === 'reports-history') {
+      return 'scan-history';
+    }
+    if (cleanLink === 'upload-scan' || cleanLink === 'upload' || cleanLink === 'new-scan') {
+      return 'upload-scan';
+    }
+    if (cleanLink === 'billing' || cleanLink === 'credits' || cleanLink === 'credit-package') {
+      return currentUser.role === 'clinic' ? 'credit-package' : 'billing';
+    }
+    if (cleanLink === 'consultation' || cleanLink === 'chat' || cleanLink === 'consult') {
+      return 'consultation';
+    }
+    if (cleanLink === 'medical-profile' || cleanLink === 'profile') {
+      return 'medical-profile';
+    }
+    if (cleanLink === 'patient-list' || cleanLink === 'patients') {
+      return 'patient-list';
+    }
+    if (cleanLink === 'risk-analytics' || cleanLink === 'analytics') {
+      return currentUser.role === 'clinic' ? 'campaign-analytics' : 'risk-analytics';
+    }
+    if (cleanLink === 'reports' || cleanLink === 'medical-reports') {
+      return 'reports';
+    }
+    if (cleanLink === 'bulk-batch' || cleanLink === 'bulk') {
+      return 'bulk-batch';
+    }
+    if (cleanLink === 'user-management' || cleanLink === 'users') {
+      return 'user-management';
+    }
+
+    // Fallback theo type thông báo
+    const type = String(notif?.type || '').toUpperCase();
+    if (type === 'AI_READY') {
+      return currentUser.role === 'doctor' ? 'cds-viewer' : 'scan-history';
+    }
+    if (type === 'DOCTOR_REVIEW') {
+      return currentUser.role === 'doctor' ? 'reports' : 'scan-history';
+    }
+    if (type === 'BILLING') {
+      return currentUser.role === 'clinic' ? 'credit-package' : 'billing';
+    }
+    if (type === 'CONSULTATION') {
+      return 'consultation';
+    }
+    if (type === 'BULK_BATCH') {
+      return 'bulk-batch';
+    }
+
+    return 'dashboard';
+  };
+
+  const handleNotificationClick = async (notif: any) => {
+    if (!notif) return;
+    if (!notif.isRead && notif.id) {
+      void handleMarkAsRead(notif.id);
+    }
+    setIsNotifOpen(false);
+    setActiveToast(null);
+
+    if (onNavigate) {
+      const target = resolveTargetSection(notif);
+      onNavigate(target);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-clinical-border bg-white backdrop-blur-md shadow-medical-sm">
       {/* Realtime Toast Alert */}
       {activeToast && (
-        <div className="fixed top-18 right-6 z-50 max-w-sm rounded-2xl border border-clinical-border bg-white p-4 shadow-medical-modal animate-in slide-in-from-top-4 duration-200">
+        <div
+          onClick={() => handleNotificationClick(activeToast)}
+          className="fixed top-18 right-6 z-50 max-w-sm rounded-2xl border border-clinical-border bg-white p-4 shadow-medical-modal animate-in slide-in-from-top-4 duration-200 cursor-pointer hover:border-brand-300 transition-all"
+        >
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-brand-50 p-2 text-brand-700 shrink-0 border border-brand-100">
               <Sparkles className="h-4 w-4" />
@@ -135,7 +213,10 @@ export const Header: React.FC<HeaderProps> = ({
                   {activeToast.title}
                 </h4>
                 <button
-                  onClick={() => setActiveToast(null)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveToast(null);
+                  }}
                   className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-clinical-text-muted hover:text-clinical-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                   aria-label="Đóng"
                 >
@@ -149,15 +230,9 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-[11px] text-brand-700 font-semibold">
                   {t('header.newNotification', 'Thông báo mới')}
                 </span>
-                <button
-                  onClick={() => {
-                    handleMarkAsRead(activeToast.id);
-                    setActiveToast(null);
-                  }}
-                  className="text-[11px] font-semibold text-brand-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
-                >
-                  {t('header.gotIt', 'Đã hiểu')}
-                </button>
+                <span className="text-[11px] font-semibold text-brand-700 hover:underline">
+                  {isVi ? 'Xem chi tiết →' : 'View details →'}
+                </span>
               </div>
             </div>
           </div>
@@ -251,7 +326,7 @@ export const Header: React.FC<HeaderProps> = ({
                     notifications.map((n) => (
                       <div
                         key={n.id}
-                        onClick={() => handleMarkAsRead(n.id)}
+                        onClick={() => handleNotificationClick(n)}
                         className={`p-3.5 transition-colors cursor-pointer hover:bg-brand-50/50 ${
                           !n.isRead ? 'bg-brand-50/70' : 'bg-white'
                         }`}

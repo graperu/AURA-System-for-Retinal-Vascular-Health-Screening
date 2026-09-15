@@ -262,6 +262,12 @@ runTest('CPM-3.3: Step 2 hiển thị phương thức thanh toán an toàn VietQ
   assert.ok(html.includes('200.000 VNĐ'));
 });
 
+runTest('CPM-3.4: Đồng bộ cổng thanh toán duy nhất VietQR Napas 24/7 trên toàn bộ từ điển & cấu hình', async () => {
+  const { translations } = await import('../i18n/translations.ts');
+  assert.strictEqual(translations.vi.clinic.creditPackage.providerVietqr, 'VietQR Napas 24/7');
+  assert.strictEqual(translations.en.clinic.creditPackage.providerVietqr, 'VietQR Napas 24/7');
+});
+
 console.log('\n=================================================================');
-console.log('   KẾT QUẢ KIỂM THỬ: 12/12 TESTS ĐÃ ĐẠT (100% PASS)');
+console.log('   KẾT QUẢ KIỂM THỬ: 13/13 TESTS ĐÃ ĐẠT (100% PASS)');
 console.log('=================================================================\n');

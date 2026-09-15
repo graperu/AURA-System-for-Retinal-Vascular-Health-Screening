@@ -17,6 +17,8 @@ import {
   PatientProfile,
 } from "../types/cds";
 import { screeningApi, chatApi, billingApi, patientApi } from "../services/api";
+import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
+import { useLanguage } from "../context/LanguageContext";
 import {
   Eye,
   Heart,
@@ -45,8 +47,14 @@ import {
   RefreshCw,
   CalendarCheck,
 } from "lucide-react";
-import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
-import { useLanguage } from "../context/LanguageContext";
+const formatDoctorName = (doc: any, fallback: string = ''): string => {
+  if (!doc) return fallback;
+  if (typeof doc === 'string') return doc;
+  if (typeof doc === 'object') {
+    return doc.fullName || doc.name || doc.assignedDoctor || fallback;
+  }
+  return String(doc);
+};
 
 interface PatientPortalPageProps {
   user: UserSession;
@@ -143,6 +151,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       setIsProfileError(false);
       const profileRes = await patientApi.getProfile();
       if (profileRes.success && profileRes.data) {
+        const safeDocName = formatDoctorName(profileRes.data.assignedDoctor, '');
         setPatient({
           id: profileRes.data.id,
           userId: profileRes.data.userId,
@@ -168,7 +177,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           allergies: profileRes.data.allergies,
           emergencyContactName: profileRes.data.emergencyContactName,
           emergencyContactPhone: profileRes.data.emergencyContactPhone,
-          assignedDoctor: profileRes.data.assignedDoctor || null,
+          assignedDoctor: safeDocName || null,
           updatedAt: profileRes.data.updatedAt || null,
         });
         setAssignedDoctorId(profileRes.data.assignedDoctorId || null);
@@ -514,10 +523,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <p className="text-xs text-slate-600 leading-snug">
               {analysisResult.status === 'REVIEWED'
                 ? (isVi
-                    ? `Bác sĩ ${analysisResult.doctorName || patient.assignedDoctor || 'phụ trách'} đã ký duyệt kết quả vi mạch võng mạc.`
+                    ? `Bác sĩ ${analysisResult.doctorName || formatDoctorName(patient.assignedDoctor) || 'phụ trách'} đã ký duyệt kết quả vi mạch võng mạc.`
                     : `Your assigned specialist has signed your screening report.`)
                 : (isVi
-                    ? `Ảnh đã được AI phân tích và chuyển đến Bác sĩ ${patient.assignedDoctor ? `(${patient.assignedDoctor})` : 'phụ trách'} thẩm định.`
+                    ? `Ảnh đã được AI phân tích và chuyển đến Bác sĩ ${formatDoctorName(patient.assignedDoctor) ? `(${formatDoctorName(patient.assignedDoctor)})` : 'phụ trách'} thẩm định.`
                     : `Scan analyzed by AI and submitted to physician for clinical review.`)}
             </p>
           </div>
@@ -574,7 +583,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               <span>
                 {t('patient.chat.assignedDoctor', isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}:{" "}
                 <strong className="text-clinical-text-secondary font-semibold">
-                  {patient.assignedDoctor || (isVi ? "Đang chờ phân công bác sĩ" : "Awaiting doctor assignment")}
+                  {formatDoctorName(patient.assignedDoctor) || (isVi ? "Đang chờ phân công bác sĩ" : "Awaiting doctor assignment")}
                 </strong>
               </span>
               <span>
@@ -695,7 +704,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </div>
                   <p className="text-xs text-emerald-800 leading-snug">
                     {isVi
-                      ? `Bác sĩ ${analysisResult.doctorName || patient.assignedDoctor || 'phụ trách'} đã xác nhận toàn bộ chỉ số vi mạch. Bạn có thể xuất phiếu báo cáo y khoa.`
+                      ? `Bác sĩ ${analysisResult.doctorName || formatDoctorName(patient.assignedDoctor) || 'phụ trách'} đã xác nhận toàn bộ chỉ số vi mạch. Bạn có thể xuất phiếu báo cáo y khoa.`
                       : `Attending physician has verified and confirmed all biomarkers.`}
                   </p>
                 </div>
@@ -716,7 +725,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </div>
                   <p className="text-xs text-amber-800 leading-snug">
                     {isVi
-                      ? `Hệ thống đã phân tích ảnh vi mạch và chuyển tới Bác sĩ ${patient.assignedDoctor ? `(${patient.assignedDoctor})` : 'phụ trách'}. Báo cáo y khoa chính thức sẽ mở khóa sau khi ký duyệt.`
+                      ? `Hệ thống đã phân tích ảnh vi mạch và chuyển tới Bác sĩ ${formatDoctorName(patient.assignedDoctor) ? `(${formatDoctorName(patient.assignedDoctor)})` : 'phụ trách'}. Báo cáo y khoa chính thức sẽ mở khóa sau khi ký duyệt.`
                       : `AI scanning complete. Official report will be unlocked once attending physician completes review.`}
                   </p>
                 </div>
@@ -919,7 +928,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                       {t('patient.chat.assignedDoctor', isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}
                     </span>
                     <span className="text-sm font-bold text-slate-800 line-clamp-1 mt-1">
-                      {patient.assignedDoctor || (isVi ? "Chưa phân công" : "Unassigned")}
+                      {formatDoctorName(patient.assignedDoctor) || (isVi ? "Chưa phân công" : "Unassigned")}
                     </span>
                     <span className="text-[11px] text-slate-500 block mt-0.5">
                       {isVi ? "Bệnh viện chỉ định" : "Hospital assigned"}
@@ -1019,7 +1028,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       ========================================================================== */}
       {(activeView === "consultation" || activeView === "consultation-chat") && (
         <div className="max-w-4xl mx-auto space-y-6">
-          {!assignedDoctorId && !patient.assignedDoctor ? (
+          {!assignedDoctorId && !formatDoctorName(patient.assignedDoctor) ? (
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 sm:p-12 text-center space-y-4">
               <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
                 <Clock className="w-8 h-8" />
@@ -1067,7 +1076,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold">
-                      {patient.assignedDoctor || (isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}
+                      {formatDoctorName(patient.assignedDoctor) || (isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}
                     </h3>
                     <p className="text-[11px] text-cyan-200">
                       {isVi ? "Khoa Mắt & Tim Mạch • Trực Tuyến" : "Ophthalmology & Cardiology • Online"}
@@ -1201,11 +1210,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   {isVi ? "Cổng Thanh Toán" : "Payment Gateways"}
                 </span>
                 <div className="mt-2 flex items-center gap-2">
-                  <span className="px-2.5 py-1 bg-blue-50 text-[#005BAA] rounded-lg text-xs font-bold border border-blue-200">
-                    VNPay QR
-                  </span>
-                  <span className="px-2.5 py-1 bg-pink-50 text-[#A50064] rounded-lg text-xs font-bold border border-pink-200">
-                    Ví MoMo
+                  <span className="px-2.5 py-1 bg-teal-50 text-teal-800 rounded-lg text-xs font-bold border border-teal-200 flex items-center gap-1.5">
+                    <QrCode className="w-3.5 h-3.5 text-teal-600" />
+                    VietQR Napas 24/7
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] text-slate-500">
@@ -1329,8 +1336,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                             {item.servicePackageName}
                           </td>
                           <td className="p-3.5">
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[10px] font-bold">
-                              {item.provider || "VNPAY"}
+                            <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200 font-mono text-[10px] font-bold">
+                              {item.provider === "VIETQR" || item.provider === "VNPAY" || !item.provider
+                                ? "VietQR Napas 24/7"
+                                : item.provider}
                             </span>
                           </td>
                           <td className="p-3.5 font-mono font-extrabold text-slate-900">
@@ -1367,7 +1376,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           onClose={() => setIsReportModalOpen(false)}
           patient={patient}
           result={analysisResult}
-          doctorName={patient.assignedDoctor || undefined}
+          doctorName={formatDoctorName(patient.assignedDoctor) || undefined}
         />
       )}
 
@@ -1377,8 +1386,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         currentUserRole="patient"
         patientName={patient.fullName || "Bệnh nhân"}
         patientMrn={patient.mrn || "Chưa có MRN"}
-        doctorName={patient.assignedDoctor || undefined}
-        partnerName={patient.assignedDoctor || undefined}
+        doctorName={formatDoctorName(patient.assignedDoctor) || undefined}
+        partnerName={formatDoctorName(patient.assignedDoctor) || undefined}
         partnerUserId={assignedDoctorId || undefined}
         currentUserId={user?.id}
       />
@@ -1403,17 +1412,34 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         patient={patient}
-        onSave={(updated) => setPatient(updated)}
+        onSave={(updated) => {
+          if (updated) {
+            const safeDoc = formatDoctorName(updated.assignedDoctor, formatDoctorName(patient.assignedDoctor, ''));
+            setPatient({
+              ...updated,
+              assignedDoctor: safeDoc || null,
+            });
+          }
+        }}
       />
 
       <RegisterExaminationModal
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         patient={patient}
-        onSuccess={async (updatedDoctorName) => {
+        onSuccess={async (data) => {
           await fetchProfileData();
-          if (updatedDoctorName) {
-            setPatient((prev) => ({ ...prev, assignedDoctor: updatedDoctorName }));
+          if (data) {
+            const safeDoc = formatDoctorName(
+              typeof data === 'object' ? (data.assignedDoctor || data.doctorName) : data,
+              ''
+            );
+            if (safeDoc) {
+              setPatient((prev) => ({ ...prev, assignedDoctor: safeDoc }));
+            }
+            if (typeof data === 'object' && data.assignedDoctorId) {
+              setAssignedDoctorId(data.assignedDoctorId);
+            }
           }
         }}
       />

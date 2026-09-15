@@ -788,7 +788,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       channel: "IN_APP",
       subject: "Nạp lượt phân tích AI thành công",
       body: "Giao dịch qua cổng {payment_gateway} thành công. Tài khoản của bạn đã được cộng {credits_added} lượt phân tích.",
-      description: "Gửi xác nhận sau khi nhận IPN/Webhook từ VNPay/MoMo",
+      description: "Gửi xác nhận sau khi nhận Webhook/IPN xác nhận thanh toán từ VietQR Napas 24/7",
       enabled: true,
     },
     {

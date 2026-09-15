@@ -759,19 +759,11 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                         {/* Cổng thanh toán */}
                         <td className="p-3.5">
                           <span
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
-                              p.provider === 'MOMO'
-                                ? 'bg-pink-50 text-[#A50064] border border-pink-200'
-                                : p.provider === 'BANK_TRANSFER'
-                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                  : 'bg-blue-50 text-[#005BAA] border border-blue-200'
-                            }`}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200"
                           >
-                            {p.provider === 'MOMO'
-                              ? t('clinic.creditPackage.providerMomo')
-                              : p.provider === 'BANK_TRANSFER'
-                                ? t('clinic.creditPackage.providerBank')
-                                : t('clinic.creditPackage.providerVnpay')}
+                            {p.provider === 'VIETQR' || p.provider === 'BANK_TRANSFER' || p.provider === 'VNPAY' || !p.provider
+                              ? t('clinic.creditPackage.providerVietqr')
+                              : p.provider}
                           </span>
                         </td>
 
@@ -866,7 +858,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                 <div className="flex justify-between">
                   <span className="text-slate-500">{t('clinic.creditPackage.paymentGatewayLabel')}</span>
                   <span className="font-semibold text-slate-800">
-                    {selectedReceipt.provider || 'VNPay QR'}
+                    {selectedReceipt.provider || 'VietQR Napas 24/7'}
                   </span>
                 </div>
                 <div className="flex justify-between">

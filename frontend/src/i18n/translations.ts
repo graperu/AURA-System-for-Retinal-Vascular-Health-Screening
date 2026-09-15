@@ -1178,6 +1178,7 @@ export interface ClinicalTranslationSchema {
       colReceipt: string;
       emptyHistory: string;
       emptyHistorySub: string;
+      providerVietqr: string;
       providerMomo: string;
       providerBank: string;
       providerVnpay: string;
@@ -2633,8 +2634,9 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
         colReceipt: "Biên lai",
         emptyHistory: "Chưa có lịch sử giao dịch nào.",
         emptyHistorySub: "Khi cơ sở thanh toán gia hạn hoặc mua gói hạn mức, thông tin hóa đơn sẽ hiển thị tại đây.",
+        providerVietqr: "VietQR Napas 24/7",
         providerMomo: "Ví MoMo",
-        providerBank: "Chuyển khoản",
+        providerBank: "Chuyển khoản VietQR",
         providerVnpay: "VNPay QR",
         statusSuccess: "Thành công",
         statusPending: "Đang xử lý",
@@ -4110,8 +4112,9 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
         colReceipt: "Receipt",
         emptyHistory: "No transaction history recorded yet.",
         emptyHistorySub: "When your facility purchases or renews screening capacity, invoices will appear here.",
+        providerVietqr: "VietQR Napas 24/7",
         providerMomo: "MoMo Wallet",
-        providerBank: "Bank Transfer",
+        providerBank: "VietQR Bank Transfer",
         providerVnpay: "VNPay QR",
         statusSuccess: "Success",
         statusPending: "Pending",
