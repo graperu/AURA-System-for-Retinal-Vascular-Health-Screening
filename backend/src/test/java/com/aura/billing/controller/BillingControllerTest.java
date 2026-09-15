@@ -132,4 +132,27 @@ class BillingControllerTest {
     assertEquals("Lấy số lượt phân tích khả dụng thành công", response.message());
     assertEquals(12, response.data().get("remainingCredits"));
   }
+
+  @Test
+  @DisplayName("FR-11: Xác nhận thanh toán cục bộ thành công")
+  void confirmLocalPayment_success() {
+    com.aura.billing.entity.PaymentTransaction tx = com.aura.billing.entity.PaymentTransaction.builder()
+        .id(100L)
+        .amount(BigDecimal.valueOf(50000))
+        .status(PaymentStatus.SUCCEEDED)
+        .provider("VIETQR")
+        .providerReference("VIETQR_REF_100")
+        .transferContent("AURA NAP 1 TEST")
+        .servicePackage(com.aura.billing.entity.ServicePackage.builder().id(1L).name("Gói Cơ Bản").credits(1).build())
+        .build();
+
+    when(billingService.confirmLocalPayment(eq(userId), eq(100L))).thenReturn(tx);
+
+    ApiResponse<com.aura.billing.dto.PaymentStatusResponse> response = controller.confirmLocalPayment(100L, userPrincipal);
+
+    assertNotNull(response);
+    assertNotNull(response.data());
+    assertEquals(PaymentStatus.SUCCEEDED, response.data().status());
+    assertEquals(1, response.data().creditsAdded());
+  }
 }

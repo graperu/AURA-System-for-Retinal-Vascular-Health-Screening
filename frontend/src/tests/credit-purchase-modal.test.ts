@@ -237,10 +237,11 @@ runTest('CPM-3.1: LOẠI BỎ 100% nút bấm tự kích hoạt "Xác Nhận Đ�
   assert.ok(htmlStep2.includes('Tiến hành quét mã QR thanh toán'), 'Step 2 must have proceed to checkout button');
 });
 
-runTest('CPM-3.2: Kiểm tra sự hiện diện của DTO và API checkout & getTransactionStatus trong billingApi (AC-1, AC-4)', async () => {
+runTest('CPM-3.2: Kiểm tra sự hiện diện của DTO và API checkout, getTransactionStatus & confirmLocalPayment trong billingApi (AC-1, AC-4)', async () => {
   const { billingApi } = await import('../services/api.ts');
   assert.strictEqual(typeof billingApi.checkout, 'function', 'billingApi.checkout must be a defined function');
   assert.strictEqual(typeof billingApi.getTransactionStatus, 'function', 'billingApi.getTransactionStatus must be a defined function');
+  assert.strictEqual(typeof billingApi.confirmLocalPayment, 'function', 'billingApi.confirmLocalPayment must be a defined function');
   assert.strictEqual(typeof billingApi.purchase, 'function', 'billingApi.purchase must be maintained for backward compatibility');
 });
 

@@ -241,6 +241,31 @@ public class BillingService {
     }
 
     /**
+     * Xác nhận thanh toán cục bộ cho môi trường phát triển / thử nghiệm / sandbox (FR-11, FR-28):
+     * - Chống IDOR: Kiểm tra ownerId khớp với người mua.
+     * - Nếu giao dịch đang ở trạng thái PENDING, tự động kích hoạt thanh toán thành công và cộng credits.
+     */
+    @Transactional
+    public PaymentTransaction confirmLocalPayment(UUID ownerId, Long transactionId) {
+        PaymentTransaction transaction = paymentTransactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch: " + transactionId));
+
+        if (!transaction.getBuyer().getId().equals(ownerId)) {
+            throw new AccessDeniedException("Bạn không có quyền xác nhận giao dịch này.");
+        }
+
+        if (transaction.getStatus() == PaymentStatus.SUCCEEDED) {
+            return transaction;
+        }
+
+        String ref = transaction.getProviderReference() != null && !transaction.getProviderReference().isBlank()
+                ? transaction.getProviderReference()
+                : transaction.getTransferContent();
+
+        return processPaymentSuccess(ref, "LOCAL_TXN_" + System.currentTimeMillis(), transaction.getAmount());
+    }
+
+    /**
      * Lấy trạng thái giao dịch phục vụ Polling thời gian thực (FR-11, FR-28):
      * - Chống IDOR: Kiểm tra ownerId khớp với người mua.
      * - Fail-Closed: Tự động đánh dấu EXPIRED nếu quá 15 phút.

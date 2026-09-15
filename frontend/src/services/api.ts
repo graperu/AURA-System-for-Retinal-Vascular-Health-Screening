@@ -317,6 +317,14 @@ export const billingApi = {
       },
     ),
 
+  confirmLocalPayment: (transactionId: number) =>
+    apiFetch<PaymentStatusResponse>(
+      `/api/v1/me/payments/${transactionId}/confirm-local`,
+      {
+        method: "POST",
+      },
+    ),
+
   packages: (scope: "INDIVIDUAL" | "CLINIC" = "CLINIC") =>
     apiFetch<ServicePackageResponse[]>(`/api/v1/packages?scope=${scope}`, { method: "GET" }),
 

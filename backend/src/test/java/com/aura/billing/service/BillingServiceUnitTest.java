@@ -779,5 +779,78 @@ class BillingServiceUnitTest {
       assertThat(statusResponse.status()).isEqualTo(PaymentStatus.EXPIRED);
       assertThat(statusResponse.failureReason()).contains("hết hạn thanh toán");
     }
+
+    @Test
+    @DisplayName("confirmLocalPayment: Kích hoạt thành công giao dịch cục bộ và cộng credits")
+    void confirmLocalPayment_Pending_SucceedsAndGrantsCredits() {
+      PaymentTransaction pendingTxn = PaymentTransaction.builder()
+          .id(990L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.PENDING)
+          .provider("VIETQR")
+          .providerReference("VIETQR_REF_990")
+          .transferContent("AURA NAP 1 KHAM TEST")
+          .build();
+
+      when(paymentTransactionRepository.findById(990L)).thenReturn(Optional.of(pendingTxn));
+      when(paymentTransactionRepository.findByProviderReference("VIETQR_REF_990")).thenReturn(Optional.of(pendingTxn));
+      when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
+
+      when(subscriptionRepository.findByOwnerIdAndServicePackageId(individualUserId, 1L))
+          .thenReturn(Optional.empty());
+      when(subscriptionRepository.save(any(Subscription.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
+
+      PaymentTransaction confirmed = billingService.confirmLocalPayment(individualUserId, 990L);
+
+      assertThat(confirmed).isNotNull();
+      assertThat(confirmed.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+      assertThat(confirmed.getGatewayTransactionNo()).startsWith("LOCAL_TXN_");
+      verify(subscriptionRepository, times(1)).save(any(Subscription.class));
+      verify(userNotificationService, times(1)).sendNotificationToUser(
+          eq(individualUserId), anyString(), anyString(), eq("BILLING"), eq("SUCCESS"), eq("/billing"));
+    }
+
+    @Test
+    @DisplayName("confirmLocalPayment: Chống IDOR khi buyerId không khớp")
+    void confirmLocalPayment_IdorMismatch_ThrowsAccessDeniedException() {
+      UUID strangerId = UUID.randomUUID();
+      PaymentTransaction pendingTxn = PaymentTransaction.builder()
+          .id(991L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.PENDING)
+          .build();
+
+      when(paymentTransactionRepository.findById(991L)).thenReturn(Optional.of(pendingTxn));
+
+      assertThatThrownBy(() -> billingService.confirmLocalPayment(strangerId, 991L))
+          .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+      verify(subscriptionRepository, never()).save(any(Subscription.class));
+    }
+
+    @Test
+    @DisplayName("confirmLocalPayment: Nếu giao dịch đã SUCCEEDED thì trả về ngay không cộng 2 lần")
+    void confirmLocalPayment_AlreadySucceeded_Idempotent() {
+      PaymentTransaction succeededTxn = PaymentTransaction.builder()
+          .id(992L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.SUCCEEDED)
+          .build();
+
+      when(paymentTransactionRepository.findById(992L)).thenReturn(Optional.of(succeededTxn));
+
+      PaymentTransaction result = billingService.confirmLocalPayment(individualUserId, 992L);
+
+      assertThat(result).isNotNull();
+      assertThat(result.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+      verify(subscriptionRepository, never()).save(any(Subscription.class));
+    }
   }
 }

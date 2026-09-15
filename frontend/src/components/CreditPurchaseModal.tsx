@@ -448,6 +448,43 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
     }
   };
 
+  // Xác nhận thanh toán cục bộ / tức thì (dành cho môi trường localhost / chuyển khoản xong)
+  const handleConfirmLocal = async () => {
+    if (!activeTxnId) return;
+    setIsProcessing(true);
+    setPurchaseError(null);
+    try {
+      const res = await billingApi.confirmLocalPayment(activeTxnId);
+      if (res.success && res.data) {
+        const added = res.data.creditsAdded || selectedPackage?.scansCount || 0;
+        setLastTxnDetails({
+          ...res.data,
+          id: res.data.transactionId,
+          provider: activeTxnData?.provider || paymentMethod,
+        });
+        onPurchaseSuccess?.(activeCredits + added);
+        onSuccess?.(added);
+        setPaymentStep("SUCCESS");
+      } else {
+        setPurchaseError(
+          res.message ||
+          (isVi
+            ? "Không thể xác nhận giao dịch. Vui lòng thử lại sau."
+            : "Failed to confirm payment transaction. Please try again.")
+        );
+      }
+    } catch (e: any) {
+      setPurchaseError(
+        e?.message ||
+        (isVi
+          ? "Lỗi kết nối khi xác nhận thanh toán."
+          : "Network error when confirming payment.")
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleClose = () => {
     setPaymentStep("SELECT");
     setSelectedPackage(null);
@@ -1013,8 +1050,8 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
             </div>
           </div>
 
-          {/* Action Bar Step 3: Loại bỏ hoàn toàn nút tự kích hoạt (AC-2) */}
-          <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+          {/* Action Bar Step 3 */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 pt-4">
             <Button
               variant="outline"
               size="md"
@@ -1043,13 +1080,24 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
                 {isVi ? "Tạo phiên thanh toán mới" : "Create New Session"}
               </Button>
             ) : (
-              <div className="flex items-center gap-2 text-xs text-teal-700 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="font-medium">
-                  {isVi
-                    ? "Hệ thống đang tự động kiểm tra mỗi 3 giây..."
-                    : "System is automatically polling every 3 seconds..."}
-                </span>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <div className="hidden md:flex items-center gap-1.5 text-xs text-teal-700 bg-teal-50 px-2.5 py-1.5 rounded-lg border border-teal-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="font-medium">
+                    {isVi ? "Tự động kiểm tra..." : "Auto-checking..."}
+                  </span>
+                </div>
+                <Button
+                  variant="primary"
+                  size="md"
+                  loading={isProcessing}
+                  disabled={isProcessing}
+                  onClick={handleConfirmLocal}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm w-full sm:w-auto"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                  {isVi ? "Tôi đã chuyển khoản xong (Kiểm tra & Kích hoạt)" : "I have transferred (Verify & Activate)"}
+                </Button>
               </div>
             )}
           </div>

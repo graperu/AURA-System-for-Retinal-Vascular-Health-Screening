@@ -55,6 +55,14 @@ public class BillingController {
         return ApiResponse.success("Lấy trạng thái giao dịch thành công", status);
     }
 
+    @PostMapping("/payments/{transactionId}/confirm-local")
+    public ApiResponse<PaymentStatusResponse> confirmLocalPayment(
+            @PathVariable Long transactionId,
+            @AuthenticationPrincipal AuraUserPrincipal principal) {
+        var txn = billingService.confirmLocalPayment(principal.id(), transactionId);
+        return ApiResponse.success("Xác nhận thanh toán thành công", PaymentStatusResponse.from(txn));
+    }
+
     @GetMapping("/subscriptions")
     public ApiResponse<List<SubscriptionResponse>> mySubscriptions(@AuthenticationPrincipal AuraUserPrincipal principal) {
         return ApiResponse.success("Lấy danh sách subscription thành công", billingService.mySubscriptions(principal.id()));
