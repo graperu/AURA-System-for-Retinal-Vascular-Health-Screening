@@ -144,18 +144,23 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
                   {t('doctor.validationBar.adjustedCardio', 'Mức nguy cơ Tim mạch:')}
                 </span>
                 <div className="grid grid-cols-4 gap-1.5">
-                  {(['Low', 'Moderate', 'High', 'Severe'] as RiskLevel[]).map((lvl) => (
+                  {([
+                    { id: 'Low', label: isVi ? 'Thấp' : 'Low' },
+                    { id: 'Moderate', label: isVi ? 'Trung bình' : 'Moderate' },
+                    { id: 'High', label: isVi ? 'Cao' : 'High' },
+                    { id: 'Severe', label: isVi ? 'Nguy kịch' : 'Severe' },
+                  ] as { id: RiskLevel; label: string }[]).map((lvl) => (
                     <button
-                      key={lvl}
+                      key={lvl.id}
                       type="button"
-                      onClick={() => setAdjustedCardioRisk(lvl)}
+                      onClick={() => setAdjustedCardioRisk(lvl.id)}
                       className={`py-1 rounded font-bold text-[11px] border transition-colors cursor-pointer ${
-                        adjustedCardioRisk === lvl
+                        adjustedCardioRisk === lvl.id
                           ? 'bg-amber-600 text-white border-amber-600'
                           : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50'
                       }`}
                     >
-                      {lvl}
+                      {lvl.label}
                     </button>
                   ))}
                 </div>
@@ -166,18 +171,23 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
                   {t('doctor.validationBar.adjustedDR', 'Mức nguy cơ Võng mạc ĐTĐ:')}
                 </span>
                 <div className="grid grid-cols-4 gap-1.5">
-                  {(['Low', 'Moderate', 'High', 'Severe'] as RiskLevel[]).map((lvl) => (
+                  {([
+                    { id: 'Low', label: isVi ? 'Thấp' : 'Low' },
+                    { id: 'Moderate', label: isVi ? 'Trung bình' : 'Moderate' },
+                    { id: 'High', label: isVi ? 'Cao' : 'High' },
+                    { id: 'Severe', label: isVi ? 'Nguy kịch' : 'Severe' },
+                  ] as { id: RiskLevel; label: string }[]).map((lvl) => (
                     <button
-                      key={lvl}
+                      key={lvl.id}
                       type="button"
-                      onClick={() => setAdjustedDrRisk(lvl)}
+                      onClick={() => setAdjustedDrRisk(lvl.id)}
                       className={`py-1 rounded font-bold text-[11px] border transition-colors cursor-pointer ${
-                        adjustedDrRisk === lvl
+                        adjustedDrRisk === lvl.id
                           ? 'bg-amber-600 text-white border-amber-600'
                           : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50'
                       }`}
                     >
-                      {lvl}
+                      {lvl.label}
                     </button>
                   ))}
                 </div>

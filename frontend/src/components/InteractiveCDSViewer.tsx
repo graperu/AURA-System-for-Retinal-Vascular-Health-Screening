@@ -733,8 +733,8 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
           <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5 pointer-events-none">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
             {hasRealHeatmap 
-              ? t('cdsViewer.aiAttentionLayer', isVi ? 'Bản đồ nhiệt Grad-CAM (Neural)' : 'Grad-CAM Heatmap (Neural)')
-              : t('cdsViewer.opticalSynthesisLayer', isVi ? 'Mô phỏng quang học 540nm (Optical Synthesis)' : '540nm Optical Synthesis')}
+              ? t('cdsViewer.aiAttentionLayer', isVi ? 'Bản đồ nhiệt Grad-CAM' : 'Grad-CAM Attention Heatmap')
+              : t('cdsViewer.opticalSynthesisLayer', isVi ? 'Mô phỏng quang học 540nm' : '540nm Optical Synthesis')}
           </div>
 
           <div

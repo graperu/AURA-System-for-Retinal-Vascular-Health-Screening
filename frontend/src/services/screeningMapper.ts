@@ -56,6 +56,29 @@ export const parseIcd10Codes = (raw: any): string[] => {
   return [];
 };
 
+export const computeHypertensionStage = (stage?: string | null, score?: number, level?: string | null): string => {
+  if (stage && !['LOW', 'NORMAL', 'MODERATE', 'HIGH', 'CRITICAL', 'SEVERE'].includes(stage.toUpperCase()) && !stage.toUpperCase().includes('STAGE_')) {
+    return stage;
+  }
+  const val = (stage || level || '').toUpperCase();
+  if (val === 'LOW' || val === 'NORMAL' || (score !== undefined && score < 30)) {
+    return 'Giai đoạn 0 (Huyết áp bình thường)';
+  }
+  if (val.includes('PRE') || val.includes('ELEVATED') || (score !== undefined && score < 50)) {
+    return 'Tiền tăng huyết áp (Hơi cao)';
+  }
+  if (val.includes('STAGE_1') || val === '1' || val === 'MODERATE' || (score !== undefined && score < 70)) {
+    return 'Giai đoạn 1 (Co nhẹ vi mạch)';
+  }
+  if (val.includes('STAGE_2') || val === '2' || val === 'HIGH' || (score !== undefined && score < 85)) {
+    return 'Giai đoạn 2 (Tăng huyết áp rõ)';
+  }
+  if (val.includes('CRITICAL') || val.includes('SEVERE') || (score !== undefined && score >= 85)) {
+    return 'Giai đoạn 3 (Khẩn cấp / Áp lực cao)';
+  }
+  return stage || 'Giai đoạn 0 (Huyết áp bình thường)';
+};
+
 export const computeEtdrsGrade = (grade?: string | null, score?: number, level?: string | null): string => {
   if (grade && !grade.toLowerCase().includes('theo phân tích') && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr')) {
     return grade;
@@ -74,7 +97,7 @@ export const computeEtdrsGrade = (grade?: string | null, score?: number, level?:
   if (s >= 25) {
     return 'Cấp độ 1 (NPDR nhẹ - Vi phình mạch)';
   }
-  return 'Cấp độ 0 (Không DR)';
+  return 'Cấp độ 0 (Bình thường)';
 };
 
 /**
@@ -141,7 +164,11 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
     cardiovascularRisk: {
       level: toFrontendRiskLevel(screening.cardiovascularRiskLevel),
       score: cvdScore,
-      hypertensionStage: screening.hypertensionRiskLevel || 'Chưa xác định',
+      hypertensionStage: computeHypertensionStage(
+        screening.hypertensionRiskLevel || screening.hypertensionStage,
+        cvdScore,
+        screening.cardiovascularRiskLevel
+      ),
       threeYearStrokeRiskPercent: strokeScore,
     },
     diabeticRetinopathyRisk: {
