@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, type Auth, type ActionCodeSettings } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, browserPopupRedirectResolver, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, type Auth, type ActionCodeSettings } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: (import.meta.env?.VITE_FIREBASE_API_KEY || '').trim(),
@@ -31,7 +31,7 @@ export const signInWithGoogleFirebase = async () => {
   if (!fb) {
     throw new Error('Firebase chưa được cấu hình đầy đủ API Key trong file .env');
   }
-  const result = await signInWithPopup(fb.auth, fb.provider);
+  const result = await signInWithPopup(fb.auth, fb.provider, browserPopupRedirectResolver);
   const user = result.user;
   const idToken = await user.getIdToken();
   return {
