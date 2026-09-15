@@ -356,16 +356,25 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* User Profile Info */}
           <div className="flex items-center gap-2.5 pl-3 border-l border-clinical-border">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 text-white font-bold text-xs shadow-xs">
-              {currentUser.name
-                ? currentUser.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .slice(0, 2)
-                    .toUpperCase()
-                : 'AU'}
-            </div>
+            {currentUser.avatarUrl ? (
+              <img
+                src={currentUser.avatarUrl}
+                alt={currentUser.name || 'Avatar'}
+                className="h-10 w-10 rounded-xl object-cover border border-brand-200 shadow-xs"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 text-white font-bold text-xs shadow-xs">
+                {currentUser.name
+                  ? currentUser.name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()
+                  : 'AU'}
+              </div>
+            )}
 
             <div className="hidden text-left md:block">
               <div className="text-xs font-bold text-clinical-text truncate max-w-[140px]">

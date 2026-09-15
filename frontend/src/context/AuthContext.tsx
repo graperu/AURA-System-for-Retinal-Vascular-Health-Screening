@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiFetch, getAccessToken, setAccessToken, type ApiErrorDetail } from '../services/api';
 import { stompClient } from '../services/websocketService';
+import { getFirebaseCurrentUser } from '../config/firebase';
 import type { UserSession } from '../types/auth';
 import type { UserRole } from '../types/cds';
 
@@ -31,7 +32,9 @@ const toSession = (user: BackendUser, token: string): UserSession => {
   if (cleanName && cleanName.includes('?')) {
     cleanName = role === 'patient' ? (user.email?.split('@')[0] || 'Bệnh nhân') : (role === 'doctor' ? 'Bác sĩ chuyên khoa' : cleanName);
   }
-  return { id: user.id, email: user.email, name: cleanName, role, roleTitle: titles[role], organization: 'AURA', token };
+  const fbPhoto = getFirebaseCurrentUser()?.photoURL || undefined;
+  const avatarUrl = localStorage.getItem(`aura_avatar_${user.id}`) || localStorage.getItem('aura_avatar_last') || fbPhoto || undefined;
+  return { id: user.id, email: user.email, name: cleanName, role, roleTitle: titles[role], organization: 'AURA', avatarUrl, token };
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -77,8 +80,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithSocial = async (payload: { provider: string; idToken: string; email?: string; fullName?: string; picture?: string }): Promise<AuthResult> => {
+    if (payload.picture) {
+      localStorage.setItem('aura_avatar_last', payload.picture);
+    }
     const response = await apiFetch<LoginResponse>('/api/v1/auth/social', { method: 'POST', body: JSON.stringify(payload) });
     if (response.success && response.data) {
+      if (payload.picture && response.data.user?.id) {
+        localStorage.setItem(`aura_avatar_${response.data.user.id}`, payload.picture);
+      }
       setAccessToken(response.data.accessToken);
       setUser(toSession(response.data.user, response.data.accessToken));
     }

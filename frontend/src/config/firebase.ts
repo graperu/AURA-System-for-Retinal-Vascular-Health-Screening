@@ -42,6 +42,11 @@ export const signInWithGoogleFirebase = async () => {
   };
 };
 
+export const getFirebaseCurrentUser = () => {
+  const fb = getFirebaseAuth();
+  return fb?.auth?.currentUser;
+};
+
 export const sendMagicLinkFirebase = async (email: string, actionCodeSettings: ActionCodeSettings) => {
   const fb = getFirebaseAuth();
   if (!fb) {
