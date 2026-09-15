@@ -46,26 +46,33 @@ export function DataTable<T>({
     return {};
   }, [pagination]);
 
+  const isPageControlled =
+    paginationConfig?.currentPage !== undefined &&
+    typeof paginationConfig.onPageChange === 'function';
+
+  const isPageSizeControlled =
+    paginationConfig?.pageSize !== undefined &&
+    typeof paginationConfig.onPageSizeChange === 'function';
+
   const [internalPage, setInternalPage] = useState(1);
   const [internalPageSize, setInternalPageSize] = useState(
     paginationConfig?.pageSize || 10
   );
 
-  const isControlled = paginationConfig?.currentPage !== undefined && typeof paginationConfig.onPageChange === 'function';
-  const currentPage = isControlled ? paginationConfig!.currentPage! : internalPage;
-  const pageSize = paginationConfig?.pageSize || internalPageSize;
+  const currentPage = isPageControlled ? paginationConfig!.currentPage! : internalPage;
+  const pageSize = isPageSizeControlled ? paginationConfig!.pageSize! : internalPageSize;
 
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
 
   // Reset về trang 1 hoặc clamp trang hợp lệ khi data thay đổi kích thước
   useEffect(() => {
-    if (!isControlled && internalPage > totalPages) {
+    if (!isPageControlled && internalPage > totalPages) {
       setInternalPage(Math.max(1, totalPages));
     }
-  }, [data.length, totalPages, isControlled, internalPage]);
+  }, [data.length, totalPages, isPageControlled, internalPage]);
 
   const handlePageChange = (page: number) => {
-    if (isControlled) {
+    if (isPageControlled) {
       paginationConfig?.onPageChange?.(page);
     } else {
       setInternalPage(page);
@@ -73,12 +80,14 @@ export function DataTable<T>({
   };
 
   const handlePageSizeChange = (newSize: number) => {
-    if (paginationConfig?.onPageSizeChange) {
-      paginationConfig.onPageSizeChange(newSize);
+    if (isPageSizeControlled) {
+      paginationConfig?.onPageSizeChange?.(newSize);
     } else {
       setInternalPageSize(newSize);
     }
-    if (!isControlled) {
+    if (isPageControlled) {
+      paginationConfig?.onPageChange?.(1);
+    } else {
       setInternalPage(1);
     }
   };
@@ -98,7 +107,7 @@ export function DataTable<T>({
               {columns.map((col, idx) => (
                 <th
                   key={idx}
-                  className={`py-3.5 px-4 ${
+                  className={`py-3.5 px-4 whitespace-nowrap ${
                     col.align === 'right'
                       ? 'text-right'
                       : col.align === 'center'

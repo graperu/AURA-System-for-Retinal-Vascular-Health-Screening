@@ -605,6 +605,12 @@ export const doctorApi = {
       body: JSON.stringify(patientData),
     }),
 
+  createPatient: (patientData: any) =>
+    apiFetch<any>("/api/v1/doctor/patients", {
+      method: "POST",
+      body: JSON.stringify(patientData),
+    }),
+
   deletePatient: (id: string) =>
     apiFetch<void>(`/api/v1/doctor/patients/${id}`, {
       method: "DELETE",

@@ -273,8 +273,12 @@ export function ClinicalSelect<T extends string | number = string>({
     ? 'bg-[#0F172A] border-[#1E293B] text-[#F8FAFC] darkroom-scrollbar'
     : 'bg-white border-clinical-border text-clinical-text clinical-scrollbar';
 
+  // Only apply default w-full if no custom width class is provided in className
+  const hasCustomWidth = /(?:^|\s)(?:w-|max-w-|min-w-|flex-1)/.test(className);
+  const containerWidthClass = hasCustomWidth ? '' : 'w-full';
+
   return (
-    <div className={`relative w-full ${className}`} ref={containerRef}>
+    <div className={`relative ${containerWidthClass} ${className}`.trim()} ref={containerRef}>
       {/* Optional Top Label */}
       {label && (
         <div className="flex items-center justify-between mb-1.5">

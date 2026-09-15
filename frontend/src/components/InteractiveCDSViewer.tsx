@@ -12,6 +12,7 @@ import {
   Moon,
   CheckCircle2,
   AlertCircle,
+  Move,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
@@ -300,6 +301,11 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   const [showVesselsOverlay, setShowVesselsOverlay] = useState<boolean>(true);
   const [showAnomalies, setShowAnomalies] = useState<boolean>(true);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const startPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isMovedRef = useRef<boolean>(false);
   const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
   const [isDarkRoom, setIsDarkRoom] = useState<boolean>(false);
   const [isImageLoaded, setIsImageLoaded] = useState<boolean>(false);
@@ -307,6 +313,89 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   const rawImageRef = useRef<HTMLImageElement | null>(null);
   const vesselCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dynamicHeatmapCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Điều chỉnh mức độ phóng to / thu nhỏ và tự động reset pan khi về 100%
+  const handleZoomChange = (updater: (prev: number) => number) => {
+    setZoomLevel((prev) => {
+      const next = updater(prev);
+      const clamped = Math.min(2.5, Math.max(0.8, +(next.toFixed(1))));
+      if (clamped <= 1.0) {
+        setPanOffset({ x: 0, y: 0 });
+      }
+      return clamped;
+    });
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1.0);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  // Logic kéo thả di chuyển hình ảnh khi zoom to (Pan & Drag Engine)
+  const startDrag = (clientX: number, clientY: number) => {
+    if (zoomLevel <= 1.0) return;
+    setIsDragging(true);
+    isMovedRef.current = false;
+    dragStartRef.current = { x: clientX, y: clientY };
+    startPanRef.current = { ...panOffset };
+  };
+
+  const updateDrag = (clientX: number, clientY: number) => {
+    if (!isDragging || zoomLevel <= 1.0) return;
+    const deltaX = clientX - dragStartRef.current.x;
+    const deltaY = clientY - dragStartRef.current.y;
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      isMovedRef.current = true;
+    }
+    const maxPanX = Math.max(120, (zoomLevel - 1) * 350);
+    const maxPanY = Math.max(120, (zoomLevel - 1) * 280);
+    const nextX = Math.max(-maxPanX, Math.min(maxPanX, startPanRef.current.x + deltaX));
+    const nextY = Math.max(-maxPanY, Math.min(maxPanY, startPanRef.current.y + deltaY));
+    setPanOffset({ x: nextX, y: nextY });
+  };
+
+  const endDrag = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const onWindowMouseMove = (e: MouseEvent) => {
+      updateDrag(e.clientX, e.clientY);
+    };
+    const onWindowMouseUp = () => {
+      endDrag();
+    };
+
+    window.addEventListener('mousemove', onWindowMouseMove);
+    window.addEventListener('mouseup', onWindowMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onWindowMouseMove);
+      window.removeEventListener('mouseup', onWindowMouseUp);
+    };
+  }, [isDragging, zoomLevel]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel <= 1.0) return;
+    if ((e.target as HTMLElement).closest('button, input, a, [role="button"]')) return;
+    e.preventDefault();
+    startDrag(e.clientX, e.clientY);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (zoomLevel <= 1.0 || e.touches.length !== 1) return;
+    if ((e.target as HTMLElement).closest('button, input, a, [role="button"]')) return;
+    startDrag(e.touches[0].clientX, e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || zoomLevel <= 1.0 || e.touches.length !== 1) return;
+    updateDrag(e.touches[0].clientX, e.touches[0].clientY);
+  };
+
+  const handleTouchEnd = () => {
+    endDrag();
+  };
 
   const anomalies = analysisResult.annotatedMap?.detectedAnomalies || [];
   const rawImage = analysisResult.imageUrl || '/assets/images/fundus_original.png';

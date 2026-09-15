@@ -2563,6 +2563,44 @@ runTest('PAGINATION-2: DataTable tự động phân trang khi truyền paginatio
   assert.ok(html.includes('25'), 'Hiển thị tổng 25 bản ghi');
 });
 
+runTest('PAGINATION-3: DataTable render đầy đủ bộ chọn số dòng (pageSizeOptions) và nhãn hiển thị', () => {
+  const sampleData = Array.from({ length: 40 }, (_, i) => ({
+    id: `item-${i + 1}`,
+    name: `Bệnh nhân ${i + 1}`,
+  }));
+
+  const sampleColumns = [
+    { header: 'ID', accessor: (row: any) => row.id },
+    { header: 'Họ và tên', accessor: (row: any) => row.name },
+  ];
+
+  const html = renderToStaticMarkup(
+    React.createElement(DataTable, {
+      columns: sampleColumns,
+      data: sampleData,
+      keyExtractor: (row: any) => row.id,
+      pagination: {
+        pageSize: 5,
+        pageSizeOptions: [5, 10, 20, 50],
+        itemLabel: 'bệnh nhân',
+      },
+    })
+  );
+
+  // Kiểm tra render đúng 5 bệnh nhân đầu
+  assert.ok(html.includes('Bệnh nhân 1<'), 'Có bệnh nhân 1');
+  assert.ok(html.includes('Bệnh nhân 5<'), 'Có bệnh nhân 5');
+  assert.ok(!html.includes('Bệnh nhân 6<'), 'Không có bệnh nhân 6 ở trang 1');
+
+  // Kiểm tra bộ chọn số dòng
+  assert.ok(html.includes('Số dòng:'), 'Có tiêu đề Số dòng:');
+  assert.ok(html.includes('5 / trang'), 'Có tùy chọn 5 / trang');
+  assert.ok(html.includes('10 / trang'), 'Có tùy chọn 10 / trang');
+  assert.ok(html.includes('20 / trang'), 'Có tùy chọn 20 / trang');
+  assert.ok(html.includes('50 / trang'), 'Có tùy chọn 50 / trang');
+  assert.ok(html.includes('8'), 'Tổng số trang là 8 (40 / 5)');
+});
+
 runTest('DOCTOR-ANALYTICS-SELECTION-1: DoctorRiskAnalyticsView có cột Checkbox chọn để xóa và nút xóa ca khám', () => {
   const sampleAssignedPatients: any[] = [
     {

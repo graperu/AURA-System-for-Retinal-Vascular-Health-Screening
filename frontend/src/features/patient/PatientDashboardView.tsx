@@ -29,6 +29,15 @@ export interface PatientDashboardViewProps {
   onOpenRegisterModal?: () => void;
 }
 
+const formatDoctorName = (doc: any, fallback: string = ''): string => {
+  if (!doc) return fallback;
+  if (typeof doc === 'string') return doc;
+  if (typeof doc === 'object') {
+    return doc.fullName || doc.name || doc.assignedDoctor || fallback;
+  }
+  return String(doc);
+};
+
 export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
   patient,
   latestResult,
@@ -40,6 +49,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
   onOpenRegisterModal,
 }) => {
   const { t, isVi } = useLanguage();
+  const assignedDoctorName = formatDoctorName(patient?.assignedDoctor);
 
   return (
     <div className="space-y-6">
@@ -91,8 +101,8 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                       <Clock className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
                       <span className="truncate">
                         {isVi
-                          ? `Kết quả đang chờ Bác sĩ ${patient.assignedDoctor || 'phụ trách'} thẩm định và ký duyệt.`
-                          : `Awaiting verification by Dr. ${patient.assignedDoctor || 'Specialist'}.`}
+                          ? `Kết quả đang chờ Bác sĩ ${assignedDoctorName || 'phụ trách'} thẩm định và ký duyệt.`
+                          : `Awaiting verification by Dr. ${assignedDoctorName || 'Specialist'}.`}
                       </span>
                     </div>
                     <span className="text-[11px] font-bold text-amber-900 bg-amber-200/90 px-2 py-0.5 rounded-md shrink-0">
@@ -104,7 +114,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                     <div className="flex items-center gap-2 min-w-0">
                       <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span className="truncate">
-                        {latestResult.doctorNotes || (isVi ? `Bác sĩ ${patient.assignedDoctor || latestResult.doctorName || 'phụ trách'} đã ký duyệt ca khám này.` : `Reviewed and signed by attending physician.`)}
+                        {latestResult.doctorNotes || (isVi ? `Bác sĩ ${assignedDoctorName || latestResult.doctorName || 'phụ trách'} đã ký duyệt ca khám này.` : `Reviewed and signed by attending physician.`)}
                       </span>
                     </div>
                     <span className="text-[11px] font-bold text-emerald-900 bg-emerald-200/90 px-2 py-0.5 rounded-md shrink-0">
@@ -157,7 +167,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                   <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
                     <span className="text-sm font-bold text-black flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-teal-700 shrink-0" />
-                      <span>{isVi ? 'Bác sĩ phụ trách' : 'Attending Doctor'}: <strong className="text-black font-extrabold">{patient.assignedDoctor || latestResult.doctorName || (isVi ? 'Chưa phân công' : 'Unassigned')}</strong></span>
+                      <span>{isVi ? 'Bác sĩ phụ trách' : 'Attending Doctor'}: <strong className="text-black font-extrabold">{assignedDoctorName || latestResult.doctorName || (isVi ? 'Chưa phân công' : 'Unassigned')}</strong></span>
                     </span>
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-md border ${latestResult.status === 'REVIEWED' ? 'text-emerald-950 bg-emerald-100 border-emerald-300' : 'text-amber-950 bg-amber-100 border-amber-300'}`}>
                       {latestResult.status === 'REVIEWED' ? (isVi ? 'Đã duyệt' : 'Reviewed') : (isVi ? 'Chờ duyệt' : 'Pending')}
@@ -272,7 +282,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                 {isVi ? 'Đăng Ký Khám Chuyên Khoa' : 'Specialist Examination'}
               </span>
               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-teal-100 text-teal-800">
-                {patient.assignedDoctor ? (isVi ? 'Đã có BS' : 'Assigned') : (isVi ? 'Chưa đăng ký' : 'Unassigned')}
+                {assignedDoctorName ? (isVi ? 'Đã có BS' : 'Assigned') : (isVi ? 'Chưa đăng ký' : 'Unassigned')}
               </span>
             </div>
             <p className="text-xs text-slate-600">
@@ -288,7 +298,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                 onClick={onOpenRegisterModal}
                 icon={<CalendarCheck className="w-3.5 h-3.5" />}
               >
-                {patient.assignedDoctor ? (isVi ? 'Đăng ký ca mới / Đổi BS' : 'New exam / Change doctor') : (isVi ? 'Đăng ký khám' : 'Register')}
+                {assignedDoctorName ? (isVi ? 'Đăng ký ca mới / Đổi BS' : 'New exam / Change doctor') : (isVi ? 'Đăng ký khám' : 'Register')}
               </Button>
             )}
           </Card>
@@ -326,7 +336,7 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
               <div className="min-w-0">
                 <h4 className="text-xs font-bold text-slate-900">{isVi ? 'Bác Sĩ Tư Vấn' : 'Assigned Doctor'}</h4>
                 <p className="text-[11px] text-slate-500 truncate">
-                  {patient.assignedDoctor || (isVi ? 'Chưa phân công' : 'Unassigned')}
+                  {assignedDoctorName || (isVi ? 'Chưa phân công' : 'Unassigned')}
                 </p>
               </div>
             </div>

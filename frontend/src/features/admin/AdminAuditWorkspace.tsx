@@ -144,7 +144,7 @@ export const AdminAuditWorkspace: React.FC<AdminAuditWorkspaceProps> = ({
             : t('admin.audit.severityInfo', isVi ? 'Thông tin' : 'Info');
         return (
           <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border select-none ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border select-none whitespace-nowrap ${
               row.severity === 'CRITICAL'
                 ? 'bg-red-50 text-red-700 border-red-200'
                 : row.severity === 'WARNING'
@@ -169,9 +169,10 @@ export const AdminAuditWorkspace: React.FC<AdminAuditWorkspaceProps> = ({
     {
       header: t('admin.audit.columns.status', isVi ? 'Trạng Thái' : 'Status'),
       align: 'right',
+      className: 'text-right whitespace-nowrap',
       accessor: (row) => (
         <span
-          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border select-none ${
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border select-none whitespace-nowrap ${
             row.status === 'SUCCESS' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-red-700 bg-red-50 border border-red-200'
           }`}
         >
@@ -202,8 +203,8 @@ export const AdminAuditWorkspace: React.FC<AdminAuditWorkspaceProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full lg:w-auto flex-wrap sm:flex-nowrap shrink-0">
-            <div className="relative flex-1 sm:w-64 min-w-[200px]">
+          <div className="flex items-center gap-2.5 w-full xl:w-auto flex-wrap sm:flex-nowrap shrink-0">
+            <div className="relative flex-1 min-w-[220px] sm:w-72 sm:flex-initial">
               <input
                 type="text"
                 value={searchTerm}
@@ -214,13 +215,15 @@ export const AdminAuditWorkspace: React.FC<AdminAuditWorkspaceProps> = ({
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
             </div>
 
-            <ClinicalSelect<'ALL' | 'INFO' | 'WARNING' | 'CRITICAL'>
-              value={severityFilter}
-              onChange={setSeverityFilter}
-              options={severityOptions}
-              size="sm"
-              className="w-44 shrink-0"
-            />
+            <div className="w-44 shrink-0">
+              <ClinicalSelect<'ALL' | 'INFO' | 'WARNING' | 'CRITICAL'>
+                value={severityFilter}
+                onChange={setSeverityFilter}
+                options={severityOptions}
+                size="sm"
+                align="right"
+              />
+            </div>
 
             {(searchTerm || severityFilter !== 'ALL') && (
               <button
@@ -229,7 +232,7 @@ export const AdminAuditWorkspace: React.FC<AdminAuditWorkspaceProps> = ({
                   setSearchTerm('');
                   setSeverityFilter('ALL');
                 }}
-                className="h-9 px-2.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                className="h-9 px-3 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
                 title={t('admin.audit.resetFilter', isVi ? 'Đặt lại bộ lọc' : 'Reset filter')}
               >
                 <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
