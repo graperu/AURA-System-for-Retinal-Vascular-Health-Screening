@@ -19,25 +19,36 @@ const resolveEnv = (keys: string[]): string => {
   return '';
 };
 
-const apiKey = resolveEnv([
-  'VITE_FIREBASE_API_KEY',
-  'FIREBASE_API_KEY',
-  'VITE_GOOGLE_API_KEY',
-  'GOOGLE_API_KEY',
-  'VITE_GOOGLE_CLIENT_ID',
-  'GOOGLE_CLIENT_ID',
-  'VITE_API_KEY',
-  'API_KEY',
-]);
+const DEFAULT_FIREBASE = {
+  apiKey: 'AIzaSyB3qOESpRPl79v77AJdWaz30c23BTdgucU',
+  authDomain: 'aura-retinal.firebaseapp.com',
+  projectId: 'aura-retinal',
+  storageBucket: 'aura-retinal.firebasestorage.app',
+  messagingSenderId: '498167667537',
+  appId: '1:498167667537:web:a7c6c019e3ef603b33d170',
+};
 
-const projectId = resolveEnv([
-  'VITE_FIREBASE_PROJECT_ID',
-  'FIREBASE_PROJECT_ID',
-  'VITE_GOOGLE_PROJECT_ID',
-  'GOOGLE_PROJECT_ID',
-  'VITE_PROJECT_ID',
-  'PROJECT_ID',
-]);
+const apiKey =
+  resolveEnv([
+    'VITE_FIREBASE_API_KEY',
+    'FIREBASE_API_KEY',
+    'VITE_GOOGLE_API_KEY',
+    'GOOGLE_API_KEY',
+    'VITE_GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_ID',
+    'VITE_API_KEY',
+    'API_KEY',
+  ]) || DEFAULT_FIREBASE.apiKey;
+
+const projectId =
+  resolveEnv([
+    'VITE_FIREBASE_PROJECT_ID',
+    'FIREBASE_PROJECT_ID',
+    'VITE_GOOGLE_PROJECT_ID',
+    'GOOGLE_PROJECT_ID',
+    'VITE_PROJECT_ID',
+    'PROJECT_ID',
+  ]) || DEFAULT_FIREBASE.projectId;
 
 const authDomain =
   resolveEnv([
@@ -47,32 +58,34 @@ const authDomain =
     'GOOGLE_AUTH_DOMAIN',
     'VITE_AUTH_DOMAIN',
     'AUTH_DOMAIN',
-  ]) || (projectId ? `${projectId}.firebaseapp.com` : (apiKey ? 'aura-screening.firebaseapp.com' : ''));
+  ]) || (projectId ? `${projectId}.firebaseapp.com` : DEFAULT_FIREBASE.authDomain);
 
 const storageBucket =
   resolveEnv([
     'VITE_FIREBASE_STORAGE_BUCKET',
     'FIREBASE_STORAGE_BUCKET',
-  ]) || (projectId ? `${projectId}.appspot.com` : '');
+  ]) || (projectId ? `${projectId}.appspot.com` : DEFAULT_FIREBASE.storageBucket);
 
-const messagingSenderId = resolveEnv([
-  'VITE_FIREBASE_MESSAGING_SENDER_ID',
-  'FIREBASE_MESSAGING_SENDER_ID',
-]);
+const messagingSenderId =
+  resolveEnv([
+    'VITE_FIREBASE_MESSAGING_SENDER_ID',
+    'FIREBASE_MESSAGING_SENDER_ID',
+  ]) || DEFAULT_FIREBASE.messagingSenderId;
 
-const appId = resolveEnv([
-  'VITE_FIREBASE_APP_ID',
-  'FIREBASE_APP_ID',
-  'VITE_GOOGLE_APP_ID',
-]);
+const appId =
+  resolveEnv([
+    'VITE_FIREBASE_APP_ID',
+    'FIREBASE_APP_ID',
+    'VITE_GOOGLE_APP_ID',
+  ]) || DEFAULT_FIREBASE.appId;
 
 export const firebaseConfig = {
   apiKey,
   authDomain,
-  projectId: projectId || 'aura-screening',
+  projectId,
   storageBucket,
   messagingSenderId,
-  appId: appId || '1:aura:web:default',
+  appId,
 };
 
 export const isFirebaseConfigured = () => Boolean(firebaseConfig.apiKey && firebaseConfig.apiKey.length > 5);
