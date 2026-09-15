@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiFetch, getAccessToken, setAccessToken, type ApiErrorDetail } from '../services/api';
 import { stompClient } from '../services/websocketService';
-import { getFirebaseCurrentUser } from '../config/firebase';
+import { getFirebaseCurrentUser, signOutFirebase } from '../config/firebase';
 import type { UserSession } from '../types/auth';
 import type { UserRole } from '../types/cds';
 
@@ -157,6 +157,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       stompClient.disconnect();
     } catch {
       // Ignore disconnect error
+    }
+
+    try {
+      await signOutFirebase();
+    } catch {
+      // Ignore firebase signout error
     }
 
     await apiFetch('/api/v1/auth/logout', { method: 'POST' });

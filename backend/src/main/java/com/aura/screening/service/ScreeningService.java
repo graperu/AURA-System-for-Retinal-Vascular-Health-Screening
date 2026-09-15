@@ -54,12 +54,9 @@ public class ScreeningService {
       com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
       com.aura.user.repository.UserRepository userRepository,
       GeminiRetinalAiService geminiAiService,
-      @org.springframework.beans.factory.annotation.Autowired(required = false)
-      com.aura.billing.service.BillingService billingService,
-      @org.springframework.beans.factory.annotation.Autowired(required = false)
-      com.aura.patient.repository.PatientProfileRepository patientProfileRepository,
-      @org.springframework.beans.factory.annotation.Autowired(required = false)
-      com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository) {
+      @org.springframework.beans.factory.annotation.Autowired(required = false) com.aura.billing.service.BillingService billingService,
+      @org.springframework.beans.factory.annotation.Autowired(required = false) com.aura.patient.repository.PatientProfileRepository patientProfileRepository,
+      @org.springframework.beans.factory.annotation.Autowired(required = false) com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository) {
     this.screeningRepository = screeningRepository;
     this.assignmentRepository = assignmentRepository;
     this.userNotificationService = userNotificationService;
@@ -82,7 +79,8 @@ public class ScreeningService {
       GeminiRetinalAiService geminiAiService,
       com.aura.billing.service.BillingService billingService,
       com.aura.patient.repository.PatientProfileRepository patientProfileRepository) {
-    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository, userRepository, geminiAiService, billingService, patientProfileRepository, null);
+    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository,
+        userRepository, geminiAiService, billingService, patientProfileRepository, null);
   }
 
   public ScreeningService(
@@ -94,7 +92,8 @@ public class ScreeningService {
       com.aura.user.repository.UserRepository userRepository,
       GeminiRetinalAiService geminiAiService,
       com.aura.billing.service.BillingService billingService) {
-    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository, userRepository, geminiAiService, billingService, null, null);
+    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository,
+        userRepository, geminiAiService, billingService, null, null);
   }
 
   public ScreeningService(
@@ -105,7 +104,8 @@ public class ScreeningService {
       com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
       com.aura.user.repository.UserRepository userRepository,
       GeminiRetinalAiService geminiAiService) {
-    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository, userRepository, geminiAiService, null, null, null);
+    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository,
+        userRepository, geminiAiService, null, null, null);
   }
 
   public ScreeningService(
@@ -113,7 +113,8 @@ public class ScreeningService {
       com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
       com.aura.notification.service.UserNotificationService userNotificationService,
       GeminiRetinalAiService geminiAiService) {
-    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null, null, null);
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null,
+        null, null);
   }
 
   public ScreeningService(
@@ -122,7 +123,8 @@ public class ScreeningService {
       com.aura.notification.service.UserNotificationService userNotificationService,
       GeminiRetinalAiService geminiAiService,
       Object ignoredRestClient) {
-    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null, null, null);
+    this(screeningRepository, assignmentRepository, userNotificationService, null, null, null, geminiAiService, null,
+        null, null);
   }
 
   public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request) {
@@ -132,18 +134,24 @@ public class ScreeningService {
     screening.setEyePosition(eye);
     screening.setScanType(scanType);
     screening.setDetectedAnomalies("[]");
-    if (request.fileName() != null) screening.setFileName(request.fileName());
-    if (request.fileSize() != null) screening.setFileSize(request.fileSize());
-    if (request.mimeType() != null) screening.setMimeType(request.mimeType());
-    if (request.avRatio() != null) screening.setAvRatio(request.avRatio());
-    if (request.vesselDensity() != null) screening.setVesselDensity(request.vesselDensity());
+    if (request.fileName() != null)
+      screening.setFileName(request.fileName());
+    if (request.fileSize() != null)
+      screening.setFileSize(request.fileSize());
+    if (request.mimeType() != null)
+      screening.setMimeType(request.mimeType());
+    if (request.avRatio() != null)
+      screening.setAvRatio(request.avRatio());
+    if (request.vesselDensity() != null)
+      screening.setVesselDensity(request.vesselDensity());
 
     // Gán clinicId từ request
     if (request.clinicId() != null) {
       screening.setClinicId(request.clinicId());
     }
 
-    // FR-11, FR-12: Kiểm tra hạn mức và trừ lượt khám đối với bệnh nhân cá nhân tự thực hiện sàng lọc
+    // FR-11, FR-12: Kiểm tra hạn mức và trừ lượt khám đối với bệnh nhân cá nhân tự
+    // thực hiện sàng lọc
     if (!isCallerClinicalStaff() && billingService != null && request.clinicId() == null) {
       boolean deducted = billingService.deductCredit(patientId);
       if (!deducted) {
@@ -155,7 +163,8 @@ public class ScreeningService {
       }
     }
 
-    // Tự động tìm bác sĩ phụ trách từ doctor_patient_assignments (nếu ca khám chưa gán bác sĩ)
+    // Tự động tìm bác sĩ phụ trách từ doctor_patient_assignments (nếu ca khám chưa
+    // gán bác sĩ)
     resolveAndAssignDoctorAndClinic(screening, patientId);
 
     // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
@@ -206,7 +215,8 @@ public class ScreeningService {
           });
         }
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+    }
     return false;
   }
 
@@ -255,8 +265,7 @@ public class ScreeningService {
             null,
             null,
             "SUCCESS",
-            "Tạo phiên sàng lọc võng mạc và thực thi phân tích AI thành công"
-        );
+            "Tạo phiên sàng lọc võng mạc và thực thi phân tích AI thành công");
       }
     } catch (Exception e) {
       log.warn("Không thể ghi audit log SCREENING_CREATE: {}", e.getMessage());
@@ -291,10 +300,14 @@ public class ScreeningService {
           throw new IllegalStateException("AI response is missing overallVascularRiskScore");
         }
         int score = overallRisk.intValue();
-        if (score >= 80) calculatedRisk = RiskLevel.CRITICAL;
-        else if (score >= 65) calculatedRisk = RiskLevel.HIGH;
-        else if (score >= 40) calculatedRisk = RiskLevel.MODERATE;
-        else calculatedRisk = RiskLevel.LOW;
+        if (score >= 80)
+          calculatedRisk = RiskLevel.CRITICAL;
+        else if (score >= 65)
+          calculatedRisk = RiskLevel.HIGH;
+        else if (score >= 40)
+          calculatedRisk = RiskLevel.MODERATE;
+        else
+          calculatedRisk = RiskLevel.LOW;
 
         Double confidence = null;
         Number conf = (Number) body.get("confidence");
@@ -304,7 +317,8 @@ public class ScreeningService {
 
         String findings = null;
         List<String> combinedNotes = new ArrayList<>();
-        // --- FR-3: parse per-category risk breakdown from the AI Core's `predictions` array ---
+        // --- FR-3: parse per-category risk breakdown from the AI Core's `predictions`
+        // array ---
         List<Map> predictions = (List<Map>) body.get("predictions");
         if (predictions != null) {
           for (Map prediction : predictions) {
@@ -435,7 +449,8 @@ public class ScreeningService {
         screening.setAiRiskLevel(calculatedRisk);
         screening.setConfidence(confidence != null ? Math.round(confidence * 100.0) / 100.0 : null);
         screening.setFindings(findings);
-        // --- FR-5: auto-generate health recommendations/warnings from the computed risk level ---
+        // --- FR-5: auto-generate health recommendations/warnings from the computed
+        // risk level ---
         screening.setRecommendations(generateRecommendations(calculatedRisk));
         screening.setStatus(ScreeningStatus.ANALYZED);
       } else {
@@ -456,7 +471,8 @@ public class ScreeningService {
       screening.setRiskScore(null);
       screening.setConfidence(null);
       screening.setDetectedAnomalies("[]");
-      screening.setFindings("Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
+      screening.setFindings(
+          "Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
     }
   }
 
@@ -469,8 +485,7 @@ public class ScreeningService {
             "Ảnh võng mạc của bạn đã được phân tích sơ bộ bởi AI và đang được chuyển đến bác sĩ chuyên khoa thẩm định lâm sàng.",
             "AI_READY",
             "INFO",
-            "/cds-viewer"
-        );
+            "/cds-viewer");
       }
     } catch (Exception e) {
       log.warn("Không thể gửi thông báo AI_READY: {}", e.getMessage());
@@ -487,16 +502,19 @@ public class ScreeningService {
 
     if (patientProfileRepository != null) {
       patientProfileRepository.findByUserId(patientId).ifPresent(p -> {
-        if (p.getId() != null && !candidateIds.contains(p.getId())) candidateIds.add(p.getId());
+        if (p.getId() != null && !candidateIds.contains(p.getId()))
+          candidateIds.add(p.getId());
       });
       patientProfileRepository.findById(patientId).ifPresent(p -> {
-        if (p.getUserId() != null && !candidateIds.contains(p.getUserId())) candidateIds.add(p.getUserId());
+        if (p.getUserId() != null && !candidateIds.contains(p.getUserId()))
+          candidateIds.add(p.getUserId());
       });
     }
 
     if (patientMedicalProfileRepository != null) {
       patientMedicalProfileRepository.findByUserId(patientId).ifPresent(p -> {
-        if (p.getId() != null && !candidateIds.contains(p.getId())) candidateIds.add(p.getId());
+        if (p.getId() != null && !candidateIds.contains(p.getId()))
+          candidateIds.add(p.getId());
       });
       patientMedicalProfileRepository.findById(patientId).ifPresent(p -> {
         if (p.getUser() != null && p.getUser().getId() != null && !candidateIds.contains(p.getUser().getId())) {
@@ -543,7 +561,8 @@ public class ScreeningService {
             var medProfilesByDoctor = patientMedicalProfileRepository.findByAssignedDoctor(docName);
             if (medProfilesByDoctor != null) {
               for (var med : medProfilesByDoctor) {
-                if (med.getUser() != null && med.getUser().getId() != null && !assignedPatientIds.contains(med.getUser().getId())) {
+                if (med.getUser() != null && med.getUser().getId() != null
+                    && !assignedPatientIds.contains(med.getUser().getId())) {
                   assignedPatientIds.add(med.getUser().getId());
                 }
                 if (med.getId() != null && !assignedPatientIds.contains(med.getId())) {
@@ -619,8 +638,7 @@ public class ScreeningService {
           "Bác sĩ chuyên khoa đã ký duyệt báo cáo lâm sàng cho ca khám của bạn. Quyết định: " + decision.name(),
           "DOCTOR_REVIEW",
           "INFO",
-          "/scan-history"
-      );
+          "/scan-history");
     } catch (Exception e) {
       log.warn("Không thể gửi thông báo DOCTOR_REVIEW: {}", e.getMessage());
     }
@@ -658,7 +676,8 @@ public class ScreeningService {
 
   /**
    * FR-5: Khuyến nghị & Cảnh báo sức khỏe tự động.
-   * Sinh danh mục lời khuyên y tế dựa trên mức độ rủi ro tổng thể do AI tính toán.
+   * Sinh danh mục lời khuyên y tế dựa trên mức độ rủi ro tổng thể do AI tính
+   * toán.
    * Đây là gợi ý sàng lọc ban đầu, không thay thế chỉ định điều trị của bác sĩ.
    */
   private String generateRecommendations(RiskLevel riskLevel) {
@@ -708,12 +727,14 @@ public class ScreeningService {
           return true;
         }
         var medProfileById = patientMedicalProfileRepository.findById(screening.getPatientId());
-        if (medProfileById.isPresent() && medProfileById.get().getUser() != null && userId.equals(medProfileById.get().getUser().getId())) {
+        if (medProfileById.isPresent() && medProfileById.get().getUser() != null
+            && userId.equals(medProfileById.get().getUser().getId())) {
           return true;
         }
       }
     } else {
-      // Cho phép xóa nếu patientId là null (ca khám chưa gán hoặc phát sinh trong phiên người dùng)
+      // Cho phép xóa nếu patientId là null (ca khám chưa gán hoặc phát sinh trong
+      // phiên người dùng)
       return true;
     }
     return false;
@@ -743,8 +764,9 @@ public class ScreeningService {
             .or(() -> patientProfileRepository.findByUserId(screening.getPatientId()));
         if (profile.isPresent()) {
           var p = profile.get();
-          if (p.getUserId() != null && assignmentRepository != null && assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
-              userId, p.getUserId(), com.aura.doctor.entity.AssignmentStatus.ACTIVE)) {
+          if (p.getUserId() != null && assignmentRepository != null
+              && assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+                  userId, p.getUserId(), com.aura.doctor.entity.AssignmentStatus.ACTIVE)) {
             return true;
           }
           if (doctorFullName != null && !doctorFullName.isBlank() && p.getAssignedDoctor() != null &&
@@ -759,8 +781,9 @@ public class ScreeningService {
             .or(() -> patientMedicalProfileRepository.findByUserId(screening.getPatientId()));
         if (medProfile.isPresent()) {
           var med = medProfile.get();
-          if (med.getUser() != null && assignmentRepository != null && assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
-              userId, med.getUser().getId(), com.aura.doctor.entity.AssignmentStatus.ACTIVE)) {
+          if (med.getUser() != null && assignmentRepository != null
+              && assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(
+                  userId, med.getUser().getId(), com.aura.doctor.entity.AssignmentStatus.ACTIVE)) {
             return true;
           }
           if (doctorFullName != null && !doctorFullName.isBlank() && med.getAssignedDoctor() != null &&
@@ -791,7 +814,8 @@ public class ScreeningService {
     }
     screeningRepository.delete(screening);
     screeningRepository.flush();
-    log.info("Đã xóa ca sàng lọc {} bởi người dùng {} (isAdmin={}, isOwner={}, isDoctorAssigned={})", screeningId, userId, isAdmin, isOwner, isDoctorAssigned);
+    log.info("Đã xóa ca sàng lọc {} bởi người dùng {} (isAdmin={}, isOwner={}, isDoctorAssigned={})", screeningId,
+        userId, isAdmin, isOwner, isDoctorAssigned);
   }
 
   @Transactional

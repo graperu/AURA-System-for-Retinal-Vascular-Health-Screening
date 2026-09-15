@@ -104,14 +104,31 @@ const getFirebaseAuth = () => {
   return { auth: authInstance, provider: googleProviderInstance! };
 };
 
+export const signOutFirebase = async () => {
+  const fb = getFirebaseAuth();
+  if (fb?.auth) {
+    try {
+      await fb.auth.signOut();
+    } catch (_) {}
+  }
+};
+
 export const signInWithGoogleFirebase = async () => {
   const fb = getFirebaseAuth();
   if (!fb) {
     throw new Error('Firebase chưa được cấu hình đầy đủ API Key trong file .env');
   }
-  const result = await signInWithPopup(fb.auth, fb.provider, browserPopupRedirectResolver);
+
+  try {
+    await fb.auth.signOut();
+  } catch (_) {}
+
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  const result = await signInWithPopup(fb.auth, provider, browserPopupRedirectResolver);
   const user = result.user;
-  const idToken = await user.getIdToken();
+  const idToken = await user.getIdToken(true);
   return {
     idToken,
     email: user.email || '',
