@@ -120,6 +120,17 @@ class PatientAccessServiceTest {
     void canAccessPatient_OtherRoles_Denied() {
       assertThat(service.canAccessPatient(clinicPrincipal, patientId)).isFalse();
     }
+
+    @Test
+    @DisplayName("CLINIC role can access patient when clinic has screening for that patient")
+    void canAccessPatient_ClinicRole_WithScreening_AccessGranted() {
+      Screening clinicScreening = mock(Screening.class);
+      when(clinicScreening.getPatientId()).thenReturn(patientId);
+      when(screeningRepository.findByClinicIdOrderByCreatedAtDesc(clinicId))
+          .thenReturn(List.of(clinicScreening));
+
+      assertThat(service.canAccessPatient(clinicPrincipal, patientId)).isTrue();
+    }
   }
 
   @Nested
@@ -264,6 +275,16 @@ class PatientAccessServiceTest {
       when(screeningRepository.findById(otherScreeningId)).thenReturn(Optional.of(otherScreening));
 
       assertThat(service.canAccessScreening(patientPrincipal, otherScreeningId)).isFalse();
+    }
+
+    @Test
+    @DisplayName("CLINIC role can access screening directly owned by the clinic")
+    void canAccessScreening_ClinicRole_OwnScreening_AccessGranted() {
+      Screening clinicScreening = mock(Screening.class);
+      when(clinicScreening.getClinicId()).thenReturn(clinicId);
+      when(screeningRepository.findById(screeningId)).thenReturn(Optional.of(clinicScreening));
+
+      assertThat(service.canAccessScreening(clinicPrincipal, screeningId)).isTrue();
     }
   }
 

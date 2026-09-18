@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { SupportedLanguage, translations } from '../i18n/translations';
 
 const STORAGE_KEY = 'aura_language';
@@ -32,8 +32,8 @@ function resolvePath(obj: any, path: string): any {
   return current;
 }
 
-const defaultTranslate = (_lang: SupportedLanguage, path: string, fallback?: string): string => {
-  const currentLangObj = translations.vi;
+const defaultTranslate = (lang: SupportedLanguage, path: string, fallback?: string): string => {
+  const currentLangObj = lang === 'en' ? translations.en : translations.vi;
   const resolved = resolvePath(currentLangObj, path);
   if (typeof resolved === 'string') return resolved;
   if (resolved !== undefined && resolved !== null) return String(resolved);
@@ -52,7 +52,7 @@ const defaultContextValue: LanguageContextType = {
 const LanguageContext = createContext<LanguageContextType>(defaultContextValue);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Tự động kiểm tra và reset localStorage về 'vi' nếu trước đó lưu 'en' hoặc giá trị khác
+  // Ensure default starts with 'vi' and resets invalid/external localStorage
   try {
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -61,38 +61,26 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
   } catch {
-    // LocalStorage might be restricted
+    // LocalStorage restricted
   }
 
-  // Đảm bảo thẻ html luôn mang thuộc tính lang="vi"
-  if (typeof document !== 'undefined' && document.documentElement) {
-    document.documentElement.lang = 'vi';
-  }
+  const [language, setLanguageState] = useState<SupportedLanguage>('vi');
 
   useEffect(() => {
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored !== 'vi') {
-          localStorage.setItem(STORAGE_KEY, 'vi');
-        }
-      }
-    } catch {
-      // LocalStorage might be restricted
-    }
     if (typeof document !== 'undefined' && document.documentElement) {
-      document.documentElement.lang = 'vi';
+      document.documentElement.lang = language;
     }
-  }, []);
+  }, [language]);
 
-  // setLanguage là no-op (không cho phép đổi sang ngôn ngữ khác ngoài 'vi')
-  const setLanguage = useCallback((_newLang: SupportedLanguage) => {
+  const setLanguage = useCallback((newLang: SupportedLanguage) => {
+    if (newLang !== 'vi' && newLang !== 'en') return;
+    setLanguageState(newLang);
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, 'vi');
+        localStorage.setItem(STORAGE_KEY, newLang);
       }
       if (typeof document !== 'undefined' && document.documentElement) {
-        document.documentElement.lang = 'vi';
+        document.documentElement.lang = newLang;
       }
     } catch {
       // ignore
@@ -101,20 +89,20 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const t = useCallback(
     (path: string, fallback?: string): string => {
-      return defaultTranslate('vi', path, fallback);
+      return defaultTranslate(language, path, fallback);
     },
-    []
+    [language]
   );
 
   const contextValue = useMemo<LanguageContextType>(
     () => ({
-      language: 'vi',
+      language,
       setLanguage,
       t,
-      isVi: true,
-      isEn: false,
+      isVi: language === 'vi',
+      isEn: language === 'en',
     }),
-    [setLanguage, t]
+    [language, setLanguage, t]
   );
 
   return (

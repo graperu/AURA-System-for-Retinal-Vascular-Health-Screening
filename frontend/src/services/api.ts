@@ -567,12 +567,29 @@ export const patientApi = {
     }),
 
   downloadLabDocument: async (
-    patientId: string,
-    documentId: string,
-    fileName: string,
+    arg1: string,
+    arg2: string,
+    arg3?: string,
   ) => {
+    let patientId: string | undefined;
+    let documentId: string;
+    let fileName: string;
+
+    if (arg3 !== undefined) {
+      patientId = arg1;
+      documentId = arg2;
+      fileName = arg3;
+    } else {
+      documentId = arg1;
+      fileName = arg2;
+    }
+
+    const endpoint = patientId
+      ? `${API_BASE_URL}/api/v1/patient/profile/${patientId}/lab-documents/${documentId}/content`
+      : `${API_BASE_URL}/api/v1/patient/profile/lab-documents/${documentId}/content`;
+
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/patient/profile/${patientId}/lab-documents/${documentId}/content`,
+      endpoint,
       {
         headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         credentials: "include",

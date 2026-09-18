@@ -67,7 +67,7 @@ public class OtpService {
     log.info(">>> [AURA AUTH OTP] Mã OTP xác thực cho email [{}]: {} <<<", email, otp);
     log.info("================================================================================");
 
-    // 2. Dispatch real email via SMTP asynchronously in background
+    // 2. Dispatch real email via SMTP
     if (mailSender != null && senderEmail != null && !senderEmail.isBlank()) {
       final String actionType = type != null ? type.trim().toUpperCase(Locale.ROOT) : "REGISTER";
       final boolean isForgotPassword = "FORGOT_PASSWORD".equals(actionType) || "RESET_PASSWORD".equals(actionType);
@@ -75,46 +75,44 @@ public class OtpService {
           ? "[AURA] Mã xác thực đặt lại mật khẩu của bạn"
           : "[AURA] Mã xác thực đăng ký tài khoản của bạn";
 
-      java.util.concurrent.CompletableFuture.runAsync(() -> {
+      try {
+        boolean sentHtml = false;
         try {
-          boolean sentHtml = false;
-          try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            if (mimeMessage != null) {
-              MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-              helper.setFrom(senderEmail, "Hệ thống Y tế AURA");
-              helper.setTo(email);
-              helper.setSubject(emailSubject);
-              helper.setText(buildHtmlEmail(fullName, otp, actionType), true);
-              mailSender.send(mimeMessage);
-              sentHtml = true;
-              log.info("Đã gửi email OTP định dạng HTML ({}) thành công tới: {}", actionType, maskEmail(email));
-            }
-          } catch (Throwable t) {
-            log.warn("Fallback to SimpleMailMessage: {}", t.getMessage());
+          MimeMessage mimeMessage = mailSender.createMimeMessage();
+          if (mimeMessage != null) {
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(senderEmail, "Hệ thống Y tế AURA");
+            helper.setTo(email);
+            helper.setSubject(emailSubject);
+            helper.setText(buildHtmlEmail(fullName, otp, actionType), true);
+            mailSender.send(mimeMessage);
+            sentHtml = true;
+            log.info("Đã gửi email OTP định dạng HTML ({}) thành công tới: {}", actionType, maskEmail(email));
           }
-
-          if (!sentHtml) {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(senderEmail);
-            message.setTo(email);
-            message.setSubject(emailSubject);
-            String purpose = isForgotPassword
-                ? "đặt lại mật khẩu tài khoản"
-                : "đăng ký tài khoản";
-            message.setText("Xin chào " + (fullName != null ? fullName : "Quý khách") + ",\n\n"
-                + "Bạn đang yêu cầu " + purpose + " trên Hệ thống AURA.\n"
-                + "Mã xác thực OTP của bạn là: " + otp + "\n"
-                + "Mã có hiệu lực trong vòng 5 phút.\n\n"
-                + "Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.\n\n"
-                + "Trân trọng,\nĐội ngũ Hệ thống AURA");
-            mailSender.send(message);
-            log.info("Đã gửi email OTP thực tế ({}) thành công tới: {}", actionType, maskEmail(email));
-          }
-        } catch (Exception e) {
-          log.warn("Không thể gửi email OTP qua SMTP server: {}", e.getMessage());
+        } catch (Throwable t) {
+          log.debug("MimeMessage sending skipped or failed, fallback to SimpleMailMessage: {}", t.getMessage());
         }
-      });
+
+        if (!sentHtml) {
+          SimpleMailMessage message = new SimpleMailMessage();
+          message.setFrom(senderEmail);
+          message.setTo(email);
+          message.setSubject(emailSubject);
+          String purpose = isForgotPassword
+              ? "đặt lại mật khẩu tài khoản"
+              : "đăng ký tài khoản";
+          message.setText("Xin chào " + (fullName != null ? fullName : "Quý khách") + ",\n\n"
+              + "Bạn đang yêu cầu " + purpose + " trên Hệ thống AURA.\n"
+              + "Mã xác thực OTP của bạn là: " + otp + "\n"
+              + "Mã có hiệu lực trong vòng 5 phút.\n\n"
+              + "Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.\n\n"
+              + "Trân trọng,\nĐội ngũ Hệ thống AURA");
+          mailSender.send(message);
+          log.info("Đã gửi email OTP thực tế ({}) thành công tới: {}", actionType, maskEmail(email));
+        }
+      } catch (Exception e) {
+        log.warn("Không thể gửi email OTP qua SMTP server: {}", e.getMessage());
+      }
     }
 
     return OTP_VALID_SECONDS;

@@ -130,3 +130,194 @@ h1, h2, h3, h4, h5, h6 {
   border-color: #C7D7FE;
   box-shadow: 0 4px 12px -2px rgba(16, 24, 40, 0.08);
 }
+
+/* ==========================================================================
+   AURA CLINICAL MOTION & OPTICAL LASER SCAN ANIMATIONS
+   ========================================================================== */
+
+/* 1. Optical Laser Scan Sweep Line & Trail */
+@keyframes laserSweepVertical {
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+.laser-sweep-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  will-change: top, transform, opacity;
+  animation: laserSweepVertical 2.2s ease-in-out infinite;
+}
+
+.laser-sweep-trail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 64px;
+  pointer-events: none;
+}
+
+/* 2. Pulse Grid Matrix */
+@keyframes gridPulse {
+  0%, 100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.38;
+  }
+}
+
+.laser-pulse-grid {
+  background-image:
+    linear-gradient(to right, rgba(34, 211, 238, 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 211, 238, 0.14) 1px, transparent 1px);
+  background-size: 32px 32px;
+  animation: gridPulse 3s ease-in-out infinite;
+}
+
+/* 3. Reticle Pulse & Scan Target */
+@keyframes opticReticlePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+.animate-reticle-pulse {
+  animation: opticReticlePulse 2.4s ease-in-out infinite;
+}
+
+/* 4. Continuous Microvascular Path Draw & Hemodynamic Pulse */
+@keyframes vesselDrawIn {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes vesselHemodynamicFlow {
+  0% {
+    stroke-dashoffset: 48;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.vessel-path-draw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: vesselDrawIn 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.vessel-flow-pulse {
+  stroke-dasharray: 6 18;
+  animation: vesselHemodynamicFlow 3.2s linear infinite;
+}
+
+/* 5. Grad-CAM Crossfade with Unblur */
+@keyframes gradCamCrossfade {
+  0% {
+    opacity: 0;
+    filter: blur(8px) contrast(115%);
+  }
+  100% {
+    opacity: var(--target-heatmap-opacity, 0.7);
+    filter: blur(0px) contrast(100%);
+  }
+}
+
+.animate-gradcam-crossfade {
+  animation: gradCamCrossfade 850ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 6. Lesion Ripple Pulse Wave */
+@keyframes aura-lesion-ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@keyframes lesionRipple {
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.animate-lesion-ripple {
+  animation: lesionRipple 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+.aura-lesion-ripple-ring {
+  will-change: transform, opacity;
+}
+
+/* ==========================================================================
+   ACCESSIBILITY: WCAG 2.1 AA PREFERS-REDUCED-MOTION OVERRIDES
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .laser-sweep-line,
+  .laser-pulse-grid,
+  .animate-reticle-pulse,
+  .vessel-path-draw,
+  .vessel-flow-pulse,
+  .animate-gradcam-crossfade,
+  .animate-lesion-ripple,
+  .aura-lesion-ripple-ring,
+  .clinical-shimmer {
+    animation: none !important;
+    transition: none !important;
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .laser-sweep-line {
+    top: 50% !important;
+    opacity: 0.8 !important;
+  }
+
+  .laser-pulse-grid {
+    opacity: 0.2 !important;
+  }
+
+  .animate-gradcam-crossfade {
+    opacity: var(--target-heatmap-opacity, 0.7) !important;
+    filter: none !important;
+  }
+}
+

@@ -30,6 +30,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ClinicalSelect, ClinicalSelectOption } from '../../components/ui/ClinicalSelect';
 import { useLanguage } from '../../context/LanguageContext';
+import { ClinicalLaserScanViewport } from '../../components/viewer/ClinicalLaserScanViewport';
 
 export interface PatientUploadWizardProps {
   activePatient: PatientProfile;
@@ -184,12 +185,19 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
 
     setUploadError('');
     setSelectedFile(file);
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
 
-    if (fastUploadEnabled) {
-      triggerFastAnalysis(file, url);
-    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = (e.target?.result as string) || '';
+      setPreviewUrl(dataUrl);
+      if (fastUploadEnabled) {
+        triggerFastAnalysis(file, dataUrl);
+      }
+    };
+    reader.onerror = () => {
+      setUploadError(isVi ? 'Không thể đọc tệp ảnh. Vui lòng thử lại.' : 'Failed to read image file. Please try again.');
+    };
+    reader.readAsDataURL(file);
     return true;
   };
 
@@ -218,7 +226,10 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
           ? '/assets/images/fundus_demo_od.png'
           : '/assets/images/fundus_demo_os.png';
 
-      const res = await fetch(demoUrl);
+      let res = await fetch(demoUrl);
+      if (!res.ok) {
+        res = await fetch('/assets/images/fundus_original.png');
+      }
       if (!res.ok) {
         throw new Error('Demo asset unavailable');
       }
@@ -226,7 +237,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
       const demoFile = new File(
         [blob],
         selectedEye === 'Right_OD' ? 'fundus_demo_OD.png' : 'fundus_demo_OS.png',
-        { type: 'image/png' }
+        { type: blob.type || 'image/png' }
       );
       validateAndProcessFile(demoFile);
     } catch {
@@ -259,6 +270,8 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
         ctx.arc(maculaX, 300, 30, 0, Math.PI * 2);
         ctx.fill();
 
+        const dataUrl = canvas.toDataURL('image/png');
+        setPreviewUrl(dataUrl);
         canvas.toBlob((blob) => {
           if (blob) {
             const simulatedFile = new File(
@@ -266,7 +279,10 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
               `retinal_${selectedEye}.png`,
               { type: 'image/png' }
             );
-            validateAndProcessFile(simulatedFile);
+            setSelectedFile(simulatedFile);
+            if (fastUploadEnabled) {
+              triggerFastAnalysis(simulatedFile, dataUrl);
+            }
           }
         });
       }
@@ -337,7 +353,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
     {
       id: 'GEMINI_INFERENCE',
       threshold: 65,
-      title: isVi ? '3. Phân tích vi mạch Gemini 3.7 VLM' : '3. Gemini 3.7 VLM Neural Inference',
+      title: isVi ? '3. Phân tích vi mạch Gemini 3.8 VLM' : '3. Gemini 3.8 VLM Neural Inference',
       description: isVi ? 'Nhận diện tổn thương vi phình mạch, xuất huyết & tỷ lệ AVR' : 'Microaneurysms, hemorrhages & AVR ratio detection',
     },
     {
@@ -1004,8 +1020,8 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
                 <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
                 <p className="text-xs text-[#4B5563] leading-relaxed">
                   {isVi
-                    ? 'Hệ thống AURA AI sử dụng mô hình Gemini 3.7 VLM kết hợp thuật toán Grad-CAM để đánh giá 4 nhóm nguy cơ tim mạch, đột quỵ, võng mạc đái tháo đường và tăng huyết áp.'
-                    : 'AURA AI uses Gemini 3.7 VLM with Grad-CAM to assess cardiovascular, stroke, DR, and hypertension risks.'}
+                    ? 'Hệ thống AURA AI sử dụng mô hình Gemini 3.8 VLM kết hợp thuật toán Grad-CAM để đánh giá 4 nhóm nguy cơ tim mạch, đột quỵ, võng mạc đái tháo đường và tăng huyết áp.'
+                    : 'AURA AI uses Gemini 3.8 VLM with Grad-CAM to assess cardiovascular, stroke, DR, and hypertension risks.'}
                 </p>
               </div>
             </div>
@@ -1089,78 +1105,99 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
-              {/* Progress Bar */}
-              <div className="space-y-2">
-                <div className="w-full bg-[#F5F6F8] rounded-full h-3 overflow-hidden border border-[#EAECF0]">
-                  <div
-                    className="bg-[#3478F6] h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${Math.max(5, analysisProgress.percent)}%` }}
-                  />
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* CỘT TRÁI: BÀN QUÉT LASER QUANG HỌC AI */}
+              <div className="lg:col-span-6 xl:col-span-7 flex flex-col items-center justify-center">
+                <ClinicalLaserScanViewport
+                  previewUrl={previewUrl}
+                  selectedEye={selectedEye}
+                  scanType={scanType}
+                  progressPercent={analysisProgress.percent}
+                  isAnalyzing={isAnalyzing}
+                  statusText={analysisProgress.status}
+                  patientName={activePatient?.fullName || undefined}
+                  mrn={activePatient?.mrn || undefined}
+                />
               </div>
 
-              {/* 5 Real Stages Stepper */}
-              <div className="space-y-3 pt-2">
-                {realStages.map((stage, idx) => {
-                  const isCompleted = analysisProgress.percent > stage.threshold;
-                  const isActive =
-                    analysisProgress.percent >= stage.threshold &&
-                    (idx === realStages.length - 1 || analysisProgress.percent < realStages[idx + 1].threshold);
-
-                  return (
+              {/* CỘT PHẢI: TIẾN TRÌNH & 5 PHÂN ĐOẠN LÂM SÀNG */}
+              <div className="lg:col-span-6 xl:col-span-5 space-y-5">
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-[#667085]">
+                    <span>{isVi ? 'Tiến độ tổng thể' : 'Overall Progress'}</span>
+                    <span className="font-mono-data font-bold text-[#3478F6]">{analysisProgress.percent}%</span>
+                  </div>
+                  <div className="w-full bg-[#F5F6F8] rounded-full h-3 overflow-hidden border border-[#EAECF0]">
                     <div
-                      key={stage.id}
-                      className={`flex items-start gap-3.5 p-3.5 rounded-xl border transition-all ${
-                        isActive
-                          ? 'bg-[#EEF5FF] border-[#C7D7FE]'
-                          : isCompleted
-                          ? 'bg-white border-[#EAECF0]'
-                          : 'bg-[#F8F9FA] border-transparent opacity-50'
-                      }`}
-                    >
+                      className="bg-[#3478F6] h-full rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${Math.max(5, analysisProgress.percent)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* 5 Real Stages Stepper */}
+                <div className="space-y-2.5 pt-1">
+                  {realStages.map((stage, idx) => {
+                    const isCompleted = analysisProgress.percent > stage.threshold;
+                    const isActive =
+                      analysisProgress.percent >= stage.threshold &&
+                      (idx === realStages.length - 1 || analysisProgress.percent < realStages[idx + 1].threshold);
+
+                    return (
                       <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold ${
-                          isCompleted
-                            ? 'bg-[#ECFDF3] text-[#22C55E]'
-                            : isActive
-                            ? 'bg-[#3478F6] text-white'
-                            : 'bg-[#EAECF0] text-[#667085]'
+                        key={stage.id}
+                        className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
+                          isActive
+                            ? 'bg-[#EEF5FF] border-[#C7D7FE] shadow-xs'
+                            : isCompleted
+                            ? 'bg-white border-[#EAECF0]'
+                            : 'bg-[#F8F9FA] border-transparent opacity-50'
                         }`}
                       >
-                        {isCompleted ? (
-                          <Check className="w-4 h-4" />
-                        ) : isActive ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          idx + 1
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4
-                          className={`text-xs font-bold ${
-                            isActive ? 'text-[#3478F6]' : isCompleted ? 'text-[#111827]' : 'text-[#667085]'
+                        <div
+                          className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold ${
+                            isCompleted
+                              ? 'bg-[#ECFDF3] text-[#22C55E]'
+                              : isActive
+                              ? 'bg-[#3478F6] text-white'
+                              : 'bg-[#EAECF0] text-[#667085]'
                           }`}
                         >
-                          {stage.title}
-                        </h4>
-                        <p className="text-[11px] text-[#667085] mt-0.5 leading-snug">
-                          {stage.description}
-                        </p>
+                          {isCompleted ? (
+                            <Check className="w-3.5 h-3.5" />
+                          ) : isActive ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            idx + 1
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4
+                            className={`text-xs font-bold ${
+                              isActive ? 'text-[#3478F6]' : isCompleted ? 'text-[#111827]' : 'text-[#667085]'
+                            }`}
+                          >
+                            {stage.title}
+                          </h4>
+                          <p className="text-[11px] text-[#667085] mt-0.5 leading-snug">
+                            {stage.description}
+                          </p>
+                        </div>
+                        {isCompleted && (
+                          <span className="text-[10px] font-bold text-[#22C55E] shrink-0">
+                            {isVi ? 'Hoàn tất' : 'Done'}
+                          </span>
+                        )}
+                        {isActive && (
+                          <span className="text-[10px] font-bold text-[#3478F6] shrink-0 animate-pulse">
+                            {isVi ? 'Đang chạy...' : 'Processing...'}
+                          </span>
+                        )}
                       </div>
-                      {isCompleted && (
-                        <span className="text-[11px] font-bold text-[#22C55E] shrink-0">
-                          {isVi ? 'Hoàn tất' : 'Done'}
-                        </span>
-                      )}
-                      {isActive && (
-                        <span className="text-[11px] font-bold text-[#3478F6] shrink-0 animate-pulse">
-                          {isVi ? 'Đang chạy...' : 'Processing...'}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

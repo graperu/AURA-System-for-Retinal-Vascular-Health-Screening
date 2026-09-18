@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -288,7 +289,7 @@ class ScreeningServiceFullCoverageTest {
   }
 
   @Test
-  @DisplayName("Khi AI trả về null -> ca khám chuyển FAILED, riskScore/confidence = null, thông báo không gửi")
+  @DisplayName("Khi AI trả về null -> ca khám chuyển FAILED, riskScore/confidence = null, thông báo thất bại được gửi lưu trữ (BE-CONS-7)")
   void executeAiAnalysis_whenAiReturnsNull_marksFailed() {
     UUID patientId = UUID.randomUUID();
     when(geminiAiService.analyzeRetinalVascular(any(), any())).thenReturn(null);
@@ -303,7 +304,14 @@ class ScreeningServiceFullCoverageTest {
     assertThat(saved.getConfidence()).isNull();
     assertThat(saved.getFindings()).contains("Dịch vụ AI trả về kết quả không hợp lệ");
 
-    verify(userNotificationService, never()).sendNotificationToUser(any(), any(), any(), any(), any(), any());
+    verify(userNotificationService).sendNotificationToUser(
+        eq(patientId),
+        eq("Phân tích ảnh võng mạc thất bại"),
+        any(),
+        eq("AI_FAILED"),
+        eq("ERROR"),
+        eq("/screenings")
+    );
   }
 
   @Test

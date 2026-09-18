@@ -14,6 +14,7 @@ import com.aura.doctor.dto.DoctorPatientSummaryResponse;
 import com.aura.doctor.service.DoctorPatientAssignmentService;
 import com.aura.patient.dto.PatientProfileDto;
 import com.aura.patient.service.PatientProfileService;
+import com.aura.screening.dto.ScreeningResponse;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.service.ScreeningService;
 import java.util.Collections;
@@ -182,16 +183,16 @@ class DoctorPatientControllerOptimizedTest {
 
     // 4. getAssignedPatientScreenings
     when(screeningService.getScreeningsForPatient(patientId)).thenReturn(Collections.emptyList());
-    ApiResponse<List<Screening>> screeningsRes = controller.getAssignedPatientScreenings(patientId);
+    ApiResponse<List<ScreeningResponse>> screeningsRes = controller.getAssignedPatientScreenings(patientId);
     assertThat(screeningsRes.success()).isTrue();
 
     // 5. createScreeningForAssignedPatient
     AuraUserPrincipal principal = new AuraUserPrincipal(UUID.randomUUID(), "doc@aura.ai", "pass", true, List.of("DOCTOR"));
     com.aura.screening.dto.CreateScreeningRequest screeningReq = mock(com.aura.screening.dto.CreateScreeningRequest.class);
     Screening screening = mock(Screening.class);
-    when(screeningService.createScreening(patientId, screeningReq)).thenReturn(screening);
+    when(screeningService.createScreening(patientId, screeningReq, principal.id())).thenReturn(screening);
 
-    ApiResponse<Screening> createScreeningRes = controller.createScreeningForAssignedPatient(principal, patientId, screeningReq);
+    ApiResponse<ScreeningResponse> createScreeningRes = controller.createScreeningForAssignedPatient(principal, patientId, screeningReq);
     assertThat(createScreeningRes.success()).isTrue();
 
     // 6. createScreeningForAssignedPatient với principal null -> ném AuthException

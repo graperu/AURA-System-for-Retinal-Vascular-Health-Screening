@@ -13,6 +13,9 @@ import {
   processVesselOverlayCanvas,
 } from '../../components/InteractiveCDSViewer';
 import { realtimeBus } from '../../services/realtimeService';
+import { AnimatedCounter } from '../../components/common/AnimatedCounter';
+import { BiomarkerGaugeBar } from '../../components/common/BiomarkerGaugeBar';
+import { LesionRipplePulse } from '../../components/viewer/LesionRipplePulse';
 
 export interface PatientScreeningResultViewProps {
   result: AIRiskResult;
@@ -156,7 +159,22 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
   };
 
   const displayEye = selectedEye || (isVi ? 'Mắt Phải' : 'Right Eye');
-  const rawImage = result.imageUrl || '/assets/images/fundus_original.png';
+  const [imageSrc, setImageSrc] = useState<string>(() => {
+    if (result.imageUrl && !result.imageUrl.startsWith('blob:')) {
+      return result.imageUrl;
+    }
+    return '/assets/images/fundus_original.png';
+  });
+
+  useEffect(() => {
+    if (result.imageUrl && !result.imageUrl.startsWith('blob:')) {
+      setImageSrc(result.imageUrl);
+    } else {
+      setImageSrc('/assets/images/fundus_original.png');
+    }
+  }, [result.imageUrl]);
+
+  const rawImage = imageSrc;
   const hasCustomHeatmap = Boolean(
     result.annotatedMap?.heatmapUrl &&
       result.annotatedMap.heatmapUrl.trim().length > 0 &&
@@ -374,6 +392,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                     filter: isRedFreeFilter ? 'url(#aura-red-free-filter) contrast(145%) brightness(95%)' : undefined,
                   }}
                   onLoad={() => setIsImageLoaded(true)}
+                  onError={() => setImageSrc('/assets/images/fundus_original.png')}
                 />
 
                 {/* Vessel Segmentation Canvas */}
@@ -390,28 +409,37 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                   }}
                 />
 
-                {/* Heatmap Overlay */}
-                {(activeTab === 'OVERLAY' || activeTab === 'HEATMAP') &&
-                  (hasCustomHeatmap ? (
-                    <img
-                      src={result.annotatedMap!.heatmapUrl}
-                      alt="AI Attention Heatmap"
-                      className="absolute inset-0 m-auto max-h-[380px] w-auto object-contain rounded-lg pointer-events-none cds-canvas-overlay transition-opacity duration-150 select-none"
-                      style={{
-                        opacity: activeTab === 'HEATMAP' ? 1.0 : heatmapOpacity,
-                      }}
-                      draggable={false}
-                    />
-                  ) : (
-                    <DynamicHeatmapCanvas
-                      imageSrc={rawImage}
-                      riskScore={riskScore}
-                      anomalies={anomalies}
-                      selectedEye={displayEye}
-                      opacity={activeTab === 'HEATMAP' ? 1.0 : heatmapOpacity}
-                      className="absolute inset-0 m-auto max-h-[380px] w-auto object-contain rounded-lg pointer-events-none"
-                    />
-                  ))}
+                {/* Heatmap Overlay with Smooth Grad-CAM Crossfade & Unblur */}
+                {(activeTab === 'OVERLAY' || activeTab === 'HEATMAP') && (
+                  <div
+                    key="gradcam-heatmap-layer"
+                    className="absolute inset-0 m-auto max-h-[380px] w-auto object-contain rounded-lg pointer-events-none select-none animate-gradcam-crossfade"
+                    style={{
+                      mixBlendMode: 'screen',
+                      willChange: 'opacity, filter',
+                      ['--target-heatmap-opacity' as any]: activeTab === 'HEATMAP' ? 1.0 : heatmapOpacity,
+                      opacity: activeTab === 'HEATMAP' ? 1.0 : heatmapOpacity,
+                    }}
+                  >
+                    {hasCustomHeatmap ? (
+                      <img
+                        src={result.annotatedMap!.heatmapUrl}
+                        alt="AI Attention Heatmap"
+                        className="w-full h-full object-contain rounded-lg pointer-events-none cds-canvas-overlay select-none"
+                        draggable={false}
+                      />
+                    ) : (
+                      <DynamicHeatmapCanvas
+                        imageSrc={rawImage}
+                        riskScore={riskScore}
+                        anomalies={anomalies}
+                        selectedEye={displayEye}
+                        opacity={1.0}
+                        className="w-full h-full object-contain rounded-lg pointer-events-none"
+                      />
+                    )}
+                  </div>
+                )}
 
                 {/* Detected Anomalies Pinpoints with Multi-Class Medical Grading */}
                 {anomalies.map((ano) => {
@@ -444,6 +472,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                         } transition-all duration-200 cursor-pointer shadow-lg`}
                         title={`${anomalyDisplayName} (${(ano.confidence * 100).toFixed(0)}%): ${ano.description}`}
                       >
+                        <LesionRipplePulse type={ano.type} isSelected={isSelected} />
                         <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full ${theme.ping} animate-ping opacity-75`} />
                         <span className={`w-2 h-2 rounded-full ${theme.ping}`} />
 
@@ -513,7 +542,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
             <div className="flex items-baseline justify-between pt-1">
               <div>
                 <span className="text-3xl sm:text-4xl font-extrabold font-mono-data text-white">
-                  {riskScore}
+                  <AnimatedCounter value={riskScore} />
                 </span>
                 <span className="text-sm font-semibold text-slate-300 ml-1">/ 100</span>
               </div>
@@ -559,7 +588,7 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 data-testid="patient-model-version-badge"
                 className="text-[11px] text-[#3478F6] bg-[#EEF5FF] px-2 py-0.5 rounded border border-[#C7D7FE] font-mono-data font-medium"
               >
-                {result.modelVersion || 'Gemini 3.7 Flash High / AURA-Core v2.4'}
+                {result.modelVersion || 'Gemini 3.8 Flash High / AURA-Core v2.4'}
               </span>
             </div>
 
@@ -642,24 +671,52 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.arteryVeinRatio}
                   </span>
+                  <div className="mt-1.5">
+                    <BiomarkerGaugeBar
+                      percent={Math.min(100, Math.max(8, ((result.annotatedMap.arteryVeinRatio - 0.40) / 0.45) * 100))}
+                      colorClass={result.annotatedMap.arteryVeinRatio >= 0.65 ? 'bg-emerald-500' : 'bg-amber-500'}
+                      heightClass="h-1.5"
+                    />
+                  </div>
                 </div>
                 <div className="p-2.5 bg-slate-50/70 border border-slate-200 rounded-xl">
                   <span className="text-[10px] text-slate-500 block">{t('biomarkers.vesselDensity.label', isVi ? 'Mật độ mạch máu' : 'Vessel Density')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.vesselDensityPercentage}%
                   </span>
+                  <div className="mt-1.5">
+                    <BiomarkerGaugeBar
+                      percent={Math.min(100, Math.max(8, (result.annotatedMap.vesselDensityPercentage / 60) * 100))}
+                      colorClass={result.annotatedMap.vesselDensityPercentage >= 35 ? 'bg-teal-500' : 'bg-amber-500'}
+                      heightClass="h-1.5"
+                    />
+                  </div>
                 </div>
                 <div className="p-2.5 bg-slate-50/70 border border-slate-200 rounded-xl">
                   <span className="text-[10px] text-slate-500 block">{t('biomarkers.tortuosity.label', isVi ? 'Độ xoắn mạch máu' : 'Vessel Tortuosity')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.tortuosityIndex}
                   </span>
+                  <div className="mt-1.5">
+                    <BiomarkerGaugeBar
+                      percent={Math.min(100, Math.max(8, ((result.annotatedMap.tortuosityIndex - 1.0) / 0.40) * 100))}
+                      colorClass={result.annotatedMap.tortuosityIndex < 1.25 ? 'bg-emerald-500' : 'bg-amber-500'}
+                      heightClass="h-1.5"
+                    />
+                  </div>
                 </div>
                 <div className="p-2.5 bg-slate-50/70 border border-slate-200 rounded-xl">
                   <span className="text-[10px] text-slate-500 block">{t('biomarkers.cdr.label', isVi ? 'Tỷ lệ lõm gai thị' : 'Cup-to-Disc Ratio')}</span>
                   <span className="font-mono-data font-bold text-slate-800 text-sm">
                     {result.annotatedMap.opticCupToDiscRatio}
                   </span>
+                  <div className="mt-1.5">
+                    <BiomarkerGaugeBar
+                      percent={Math.min(100, Math.max(8, (result.annotatedMap.opticCupToDiscRatio / 0.80) * 100))}
+                      colorClass={result.annotatedMap.opticCupToDiscRatio < 0.50 ? 'bg-emerald-500' : 'bg-rose-500'}
+                      heightClass="h-1.5"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

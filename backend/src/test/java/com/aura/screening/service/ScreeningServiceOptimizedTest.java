@@ -784,11 +784,23 @@ class ScreeningServiceOptimizedTest {
         ScreeningService.class.getDeclaredMethod("sendAiReadyNotification", Screening.class, UUID.class);
     method.setAccessible(true);
 
-    // Case 1: Status not ANALYZED -> does nothing
+    // Case 1: Status FAILED -> sends persistent failure notification (BE-CONS-7)
     Screening failedScreening = new Screening(patientId, "http://cdn.aura/failed.png");
     failedScreening.setStatus(ScreeningStatus.FAILED);
     method.invoke(screeningService, failedScreening, patientId);
-    verify(userNotificationService, never()).sendNotificationToUser(any(), any(), any(), any(), any(), any());
+    verify(userNotificationService).sendNotificationToUser(
+        eq(patientId),
+        eq("Phân tích ảnh võng mạc thất bại"),
+        any(),
+        eq("AI_FAILED"),
+        eq("ERROR"),
+        eq("/screenings")
+    );
+
+    // Case 1b: Status PENDING -> does nothing
+    Screening pendingScreening = new Screening(patientId, "http://cdn.aura/pending.png");
+    pendingScreening.setStatus(ScreeningStatus.PENDING);
+    method.invoke(screeningService, pendingScreening, patientId);
 
     // Case 2: RiskLevel HIGH -> gửi thông báo trung tính INFO, không cảnh báo CRITICAL trực tiếp gây hoảng loạn
     Screening highScreening = new Screening(patientId, "http://cdn.aura/high.png");
@@ -1028,4 +1040,79 @@ class ScreeningServiceOptimizedTest {
     int count2 = screeningService.batchDeleteScreenings(List.of("invalid-uuid-1", "invalid-uuid-2"), UUID.randomUUID(), false);
     assertThat(count2).isZero();
   }
+
+  @Test
+  @DisplayName("Delete Screening: Bệnh nhân chủ sở hữu không được phép xóa (bảo vệ audit trail)")
+  void testDeleteScreening_patientOwner_throwsAccessDenied() {
+    UUID patientUserId = UUID.randomUUID();
+    UUID screeningId = UUID.randomUUID();
+
+    Screening s = new Screening(patientUserId, "https://cdn.aura.test/s_patient.png");
+    ReflectionTestUtils.setField(s, "id", screeningId);
+
+    when(screeningRepository.findById(screeningId)).thenReturn(Optional.of(s));
+
+    assertThatThrownBy(() -> screeningService.deleteScreening(screeningId, patientUserId, false))
+        .isInstanceOf(com.aura.auth.exception.AuthException.class)
+        .hasMessageContaining("Bệnh nhân không được phép xóa kết quả sàng lọc y tế");
+  }
+
+  @Test
+  @DisplayName("BE-CONS-1: createScreening với doctorId gán trực tiếp ID bác sĩ chỉ định")
+  void testCreateScreeningWithExplicitDoctorId() {
+    UUID doctorId = UUID.randomUUID();
+    CreateScreeningRequest req = new CreateScreeningRequest(
+        "https://cdn.aura.test/eye.png", "OD", "Fundus", "eye.png", 1024L, "image/png", null, null, null, null
+    );
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    Screening s = screeningService.createScreening(patientId, req, doctorId);
+
+    assertThat(s.getDoctorId()).isEqualTo(doctorId);
+  }
+
+  @Test
+  @DisplayName("BE-BILL-4 & BE-CONS-7: Khi AI phân tích thất bại, hoàn trả 1 lượt khám và lưu thông báo thất bại")
+  void testCreateScreeningWhenAiFailsRefundsCreditAndNotifies() {
+    ScreeningService serviceWithBilling = new ScreeningService(
+        screeningRepository, assignmentRepository, userNotificationService,
+        auditLogService, clinicMemberRepository, userRepository, geminiAiService, billingService
+    );
+    CreateScreeningRequest req = new CreateScreeningRequest(
+        "https://cdn.aura.test/eye.png", "OD", "Fundus", "eye.png", 1024L, "image/png", null, null, null, null
+    );
+
+    when(billingService.deductCredit(patientId)).thenReturn(true);
+    when(geminiAiService.analyzeRetinalVascular(any(), any())).thenThrow(new RuntimeException("AI server offline"));
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    Screening result = serviceWithBilling.createScreening(patientId, req);
+
+    assertThat(result.getStatus()).isEqualTo(ScreeningStatus.FAILED);
+    verify(billingService).refundCredit(eq(patientId), eq(1));
+    verify(userNotificationService).sendNotificationToUser(
+        eq(patientId),
+        eq("Phân tích ảnh võng mạc thất bại"),
+        anyString(),
+        eq("AI_FAILED"),
+        eq("ERROR"),
+        eq("/screenings")
+    );
+  }
+
+  @Test
+  @DisplayName("BE-CONS-2: getScreeningsForClinic trả về danh sách ca khám của cơ sở y tế")
+  void testGetScreeningsForClinicUnpaged() {
+    UUID clinicId = UUID.randomUUID();
+    Screening s = new Screening(patientId, "https://cdn.aura.test/eye.png");
+    when(screeningRepository.findByClinicIdOrderByCreatedAtDesc(clinicId)).thenReturn(List.of(s));
+
+    List<Screening> result = screeningService.getScreeningsForClinic(clinicId);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0)).isEqualTo(s);
+
+    assertThat(screeningService.getScreeningsForClinic(null)).isEmpty();
+  }
 }
+

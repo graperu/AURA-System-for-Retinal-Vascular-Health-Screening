@@ -40,12 +40,16 @@ public class RealtimeSseController {
   private final ConcurrentHashMap<String, EmitterSession> activeSessions = new ConcurrentHashMap<>();
   private ScheduledExecutorService heartbeatExecutor;
 
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.aura.auth.security.JwtTokenProvider jwtTokenProvider;
+
   public record EmitterSession(
       String sessionId,
       SseEmitter emitter,
       long connectedAt,
       String userId,
-      String role
+      String role,
+      List<String> roles
   ) {}
 
   @PostConstruct
@@ -85,17 +89,60 @@ public class RealtimeSseController {
   @Operation(summary = "Subscribe to real-time domain events via Server-Sent Events (SSE)")
   @GetMapping(value = {"/api/v1/events/stream", "/api/events/stream"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public SseEmitter subscribe(
+      @org.springframework.security.core.annotation.AuthenticationPrincipal com.aura.auth.security.AuraUserPrincipal principal,
       @RequestParam(name = "token", required = false) String token,
-      @RequestParam(name = "userId", required = false) String userId,
-      @RequestParam(name = "role", required = false) String role
+      @RequestParam(name = "userId", required = false) String userIdParam,
+      @RequestParam(name = "role", required = false) String roleParam
   ) {
+    String effectiveUserId = null;
+    String effectiveRole = null;
+    List<String> effectiveRoles = new ArrayList<>();
+
+    if (principal != null) {
+      effectiveUserId = principal.id() != null ? principal.id().toString() : null;
+      effectiveRoles = principal.roles() != null ? new ArrayList<>(principal.roles()) : new ArrayList<>();
+      if (!effectiveRoles.isEmpty()) {
+        effectiveRole = effectiveRoles.get(0);
+      }
+    } else if (token != null && !token.isBlank() && jwtTokenProvider != null) {
+      try {
+        io.jsonwebtoken.Claims claims = jwtTokenProvider.parse(token.trim());
+        effectiveUserId = claims.getSubject();
+        @SuppressWarnings("unchecked")
+        List<String> parsedRoles = claims.get("roles", List.class);
+        if (parsedRoles != null) {
+          effectiveRoles.addAll(parsedRoles);
+          if (!parsedRoles.isEmpty()) {
+            effectiveRole = parsedRoles.get(0);
+          }
+        }
+      } catch (Exception e) {
+        log.warn("Invalid JWT in SSE subscribe request parameter: {}", e.getMessage());
+      }
+    }
+
+    if (effectiveUserId == null && userIdParam != null && !userIdParam.isBlank()) {
+      effectiveUserId = userIdParam.trim();
+      if (roleParam != null && !roleParam.isBlank()) {
+        effectiveRole = roleParam.trim();
+        effectiveRoles.add(effectiveRole);
+      }
+    }
+
+    if (effectiveUserId == null && principal == null) {
+      throw new com.aura.auth.exception.AuthException(
+          com.aura.common.response.ErrorCode.UNAUTHORIZED,
+          "Yêu cầu đăng nhập hoặc JWT token hợp lệ để kết nối SSE Stream");
+    }
+
     String sessionId = UUID.randomUUID().toString();
     SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
-    EmitterSession session = new EmitterSession(sessionId, emitter, System.currentTimeMillis(), userId, role);
+    EmitterSession session = new EmitterSession(
+        sessionId, emitter, System.currentTimeMillis(), effectiveUserId, effectiveRole, effectiveRoles);
 
     activeSessions.put(sessionId, session);
-    log.info("SSE client connected: sessionId={}, userId={}, role={}, activeCount={}",
-        sessionId, userId, role, activeSessions.size());
+    log.info("SSE client connected: sessionId={}, userId={}, role={}, roles={}, activeCount={}",
+        sessionId, effectiveUserId, effectiveRole, effectiveRoles, activeSessions.size());
 
     // Register lifecycle listeners
     emitter.onCompletion(() -> {
@@ -136,7 +183,14 @@ public class RealtimeSseController {
   }
 
   /**
-   * Broadcasts a CrossPortalEvent domain event to all connected SSE clients.
+   * Overloaded subscribe method for backward compatibility with existing tests and callers.
+   */
+  public SseEmitter subscribe(String token, String userId, String role) {
+    return subscribe(null, token, userId, role);
+  }
+
+  /**
+   * Broadcasts a CrossPortalEvent domain event to authorized connected SSE clients.
    */
   public void broadcast(CrossPortalEvent event) {
     if (event == null || activeSessions.isEmpty()) {
@@ -149,6 +203,9 @@ public class RealtimeSseController {
     List<String> staleSessionIds = new ArrayList<>();
 
     activeSessions.forEach((sessionId, session) -> {
+      if (!canSessionReceiveEvent(session, event)) {
+        return;
+      }
       try {
         session.emitter().send(SseEmitter.event()
             .id(eventId)
@@ -162,6 +219,52 @@ public class RealtimeSseController {
     });
 
     staleSessionIds.forEach(this::removeSession);
+  }
+
+  private boolean canSessionReceiveEvent(EmitterSession session, CrossPortalEvent event) {
+    if (session == null || event == null) {
+      return false;
+    }
+    List<String> roles = session.roles() != null ? session.roles() : List.of();
+    String singleRole = session.role();
+
+    boolean isAdmin = roles.stream().anyMatch(r -> r != null && (r.equalsIgnoreCase("ADMIN") || r.equalsIgnoreCase("ROLE_ADMIN")))
+        || (singleRole != null && (singleRole.equalsIgnoreCase("ADMIN") || singleRole.equalsIgnoreCase("ROLE_ADMIN")));
+    if (isAdmin) {
+      return true;
+    }
+
+    boolean isDoctor = roles.stream().anyMatch(r -> r != null && (r.equalsIgnoreCase("DOCTOR") || r.equalsIgnoreCase("ROLE_DOCTOR")))
+        || (singleRole != null && (singleRole.equalsIgnoreCase("DOCTOR") || singleRole.equalsIgnoreCase("ROLE_DOCTOR")));
+    if (isDoctor) {
+      return "DOCTOR".equalsIgnoreCase(event.getTargetRole())
+          || event instanceof com.aura.event.ScanUploadedEvent
+          || event instanceof com.aura.event.ClinicalReviewEvent
+          || "ALL".equalsIgnoreCase(event.getTargetRole());
+    }
+
+    boolean isPatient = roles.stream().anyMatch(r -> r != null && (r.equalsIgnoreCase("USER") || r.equalsIgnoreCase("PATIENT") || r.equalsIgnoreCase("ROLE_USER") || r.equalsIgnoreCase("ROLE_PATIENT")))
+        || (singleRole != null && (singleRole.equalsIgnoreCase("USER") || singleRole.equalsIgnoreCase("PATIENT") || singleRole.equalsIgnoreCase("ROLE_USER") || singleRole.equalsIgnoreCase("ROLE_PATIENT")));
+    if (isPatient) {
+      UUID targetPatientId = null;
+      if (event instanceof com.aura.event.ScanUploadedEvent scanEvent) {
+        targetPatientId = scanEvent.getPatientId();
+      } else if (event instanceof com.aura.event.ClinicalReviewEvent reviewEvent) {
+        targetPatientId = reviewEvent.getPatientId();
+      }
+      return targetPatientId != null && session.userId() != null && targetPatientId.toString().equalsIgnoreCase(session.userId());
+    }
+
+    boolean isClinic = roles.stream().anyMatch(r -> r != null && (r.equalsIgnoreCase("CLINIC") || r.equalsIgnoreCase("ROLE_CLINIC")))
+        || (singleRole != null && (singleRole.equalsIgnoreCase("CLINIC") || singleRole.equalsIgnoreCase("ROLE_CLINIC")));
+    if (isClinic) {
+      if (event instanceof com.aura.event.BatchJobEvent batchEvent) {
+        return batchEvent.getClinicId() != null && session.userId() != null && batchEvent.getClinicId().toString().equalsIgnoreCase(session.userId());
+      }
+      return "CLINIC".equalsIgnoreCase(event.getTargetRole()) || "ALL".equalsIgnoreCase(event.getTargetRole());
+    }
+
+    return false;
   }
 
   /**

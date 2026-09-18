@@ -1104,7 +1104,9 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             <div className="text-2xl font-extrabold text-[#111827] font-mono-data">
               {statistics ? `${statistics.averageVascularRiskScore}/100` : '--'}
             </div>
-            <span className="text-[10px] text-slate-400 block">Overall Vascular Score</span>
+            <span className="text-[10px] text-slate-400 block">
+              {isVi ? 'Điểm mạch máu tổng quan' : 'Overall Vascular Score'}
+            </span>
           </div>
 
           <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 space-y-1">

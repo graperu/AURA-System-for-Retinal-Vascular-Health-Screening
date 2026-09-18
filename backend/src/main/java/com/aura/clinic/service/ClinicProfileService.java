@@ -73,6 +73,12 @@ public class ClinicProfileService {
     profile.setRejectionReason(approve ? null : rejectionReason);
     profile.setReviewedAt(Instant.now());
     profile.setReviewedBy(reviewer);
+
+    if (profile.getUser() != null) {
+      profile.getUser().setActive(approve);
+      userRepository.save(profile.getUser());
+    }
+
     return clinicProfileRepository.save(profile);
   }
   @Transactional

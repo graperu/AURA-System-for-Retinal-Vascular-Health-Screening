@@ -5,6 +5,8 @@ import { Card } from './ui/Card';
 import { RiskBadge } from './ui/RiskBadge';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
 import { useLanguage } from '../context/LanguageContext';
+import { AnimatedCounter } from './common/AnimatedCounter';
+import { BiomarkerGaugeBar } from './common/BiomarkerGaugeBar';
 
 interface RiskAssessmentPanelProps {
   result: AIRiskResult;
@@ -76,7 +78,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
             className="text-xl font-bold"
             style={{ color: getGaugeColor(result.overallVascularRiskScore) }}
           >
-            {result.overallVascularRiskScore}/100
+            <AnimatedCounter value={result.overallVascularRiskScore} />/100
           </span>
         </div>
       </div>
@@ -195,6 +197,13 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
             <span className="text-base font-bold font-mono-data text-cyan-900 block">
               {avRatio ? avRatio.toFixed(2) : '0.67'}
             </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={Math.min(100, Math.max(8, (((avRatio || 0.67) - 0.40) / 0.45) * 100))}
+                colorClass={avRatio >= 0.67 || avRatio === 0 ? 'bg-emerald-500' : 'bg-amber-500'}
+                heightClass="h-1.5"
+              />
+            </div>
             <span className="text-[10px] text-slate-400 block font-mono-data">
               {isVi ? 'Chuẩn: ≥ 0.67' : 'Ref: ≥ 0.67'}
             </span>
@@ -213,6 +222,13 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
             <span className="text-base font-bold font-mono-data text-teal-900 block">
               {vesselDensity ? vesselDensity.toFixed(1) : '18.4'}%
             </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={Math.min(100, Math.max(8, ((vesselDensity || 18.4) / 25) * 100))}
+                colorClass={vesselDensity >= 15.5 || vesselDensity === 0 ? 'bg-teal-500' : 'bg-amber-500'}
+                heightClass="h-1.5"
+              />
+            </div>
             <span className="text-[10px] text-slate-400 block font-mono-data">
               {isVi ? 'Chuẩn: 15.5 - 19.0%' : 'Ref: 15.5 - 19.0%'}
             </span>
@@ -231,6 +247,13 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
             <span className="text-base font-bold font-mono-data text-slate-800 block">
               {tortuosity ? tortuosity.toFixed(2) : '1.12'}
             </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={Math.min(100, Math.max(8, (((tortuosity || 1.12) - 1.0) / 0.40) * 100))}
+                colorClass={tortuosity < 1.25 || tortuosity === 0 ? 'bg-emerald-500' : 'bg-amber-500'}
+                heightClass="h-1.5"
+              />
+            </div>
             <span className="text-[10px] text-slate-400 block font-mono-data">
               {isVi ? 'Chuẩn: < 1.25' : 'Ref: < 1.25'}
             </span>
@@ -249,6 +272,13 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
             <span className="text-base font-bold font-mono-data text-slate-800 block">
               {vcdr ? vcdr.toFixed(2) : '0.32'}
             </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={Math.min(100, Math.max(8, ((vcdr || 0.32) / 0.80) * 100))}
+                colorClass={vcdr < 0.50 || vcdr === 0 ? 'bg-emerald-500' : 'bg-rose-500'}
+                heightClass="h-1.5"
+              />
+            </div>
             <span className="text-[10px] text-slate-400 block font-mono-data">
               {isVi ? 'Chuẩn: < 0.50' : 'Ref: < 0.50'}
             </span>

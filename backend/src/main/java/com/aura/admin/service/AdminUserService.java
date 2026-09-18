@@ -36,6 +36,8 @@ public class AdminUserService {
   private final com.aura.system.service.SystemConfigService systemConfigService;
   @org.springframework.beans.factory.annotation.Autowired(required = false)
   private com.aura.realtime.RealtimeEventPublisher realtimeEventPublisher;
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.aura.clinic.repository.ClinicProfileRepository clinicProfileRepository;
   private final Map<String, Object> aiConfigStore = new ConcurrentHashMap<>();
 
   @org.springframework.beans.factory.annotation.Autowired
@@ -58,6 +60,10 @@ public class AdminUserService {
     this(userRepository, userRoleRepository, roleRepository, null);
   }
 
+  public void setClinicProfileRepository(com.aura.clinic.repository.ClinicProfileRepository clinicProfileRepository) {
+    this.clinicProfileRepository = clinicProfileRepository;
+  }
+
   @Transactional(readOnly = true)
   public Page<UserSummaryDto> getAllUsers(String query, RoleName role, Pageable pageable) {
     String q = query == null ? null : query.trim();
@@ -72,6 +78,18 @@ public class AdminUserService {
       throw new IllegalArgumentException("Không thể vô hiệu hóa quản trị viên đang hoạt động cuối cùng");
     }
     user.setActive(request.active());
+
+    if (clinicProfileRepository != null) {
+      clinicProfileRepository.findByUserId(userId).ifPresent(profile -> {
+        profile.setVerificationStatus(
+            Boolean.TRUE.equals(request.active())
+                ? com.aura.clinic.entity.VerificationStatus.APPROVED
+                : com.aura.clinic.entity.VerificationStatus.REJECTED);
+        profile.setReviewedAt(Instant.now());
+        clinicProfileRepository.save(profile);
+      });
+    }
+
     return toDto(userRepository.save(user));
   }
 

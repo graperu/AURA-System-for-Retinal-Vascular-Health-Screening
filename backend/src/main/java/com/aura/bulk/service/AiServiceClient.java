@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Service client communicating with Cloud AI Engine (Gemini 3.7 Flash High API).
+ * Service client communicating with Cloud AI Engine (Gemini 3.8 Flash High API).
  */
 @Service
 public class AiServiceClient {
@@ -39,7 +39,7 @@ public class AiServiceClient {
             throw new IllegalStateException("AI Service is unavailable or offline");
         }
 
-        log.info("[AI Client] Dispatching image for patient {} to Cloud Gemini 3.7 Flash High API...", pseudonymPatientId);
+        log.info("[AI Client] Dispatching image for patient {} to Cloud Gemini 3.8 Flash High API...", pseudonymPatientId);
 
         Map<String, Object> aiResult;
         try {
@@ -84,7 +84,7 @@ public class AiServiceClient {
                 cdr,
                 heatmap,
                 0,
-                List.of("Phân tích tự động từ Cloud AI Gemini 3.7 Flash High")
+                List.of("Phân tích tự động từ Cloud AI Gemini 3.8 Flash High")
         );
     }
 }

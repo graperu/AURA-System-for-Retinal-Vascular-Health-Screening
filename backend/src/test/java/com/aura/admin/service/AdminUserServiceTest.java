@@ -143,6 +143,29 @@ class AdminUserServiceTest {
     }
 
     @Test
+    @DisplayName("BE-CONS-4: updateUserStatus syncs verificationStatus on ClinicProfile")
+    void updateUserStatus_SyncsClinicProfile() {
+      com.aura.clinic.repository.ClinicProfileRepository mockClinicRepo = org.mockito.Mockito.mock(com.aura.clinic.repository.ClinicProfileRepository.class);
+      adminUserService.setClinicProfileRepository(mockClinicRepo);
+
+      com.aura.clinic.entity.ClinicProfile profile = new com.aura.clinic.entity.ClinicProfile(
+          testUser, "Test Clinic", "GPHD-123", "https://url.pdf");
+      profile.setVerificationStatus(com.aura.clinic.entity.VerificationStatus.PENDING);
+
+      when(userRepository.findById(testUserId)).thenReturn(Optional.of(testUser));
+      when(userRepository.save(testUser)).thenReturn(testUser);
+      when(userRoleRepository.findAllByUserIdIn(List.of(testUserId)))
+          .thenReturn(List.of(new UserRole(testUser, userRole)));
+      when(mockClinicRepo.findByUserId(testUserId)).thenReturn(Optional.of(profile));
+
+      adminUserService.updateUserStatus(testUserId, new UpdateUserStatusRequest(true));
+
+      assertThat(profile.getVerificationStatus()).isEqualTo(com.aura.clinic.entity.VerificationStatus.APPROVED);
+      assertThat(profile.getReviewedAt()).isNotNull();
+      verify(mockClinicRepo).save(profile);
+    }
+
+    @Test
     @DisplayName("updateUserStatus deactivate normal user succeeds")
     void updateUserStatus_DeactivateNormalUser_Success() {
       // Arrange

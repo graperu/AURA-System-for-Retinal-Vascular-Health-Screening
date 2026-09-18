@@ -411,7 +411,7 @@ export const buildFhirDiagnosticReportBundle = (
     },
     subject: { reference: `Patient/patient-${patientId}` },
     effectiveDateTime: timestamp,
-    valueString: result.modelVersion || 'Gemini 3.7 Flash High / AURA-Core v2.4',
+    valueString: result.modelVersion || 'Gemini 3.8 Flash High / AURA-Core v2.4',
     component: [
       {
         code: { text: 'Brier Score' },
@@ -647,7 +647,7 @@ export const buildReportCsvContent = (
     ],
     [
       isVi ? 'Phiên bản mô hình AI' : 'AI Model Version',
-      sanitize(result.modelVersion || 'Gemini 3.7 Flash High / AURA-Core v2.4'),
+      sanitize(result.modelVersion || 'Gemini 3.8 Flash High / AURA-Core v2.4'),
       'NFR-23 Traceability',
       '',
     ],

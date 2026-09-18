@@ -13,6 +13,7 @@ import com.aura.patient.dto.PatientProfileResponse;
 import com.aura.patient.entity.PatientProfile;
 import com.aura.patient.service.PatientProfileService;
 import com.aura.screening.dto.CreateScreeningRequest;
+import com.aura.screening.dto.ScreeningResponse;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.service.ScreeningService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -339,7 +340,7 @@ public class DoctorPatientController {
   @Audited(action = "PHI_READ", module = "DOCTOR", resourceType = "SCREENING_HISTORY", description = "Bác sĩ đọc lịch sử sàng lọc của bệnh nhân")
   @GetMapping("/{patientId}/screenings")
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN') && @patientAccessService.canAccessPatient(principal, #patientId)")
-  public ApiResponse<List<Screening>> getAssignedPatientScreenings(
+  public ApiResponse<List<ScreeningResponse>> getAssignedPatientScreenings(
       @PathVariable UUID patientId) {
     UUID effectivePatientId = patientId;
     if (patientProfileRepository != null) {
@@ -355,14 +356,15 @@ public class DoctorPatientController {
         screenings = directScreenings;
       }
     }
-    return ApiResponse.success("Lấy lịch sử ca sàng lọc của bệnh nhân thành công", screenings);
+    List<ScreeningResponse> responseList = screenings.stream().map(ScreeningResponse::fromEntity).toList();
+    return ApiResponse.success("Lấy lịch sử ca sàng lọc của bệnh nhân thành công", responseList);
   }
 
   @Audited(action = "SCREENING_CREATE", module = "DOCTOR", resourceType = "SCREENING", description = "Bác sĩ tạo ca sàng lọc cho bệnh nhân được phân công")
   @PostMapping("/{patientId}/screenings")
   @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN') && @patientAccessService.canAccessPatient(principal, #patientId)")
-  public ApiResponse<Screening> createScreeningForAssignedPatient(
+  public ApiResponse<ScreeningResponse> createScreeningForAssignedPatient(
       @AuthenticationPrincipal AuraUserPrincipal principal,
       @PathVariable UUID patientId,
       @Valid @RequestBody CreateScreeningRequest request) {
@@ -376,8 +378,8 @@ public class DoctorPatientController {
         effectivePatientId = profileOpt.get().getUserId();
       }
     }
-    Screening screening = screeningService.createScreening(effectivePatientId, request);
-    return ApiResponse.success("Tạo ca sàng lọc cho bệnh nhân được phân công thành công", screening);
+    Screening screening = screeningService.createScreening(effectivePatientId, request, principal.id());
+    return ApiResponse.success("Tạo ca sàng lọc cho bệnh nhân được phân công thành công", ScreeningResponse.fromEntity(screening));
   }
 
   private boolean hasRole(AuraUserPrincipal principal, String role) {

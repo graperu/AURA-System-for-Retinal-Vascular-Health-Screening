@@ -103,7 +103,7 @@ const mockResult: AIRiskResult = {
   patientId: mockPatient.id,
   findings: 'High vascular risk with multiple microvascular lesions detected.',
   recommendations: 'Immediate ophthalmology referral and blood pressure control.',
-  modelVersion: 'Gemini 3.7 Flash High / AURA-Core v2.4',
+  modelVersion: 'Gemini 3.8 Flash High / AURA-Core v2.4',
   activeThresholds: {
     cvdHighRiskThreshold: 65,
     drConfidenceThreshold: 70,
@@ -353,7 +353,7 @@ test('CHALLENGE-4: buildFhirDiagnosticReportBundle outputs fully valid HL7/FHIR 
   assert.ok(hasTraceability, 'Bundle must contain AI_MODEL_TRACEABILITY (NFR-23)');
 
   const traceObs = obsList.find((o: any) => o.code?.coding?.some((c: any) => c.code === 'AI_MODEL_TRACEABILITY'));
-  assert.strictEqual(traceObs.valueString, 'Gemini 3.7 Flash High / AURA-Core v2.4');
+  assert.strictEqual(traceObs.valueString, 'Gemini 3.8 Flash High / AURA-Core v2.4');
 });
 
 // -----------------------------------------------------------------------------

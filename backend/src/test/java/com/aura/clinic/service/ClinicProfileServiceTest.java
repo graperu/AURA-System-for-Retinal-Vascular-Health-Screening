@@ -133,6 +133,8 @@ class ClinicProfileServiceTest {
     assertThat(result.getRejectionReason()).isNull();
     assertThat(result.getReviewedAt()).isNotNull();
     assertThat(result.getReviewedBy()).isEqualTo(reviewer);
+    assertThat(clinicUser.isActive()).isTrue();
+    verify(userRepository).save(clinicUser);
   }
 
   @Test
@@ -151,6 +153,8 @@ class ClinicProfileServiceTest {
     verify(clinicProfileRepository).save(captor.capture());
     assertThat(result.getVerificationStatus()).isEqualTo(VerificationStatus.REJECTED);
     assertThat(result.getRejectionReason()).isEqualTo("Thiếu giấy phép hoạt động");
+    assertThat(clinicUser.isActive()).isFalse();
+    verify(userRepository).save(clinicUser);
   }
 
   @Test

@@ -44,7 +44,7 @@ class GeminiRetinalAiServiceOptimizedTest {
     ReflectionTestUtils.setField(aiService, "enabled", true);
     ReflectionTestUtils.setField(aiService, "apiUrl", "http://localhost:20128/v1/chat/completions");
     ReflectionTestUtils.setField(aiService, "apiKey", "test-key-2026");
-    ReflectionTestUtils.setField(aiService, "model", "ag/gemini-3.7-flash-high");
+    ReflectionTestUtils.setField(aiService, "model", "ag/gemini-3.8-flash-high");
     ReflectionTestUtils.setField(aiService, "httpClient", httpClient);
   }
 

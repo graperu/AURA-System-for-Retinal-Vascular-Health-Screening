@@ -18,7 +18,7 @@ VALUES
     (gen_random_uuid(), 'ai.risk.critical_threshold', '80', 'Ngưỡng nguy cơ rất cao (Critical) - can thiệp khẩn cấp', CURRENT_TIMESTAMP, 'SYSTEM'),
     (gen_random_uuid(), 'ai.risk.high_threshold', '65', 'Ngưỡng nguy cơ cao (High) - cần bác sĩ thẩm định', CURRENT_TIMESTAMP, 'SYSTEM'),
     (gen_random_uuid(), 'ai.risk.moderate_threshold', '40', 'Ngưỡng nguy cơ trung bình (Moderate)', CURRENT_TIMESTAMP, 'SYSTEM'),
-    (gen_random_uuid(), 'ai.model.active_version', 'Gemini 3.7 Flash High / AURA-Core v2.4', 'Phiên bản mô hình AI suy luận hoạt động', CURRENT_TIMESTAMP, 'SYSTEM'),
+    (gen_random_uuid(), 'ai.model.active_version', 'Gemini 3.8 Flash High / AURA-Core v2.4', 'Phiên bản mô hình AI suy luận hoạt động', CURRENT_TIMESTAMP, 'SYSTEM'),
     (gen_random_uuid(), 'ai.calibration.brier_score', '0.058', 'Chỉ số hiệu chuẩn Brier Score mô hình AI', CURRENT_TIMESTAMP, 'SYSTEM'),
     (gen_random_uuid(), 'ai.calibration.method', 'Platt-Scaling', 'Phương pháp hiệu chuẩn xác suất AI', CURRENT_TIMESTAMP, 'SYSTEM')
 ON CONFLICT (config_key) DO NOTHING;

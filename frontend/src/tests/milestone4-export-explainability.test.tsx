@@ -137,7 +137,7 @@ const mockResult: AIRiskResult = {
   patientId: mockPatient.id,
   findings: 'Phát hiện vi phình mạch, xuất huyết dạng chấm và đốm bông xuất tiết mềm.',
   recommendations: 'Tái khám chuyên khoa đáy mắt sau 3 tháng. Giảm muối trong khẩu phần ăn.',
-  modelVersion: 'Gemini 3.7 Flash High / AURA-Core v2.4',
+  modelVersion: 'Gemini 3.8 Flash High / AURA-Core v2.4',
   activeThresholds: {
     cvdHighRiskThreshold: 65,
     drConfidenceThreshold: 70,
@@ -255,7 +255,7 @@ test('M4-NFR23-1: screeningMapper gán mặc định lâm sàng chuẩn cho mode
 
   const mapped = mapScreeningToAIRiskResult(rawMinimalScreening, '/fallback.png');
 
-  assert.strictEqual(mapped.modelVersion, 'Gemini 3.7 Flash High / AURA-Core v2.4');
+  assert.strictEqual(mapped.modelVersion, 'Gemini 3.8 Flash High / AURA-Core v2.4');
   assert.deepStrictEqual(mapped.activeThresholds, {
     cvdHighRiskThreshold: 65,
     drConfidenceThreshold: 70,
@@ -299,7 +299,7 @@ test('M4-NFR23-3: InteractiveCDSViewer hiển thị huy hiệu modelVersion và 
   );
 
   assert.ok(html.includes('data-testid="cds-model-version-badge"'), 'Có huy hiệu phiên bản model trên CDS');
-  assert.ok(html.includes('Gemini 3.7 Flash High / AURA-Core v2.4'), 'Hiển thị chính xác tên model AI');
+  assert.ok(html.includes('Gemini 3.8 Flash High / AURA-Core v2.4'), 'Hiển thị chính xác tên model AI');
   assert.ok(html.includes('data-testid="cds-calibration-metrics"'), 'Có chỉ số hiệu chuẩn Platt & Brier');
   assert.ok(html.includes('Brier Score: 0.058'), 'Hiển thị điểm Brier score');
   assert.ok(html.includes('Platt Calibrated: 94.2%'), 'Hiển thị độ tin cậy hiệu chuẩn Platt');
@@ -313,7 +313,7 @@ test('M4-NFR23-4: PatientScreeningResultView hiển thị modelVersion trên gia
   );
 
   assert.ok(html.includes('data-testid="patient-model-version-badge"'), 'Có huy hiệu phiên bản model trên Patient view');
-  assert.ok(html.includes('Gemini 3.7 Flash High / AURA-Core v2.4'), 'Hiển thị chính xác tên model AI');
+  assert.ok(html.includes('Gemini 3.8 Flash High / AURA-Core v2.4'), 'Hiển thị chính xác tên model AI');
 });
 
 test('M4-NFR23-5: MedicalReportModal hiển thị modelVersion và calibration badge trong phiếu khám', () => {
@@ -329,7 +329,7 @@ test('M4-NFR23-5: MedicalReportModal hiển thị modelVersion và calibration b
   );
 
   assert.ok(html.includes('data-testid="report-model-version-badge"'), 'Có model version badge trên báo cáo y tế');
-  assert.ok(html.includes('Gemini 3.7 Flash High / AURA-Core v2.4'));
+  assert.ok(html.includes('Gemini 3.8 Flash High / AURA-Core v2.4'));
   assert.ok(html.includes('data-testid="report-calibration-badge"'), 'Có calibration badge trên báo cáo y tế');
   assert.ok(html.includes('Brier: 0.058'));
   assert.ok(html.includes('Platt Calibrated: 94.2%'));
@@ -399,7 +399,7 @@ test('M4-NFR20-1: buildFhirDiagnosticReportBundle tạo gói HL7/FHIR R4 Bundle 
   // 6. AI Model Version & Calibration Provenance
   const aiTraceObs = findObsByCode('AI_MODEL_TRACEABILITY');
   assert.ok(aiTraceObs, 'Phải có Observation truy vết phiên bản mô hình AI');
-  assert.strictEqual(aiTraceObs.valueString, 'Gemini 3.7 Flash High / AURA-Core v2.4');
+  assert.strictEqual(aiTraceObs.valueString, 'Gemini 3.8 Flash High / AURA-Core v2.4');
 });
 
 test('M4-NFR20-2: sanitizeCsvCell khử an toàn toàn bộ các ký tự gây tấn công CSV Formula Injection (CWE-1236)', () => {
@@ -424,7 +424,7 @@ test('M4-NFR20-3: buildReportCsvContent sinh file CSV có UTF-8 BOM và đầy �
   assert.ok(csv.includes('0.58'), 'Có tỷ lệ A/V Ratio');
   assert.ok(csv.includes('1.34'), 'Có chỉ số uốn lượn mạch máu');
   assert.ok(csv.includes('0.42'), 'Có tỷ lệ CDR');
-  assert.ok(csv.includes('Gemini 3.7 Flash High / AURA-Core v2.4'), 'Có phiên bản model AI');
+  assert.ok(csv.includes('Gemini 3.8 Flash High / AURA-Core v2.4'), 'Có phiên bản model AI');
   assert.ok(csv.includes('DANH MỤC TỔN THƯƠNG VI MẠCH KHU TRÚ'), 'Có bảng chi tiết tổn thương vi mạch');
   assert.ok(csv.includes('Cotton_Wool_Spot'), 'Có ghi nhận Cotton Wool Spot trong CSV');
 });

@@ -155,4 +155,40 @@ class BillingControllerTest {
     assertEquals(PaymentStatus.SUCCEEDED, response.data().status());
     assertEquals(1, response.data().creditsAdded());
   }
+
+  @Test
+  @DisplayName("BE-BILL-1: Chặn người dùng thường xác nhận thanh toán cục bộ khi tắt sandboxMode")
+  void confirmLocalPayment_whenSandboxDisabledAndNotAdmin_throwsAccessDeniedException() {
+    BillingController prodController = new BillingController(billingService, false, null);
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        org.springframework.security.access.AccessDeniedException.class,
+        () -> prodController.confirmLocalPayment(100L, userPrincipal)
+    );
+  }
+
+  @Test
+  @DisplayName("BE-BILL-1: Cho phép ADMIN xác nhận thanh toán cục bộ ngay cả khi tắt sandboxMode")
+  void confirmLocalPayment_whenSandboxDisabledAndAdmin_allowsConfirmation() {
+    BillingController prodController = new BillingController(billingService, false, null);
+    AuraUserPrincipal adminPrincipal = new AuraUserPrincipal(UUID.randomUUID(), "admin@aura.com", "pass", true, List.of("ADMIN"));
+
+    com.aura.billing.entity.PaymentTransaction tx = com.aura.billing.entity.PaymentTransaction.builder()
+        .id(200L)
+        .amount(BigDecimal.valueOf(50000))
+        .status(PaymentStatus.SUCCEEDED)
+        .provider("VIETQR")
+        .providerReference("VIETQR_REF_200")
+        .transferContent("AURA NAP 1 ADMIN")
+        .servicePackage(com.aura.billing.entity.ServicePackage.builder().id(1L).name("Gói Cơ Bản").credits(1).build())
+        .build();
+
+    when(billingService.confirmLocalPayment(eq(adminPrincipal.id()), eq(200L))).thenReturn(tx);
+
+    ApiResponse<com.aura.billing.dto.PaymentStatusResponse> response = prodController.confirmLocalPayment(200L, adminPrincipal);
+
+    assertNotNull(response);
+    assertEquals(PaymentStatus.SUCCEEDED, response.data().status());
+  }
 }
+

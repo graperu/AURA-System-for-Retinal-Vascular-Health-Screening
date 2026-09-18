@@ -46,6 +46,11 @@ public class AuraPaymentGatewayProvider implements PaymentGateway {
 
     @Override
     public GatewayResult charge(String buyerEmail, BigDecimal amount, String paymentMethod) {
+        return charge(buyerEmail, amount, paymentMethod, null);
+    }
+
+    @Override
+    public GatewayResult charge(String buyerEmail, BigDecimal amount, String paymentMethod, String transferContent) {
         String method = paymentMethod != null ? paymentMethod.trim().toUpperCase() : "VNPAY";
         String timestamp = LocalDateTime.now().format(TXN_TIME_FMT);
         String randomSuffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -103,7 +108,9 @@ public class AuraPaymentGatewayProvider implements PaymentGateway {
             case "BANK_TRANSFER": {
                 var vietqr = properties.getVietqr();
                 String providerRef = "AURA_TXN_" + timestamp + "_" + randomSuffix;
-                String memo = "AURA NAP " + providerRef;
+                String memo = (transferContent != null && !transferContent.isBlank())
+                        ? transferContent
+                        : ("AURA NAP " + providerRef);
                 String encodedMemo = URLEncoder.encode(memo, StandardCharsets.UTF_8);
                 String encodedName = URLEncoder.encode(vietqr.getAccountName(), StandardCharsets.UTF_8);
                 String qrUrl = String.format(

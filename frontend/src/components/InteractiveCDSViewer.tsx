@@ -25,6 +25,7 @@ import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
 import { useLanguage } from '../context/LanguageContext';
 import { renderDynamicRetinalHeatmap } from '../utils/dynamicHeatmapEngine';
 import { VesselHeatmapOverlay } from './VesselHeatmapOverlay';
+import { LesionRipplePulse } from './viewer/LesionRipplePulse';
 
 interface InteractiveCDSViewerProps {
   analysisResult: AIRiskResult;
@@ -408,7 +409,22 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   };
 
   const anomalies = analysisResult.annotatedMap?.detectedAnomalies || [];
-  const rawImage = analysisResult.imageUrl || '/assets/images/fundus_original.png';
+  const [imageSrc, setImageSrc] = useState<string>(() => {
+    if (analysisResult.imageUrl && !analysisResult.imageUrl.startsWith('blob:')) {
+      return analysisResult.imageUrl;
+    }
+    return '/assets/images/fundus_original.png';
+  });
+
+  useEffect(() => {
+    if (analysisResult.imageUrl && !analysisResult.imageUrl.startsWith('blob:')) {
+      setImageSrc(analysisResult.imageUrl);
+    } else {
+      setImageSrc('/assets/images/fundus_original.png');
+    }
+  }, [analysisResult.imageUrl]);
+
+  const rawImage = imageSrc;
   const heatmapImg = analysisResult.annotatedMap?.heatmapUrl || '';
 
   const hasRealHeatmap = Boolean(
@@ -822,6 +838,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                     style={{
                       filter: isRedFreeFilter ? 'url(#aura-red-free-filter) contrast(145%) brightness(95%)' : undefined,
                     }}
+                    onError={() => setImageSrc('/assets/images/fundus_original.png')}
                   />
                 </div>
               </div>
@@ -867,6 +884,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                       filter: isRedFreeFilter ? 'url(#aura-red-free-filter) contrast(145%) brightness(95%)' : undefined,
                     }}
                     onLoad={() => setIsImageLoaded(true)}
+                    onError={() => setImageSrc('/assets/images/fundus_original.png')}
                   />
 
                   {/* Layer 1: Lớp phân đoạn mạch máu quang học Client-Side */}
@@ -882,26 +900,28 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                     }}
                   />
 
-                  {/* Layer 2: Lớp bản đồ nhiệt Grad-CAM */}
-                  {hasRealHeatmap ? (
-                    <img
-                      src={heatmapImg}
-                      alt="AI Grad-CAM Heatmap"
-                      className="absolute inset-0 w-full h-full object-contain rounded-lg pointer-events-none cds-canvas-overlay mix-blend-screen transition-opacity duration-150 select-none"
-                      style={{ opacity: heatmapOpacity }}
-                      draggable={false}
-                    />
-                  ) : (
-                    <div
-                      className="absolute inset-0 w-full h-full rounded-lg pointer-events-none cds-canvas-overlay mix-blend-screen transition-opacity duration-150"
-                      style={{ opacity: heatmapOpacity }}
-                    >
+                  {/* Layer 2: Lớp bản đồ nhiệt Grad-CAM với Smooth Crossfade & Unblur */}
+                  <div
+                    key="interactive-gradcam-layer"
+                    className="absolute inset-0 w-full h-full rounded-lg pointer-events-none cds-canvas-overlay mix-blend-screen select-none animate-gradcam-crossfade"
+                    style={{
+                      opacity: heatmapOpacity,
+                    }}
+                  >
+                    {hasRealHeatmap ? (
+                      <img
+                        src={heatmapImg}
+                        alt="AI Grad-CAM Heatmap"
+                        className="w-full h-full object-contain rounded-lg pointer-events-none select-none"
+                        draggable={false}
+                      />
+                    ) : (
                       <canvas
                         ref={dynamicHeatmapCanvasRef}
                         className="w-full h-full object-contain rounded-lg pointer-events-none"
                       />
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {/* Zero-State Badge */}
                   {anomalies.length === 0 && (
@@ -938,6 +958,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                             transform: 'translate(-50%, -50%)',
                           }}
                         >
+                          <LesionRipplePulse type={anomaly.type} isSelected={isSelected} />
                           <span
                             className={`absolute -inset-1 rounded-full animate-ping opacity-60 pointer-events-none ${theme.ping}`}
                           />
@@ -1049,7 +1070,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                 data-testid="cds-model-version-badge"
                 className="text-[11px] px-2 py-0.5 rounded-md bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] font-medium font-mono-data"
               >
-                {analysisResult.modelVersion || 'Gemini 3.7 Flash High / AURA-Core v2.4'}
+                {analysisResult.modelVersion || 'Gemini 3.8 Flash High / AURA-Core v2.4'}
               </span>
               <span
                 data-testid="cds-calibration-metrics"

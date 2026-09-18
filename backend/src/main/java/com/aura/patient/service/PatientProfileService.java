@@ -462,7 +462,40 @@ public class PatientProfileService {
     if (request.emergencyContactPhone() != null) profile.setEmergencyContactPhone(request.emergencyContactPhone().trim());
 
     PatientMedicalProfile saved = profileRepository.save(profile);
+    syncWorklistProfile(user, saved);
     return toResponse(saved);
+  }
+
+  private void syncWorklistProfile(User user, PatientMedicalProfile savedProfile) {
+    if (patientRepository == null || user == null || savedProfile == null) {
+      return;
+    }
+    UUID patientUserId = user.getId();
+    String mrn = savedProfile.getMrn();
+    PatientProfile worklistProfile = patientRepository.findAll().stream()
+        .filter(p -> (p.getUserId() != null && p.getUserId().equals(patientUserId))
+            || (p.getMrn() != null && mrn != null && p.getMrn().equalsIgnoreCase(mrn)))
+        .findFirst()
+        .orElseGet(() -> {
+          PatientProfile np = new PatientProfile();
+          np.setUserId(patientUserId);
+          np.setMrn(mrn);
+          return np;
+        });
+
+    worklistProfile.setFullName(user.getFullName() != null && !user.getFullName().isBlank() ? user.getFullName() : "Bệnh nhân");
+    worklistProfile.setAge(savedProfile.getAge() != null ? savedProfile.getAge() : 45);
+    worklistProfile.setGender(savedProfile.getGender() != null ? savedProfile.getGender() : "Other");
+    worklistProfile.setPhone(savedProfile.getPhoneNumber());
+    worklistProfile.setAddress(savedProfile.getAddress());
+    worklistProfile.setSystolicBp(savedProfile.getSystolicBp() != null ? savedProfile.getSystolicBp() : 120);
+    worklistProfile.setDiastolicBp(savedProfile.getDiastolicBp() != null ? savedProfile.getDiastolicBp() : 80);
+    worklistProfile.setHba1c(savedProfile.getHba1c() != null ? savedProfile.getHba1c() : 5.7);
+    worklistProfile.setHasDiabetes(savedProfile.getHasDiabetes() != null ? savedProfile.getHasDiabetes() : false);
+    worklistProfile.setHasHypertension(savedProfile.getHasHypertension() != null ? savedProfile.getHasHypertension() : false);
+    worklistProfile.setHistoryOfSmoking(savedProfile.getHistoryOfSmoking() != null ? savedProfile.getHistoryOfSmoking() : false);
+
+    patientRepository.save(worklistProfile);
   }
 
   @Transactional(readOnly = true)

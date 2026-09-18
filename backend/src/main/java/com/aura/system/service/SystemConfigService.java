@@ -35,7 +35,7 @@ public class SystemConfigService {
   public static final int DEFAULT_CRITICAL_THRESHOLD = 80;
   public static final int DEFAULT_HIGH_THRESHOLD = 65;
   public static final int DEFAULT_MODERATE_THRESHOLD = 40;
-  public static final String DEFAULT_MODEL_VERSION = "Gemini 3.7 Flash High / AURA-Core v2.4";
+  public static final String DEFAULT_MODEL_VERSION = "Gemini 3.8 Flash High / AURA-Core v2.4";
   public static final double DEFAULT_BRIER_SCORE = 0.058;
   public static final String DEFAULT_CALIBRATION_METHOD = "Platt-Scaling";
   public static final double DEFAULT_SENSITIVITY = 0.85;

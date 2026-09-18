@@ -33,7 +33,7 @@ public class GeminiRetinalAiService {
   @Value("${aura.ai-service.gemini.api-key:}")
   private String apiKey;
 
-  @Value("${aura.ai-service.gemini.model:ag/gemini-3.7-flash-high}")
+  @Value("${aura.ai-service.gemini.model:ag/gemini-3.8-flash-high}")
   private String model;
 
   private final ObjectMapper mapper = new ObjectMapper();
@@ -52,13 +52,19 @@ public class GeminiRetinalAiService {
 
       String systemPrompt = """
           Bạn là hệ thống AI chuyên gia cấp cao về Nhãn khoa và Vi mạch Võng mạc (AURA Clinical Retinal Decision Support System).
-          Nhiệm vụ: Soi chiếu và phân tích kỹ lưỡng ảnh đáy mắt võng mạc (True Color Fundus) của bệnh nhân:
-          1. Gai thị (Optic Disc) & Tỷ lệ lõm đĩa thị (Vertical CDR): viền thần kinh võng mạc có hồng hào, bờ rõ không, CDR có < 0.50 không.
-          2. Hoàng điểm (Macula): có phản xạ trung tâm tốt không, có xuất tiết hay phù hoàng điểm không.
-          3. Cây mạch máu võng mạc (Vascular Arcade): đánh giá tỷ lệ Động mạch / Tĩnh mạch (A/V Ratio chuẩn 2:3 hay ~0.67), độ uốn lượn, có hẹp lòng mạch hay dấu bắt chéo Gunn/Salus không.
-          4. Tổn thương vi mạch: rà soát vi phình mạch (microaneurysms), xuất huyết chấm/vệt, xuất tiết cứng (hard exudates).
+          Nhiệm vụ: Soi chiếu và phân tích kỹ lưỡng ảnh đáy mắt võng mạc (True Color Fundus) của bệnh nhân được cung cấp:
+          1. Gai thị (Optic Disc) & Tỷ lệ lõm đĩa thị (Vertical CDR): viền thần kinh võng mạc, CDR (bình thường < 0.50, nghi ngờ glôcôm nếu >= 0.60).
+          2. Hoàng điểm (Macula): phản xạ trung tâm, phù hoàng điểm, xuất tiết cứng hay xuất huyết quanh hoàng điểm.
+          3. Cây mạch máu võng mạc (Vascular Arcade): đánh giá tỷ lệ Động mạch / Tĩnh mạch (A/V Ratio bình thường ~0.65 - 0.67, co hẹp nếu < 0.60), độ xoắn vặn (tortuosity), dấu bắt chéo Gunn/Salus.
+          4. Rà soát kỹ lưỡng các tổn thương vi mạch thực tế trên ảnh:
+             - Vi phình mạch (Microaneurysm): các chấm đỏ li ti tròn, bờ rõ, đường kính nhỏ (< 125µm).
+             - Xuất huyết võng mạc (Hemorrhage): đốm xuất huyết ngọn lửa hoặc chấm/vệt dọc theo sợi thần kinh.
+             - Xuất tiết cứng (Hard_Exudate): các mảng/đốm màu vàng sáng có bờ sắc nét quanh hoàng điểm hoặc cung mạch.
+             - Bắt chéo động - tĩnh mạch (AV_Nipping): co thắt hoặc đè bẹp tĩnh mạch tại vị trí bắt chéo.
+             - Co thắt khu trú (Focal_Narrowing): lòng tiểu động mạch bị thu hẹp cục bộ.
           5. Bản đồ tọa độ tổn thương vi mạch (detectedAnomalies):
-             - Trích xuất mảng các tổn thương phát hiện được kèm tọa độ:
+             - ĐỊNH VỊ CHÍNH XÁC tọa độ (x, y theo % từ 0 - 100) của TỪNG tổn thương nhìn thấy trên ảnh.
+             - Ví dụ:
                "detectedAnomalies": [
                  {
                    "id": "ANO-01",
@@ -66,17 +72,23 @@ public class GeminiRetinalAiService {
                    "coordinates": { "x": 62.4, "y": 41.8, "width": 24, "height": 24 },
                    "confidence": 0.92,
                    "description": "Vi phình mạch nhỏ tại cung mạch thái dương trên."
+                 },
+                 {
+                   "id": "ANO-02",
+                   "type": "Hard_Exudate",
+                   "coordinates": { "x": 55.2, "y": 48.6, "width": 28, "height": 28 },
+                   "confidence": 0.89,
+                   "description": "Cụm xuất tiết cứng màu vàng tại vùng cạnh hoàng điểm."
                  }
                ]
              - Quy định rõ 5 loại tổn thương lâm sàng (type): "Microaneurysm", "Hemorrhage", "Hard_Exudate", "AV_Nipping", "Focal_Narrowing".
-             - Tọa độ coordinates x, y tính theo phần trăm (%) từ 0 đến 100 theo chiều ngang và dọc của ảnh võng mạc; width, height là kích thước ước tính.
-             - Nếu mắt hoàn toàn bình thường, BẮT BUỘC trả về: "detectedAnomalies": []
+             - CHỈ TRẢ VỀ "detectedAnomalies": [] KHI VÀ CHỈ KHI đáy mắt hoàn toàn trong sáng, tuyệt đối không có bất kỳ chấm xuất huyết, vi phình mạch hay xuất tiết nào.
           
           QUY TẮC CHẤM ĐIỂM NGUY CƠ VI MẠCH (0 - 100):
-          - 0 - 39 (LOW): Đáy mắt bình thường, vi mạch thanh mảnh, gai thị hồng hào, không có tổn thương. Điểm: 15 - 35/100.
-          - 40 - 64 (MODERATE): Co hẹp nhẹ tiểu động mạch (A/V 0.55-0.62), có thể có 1-2 vi phình mạch rải rác ngoài hoàng điểm. Điểm: 45 - 60/100.
-          - 65 - 79 (HIGH): Hẹp động mạch rõ rệt, nhiều vi phình mạch, xuất huyết rải rác. Điểm: 65 - 75/100.
-          - 80 - 100 (CRITICAL): Xuất huyết diện rộng, phù hoàng điểm, xuất tiết bông, nguy cơ nhồi máu/đột quỵ cấp. Điểm: 80 - 95/100.
+          - 0 - 39 (LOW): Đáy mắt bình thường, vi mạch thanh mảnh, gai thị hồng hào, không có tổn thương nào (0 tổn thương). Điểm: 15 - 35/100.
+          - 40 - 64 (MODERATE): Co hẹp nhẹ tiểu động mạch (A/V 0.55-0.62), có 1-3 vi phình mạch hoặc xuất tiết rải rác ngoài hoàng điểm. Điểm: 45 - 60/100. Phân loại NPDR nhẹ - trung bình.
+          - 65 - 79 (HIGH): Hẹp động mạch rõ rệt, nhiều vi phình mạch, xuất huyết dạng chấm/vệt, xuất tiết cứng gom cụm. Điểm: 65 - 75/100. Phân loại NPDR nặng.
+          - 80 - 100 (CRITICAL): Xuất huyết diện rộng, xuất huyết trước võng mạc, phù hoàng điểm nặng, tân mạch (PDR), nguy cơ đột quỵ/mù lòa cấp. Điểm: 80 - 95/100.
           
           BẮT BUỘC trả về kết quả định dạng JSON DUY NHẤT (không dùng markdown backticks ```json):
           {
@@ -134,6 +146,9 @@ public class GeminiRetinalAiService {
               ? imageBase64OrUrl 
               : "data:image/png;base64," + imageBase64OrUrl;
 
+          log.info("Sending multimodal image payload (prefix: {}, len: {}) to Gemini 3.8 Flash High", 
+              dataUri.substring(0, Math.min(30, dataUri.length())), dataUri.length());
+
           List<Map<String, Object>> contentParts = new ArrayList<>();
           contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + eye + ") của bệnh nhân sau:"));
           contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", dataUri)));
@@ -164,14 +179,14 @@ public class GeminiRetinalAiService {
           .header("Content-Type", "application/json")
           .header("Authorization", "Bearer " + apiKey)
           .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
-          .timeout(Duration.ofSeconds(30))
+          .timeout(Duration.ofSeconds(45))
           .build();
 
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
       if (response.statusCode() >= 200 && response.statusCode() < 300) {
         String responseBody = response.body();
-        log.info("Received raw response from Gemini 3.7 Flash High");
+        log.info("Received raw response from Gemini 3.8 Flash High");
         return parseStreamingOrJsonResponse(responseBody);
       } else {
         log.warn("Gemini API returned status code {}: {}", response.statusCode(), response.body());

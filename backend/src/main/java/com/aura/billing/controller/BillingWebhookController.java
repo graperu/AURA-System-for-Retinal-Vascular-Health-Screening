@@ -32,7 +32,7 @@ public class BillingWebhookController {
 
     private static final Logger log = LoggerFactory.getLogger(BillingWebhookController.class);
     private static final Pattern TRANSFER_CONTENT_PATTERN =
-            Pattern.compile("(AURA\\s+NAP\\s+\\d+\\s+KHAM\\s+[A-Za-z0-9]+)", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("(AURA\\s+NAP\\s+(?:\\d+\\s+KHAM\\s+[A-Za-z0-9]+|AURA_TXN_[A-Za-z0-9_]+|[A-Za-z0-9_]+))", Pattern.CASE_INSENSITIVE);
 
     private final BillingService billingService;
     private final PaymentGatewayProperties properties;

@@ -161,7 +161,7 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
     patientId: screening.patientId || undefined,
     findings: screening.findings || undefined,
     recommendations: screening.recommendations || undefined,
-    modelVersion: screening.modelVersion || screening.modelEngine || 'Gemini 3.7 Flash High / AURA-Core v2.4',
+    modelVersion: screening.modelVersion || screening.modelEngine || (screening as any).aiModelVersion || 'Gemini 3.8 Flash High / AURA-Core v2.4',
     activeThresholds: screening.activeThresholds || {
       cvdHighRiskThreshold: Number(screening.cvdHighRiskThreshold ?? 65),
       drConfidenceThreshold: Number(screening.drConfidenceThreshold ?? 70),

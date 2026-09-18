@@ -119,12 +119,12 @@ export const LabDocumentsPanel: React.FC<Props> = ({ patientId }) => {
   };
 
   const download = async (document: LabDocument) => {
-    if (!patientId) {
-      setMessage(isVi ? 'Không xác định được hồ sơ bệnh nhân để tải tệp.' : 'Patient profile not identified for download.');
-      return;
-    }
     try {
-      await patientApi.downloadLabDocument(patientId, document.id, document.fileName);
+      if (patientId) {
+        await patientApi.downloadLabDocument(patientId, document.id, document.fileName);
+      } else {
+        await patientApi.downloadLabDocument(document.id, document.fileName);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : (isVi ? 'Không thể tải tệp xét nghiệm.' : 'Could not download lab document.'));
     }

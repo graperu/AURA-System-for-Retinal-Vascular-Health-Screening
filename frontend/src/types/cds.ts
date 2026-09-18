@@ -125,7 +125,7 @@ export interface AIRiskResult {
   patientId?: string;
   findings?: string;
   recommendations?: string;
-  modelVersion?: string; // e.g. "Gemini 3.7 Flash High / AURA-Core v2.4"
+  modelVersion?: string; // e.g. "Gemini 3.8 Flash High / AURA-Core v2.4"
   activeThresholds?: {
     cvdHighRiskThreshold: number;
     drConfidenceThreshold: number;

@@ -182,6 +182,7 @@ class PatientProfileServiceFullTest {
     assertThat(response.diabetesDurationYears()).isEqualTo(4);
     assertThat(response.hasHypertension()).isTrue();
     assertThat(response.emergencyContactName()).isEqualTo("Nguyen Thi Emergency");
+    verify(patientRepository).save(any(PatientProfile.class));
   }
 
   @Test

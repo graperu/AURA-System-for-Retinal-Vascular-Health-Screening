@@ -295,9 +295,20 @@ export const Topbar: React.FC<TopbarProps> = ({
   };
 
   const resolveTargetSection = (notif: any): string => {
-    const rawLink = String(notif?.linkUrl || '').trim();
-    const cleanLink = rawLink.replace(/^\//, '').toLowerCase();
+    const rawLink = String(notif?.linkUrl || notif?.link || '').trim();
+    let cleanLink = rawLink.replace(/^\/+/, '').toLowerCase();
 
+    // Strip portal prefixes (/patient/, /doctor/, /clinic/, /admin/)
+    cleanLink = cleanLink.replace(/^(patient|doctor|clinic|admin)\//, '');
+    // Strip query string and hash
+    cleanLink = cleanLink.split('?')[0].split('#')[0];
+
+    // Prefix matches for sub-routes
+    if (cleanLink.startsWith('case/')) return 'cds-viewer';
+    if (cleanLink.startsWith('batch/')) return 'bulk-batch';
+    if (cleanLink.startsWith('audit/')) return 'audit-logs';
+
+    // Exact matches
     if (cleanLink === 'cds-viewer' || cleanLink === 'cds' || cleanLink === 'viewer') {
       return 'cds-viewer';
     }
@@ -320,30 +331,68 @@ export const Topbar: React.FC<TopbarProps> = ({
       return 'patient-list';
     }
     if (cleanLink === 'reports' || cleanLink === 'medical-reports') {
-      return 'reports';
+      // Patient has no 'reports' view; redirect to 'scan-history'
+      return currentUser.role === 'patient' ? 'scan-history' : 'reports';
+    }
+    if (cleanLink === 'appointment' || cleanLink === 'appointments') {
+      return 'appointment';
     }
     if (cleanLink === 'bulk-batch' || cleanLink === 'bulk') {
       return 'bulk-batch';
     }
+    if (cleanLink === 'doctors-manage' || cleanLink === 'doctors') {
+      return 'doctors-manage';
+    }
+    if (cleanLink === 'campaign-analytics' || cleanLink === 'risk-analytics' || cleanLink === 'analytics') {
+      return currentUser.role === 'doctor' ? 'risk-analytics' : 'campaign-analytics';
+    }
     if (cleanLink === 'user-management' || cleanLink === 'users') {
       return 'user-management';
     }
+    if (cleanLink === 'clinic-approvals' || cleanLink === 'clinics') {
+      return 'clinic-approvals';
+    }
+    if (cleanLink === 'screenings' || cleanLink === 'screening') {
+      return currentUser.role === 'admin' ? 'screenings' : currentUser.role === 'doctor' ? 'cds-viewer' : 'scan-history';
+    }
+    if (cleanLink === 'rbac-matrix' || cleanLink === 'rbac') {
+      return 'rbac-matrix';
+    }
+    if (cleanLink === 'audit-logs' || cleanLink === 'audit' || cleanLink === 'logs') {
+      return 'audit-logs';
+    }
+    if (cleanLink === 'ai-thresholds' || cleanLink === 'ai-config') {
+      return 'ai-thresholds';
+    }
+    if (cleanLink === 'notifications' || cleanLink === 'notification-config') {
+      return 'notifications';
+    }
+    if (cleanLink === 'assignments') {
+      return 'assignments';
+    }
 
+    // Match by event type
     const type = String(notif?.type || '').toUpperCase();
-    if (type === 'AI_READY') {
+    if (type === 'AI_READY' || type === 'SCREENING_COMPLETED') {
       return currentUser.role === 'doctor' ? 'cds-viewer' : 'scan-history';
     }
-    if (type === 'DOCTOR_REVIEW') {
+    if (type === 'DOCTOR_REVIEW' || type === 'DOCTOR_REVIEWED' || type === 'RESULT_REVIEWED') {
       return currentUser.role === 'doctor' ? 'reports' : 'scan-history';
+    }
+    if (type === 'APPOINTMENT' || type === 'APPOINTMENT_CREATED' || type === 'APPOINTMENT_UPDATED') {
+      return 'appointment';
     }
     if (type === 'BILLING') {
       return currentUser.role === 'clinic' ? 'credit-package' : 'billing';
     }
-    if (type === 'CONSULTATION') {
+    if (type === 'CONSULTATION' || type === 'MESSAGE_RECEIVED') {
       return 'consultation';
     }
-    if (type === 'BULK_BATCH') {
+    if (type === 'BULK_BATCH' || type === 'BATCH_PROGRESS' || type === 'BATCH_COMPLETED') {
       return 'bulk-batch';
+    }
+    if (type === 'AUDIT_LOG' || type === 'AUDIT') {
+      return 'audit-logs';
     }
 
     return 'dashboard';

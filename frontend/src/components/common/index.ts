@@ -8,3 +8,5 @@ export * from './ConfirmDialog';
 export * from './EmptyState';
 export * from './ErrorState';
 export * from './SkeletonLoading';
+export * from './AnimatedCounter';
+export * from './BiomarkerGaugeBar';

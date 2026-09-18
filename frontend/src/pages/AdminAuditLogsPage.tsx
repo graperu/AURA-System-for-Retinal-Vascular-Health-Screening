@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Search,
   Download,
@@ -39,6 +39,7 @@ import {
   Server,
   Database,
   ArrowRight,
+  UserCheck,
 } from "lucide-react";
 import {
   auditApi,
@@ -47,6 +48,7 @@ import {
   adminRoleApi,
   adminNotificationApi,
   adminServicePackageApi,
+  screeningApi,
   ServicePackagePayload,
 } from "../services/api";
 import { ClinicalSelect, ClinicalSelectOption } from "../components/ui/ClinicalSelect";
@@ -77,6 +79,7 @@ type AdminTab =
   | "notifications"
   | "clinics"
   | "assignments"
+  | "screenings"
   | "packages"
   | "ai-config"
   | "audit";
@@ -109,12 +112,21 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   const sectionToTab: Record<string, AdminTab> = {
     dashboard: "dashboard",
     "user-management": "users",
+    users: "users",
     "rbac-matrix": "rbac",
+    rbac: "rbac",
     "notification-config": "notifications",
+    notifications: "notifications",
     "clinic-approvals": "clinics",
+    clinics: "clinics",
     "package-management": "packages",
+    packages: "packages",
     "ai-thresholds": "ai-config",
+    "ai-config": "ai-config",
     "audit-logs": "audit",
+    audit: "audit",
+    assignments: "assignments",
+    screenings: "screenings",
   };
 
   const [activeTab, setActiveTab] = useState<AdminTab>(
@@ -122,11 +134,34 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   );
   const prefersReducedMotion = useAuraReducedMotion();
 
+  const [screeningsList, setScreeningsList] = useState<any[]>([]);
+  const [isScreeningsLoading, setIsScreeningsLoading] = useState(false);
+
+  const loadScreeningsData = useCallback(async () => {
+    setIsScreeningsLoading(true);
+    try {
+      const res = await screeningApi.getAll();
+      if (res.success && Array.isArray(res.data)) {
+        setScreeningsList(res.data);
+      }
+    } catch (e) {
+      console.warn('Could not load system screenings:', e);
+    } finally {
+      setIsScreeningsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeView && sectionToTab[activeView]) {
       setActiveTab(sectionToTab[activeView]);
     }
   }, [activeView]);
+
+  useEffect(() => {
+    if (activeTab === "screenings") {
+      void loadScreeningsData();
+    }
+  }, [activeTab, loadScreeningsData]);
 
   // ==========================================
   // FR-31: USER MANAGEMENT STATE & HANDLERS
@@ -1624,6 +1659,26 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <Building2 className="w-4 h-4" /> {t('admin.tabs.clinics', isVi ? 'Duyệt Phòng Khám' : 'Clinic Approvals')}
           </button>
           <button
+            onClick={() => setActiveTab("assignments")}
+            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
+              activeTab === "assignments"
+                ? "bg-white shadow-xs text-brand-700 font-medium"
+                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
+            }`}
+          >
+            <UserCheck className="w-4 h-4" /> {isVi ? 'Phân Công' : 'Assignments'}
+          </button>
+          <button
+            onClick={() => setActiveTab("screenings")}
+            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
+              activeTab === "screenings"
+                ? "bg-white shadow-xs text-brand-700 font-medium"
+                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
+            }`}
+          >
+            <Eye className="w-4 h-4" /> {isVi ? 'Ca Sàng Lọc' : 'Screenings'}
+          </button>
+          <button
             onClick={() => setActiveTab("packages")}
             className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === "packages"
@@ -2600,8 +2655,9 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => handleTogglePermission(perm.code)}
-                        className="mt-1 w-4 h-4 text-cyan-700 rounded border-slate-300 focus:ring-cyan-500 cursor-pointer"
+                        readOnly
+                        tabIndex={-1}
+                        className="mt-1 w-4 h-4 text-cyan-700 rounded border-slate-300 pointer-events-none shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
@@ -4066,6 +4122,122 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             setActiveTab("users");
           }}
         />
+      )}
+
+      {/* =========================================================================
+          TAB 7: PATIENT ASSIGNMENT BOARD (FE-NAV-8)
+      ========================================================================== */}
+      {activeTab === "assignments" && (
+        <div className="space-y-6">
+          <PatientAssignmentBoard />
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 8: SYSTEM SCREENINGS (FE-NAV-6)
+      ========================================================================== */}
+      {activeTab === "screenings" && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-teal-50 text-teal-700">
+                  <Eye className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {isVi ? 'Quản Lý Ca Sàng Lọc Toàn Hệ Thống' : 'System-Wide Screenings Management'}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {isVi
+                      ? 'Theo dõi toàn bộ các ca phân tích vi mạch võng mạc, trạng thái đánh giá và hồ sơ lâm sàng.'
+                      : 'Monitor all retinal vascular screening records, review statuses, and clinical findings.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={loadScreeningsData}
+                className="px-3.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isScreeningsLoading ? 'animate-spin' : ''}`} />
+                {isVi ? 'Làm mới' : 'Refresh'}
+              </button>
+            </div>
+
+            {/* Screenings Table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3.5">{isVi ? 'Mã Ca Khám' : 'Screening ID'}</th>
+                    <th className="p-3.5">{isVi ? 'Bệnh Nhân' : 'Patient'}</th>
+                    <th className="p-3.5">{isVi ? 'Bác Sĩ Phụ Trách' : 'Assigned Doctor'}</th>
+                    <th className="p-3.5">{isVi ? 'Mắt' : 'Eye'}</th>
+                    <th className="p-3.5">{isVi ? 'Điểm Nguy Cơ' : 'Risk Score'}</th>
+                    <th className="p-3.5">{isVi ? 'Trạng Thái' : 'Status'}</th>
+                    <th className="p-3.5">{isVi ? 'Thời Gian' : 'Date'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {isScreeningsLoading ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-teal-600" />
+                        {isVi ? 'Đang tải danh sách ca sàng lọc...' : 'Loading screening records...'}
+                      </td>
+                    </tr>
+                  ) : screeningsList.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                        {isVi ? 'Chưa có dữ liệu ca sàng lọc nào trong hệ thống.' : 'No screening records found in system.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    screeningsList.map((sc: any, idx: number) => (
+                      <tr key={sc.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3.5 font-mono font-bold text-slate-900">
+                          {String(sc.id || '').substring(0, 8)}...
+                        </td>
+                        <td className="p-3.5">
+                          <div className="font-bold text-slate-800">{sc.patientName || sc.patientFullName || (isVi ? 'Bệnh nhân' : 'Patient')}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">MRN: {sc.mrn || 'AUR-9842'}</div>
+                        </td>
+                        <td className="p-3.5 text-slate-700">
+                          {sc.doctorName || sc.assignedDoctorName || '—'}
+                        </td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 font-bold text-[10px] text-slate-600">
+                            {sc.eyePosition || sc.eye || 'OD'}
+                          </span>
+                        </td>
+                        <td className="p-3.5">
+                          <span className="font-bold font-mono text-xs text-teal-700">
+                            {sc.overallRiskScore ?? sc.riskScore ?? '--'}/100
+                          </span>
+                        </td>
+                        <td className="p-3.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            sc.status === 'COMPLETED' || sc.status === 'REVIEWED'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : sc.status === 'IN_PROGRESS' || sc.status === 'PROCESSING'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {sc.status || 'PENDING'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-500 font-mono text-[11px]">
+                          {sc.createdAt ? new Date(sc.createdAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US') : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
         </motion.div>
       </AnimatePresence>

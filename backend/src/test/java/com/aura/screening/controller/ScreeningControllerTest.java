@@ -112,10 +112,24 @@ class ScreeningControllerTest {
         eq(req.icd10Codes())
     )).thenReturn(screening);
 
-    ApiResponse<Screening> response = controller.reviewScreening(doctorPrincipal, screeningId, req);
+    ApiResponse<ScreeningResponse> response = controller.reviewScreening(doctorPrincipal, screeningId, req);
 
     assertNotNull(response);
-    assertEquals(screening, response.data());
+    assertEquals(patientId, response.data().patientId());
+  }
+
+  @Test
+  @DisplayName("BE-CONS-2: Clinic lấy danh sách ca sàng lọc của phòng khám mình")
+  void getScreenings_forClinic() {
+    UUID clinicId = UUID.randomUUID();
+    AuraUserPrincipal clinicPrincipal = new AuraUserPrincipal(clinicId, "clinic@aura.com", "pass", true, List.of("ROLE_CLINIC"));
+    Screening s1 = new Screening(patientId, "img1");
+    when(screeningService.getScreeningsForClinic(clinicId)).thenReturn(List.of(s1));
+
+    ApiResponse<List<Screening>> response = controller.getScreenings(clinicPrincipal);
+
+    assertNotNull(response);
+    assertEquals(1, response.data().size());
   }
 
   @Test

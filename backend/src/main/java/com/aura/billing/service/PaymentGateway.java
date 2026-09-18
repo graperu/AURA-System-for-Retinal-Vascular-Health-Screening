@@ -14,6 +14,10 @@ public interface PaymentGateway {
         return charge(buyerEmail, amount);
     }
 
+    default GatewayResult charge(String buyerEmail, BigDecimal amount, String paymentMethod, String transferContent) {
+        return charge(buyerEmail, amount, paymentMethod);
+    }
+
     record GatewayResult(
             boolean success,
             String providerName,

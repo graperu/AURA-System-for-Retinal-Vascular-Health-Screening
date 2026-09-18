@@ -37,6 +37,7 @@ import com.aura.clinic.repository.ClinicProfileRepository;
 import com.aura.clinic.service.ClinicMemberService;
 import com.aura.clinic.service.ClinicProfileService;
 import com.aura.common.exception.ResourceNotFoundException;
+import com.aura.common.response.ApiResponse;
 import com.aura.doctor.repository.DoctorPatientAssignmentRepository;
 import com.aura.doctor.service.DoctorPatientAssignmentService;
 import com.aura.notification.entity.UserNotification;
@@ -96,10 +97,11 @@ public class UltimateCoverageBoostTest {
 
     // listBatches
     when(jobQueue.getAllBatches()).thenReturn(List.of());
-    assertThat(controller.listBatches().getBody()).isEmpty();
+    assertThat(controller.listBatches().data()).isEmpty();
 
     // getBatchItemResult
-    assertThat(controller.getBatchItemResult("NOT_FOUND", "ITEM_1").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThatThrownBy(() -> controller.getBatchItemResult("NOT_FOUND", "ITEM_1"))
+        .isInstanceOf(ResourceNotFoundException.class);
 
     com.aura.bulk.dto.BatchJobResponseDto batchResponse = new com.aura.bulk.dto.BatchJobResponseDto(
         "BATCH-1", "CLINIC-1", 1, 0, 0, "QUEUED", Instant.now(), 0.0,
@@ -107,12 +109,14 @@ public class UltimateCoverageBoostTest {
     );
     when(jobQueue.getBatchStatus("BATCH-1")).thenReturn(batchResponse);
 
-    assertThat(controller.getBatchItemResult("BATCH-1", "ITEM_1").getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(controller.getBatchItemResult("BATCH-1", "ITEM_2").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(controller.getBatchItemResult("BATCH-1", "ITEM_1").success()).isTrue();
+    assertThatThrownBy(() -> controller.getBatchItemResult("BATCH-1", "ITEM_2"))
+        .isInstanceOf(ResourceNotFoundException.class);
 
     // cancelBatchJob
-    assertThat(controller.cancelBatchJob("NOT_FOUND").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    assertThat(controller.cancelBatchJob("BATCH-1").getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThatThrownBy(() -> controller.cancelBatchJob("NOT_FOUND"))
+        .isInstanceOf(ResourceNotFoundException.class);
+    assertThat(controller.cancelBatchJob("BATCH-1").success()).isTrue();
 
     // createBulkBatchJob with batchRepo & itemRepo
     when(anonymizerService.anonymizePatient(any(), any(), anyInt(), any(), anyInt(), anyInt(), anyDouble()))
@@ -129,15 +133,15 @@ public class UltimateCoverageBoostTest {
         List.of(new BulkImageItemUploadDto("eye.png", "RAW_BASE64", "OD", "rawMrn", "Patient Name", 40, "F", 120, 80, 5.2))
     );
 
-    ResponseEntity<?> res = controller.createBulkBatchJob(req);
-    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+    ApiResponse<com.aura.bulk.dto.BatchJobResponseDto> res = controller.createBulkBatchJob(req);
+    assertThat(res.success()).isTrue();
 
     // Test InterruptedException branch in createBulkBatchJob
     BatchJobQueue throwingQueue = mock(BatchJobQueue.class);
     doThrow(new InterruptedException()).when(throwingQueue).enqueue(any());
     BulkScreeningController throwingController = new BulkScreeningController(anonymizerService, throwingQueue, batchRepo, itemRepo);
-    ResponseEntity<?> errRes = throwingController.createBulkBatchJob(req);
-    assertThat(errRes.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    assertThatThrownBy(() -> throwingController.createBulkBatchJob(req))
+        .isInstanceOf(RuntimeException.class);
   }
 
   @Test

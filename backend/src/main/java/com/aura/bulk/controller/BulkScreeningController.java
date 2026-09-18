@@ -5,16 +5,17 @@ import com.aura.bulk.dto.*;
 import com.aura.bulk.queue.BatchItemTask;
 import com.aura.bulk.queue.BatchJobQueue;
 import com.aura.bulk.service.PatientAnonymizerService;
+import com.aura.common.exception.ResourceNotFoundException;
+import com.aura.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -89,20 +90,20 @@ public class BulkScreeningController {
      * Uploads and enqueues a bulk batch of fundus images (>=100 images) for AI vascular screening.
      */
     @PostMapping("/batch")
+    @ResponseStatus(HttpStatus.ACCEPTED)
     @PreAuthorize("hasAnyRole('CLINIC', 'ADMIN')")
     @Operation(
             summary = "Bulk Upload & Queue Fundus Images (>=100 Images)",
             description = "HIPAA NFR-9/NFR-10 Compliance: Patient PHI is automatically anonymized into SHA-256 HMAC pseudonyms and DICOM headers are filtered before tasks enter the queue."
     )
-    @ApiResponse(responseCode = "202", description = "Batch upload accepted and queued for processing",
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "Batch upload accepted and queued for processing",
             content = @Content(schema = @Schema(implementation = BatchJobResponseDto.class)))
-    @ApiResponse(responseCode = "400", description = "Invalid payload or empty image list")
-    public ResponseEntity<?> createBulkBatchJob(
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid payload or empty image list")
+    public ApiResponse<BatchJobResponseDto> createBulkBatchJob(
             @Valid @RequestBody BulkUploadRequestDto request,
             @AuthenticationPrincipal AuraUserPrincipal principal) {
         if (request.imageItems() == null || request.imageItems().isEmpty()) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("success", false, "message", "Danh sách ảnh tải lên không được để trống (Yêu cầu ít nhất 1 ảnh DICOM/PNG)."));
+            throw new IllegalArgumentException("Danh sách ảnh tải lên không được để trống (Yêu cầu ít nhất 1 ảnh DICOM/PNG).");
         }
 
         String effectiveClinicId;
@@ -205,16 +206,15 @@ public class BulkScreeningController {
                 jobQueue.enqueue(task);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(Map.of("message", "Lỗi đưa ảnh vào hàng đợi bất đồng bộ."));
+                throw new RuntimeException("Lỗi đưa ảnh vào hàng đợi bất đồng bộ.", e);
             }
         }
 
         BatchJobResponseDto initialStatus = jobQueue.getBatchStatus(batchId);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(initialStatus);
+        return ApiResponse.success("Đợt sàng lọc hàng loạt đã được tiếp nhận", initialStatus);
     }
 
-    public ResponseEntity<?> createBulkBatchJob(BulkUploadRequestDto request) {
+    public ApiResponse<BatchJobResponseDto> createBulkBatchJob(BulkUploadRequestDto request) {
         return createBulkBatchJob(request, null);
     }
 
@@ -224,19 +224,19 @@ public class BulkScreeningController {
     @GetMapping("/batches")
     @PreAuthorize("hasAnyRole('CLINIC', 'ADMIN')")
     @Operation(summary = "List all screening batches", description = "Retrieves all current and recent bulk screening batches.")
-    public ResponseEntity<List<BatchJobResponseDto>> listBatches(@AuthenticationPrincipal AuraUserPrincipal principal) {
+    public ApiResponse<List<BatchJobResponseDto>> listBatches(@AuthenticationPrincipal AuraUserPrincipal principal) {
         List<BatchJobResponseDto> all = jobQueue.getAllBatches();
         if (principal == null || hasRole(principal, "ADMIN")) {
-            return ResponseEntity.ok(all);
+            return ApiResponse.success("Lấy danh sách các đợt sàng lọc thành công", all);
         }
         String currentClinicId = principal.id().toString();
         List<BatchJobResponseDto> filtered = all.stream()
                 .filter(b -> currentClinicId.equalsIgnoreCase(b.clinicId()))
                 .toList();
-        return ResponseEntity.ok(filtered);
+        return ApiResponse.success("Lấy danh sách các đợt sàng lọc thành công", filtered);
     }
 
-    public ResponseEntity<List<BatchJobResponseDto>> listBatches() {
+    public ApiResponse<List<BatchJobResponseDto>> listBatches() {
         return listBatches(null);
     }
 
@@ -246,23 +246,21 @@ public class BulkScreeningController {
     @GetMapping("/batch/{batchId}")
     @PreAuthorize("hasAnyRole('CLINIC', 'ADMIN')")
     @Operation(summary = "Get Real-Time Batch Progress & Status", description = "Polls execution progress, total processed, failed count, and estimated time remaining in seconds.")
-    @ApiResponse(responseCode = "200", description = "Batch status fetched successfully")
-    @ApiResponse(responseCode = "404", description = "Batch job ID not found")
-    public ResponseEntity<?> getBatchStatus(@PathVariable String batchId, @AuthenticationPrincipal AuraUserPrincipal principal) {
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Batch status fetched successfully")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Batch job ID not found")
+    public ApiResponse<BatchJobResponseDto> getBatchStatus(@PathVariable String batchId, @AuthenticationPrincipal AuraUserPrincipal principal) {
         BatchJobResponseDto status = jobQueue.getBatchStatus(batchId);
         if (status == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("success", false, "message", "Không tìm thấy đợt sàng lọc hàng loạt với Mã ID: " + batchId));
+            throw new ResourceNotFoundException("Không tìm thấy đợt sàng lọc hàng loạt với Mã ID: " + batchId);
         }
         if (!isAuthorizedForBatch(status, principal)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("success", false, "message", "Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác."));
+            throw new AccessDeniedException("Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác.");
         }
 
-        return ResponseEntity.ok(status);
+        return ApiResponse.success("Lấy trạng thái đợt sàng lọc thành công", status);
     }
 
-    public ResponseEntity<?> getBatchStatus(String batchId) {
+    public ApiResponse<BatchJobResponseDto> getBatchStatus(String batchId) {
         return getBatchStatus(batchId, null);
     }
 
@@ -275,22 +273,20 @@ public class BulkScreeningController {
             summary = "Get Aggregated Risk Statistics (FR-25)",
             description = "TC-CLI-04: Returns aggregated risk metrics including distribution across Low, Moderate, High, and Critical risk, average vascular risk score, and stroke risk."
     )
-    @ApiResponse(responseCode = "200", description = "Risk statistics calculated successfully")
-    @ApiResponse(responseCode = "404", description = "Batch job ID not found")
-    public ResponseEntity<?> getBatchRiskStatistics(@PathVariable String batchId, @AuthenticationPrincipal AuraUserPrincipal principal) {
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Risk statistics calculated successfully")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Batch job ID not found")
+    public ApiResponse<BulkBatchRiskStatisticsDto> getBatchRiskStatistics(@PathVariable String batchId, @AuthenticationPrincipal AuraUserPrincipal principal) {
         BulkBatchRiskStatisticsDto stats = jobQueue.calculateRiskStatistics(batchId);
         if (stats == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("success", false, "message", "Không tìm thấy đợt sàng lọc với Mã ID: " + batchId));
+            throw new ResourceNotFoundException("Không tìm thấy đợt sàng lọc với Mã ID: " + batchId);
         }
         if (!isAuthorizedForClinic(stats.clinicId(), principal)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("success", false, "message", "Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác."));
+            throw new AccessDeniedException("Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác.");
         }
-        return ResponseEntity.ok(stats);
+        return ApiResponse.success("Lấy thống kê rủi ro tổng hợp thành công", stats);
     }
 
-    public ResponseEntity<?> getBatchRiskStatistics(String batchId) {
+    public ApiResponse<BulkBatchRiskStatisticsDto> getBatchRiskStatistics(String batchId) {
         return getBatchRiskStatistics(batchId, null);
     }
 
@@ -303,22 +299,20 @@ public class BulkScreeningController {
             summary = "Get High-Risk Alerts & Abnormal Trends (FR-29)",
             description = "TC-CLI-08: Returns emergency alerts for patients with severe vascular abnormalities and epidemic/cluster trend warnings."
     )
-    @ApiResponse(responseCode = "200", description = "Alerts generated successfully")
-    @ApiResponse(responseCode = "404", description = "Batch job ID not found")
-    public ResponseEntity<?> getBatchAlerts(@PathVariable String batchId, @AuthenticationPrincipal AuraUserPrincipal principal) {
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Alerts generated successfully")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Batch job ID not found")
+    public ApiResponse<BulkBatchAlertSummaryDto> getBatchAlerts(@PathVariable String batchId, @AuthenticationPrincipal AuraUserPrincipal principal) {
         BulkBatchAlertSummaryDto alerts = jobQueue.detectAlertsAndTrends(batchId);
         if (alerts == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "Không tìm thấy đợt sàng lọc với Mã ID: " + batchId));
+            throw new ResourceNotFoundException("Không tìm thấy đợt sàng lọc với Mã ID: " + batchId);
         }
         if (!isAuthorizedForClinic(alerts.clinicId(), principal)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác."));
+            throw new AccessDeniedException("Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác.");
         }
-        return ResponseEntity.ok(alerts);
+        return ApiResponse.success("Lấy cảnh báo rủi ro cao thành công", alerts);
     }
 
-    public ResponseEntity<?> getBatchAlerts(String batchId) {
+    public ApiResponse<BulkBatchAlertSummaryDto> getBatchAlerts(String batchId) {
         return getBatchAlerts(batchId, null);
     }
 
@@ -328,25 +322,23 @@ public class BulkScreeningController {
     @GetMapping("/batch/{batchId}/items/{itemId}")
     @PreAuthorize("hasAnyRole('CLINIC', 'ADMIN')")
     @Operation(summary = "Get Detailed AI Analysis Result for a Specific Image")
-    public ResponseEntity<?> getBatchItemResult(@PathVariable String batchId, @PathVariable String itemId, @AuthenticationPrincipal AuraUserPrincipal principal) {
+    public ApiResponse<BatchJobItemStatusDto> getBatchItemResult(@PathVariable String batchId, @PathVariable String itemId, @AuthenticationPrincipal AuraUserPrincipal principal) {
         BatchJobResponseDto status = jobQueue.getBatchStatus(batchId);
         if (status == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Không tìm thấy đợt sàng lọc."));
+            throw new ResourceNotFoundException("Không tìm thấy đợt sàng lọc.");
         }
         if (!isAuthorizedForBatch(status, principal)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác."));
+            throw new AccessDeniedException("Bạn không có quyền truy cập đợt sàng lọc của cơ sở y tế khác.");
         }
 
-        return status.items().stream()
+        BatchJobItemStatusDto item = status.items().stream()
                 .filter(i -> i.itemId().equals(itemId))
                 .findFirst()
-                .<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("message", "Không tìm thấy bản ghi ảnh với ID: " + itemId)));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản ghi ảnh với ID: " + itemId));
+        return ApiResponse.success("Lấy chi tiết kết quả ảnh thành công", item);
     }
 
-    public ResponseEntity<?> getBatchItemResult(String batchId, String itemId) {
+    public ApiResponse<BatchJobItemStatusDto> getBatchItemResult(String batchId, String itemId) {
         return getBatchItemResult(batchId, itemId, null);
     }
 
@@ -356,21 +348,20 @@ public class BulkScreeningController {
     @PostMapping("/batch/{batchId}/cancel")
     @PreAuthorize("hasAnyRole('CLINIC', 'ADMIN')")
     @Operation(summary = "Cancel or Pause Active Bulk Batch Job")
-    public ResponseEntity<?> cancelBatchJob(@PathVariable String batchId, @AuthenticationPrincipal AuraUserPrincipal principal) {
+    public ApiResponse<Map<String, Object>> cancelBatchJob(@PathVariable String batchId, @AuthenticationPrincipal AuraUserPrincipal principal) {
         BatchJobResponseDto status = jobQueue.getBatchStatus(batchId);
         if (status == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Không tìm thấy đợt sàng lọc."));
+            throw new ResourceNotFoundException("Không tìm thấy đợt sàng lọc.");
         }
         if (!isAuthorizedForBatch(status, principal)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "Bạn không có quyền thao tác trên đợt sàng lọc của cơ sở y tế khác."));
+            throw new AccessDeniedException("Bạn không có quyền thao tác trên đợt sàng lọc của cơ sở y tế khác.");
         }
 
         jobQueue.cancelBatch(batchId);
-        return ResponseEntity.ok(Map.of("message", "Đã tạm dừng đợt sàng lọc hàng loạt thành công.", "batchId", batchId));
+        return ApiResponse.success("Đã tạm dừng đợt sàng lọc hàng loạt thành công.", Map.of("message", "Đã tạm dừng đợt sàng lọc hàng loạt thành công.", "batchId", batchId));
     }
 
-    public ResponseEntity<?> cancelBatchJob(String batchId) {
+    public ApiResponse<Map<String, Object>> cancelBatchJob(String batchId) {
         return cancelBatchJob(batchId, null);
     }
 }

@@ -6,10 +6,14 @@ import com.aura.billing.dto.PaymentTransactionResponse;
 import com.aura.billing.dto.SubscriptionResponse;
 import com.aura.billing.service.BillingService;
 import com.aura.common.response.ApiResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -22,9 +26,21 @@ import java.util.List;
 public class BillingController {
 
     private final BillingService billingService;
+    private final boolean sandboxMode;
+    private final Environment environment;
+
+    @Autowired
+    public BillingController(
+            BillingService billingService,
+            @Value("${payment.sandbox-mode:false}") boolean sandboxMode,
+            @Autowired(required = false) Environment environment) {
+        this.billingService = billingService;
+        this.sandboxMode = sandboxMode;
+        this.environment = environment;
+    }
 
     public BillingController(BillingService billingService) {
-        this.billingService = billingService;
+        this(billingService, true, null);
     }
 
     @PostMapping({"/packages/{packageId}/checkout", "/packages/{packageId}/purchase"})
@@ -59,6 +75,21 @@ public class BillingController {
     public ApiResponse<PaymentStatusResponse> confirmLocalPayment(
             @PathVariable Long transactionId,
             @AuthenticationPrincipal AuraUserPrincipal principal) {
+        boolean isAdmin = principal != null && principal.roles() != null
+                && (principal.roles().contains("ADMIN") || principal.roles().contains("ROLE_ADMIN"));
+        boolean isDevOrTest = false;
+        if (environment != null) {
+            for (String profile : environment.getActiveProfiles()) {
+                if ("dev".equalsIgnoreCase(profile) || "test".equalsIgnoreCase(profile)) {
+                    isDevOrTest = true;
+                    break;
+                }
+            }
+        }
+        if (!sandboxMode && !isDevOrTest && !isAdmin) {
+            throw new AccessDeniedException(
+                    "Xác nhận thanh toán cục bộ chỉ khả dụng trong môi trường thử nghiệm (Sandbox/Dev) hoặc bởi Quản trị viên.");
+        }
         var txn = billingService.confirmLocalPayment(principal.id(), transactionId);
         return ApiResponse.success("Xác nhận thanh toán thành công", PaymentStatusResponse.from(txn));
     }

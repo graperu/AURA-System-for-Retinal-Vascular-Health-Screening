@@ -66,22 +66,25 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
           String authHeader = accessor.getFirstNativeHeader("Authorization");
-          if (authHeader != null && authHeader.startsWith("Bearer ") && jwtTokenProvider != null) {
-            String token = authHeader.substring(7).trim();
-            try {
-              Claims claims = jwtTokenProvider.parse(token);
-              UUID id = UUID.fromString(claims.getSubject());
-              @SuppressWarnings("unchecked")
-              List<String> roles = claims.get("roles", List.class);
-              AuraUserPrincipal principal = new AuraUserPrincipal(
-                  id, id.toString(), "", true, roles != null ? roles : List.of());
-              UsernamePasswordAuthenticationToken auth =
-                  new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
-              accessor.setUser(auth);
-              log.debug("WebSocket STOMP authenticated for user: {}", id);
-            } catch (Exception e) {
-              log.warn("Invalid JWT in WebSocket CONNECT: {}", e.getMessage());
-            }
+          if (authHeader == null || !authHeader.startsWith("Bearer ") || jwtTokenProvider == null) {
+            log.warn("WebSocket CONNECT rejected: Missing or invalid Authorization header");
+            throw new AccessDeniedException("Yêu cầu JWT token hợp lệ trong header Authorization để kết nối WebSocket");
+          }
+          String token = authHeader.substring(7).trim();
+          try {
+            Claims claims = jwtTokenProvider.parse(token);
+            UUID id = UUID.fromString(claims.getSubject());
+            @SuppressWarnings("unchecked")
+            List<String> roles = claims.get("roles", List.class);
+            AuraUserPrincipal principal = new AuraUserPrincipal(
+                id, id.toString(), "", true, roles != null ? roles : List.of());
+            UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+            accessor.setUser(auth);
+            log.debug("WebSocket STOMP authenticated for user: {}", id);
+          } catch (Exception e) {
+            log.warn("Invalid JWT in WebSocket CONNECT: {}", e.getMessage());
+            throw new AccessDeniedException("JWT token không hợp lệ hoặc đã hết hạn: " + e.getMessage());
           }
         } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
           String destination = accessor.getDestination();
@@ -94,14 +97,22 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
       }
 
       private void authorizeSubscription(String destination, StompHeaderAccessor accessor) {
-        boolean isPrivateTopic = destination.startsWith("/topic/chat.")
-            || destination.startsWith("/topic/notifications.")
-            || destination.startsWith("/topic/screening.")
-            || destination.startsWith("/topic/appointments.")
-            || destination.startsWith("/topic/clinic.")
-            || destination.startsWith("/topic/screening-chat.");
+        String normalized = destination;
+        if (destination.startsWith("/topic/")) {
+          normalized = "/topic/" + destination.substring(7).replace('/', '.');
+        }
 
-        if (!isPrivateTopic) {
+        boolean isRestrictedTopic = normalized.startsWith("/topic/chat.")
+            || normalized.startsWith("/topic/notifications.")
+            || normalized.startsWith("/topic/screening.")
+            || normalized.startsWith("/topic/appointments.")
+            || normalized.startsWith("/topic/clinic.")
+            || normalized.startsWith("/topic/screening-chat.")
+            || normalized.startsWith("/topic/doctor.")
+            || normalized.startsWith("/topic/admin.")
+            || normalized.startsWith("/topic/patient.");
+
+        if (!isRestrictedTopic) {
           return;
         }
 
@@ -117,44 +128,60 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
           return;
         }
 
-        if (destination.startsWith("/topic/chat.")) {
-          String targetUserId = destination.substring("/topic/chat.".length());
+        if (normalized.startsWith("/topic/admin.")) {
+          log.warn("Unauthorized subscription to admin topic {} by user {}", destination, principal.id());
+          throw new AccessDeniedException("Chỉ Quản trị viên mới có quyền đăng ký kênh thông báo quản trị");
+        } else if (normalized.startsWith("/topic/doctor.")) {
+          if (!hasRole(principal, "DOCTOR")) {
+            log.warn("Unauthorized subscription to doctor topic {} by user {}", destination, principal.id());
+            throw new AccessDeniedException("Chỉ Bác sĩ mới có quyền đăng ký kênh thông báo chuyên môn");
+          }
+        } else if (normalized.startsWith("/topic/patient.")) {
+          String targetPatientId = normalized.substring("/topic/patient.".length());
+          boolean isSelf = principal.id().toString().equalsIgnoreCase(targetPatientId);
+          boolean isClinicalStaff = hasRole(principal, "DOCTOR") || hasRole(principal, "CLINIC");
+          if (!isSelf && !isClinicalStaff) {
+            log.warn("Unauthorized subscription to patient topic {} by user {}", destination, principal.id());
+            throw new AccessDeniedException("Unauthorized subscription to patient channel");
+          }
+        } else if (normalized.startsWith("/topic/chat.")) {
+          String targetUserId = normalized.substring("/topic/chat.".length());
           boolean isSelf = principal.id().toString().equalsIgnoreCase(targetUserId);
           boolean isDoctor = hasRole(principal, "DOCTOR");
           if (!isSelf && !isDoctor) {
             log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
             throw new AccessDeniedException("Unauthorized subscription to private channel");
           }
-        } else if (destination.startsWith("/topic/notifications.")) {
-          String targetUserId = destination.substring("/topic/notifications.".length());
+        } else if (normalized.startsWith("/topic/notifications.")) {
+          String targetUserId = normalized.substring("/topic/notifications.".length());
           boolean isSelf = principal.id().toString().equalsIgnoreCase(targetUserId);
           if (!isSelf) {
             log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
             throw new AccessDeniedException("Unauthorized subscription to private channel");
           }
-        } else if (destination.startsWith("/topic/screening.")) {
-          String patientId = destination.substring("/topic/screening.".length());
+        } else if (normalized.startsWith("/topic/screening.")) {
+          String patientId = normalized.substring("/topic/screening.".length());
           boolean isSelf = principal.id().toString().equalsIgnoreCase(patientId);
           boolean isClinicalStaff = hasRole(principal, "DOCTOR") || hasRole(principal, "CLINIC");
           if (!isSelf && !isClinicalStaff) {
             log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
             throw new AccessDeniedException("Unauthorized subscription to screening channel");
           }
-        } else if (destination.startsWith("/topic/appointments.")) {
-          String targetUserId = destination.substring("/topic/appointments.".length());
+        } else if (normalized.startsWith("/topic/appointments.")) {
+          String targetUserId = normalized.substring("/topic/appointments.".length());
           boolean isSelf = principal.id().toString().equalsIgnoreCase(targetUserId);
           boolean isClinicalStaff = hasRole(principal, "DOCTOR") || hasRole(principal, "CLINIC");
           if (!isSelf && !isClinicalStaff) {
             log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
             throw new AccessDeniedException("Unauthorized subscription to appointments channel");
           }
-        } else if (destination.startsWith("/topic/clinic.")) {
+        } else if (normalized.startsWith("/topic/clinic.")) {
           boolean isClinicOrDoctor = hasRole(principal, "CLINIC") || hasRole(principal, "DOCTOR");
           if (!isClinicOrDoctor) {
             log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
             throw new AccessDeniedException("Unauthorized subscription to clinic channel");
           }
-        } else if (destination.startsWith("/topic/screening-chat.")) {
+        } else if (normalized.startsWith("/topic/screening-chat.")) {
           boolean isAuthorized = hasRole(principal, "USER")
               || hasRole(principal, "PATIENT")
               || hasRole(principal, "DOCTOR")

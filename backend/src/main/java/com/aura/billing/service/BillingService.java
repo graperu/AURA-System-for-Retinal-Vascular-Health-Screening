@@ -124,6 +124,10 @@ public class BillingService {
                 ? result.providerReference()
                 : ("AURA_TXN_" + System.currentTimeMillis() + "_" + randomSuffix);
 
+        String finalPaymentUrl = ("VIETQR".equalsIgnoreCase(method) || "BANK_TRANSFER".equalsIgnoreCase(method))
+                ? qrCodeUrl
+                : result.paymentUrl();
+
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .buyer(owner)
                 .servicePackage(servicePackage)
@@ -133,13 +137,13 @@ public class BillingService {
                 .providerReference(providerRef)
                 .transferContent(transferContent)
                 .qrCodeUrl(qrCodeUrl)
-                .paymentUrl(result.paymentUrl())
+                .paymentUrl(finalPaymentUrl)
                 .expiresAt(LocalDateTime.now().plusMinutes(15))
                 .build();
 
         PaymentTransaction savedTxn = paymentTransactionRepository.save(transaction);
 
-        return PaymentTransactionResponse.from(savedTxn, result.paymentUrl(), result.merchantId());
+        return PaymentTransactionResponse.from(savedTxn, finalPaymentUrl, result.merchantId());
     }
 
     @Transactional
@@ -365,7 +369,7 @@ public class BillingService {
 
     @Transactional
     public boolean deductCredit(UUID ownerId) {
-        List<Subscription> activeSubs = subscriptionRepository.findByOwnerId(ownerId).stream()
+        List<Subscription> activeSubs = subscriptionRepository.findByOwnerIdForUpdate(ownerId).stream()
                 .map(this::expireIfPast)
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE && s.getRemainingCredits() > 0)
                 .sorted(java.util.Comparator.comparing(Subscription::getExpiresAt))
@@ -379,6 +383,26 @@ public class BillingService {
         sub.setRemainingCredits(sub.getRemainingCredits() - 1);
         subscriptionRepository.save(sub);
         return true;
+    }
+
+    @Transactional
+    public void refundCredit(UUID ownerId) {
+        refundCredit(ownerId, 1);
+    }
+
+    @Transactional
+    public void refundCredit(UUID ownerId, int amount) {
+        if (ownerId == null || amount <= 0) return;
+        List<Subscription> subs = subscriptionRepository.findByOwnerIdForUpdate(ownerId).stream()
+                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
+                .sorted(java.util.Comparator.comparing(Subscription::getExpiresAt).reversed())
+                .toList();
+        if (!subs.isEmpty()) {
+            Subscription sub = subs.get(0);
+            sub.setRemainingCredits(sub.getRemainingCredits() + amount);
+            subscriptionRepository.save(sub);
+            log.info("Hoàn trả {} lượt khám cho người dùng {}", amount, ownerId);
+        }
     }
 
     private Subscription expireIfPast(Subscription subscription) {

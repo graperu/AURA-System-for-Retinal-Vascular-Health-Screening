@@ -117,16 +117,43 @@ export function navigateToAdminAudit(logId: string): string {
 }
 
 /**
- * Convenience helper to perform navigation in browser environment.
+ * Parses the target active section from a portal URL path.
+ * @param url The URL path (e.g. /patient/scan-history)
+ * @returns The section name (e.g. scan-history)
+ */
+export function parseSectionFromUrl(url: string): string {
+  try {
+    const path = url.split('?')[0].split('#')[0];
+    const segments = path.split('/').filter(Boolean);
+    if (segments.length === 0) return 'dashboard';
+    if (['patient', 'doctor', 'clinic', 'admin'].includes(segments[0])) {
+      return segments[1] || 'dashboard';
+    }
+    return segments[0] || 'dashboard';
+  } catch {
+    return 'dashboard';
+  }
+}
+
+/**
+ * Convenience helper to perform navigation in browser environment without full page reload.
+ * Dispatches 'aura-navigate' and 'aura:navigate' custom events for SPA routing.
  * @param url The target URL path to navigate to.
  */
 export function navigate(url: string): void {
   if (typeof window !== 'undefined') {
-    if (url.startsWith('http')) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
       window.location.href = url;
-    } else {
-      window.location.assign(url);
+      return;
     }
+    try {
+      window.history.pushState({}, '', url);
+    } catch {
+      // fallback
+    }
+    const section = parseSectionFromUrl(url);
+    window.dispatchEvent(new CustomEvent('aura-navigate', { detail: { url, section } }));
+    window.dispatchEvent(new CustomEvent('aura:navigate', { detail: { url, section } }));
   }
 }
 
@@ -136,6 +163,7 @@ export const navigationService = {
   navigateToDoctorCase,
   navigateToClinicBatch,
   navigateToAdminAudit,
+  parseSectionFromUrl,
   navigate,
 };
 

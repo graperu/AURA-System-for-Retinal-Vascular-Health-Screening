@@ -76,4 +76,43 @@ class RealtimeSseControllerTest {
   void testBroadcastNullDoesNotThrow() {
     controller.broadcast((ScanUploadedEvent) null);
   }
+
+  @Test
+  void testSubscribeWithPrincipal() {
+    UUID userId = UUID.randomUUID();
+    com.aura.auth.security.AuraUserPrincipal principal = new com.aura.auth.security.AuraUserPrincipal(
+        userId, "doc@aura.com", "pass", true, java.util.List.of("DOCTOR"));
+
+    SseEmitter emitter = controller.subscribe(principal, null, null, null);
+    assertThat(emitter).isNotNull();
+    assertThat(controller.getActiveCount()).isGreaterThanOrEqualTo(1);
+  }
+
+  @Test
+  void testSubscribeUnauthenticatedThrowsAuthException() {
+    org.junit.jupiter.api.Assertions.assertThrows(
+        com.aura.auth.exception.AuthException.class,
+        () -> controller.subscribe(null, null, null, null)
+    );
+  }
+
+  @Test
+  void testBroadcastUserScopingPatientReceivesOwnEvent() {
+    UUID patientId = UUID.randomUUID();
+    com.aura.auth.security.AuraUserPrincipal patientPrincipal = new com.aura.auth.security.AuraUserPrincipal(
+        patientId, "patient@aura.com", "pass", true, java.util.List.of("USER"));
+
+    controller.subscribe(patientPrincipal, null, null, null);
+    assertThat(controller.getActiveCount()).isGreaterThanOrEqualTo(1);
+
+    // Event matching this patient
+    ScanUploadedEvent ownEvent = new ScanUploadedEvent(UUID.randomUUID(), patientId, "Patient Name", "OD", 0.45);
+    controller.broadcast(ownEvent);
+
+    // Event for different patient
+    ScanUploadedEvent otherEvent = new ScanUploadedEvent(UUID.randomUUID(), UUID.randomUUID(), "Other Patient", "OS", 0.75);
+    controller.broadcast(otherEvent);
+
+    assertThat(controller.getActiveCount()).isGreaterThanOrEqualTo(1);
+  }
 }

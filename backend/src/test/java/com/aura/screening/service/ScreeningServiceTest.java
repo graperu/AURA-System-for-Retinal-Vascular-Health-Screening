@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,7 +71,7 @@ class ScreeningServiceTest {
     assertNull(result.getConfidence(), "Confidence bắt buộc phải là null (không được sinh giả 0.94)");
     assertNotNull(result.getFindings());
 
-    verify(screeningRepository).save(any(Screening.class));
+    verify(screeningRepository, atLeastOnce()).save(any(Screening.class));
   }
 
   @Test
@@ -153,7 +154,7 @@ class ScreeningServiceTest {
     assertEquals(204800L, result.getFileSize(), "fileSize phải được bảo toàn");
     assertEquals("image/jpeg", result.getMimeType(), "mimeType phải được bảo toàn");
     assertEquals(ScreeningStatus.ANALYZED, result.getStatus());
-    verify(screeningRepository).save(any(Screening.class));
+    verify(screeningRepository, atLeastOnce()).save(any(Screening.class));
   }
 
   @Test
@@ -195,7 +196,7 @@ class ScreeningServiceTest {
     assertNull(result.getConfidence(), "confidence phải là null khi AI gặp sự cố");
     assertNotNull(result.getFindings());
     assertTrue(result.getFindings().contains("Không thể kết nối đến máy chủ phân tích AI"));
-    verify(screeningRepository).save(any(Screening.class));
+    verify(screeningRepository, atLeastOnce()).save(any(Screening.class));
   }
 
   @Test

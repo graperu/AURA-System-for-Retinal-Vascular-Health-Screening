@@ -63,6 +63,7 @@ public class ScreeningController {
     Page<Screening> screeningsPage;
     boolean isAdmin = hasRole(principal, "ADMIN");
     boolean isDoctor = hasRole(principal, "DOCTOR");
+    boolean isClinic = hasRole(principal, "CLINIC");
 
     if (isAdmin) {
       if (patientId != null) {
@@ -80,6 +81,12 @@ public class ScreeningController {
         screeningsPage = screeningService.getScreeningsForPatient(patientId, pageable);
       } else {
         screeningsPage = screeningService.getScreeningsForDoctor(principal.id(), pageable);
+      }
+    } else if (isClinic) {
+      if (patientId != null) {
+        screeningsPage = screeningService.getScreeningsForPatient(patientId, pageable);
+      } else {
+        screeningsPage = screeningService.getScreeningsForClinic(principal.id(), pageable);
       }
     } else {
       if (patientId != null && !patientId.equals(principal.id())) {
@@ -104,6 +111,7 @@ public class ScreeningController {
     List<Screening> screenings;
     boolean isAdmin = hasRole(principal, "ADMIN");
     boolean isDoctor = hasRole(principal, "DOCTOR");
+    boolean isClinic = hasRole(principal, "CLINIC");
 
     if (isAdmin) {
       if (patientId != null) {
@@ -122,6 +130,12 @@ public class ScreeningController {
       } else {
         screenings = screeningService.getScreeningsForDoctor(principal.id());
       }
+    } else if (isClinic) {
+      if (patientId != null) {
+        screenings = screeningService.getScreeningsForPatient(patientId);
+      } else {
+        screenings = screeningService.getScreeningsForClinic(principal.id());
+      }
     } else {
       if (patientId != null && !patientId.equals(principal.id())) {
         throw new AuthException(
@@ -135,7 +149,14 @@ public class ScreeningController {
   }
 
   private boolean hasRole(AuraUserPrincipal principal, String role) {
-    return principal.roles() != null && principal.roles().stream().anyMatch(r -> r.equalsIgnoreCase(role));
+    if (principal == null || principal.roles() == null) {
+      return false;
+    }
+    String cleanRole = role.startsWith("ROLE_") ? role.substring(5) : role;
+    return principal.roles().stream().anyMatch(r -> {
+      String cleanR = r.startsWith("ROLE_") ? r.substring(5) : r;
+      return cleanR.equalsIgnoreCase(cleanRole);
+    });
   }
 
   public ApiResponse<List<Screening>> getScreenings(AuraUserPrincipal principal) {
@@ -160,7 +181,7 @@ public class ScreeningController {
   @Audited(action = "CLINICAL_REVIEW", module = "SCREENING", resourceType = "SCREENING", description = "Bác sĩ thẩm định đánh giá lâm sàng và điều chỉnh nguy cơ")
   @PostMapping("/{id}/review")
   @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canReviewScreening(principal, #id)")
-  public ApiResponse<Screening> reviewScreening(
+  public ApiResponse<ScreeningResponse> reviewScreening(
       @AuthenticationPrincipal AuraUserPrincipal principal,
       @PathVariable UUID id,
       @Valid @RequestBody ReviewScreeningRequest request) {
@@ -175,10 +196,11 @@ public class ScreeningController {
       request.adjustedCardioRisk(),
       request.adjustedDrRisk(),
       request.icd10Codes());
-    return ApiResponse.success("Lưu đánh giá chẩn đoán của bác sĩ thành công", updated);
+    return ApiResponse.success("Lưu đánh giá chẩn đoán của bác sĩ thành công", ScreeningResponse.fromEntity(updated));
   }
 
   @DeleteMapping("/{id}")
+  @PreAuthorize("hasRole('ADMIN')")
   public ApiResponse<Void> deleteScreening(
       @PathVariable UUID id,
       @AuthenticationPrincipal AuraUserPrincipal principal) {
@@ -191,6 +213,7 @@ public class ScreeningController {
   }
 
   @PostMapping("/batch-delete")
+  @PreAuthorize("hasRole('ADMIN')")
   public ApiResponse<Integer> batchDeleteScreenings(
       @Valid @RequestBody BatchDeleteScreeningsRequest request,
       @AuthenticationPrincipal AuraUserPrincipal principal) {

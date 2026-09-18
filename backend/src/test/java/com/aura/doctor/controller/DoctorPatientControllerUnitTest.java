@@ -20,6 +20,7 @@ import com.aura.patient.dto.PatientProfileResponse;
 import com.aura.patient.entity.PatientProfile;
 import com.aura.patient.service.PatientProfileService;
 import com.aura.screening.dto.CreateScreeningRequest;
+import com.aura.screening.dto.ScreeningResponse;
 import com.aura.screening.entity.Screening;
 import com.aura.screening.service.ScreeningService;
 import java.time.Instant;
@@ -282,11 +283,12 @@ class DoctorPatientControllerUnitTest {
       Screening screening = new Screening(patientId, "https://cdn.aura/screening1.png");
       when(screeningService.getScreeningsForPatient(eq(patientId))).thenReturn(List.of(screening));
 
-      ApiResponse<List<Screening>> response = controller.getAssignedPatientScreenings(patientId);
+      ApiResponse<List<ScreeningResponse>> response = controller.getAssignedPatientScreenings(patientId);
 
       assertThat(response).isNotNull();
       assertThat(response.message()).isEqualTo("Lấy lịch sử ca sàng lọc của bệnh nhân thành công");
       assertThat(response.data()).hasSize(1);
+      assertThat(response.data().get(0).patientId()).isEqualTo(patientId);
       verify(screeningService).getScreeningsForPatient(eq(patientId));
     }
   }
@@ -314,14 +316,14 @@ class DoctorPatientControllerUnitTest {
           "https://cdn.aura/scan.png", "OD", "COLOR_FUNDUS", "scan.png", 1024L, "image/png", 65, 0.65, "18.5", null
       );
       Screening screening = new Screening(patientId, "https://cdn.aura/scan.png");
-      when(screeningService.createScreening(eq(patientId), eq(req))).thenReturn(screening);
+      when(screeningService.createScreening(eq(patientId), eq(req), eq(doctorId))).thenReturn(screening);
 
-      ApiResponse<Screening> response = controller.createScreeningForAssignedPatient(doctorPrincipal, patientId, req);
+      ApiResponse<ScreeningResponse> response = controller.createScreeningForAssignedPatient(doctorPrincipal, patientId, req);
 
       assertThat(response).isNotNull();
       assertThat(response.message()).isEqualTo("Tạo ca sàng lọc cho bệnh nhân được phân công thành công");
-      assertThat(response.data()).isEqualTo(screening);
-      verify(screeningService).createScreening(eq(patientId), eq(req));
+      assertThat(response.data().patientId()).isEqualTo(patientId);
+      verify(screeningService).createScreening(eq(patientId), eq(req), eq(doctorId));
     }
   }
 }

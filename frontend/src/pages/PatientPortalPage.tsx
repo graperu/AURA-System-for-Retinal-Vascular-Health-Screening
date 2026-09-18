@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { UserSession } from "../types/auth";
-import { PatientUploader } from "../components/PatientUploader";
-import { InteractiveCDSViewer } from "../components/InteractiveCDSViewer";
-import { ClinicalRiskSummaryCard } from "../components/ClinicalRiskSummaryCard";
 import { PatientDashboardView } from "../features/patient/PatientDashboardView";
 import { PatientHistoryView, PatientHistoryItem } from "../features/patient/PatientHistoryView";
 import { PatientUploadWizard } from "../features/patient/PatientUploadWizard";
@@ -13,7 +10,6 @@ import { MedicalReportModal } from "../components/MedicalReportModal";
 import { ConsultationChatModal } from "../components/ConsultationChatModal";
 import { CreditPurchaseModal } from "../components/CreditPurchaseModal";
 import { MedicalProfileModal } from "../components/MedicalProfileModal";
-import { RegisterExaminationModal } from "../components/RegisterExaminationModal";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { useAnalysisProgress } from "../hooks/useAnalysisProgress";
 import {
@@ -21,7 +17,7 @@ import {
   FundusAnalysisRequest,
   PatientProfile,
 } from "../types/cds";
-import { screeningApi, chatApi, billingApi, patientApi } from "../services/api";
+import { screeningApi, chatApi, billingApi, patientApi, notificationApi } from "../services/api";
 import { stompClient } from "../services/websocketService";
 import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
 import { useLanguage } from "../context/LanguageContext";
@@ -35,7 +31,6 @@ import {
   Eye,
   Heart,
   Activity,
-  Download,
   ShieldCheck,
   UserCheck,
   CheckCircle2,
@@ -1653,6 +1648,133 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          VIEW 8: NOTIFICATIONS (FE-NAV-1)
+      ========================================================================== */}
+      {activeView === "notifications" && (
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="p-3.5 rounded-2xl bg-blue-50 text-blue-600">
+                  <Bell className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {isVi ? "Trung Tâm Thông Báo" : "Notification Center"}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {isVi
+                      ? "Cập nhật tiến trình phân tích AI, kết quả thẩm định và nhắc nhở y tế"
+                      : "Real-time updates on AI analysis, clinical reviews, and health reminders"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void notificationApi.markAllAsRead().then(() => {
+                      realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
+                    });
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {isVi ? "Đánh dấu tất cả đã đọc" : "Mark all as read"}
+                </button>
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              <div className="py-4 flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">
+                      {isVi ? "Sàng lọc võng mạc vi mạch AI" : "AI Retinal Vascular Screening"}
+                    </h4>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {isVi
+                        ? "Hệ thống AI sẵn sàng phân tích ảnh chụp đáy mắt và tính toán nguy cơ tim mạch - đột quỵ."
+                        : "AI system is ready to analyze fundus images and compute cardiovascular/stroke risk."}
+                    </p>
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      {isVi ? "Hệ thống AURA" : "AURA System"}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.("upload-scan")}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg shrink-0 cursor-pointer"
+                >
+                  {isVi ? "Tải ảnh mới" : "Upload Scan"}
+                </button>
+              </div>
+
+              <div className="py-4 flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">
+                      {isVi ? "Lịch sử & Kết quả sàng lọc" : "Screening Results & History"}
+                    </h4>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {isVi
+                        ? "Theo dõi tiến trình đánh giá của bác sĩ chuyên khoa và tải báo cáo y tế định dạng PDF."
+                        : "Track specialist clinical review progress and download official PDF medical reports."}
+                    </p>
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      {isVi ? "Hồ sơ y bạ điện tử" : "Electronic Medical Records"}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.("scan-history")}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg shrink-0 cursor-pointer"
+                >
+                  {isVi ? "Xem kết quả" : "View Results"}
+                </button>
+              </div>
+
+              <div className="py-4 flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <CalendarCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">
+                      {isVi ? "Lịch hẹn tư vấn chuyên khoa" : "Specialist Teleconsultation"}
+                    </h4>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {isVi
+                        ? "Đăng ký lịch trao đổi trực tuyến với bác sĩ chuyên khoa mắt và tim mạch."
+                        : "Schedule an online consultation with ophthalmology and cardiovascular specialists."}
+                    </p>
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      {isVi ? "Tư vấn từ xa" : "Teleconsultation"}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.("appointment")}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg shrink-0 cursor-pointer"
+                >
+                  {isVi ? "Đặt lịch hẹn" : "Book Appointment"}
+                </button>
               </div>
             </div>
           </div>

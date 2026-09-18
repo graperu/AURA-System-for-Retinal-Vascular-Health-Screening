@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { LoginPage } from './components/auth/LoginPage';
 import { VerifyEmailLink } from './components/auth/VerifyEmailLink';
 import { AppLayout } from './layouts/AppLayout';
@@ -6,6 +6,7 @@ import { useAuth } from './context/AuthContext';
 import { useLanguage } from './context/LanguageContext';
 import { LoadingState } from './components/ui/StateFeedback';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { parseSectionFromUrl } from './services/navigationService';
 
 const PatientPortalPage = lazy(() => import('./pages/PatientPortalPage').then(m => ({ default: m.PatientPortalPage })));
 const CDSDashboardPage = lazy(() => import('./pages/CDSDashboardPage').then(m => ({ default: m.CDSDashboardPage })));
@@ -16,11 +17,36 @@ const VnPayReturnPage = lazy(() => import('./pages/VnPayReturnPage').then(m => (
 export const App: React.FC = () => {
   const { user: currentUser, loading, logout } = useAuth();
   const { t, isVi } = useLanguage();
-  const [activeSection, setActiveSection] = useState('dashboard');
+  const [activeSection, setActiveSection] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseSectionFromUrl(window.location.pathname) || 'dashboard';
+    }
+    return 'dashboard';
+  });
 
   const handleSelectSection = (section: string) => {
     setActiveSection(section);
   };
+
+  useEffect(() => {
+    const onAuraNavigate = (e: Event) => {
+      const detail = (e as CustomEvent<{ url: string; section?: string }>).detail;
+      if (detail?.section) {
+        setActiveSection(detail.section);
+      }
+    };
+    const onPopState = () => {
+      setActiveSection(parseSectionFromUrl(window.location.pathname));
+    };
+    window.addEventListener('aura-navigate', onAuraNavigate);
+    window.addEventListener('aura:navigate', onAuraNavigate);
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('aura-navigate', onAuraNavigate);
+      window.removeEventListener('aura:navigate', onAuraNavigate);
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, []);
 
   if (window.location.pathname.startsWith('/billing/vnpay-return')) {
     return (

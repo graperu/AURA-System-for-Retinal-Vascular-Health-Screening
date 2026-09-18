@@ -465,7 +465,7 @@ public class BackendNfrEmpiricalChallengerTest {
       when(dynamicConfigService.getCriticalThreshold()).thenReturn(70);
       when(dynamicConfigService.getHighThreshold()).thenReturn(50);
       when(dynamicConfigService.getModerateThreshold()).thenReturn(30);
-      when(dynamicConfigService.getActiveModelVersion()).thenReturn("Gemini 3.7 Flash High / AURA-Core v2.4");
+      when(dynamicConfigService.getActiveModelVersion()).thenReturn("Gemini 3.8 Flash High / AURA-Core v2.4");
 
       ScreeningRepository screeningRepo = mock(ScreeningRepository.class);
       GeminiRetinalAiService geminiAiService = mock(GeminiRetinalAiService.class);
@@ -500,7 +500,7 @@ public class BackendNfrEmpiricalChallengerTest {
       // Verify dynamic classification outcome
       assertThat(screening.getRiskLevel()).isEqualTo(RiskLevel.CRITICAL);
       assertThat(screening.getRiskScore()).isEqualTo(75);
-      assertThat(screening.getAiModelVersion()).isEqualTo("Gemini 3.7 Flash High / AURA-Core v2.4");
+      assertThat(screening.getAiModelVersion()).isEqualTo("Gemini 3.8 Flash High / AURA-Core v2.4");
       assertThat(screening.getAppliedThresholds()).isEqualTo("CRIT:70,HIGH:50,MOD:30");
     }
 

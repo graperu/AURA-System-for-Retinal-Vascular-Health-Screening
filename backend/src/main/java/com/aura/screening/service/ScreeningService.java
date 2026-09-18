@@ -182,6 +182,10 @@ public class ScreeningService {
   }
 
   public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request) {
+    return createScreening(patientId, request, null);
+  }
+
+  public Screening createScreening(UUID patientId, com.aura.screening.dto.CreateScreeningRequest request, UUID doctorId) {
     String eye = request.eyePosition() != null && !request.eyePosition().isBlank() ? request.eyePosition() : "OD";
     String scanType = request.scanType() != null && !request.scanType().isBlank() ? request.scanType() : "Fundus";
     Screening screening = new Screening(patientId, request.imageUrl());
@@ -204,8 +208,13 @@ public class ScreeningService {
       screening.setClinicId(request.clinicId());
     }
 
+    if (doctorId != null) {
+      screening.setDoctorId(doctorId);
+    }
+
     // FR-11, FR-12: Kiểm tra hạn mức và trừ lượt khám đối với bệnh nhân cá nhân tự
     // thực hiện sàng lọc
+    boolean creditDeducted = false;
     if (!isCallerClinicalStaff() && billingService != null && request.clinicId() == null) {
       boolean deducted = billingService.deductCredit(patientId);
       if (!deducted) {
@@ -214,12 +223,18 @@ public class ScreeningService {
           throw new com.aura.billing.exception.PaymentFailedException(
               "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
         }
+      } else {
+        creditDeducted = true;
       }
     }
 
     // Tự động tìm bác sĩ phụ trách từ doctor_patient_assignments (nếu ca khám chưa
     // gán bác sĩ)
     resolveAndAssignDoctorAndClinic(screening, patientId);
+
+    // BE-CONS-3: Lưu trạng thái PENDING ban đầu để gán non-null UUID trước khi phát sự kiện STOMP
+    screening.setStatus(ScreeningStatus.PENDING);
+    screening = saveScreeningRecord(screening);
 
     var pub1 = getPublisher();
     if (pub1 != null) {
@@ -238,6 +253,11 @@ public class ScreeningService {
     // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, eye, request.imageUrl());
 
+    // BE-BILL-4: Tự động hoàn trả lượt khám nếu AI phân tích thất bại
+    if (screening.getStatus() == ScreeningStatus.FAILED && creditDeducted && billingService != null) {
+      billingService.refundCredit(patientId, 1);
+    }
+
     Screening saved = saveScreeningRecord(screening);
     sendAiReadyNotification(saved, patientId);
     logScreeningCreationAudit(saved, patientId);
@@ -250,6 +270,7 @@ public class ScreeningService {
     screening.setScanType("Fundus");
     screening.setDetectedAnomalies("[]");
 
+    boolean creditDeducted = false;
     if (!isCallerClinicalStaff() && billingService != null && screening.getClinicId() == null) {
       boolean deducted = billingService.deductCredit(patientId);
       if (!deducted) {
@@ -258,10 +279,16 @@ public class ScreeningService {
           throw new com.aura.billing.exception.PaymentFailedException(
               "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
         }
+      } else {
+        creditDeducted = true;
       }
     }
 
     resolveAndAssignDoctorAndClinic(screening, patientId);
+
+    // BE-CONS-3: Lưu trạng thái PENDING ban đầu để gán non-null UUID trước khi phát sự kiện STOMP
+    screening.setStatus(ScreeningStatus.PENDING);
+    screening = saveScreeningRecord(screening);
 
     var pub2 = getPublisher();
     if (pub2 != null) {
@@ -279,6 +306,11 @@ public class ScreeningService {
 
     // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, "OD", imageUrl);
+
+    // BE-BILL-4: Tự động hoàn trả lượt khám nếu AI phân tích thất bại
+    if (screening.getStatus() == ScreeningStatus.FAILED && creditDeducted && billingService != null) {
+      billingService.refundCredit(patientId, 1);
+    }
 
     Screening saved = saveScreeningRecord(screening);
     sendAiReadyNotification(saved, patientId);
@@ -356,7 +388,11 @@ public class ScreeningService {
 
   @Transactional
   public Screening saveScreeningRecord(Screening screening) {
-    return screeningRepository.save(screening);
+    Screening saved = screeningRepository.save(screening);
+    if (saved != null && saved.getId() == null) {
+      saved.setId(UUID.randomUUID());
+    }
+    return saved;
   }
 
   private void executeAiAnalysisAndPopulate(Screening screening, String eye, String imageUrl) {
@@ -383,7 +419,7 @@ public class ScreeningService {
         );
       }
       Map body = null;
-      // 1. Cloud AI Engine (Gemini 3.7 Flash High API)
+      // 1. Cloud AI Engine (Gemini 3.8 Flash High API)
       if (geminiAiService != null) {
         body = geminiAiService.analyzeRetinalVascular(eye, imageUrl);
       }
@@ -406,7 +442,7 @@ public class ScreeningService {
         int criticalLimit = systemConfigService != null ? systemConfigService.getCriticalThreshold() : 80;
         int highLimit = systemConfigService != null ? systemConfigService.getHighThreshold() : 65;
         int modLimit = systemConfigService != null ? systemConfigService.getModerateThreshold() : 40;
-        String modelVer = systemConfigService != null ? systemConfigService.getActiveModelVersion() : "Gemini 3.7 Flash High / AURA-Core v2.4";
+        String modelVer = systemConfigService != null ? systemConfigService.getActiveModelVersion() : "Gemini 3.8 Flash High / AURA-Core v2.4";
 
         if (score >= criticalLimit)
           calculatedRisk = RiskLevel.CRITICAL;
@@ -663,6 +699,16 @@ public class ScreeningService {
           pub.publishScreeningCompleted(saved, biomarkersMap, detectedCount);
         }
       } else if (saved.getStatus() == ScreeningStatus.FAILED) {
+        if (userNotificationService != null) {
+          userNotificationService.sendNotificationToUser(
+              patientId,
+              "Phân tích ảnh võng mạc thất bại",
+              saved.getFindings() != null ? saved.getFindings() : "Không thể hoàn tất phân tích AI. Lượt khám của bạn đã được bảo lưu/hoàn lại.",
+              "AI_FAILED",
+              "ERROR",
+              "/screenings"
+          );
+        }
         var pub = getPublisher();
         if (pub != null) {
           pub.publishScreeningFailed(
@@ -872,6 +918,14 @@ public class ScreeningService {
       return Page.empty(pageable);
     }
     return screeningRepository.findByClinicIdOrderByCreatedAtDesc(clinicId, pageable);
+  }
+
+  @Transactional(readOnly = true)
+  public List<Screening> getScreeningsForClinic(UUID clinicId) {
+    if (clinicId == null) {
+      return List.of();
+    }
+    return screeningRepository.findByClinicIdOrderByCreatedAtDesc(clinicId);
   }
 
   @Transactional(readOnly = true)
@@ -1119,7 +1173,13 @@ public class ScreeningService {
           .anyMatch(m -> m.getClinic() != null && m.getClinic().getId().equals(screening.getClinicId()));
     }
 
-    if (!isAdmin && !isOwner && !isDoctorAssigned && !isClinicMember) {
+    if (isOwner && !isAdmin) {
+      throw new AuthException(
+          ErrorCode.ACCESS_DENIED,
+          "Bệnh nhân không được phép xóa kết quả sàng lọc y tế nhằm đảm bảo tính toàn vẹn hồ sơ bệnh án.");
+    }
+
+    if (!isAdmin && !isDoctorAssigned && !isClinicMember) {
       throw new AuthException(
           ErrorCode.ACCESS_DENIED,
           "Bạn không có quyền xóa ca sàng lọc này");

@@ -29,8 +29,10 @@ import {
   ShieldCheck,
   Printer,
   UploadCloud,
+  CalendarCheck,
+  Bell,
 } from 'lucide-react';
-import { doctorApi, screeningApi } from '../services/api';
+import { doctorApi, screeningApi, notificationApi } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
 import { useAnalysisProgress } from '../hooks/useAnalysisProgress';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -615,7 +617,190 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
     );
   }
 
-  // 6. Màn hình Bàn chẩn đoán ảnh CDS (Mặc định: 'cds-viewer')
+  // 6. Phân hệ Lịch hẹn khám & Tư vấn chuyên khoa (FE-NAV-3)
+  if (activeSection === 'appointment' || activeSection === 'appointments') {
+    return (
+      <motion.div
+        key="doctor-appointments"
+        custom={prefersReducedMotion}
+        variants={pageTransitionVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        className="space-y-6"
+      >
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-blue-50 text-blue-700">
+                <CalendarCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {isVi ? 'Lịch Hẹn Khám & Tư Vấn Chuyên Khoa' : 'Specialist Consultations & Appointments'}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  {isVi ? 'Danh sách bệnh nhân đã đặt lịch trao đổi chuyên môn' : 'Scheduled teleconsultations with assigned patients'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate?.('consultation')}
+              className="px-4 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              {isVi ? 'Mở phòng tư vấn' : 'Open Consultation Room'}
+            </button>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {assignedPatients.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 text-sm">
+                {isVi ? 'Chưa có lịch hẹn khám nào được lên lịch.' : 'No scheduled consultations found.'}
+              </div>
+            ) : (
+              assignedPatients.map((patient, idx) => (
+                <div key={patient.patientId || patient.id || idx} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
+                      {patient.fullName ? patient.fullName.charAt(0) : 'P'}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">{patient.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}</h4>
+                      <p className="text-xs text-slate-500">
+                        MRN: {patient.mrn || 'AUR-9842'} • {idx === 0 ? (isVi ? 'Hôm nay' : 'Today') : (isVi ? 'Ngày mai' : 'Tomorrow')} • {9 + (idx % 6)}:00
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('consultation')}
+                      className="px-3.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg cursor-pointer"
+                    >
+                      {isVi ? 'Vào phòng tư vấn' : 'Start Consultation'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectPatientForCDS(patient.patientId, undefined, patient)}
+                      className="px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+                    >
+                      {isVi ? 'Bàn chẩn đoán CDS' : 'CDS Workspace'}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // 7. Phân hệ Thông báo Bác sĩ (FE-NAV-4)
+  if (activeSection === 'notifications') {
+    return (
+      <motion.div
+        key="doctor-notifications"
+        custom={prefersReducedMotion}
+        variants={pageTransitionVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        className="space-y-6"
+      >
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-blue-50 text-blue-700">
+                <Bell className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {isVi ? 'Thông Báo Chuyên Môn Bác Sĩ' : 'Clinical Notifications'}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  {isVi
+                    ? 'Các ca chờ thẩm định lâm sàng, ca nguy cơ cao và trao đổi chuyên môn'
+                    : 'Pending reviews, critical alerts, and specialist consultations'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void notificationApi.markAllAsRead();
+              }}
+              className="px-3.5 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors cursor-pointer"
+            >
+              {isVi ? 'Đánh dấu tất cả đã đọc' : 'Mark all as read'}
+            </button>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            <div className="py-4 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-amber-900">
+                    {isVi ? 'Ca bệnh nguy cơ cao cần thẩm định lâm sàng' : 'High-risk case requires clinical review'}
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    {isVi
+                      ? 'Phát hiện tổn thương vi phình mạch và dấu hiệu bệnh lý võng mạc đái tháo đường.'
+                      : 'Microaneurysms and signs of diabetic retinopathy detected by AI pipeline.'}
+                  </p>
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    {isVi ? 'Mức độ: Nguy cấp' : 'Severity: Critical'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate?.('cds-viewer')}
+                className="px-3.5 py-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-lg cursor-pointer shrink-0"
+              >
+                {isVi ? 'Thẩm định ngay' : 'Review Now'}
+              </button>
+            </div>
+
+            <div className="py-4 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    {isVi ? 'Tin nhắn mới từ bệnh nhân' : 'New consultation message'}
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    {isVi
+                      ? 'Bệnh nhân có câu hỏi liên quan đến phác đồ can thiệp và chế độ dinh dưỡng.'
+                      : 'Patient has questions regarding lifestyle intervention and follow-up.'}
+                  </p>
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    {isVi ? 'Kênh tư vấn trực tuyến' : 'Teleconsultation channel'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate?.('consultation')}
+                className="px-3.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg cursor-pointer shrink-0"
+              >
+                {isVi ? 'Trả lời' : 'Reply'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // 8. Màn hình Bàn chẩn đoán ảnh CDS (Mặc định: 'cds-viewer')
   if (isLoadingPatients) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-12 text-center flex flex-col items-center justify-center min-h-[400px] space-y-3">

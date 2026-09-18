@@ -20,6 +20,7 @@ public class PatientAccessService {
   private final com.aura.patient.repository.PatientProfileRepository patientProfileRepository;
   private final com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository;
   private final com.aura.user.repository.UserRepository userRepository;
+  private final com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository;
 
   @org.springframework.beans.factory.annotation.Autowired
   public PatientAccessService(
@@ -30,18 +31,21 @@ public class PatientAccessService {
       @org.springframework.beans.factory.annotation.Autowired(required = false)
       com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository,
       @org.springframework.beans.factory.annotation.Autowired(required = false)
-      com.aura.user.repository.UserRepository userRepository) {
+      com.aura.user.repository.UserRepository userRepository,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+      com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository) {
     this.assignmentRepository = assignmentRepository;
     this.screeningRepository = screeningRepository;
     this.patientProfileRepository = patientProfileRepository;
     this.patientMedicalProfileRepository = patientMedicalProfileRepository;
     this.userRepository = userRepository;
+    this.clinicMemberRepository = clinicMemberRepository;
   }
 
   public PatientAccessService(
       DoctorPatientAssignmentRepository assignmentRepository,
       ScreeningRepository screeningRepository) {
-    this(assignmentRepository, screeningRepository, null, null, null);
+    this(assignmentRepository, screeningRepository, null, null, null, null);
   }
 
   public boolean canAccessPatient(AuraUserPrincipal principal, UUID patientId) {
@@ -104,6 +108,53 @@ public class PatientAccessService {
         }
       }
     }
+
+    if (hasRole(principal, "CLINIC")) {
+      // 1. Check if clinic has any screening records for this patient
+      if (screeningRepository != null) {
+        boolean hasClinicScreening = screeningRepository.findByClinicIdOrderByCreatedAtDesc(principal.id()).stream()
+            .anyMatch(s -> patientId.equals(s.getPatientId()));
+        if (hasClinicScreening) {
+          return true;
+        }
+      }
+
+      // 2. Resolve effective patient userId if patientId is profile id
+      UUID effectivePatientId = patientId;
+      if (patientProfileRepository != null) {
+        var profileOpt = patientProfileRepository.findById(patientId)
+            .or(() -> patientProfileRepository.findByUserId(patientId));
+        if (profileOpt.isPresent() && profileOpt.get().getUserId() != null) {
+          effectivePatientId = profileOpt.get().getUserId();
+        }
+      }
+
+      if (screeningRepository != null && !effectivePatientId.equals(patientId)) {
+        final UUID effId = effectivePatientId;
+        boolean hasClinicScreening = screeningRepository.findByClinicIdOrderByCreatedAtDesc(principal.id()).stream()
+            .anyMatch(s -> effId.equals(s.getPatientId()));
+        if (hasClinicScreening) {
+          return true;
+        }
+      }
+
+      // 3. Check if any doctor belonging to this clinic is assigned to this patient
+      if (clinicMemberRepository != null && assignmentRepository != null) {
+        var clinicDoctors = clinicMemberRepository.findByClinicId(principal.id());
+        if (clinicDoctors != null) {
+          for (var member : clinicDoctors) {
+            if (member.getDoctor() != null) {
+              UUID docId = member.getDoctor().getId();
+              if (assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(docId, effectivePatientId, AssignmentStatus.ACTIVE)
+                  || assignmentRepository.existsByDoctorIdAndPatientIdAndStatus(docId, patientId, AssignmentStatus.ACTIVE)) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+
     return false;
   }
 
@@ -146,6 +197,9 @@ public class PatientAccessService {
     if (screening == null) {
       return false;
     }
+    if (hasRole(principal, "CLINIC") && principal.id().equals(screening.getClinicId())) {
+      return true;
+    }
     return canAccessPatient(principal, screening.getPatientId());
   }
 
@@ -171,6 +225,6 @@ public class PatientAccessService {
     if (principal == null || principal.roles() == null) {
       return false;
     }
-    return principal.roles().stream().anyMatch(r -> r.equalsIgnoreCase(role));
+    return principal.roles().stream().anyMatch(r -> r != null && (r.equalsIgnoreCase(role) || r.equalsIgnoreCase("ROLE_" + role)));
   }
 }

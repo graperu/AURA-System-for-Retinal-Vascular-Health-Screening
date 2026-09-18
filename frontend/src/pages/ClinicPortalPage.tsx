@@ -3,8 +3,8 @@ import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
 import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
 import { ClinicCreditPackageSection } from '../components/ClinicCreditPackageSection';
 import { ClinicBatchJob } from '../types/cds';
-import { bulkScreeningApi, clinicApi } from '../services/api';
-import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard, Eye, FileSpreadsheet, ArrowRight, Stethoscope } from 'lucide-react';
+import { clinicApi, notificationApi } from '../services/api';
+import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard, Eye, FileSpreadsheet, ArrowRight, Stethoscope, Bell, UploadCloud } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -15,7 +15,6 @@ import { useAuth } from '../context/AuthContext';
 import { ClinicalSelect, ClinicalSelectOption } from '../components/ui/ClinicalSelect';
 import { useLanguage } from '../context/LanguageContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { realtimeBus } from '../services/realtimeService';
 import { ClinicDashboardView } from '../features/clinic/ClinicDashboardView';
 import { SectionCard } from '../components/common/SectionCard';
 import { DataTable, DataTableColumn } from '../components/common/DataTable';
@@ -1204,6 +1203,116 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
 
           {activeView === 'campaign-analytics' && (
             <ClinicCampaignAnalytics />
+          )}
+
+          {activeView === 'notifications' && (
+            <div className="space-y-6">
+              <div className="bg-white border border-slate-200 shadow-xs rounded-2xl p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#3478F6] flex items-center justify-center font-bold">
+                      <Bell className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">
+                        {isVi ? 'Thông Báo Phòng Khám' : 'Clinic Notifications'}
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        {isVi
+                          ? 'Cập nhật trạng thái đợt khám theo lô, duyệt ca sàng lọc và hạn mức lượt khám'
+                          : 'Batch screening status, diagnostic reviews, and quota alerts'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void notificationApi.markAllAsRead();
+                    }}
+                    className="px-3.5 py-1.5 text-xs font-semibold text-[#3478F6] hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors cursor-pointer"
+                  >
+                    {isVi ? 'Đánh dấu tất cả đã đọc' : 'Mark all as read'}
+                  </button>
+                </div>
+
+                <div className="mt-4 divide-y divide-slate-100">
+                  <div className="py-4 flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#3478F6] flex items-center justify-center shrink-0 mt-0.5">
+                        <UploadCloud className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900">
+                          {isVi ? 'Sàng lọc hàng loạt theo lô (Batch Screening)' : 'Community Batch Screening Queue'}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {isVi
+                            ? 'Theo dõi tiến trình AI xử lý các lô ảnh đáy mắt cộng đồng và tải danh sách kết quả.'
+                            : 'Monitor AI pipeline processing community fundus image batches and export results.'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('bulk-batch')}
+                      className="px-3 py-1.5 text-xs font-bold text-[#3478F6] bg-blue-50 hover:bg-blue-100 rounded-lg cursor-pointer shrink-0"
+                    >
+                      {isVi ? 'Xem lô khám' : 'View Batches'}
+                    </button>
+                  </div>
+
+                  <div className="py-4 flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <Eye className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900">
+                          {isVi ? 'Kết quả sàng lọc & Đánh giá bác sĩ' : 'Screening Results & Specialist Reviews'}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {isVi
+                            ? 'Các ca sàng lọc đã được bác sĩ chuyên khoa thẩm định và ký duyệt y khoa.'
+                            : 'Screening records reviewed and signed off by specialist ophthalmologists.'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('scan-history')}
+                      className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg cursor-pointer shrink-0"
+                    >
+                      {isVi ? 'Xem kết quả' : 'View Results'}
+                    </button>
+                  </div>
+
+                  <div className="py-4 flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900">
+                          {isVi ? 'Hạn mức & Gói cước phòng khám' : 'Clinic Quotas & Subscription Packages'}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {isVi
+                            ? 'Quản lý số lượt khám cộng đồng và gia hạn gói dịch vụ qua VietQR Napas 24/7.'
+                            : 'Manage available community screening quota and renew service packages via VietQR.'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('credit-package')}
+                      className="px-3 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg cursor-pointer shrink-0"
+                    >
+                      {isVi ? 'Gia hạn gói' : 'Manage Packages'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </motion.div>
       </AnimatePresence>

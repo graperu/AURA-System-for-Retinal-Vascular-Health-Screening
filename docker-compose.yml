@@ -17,7 +17,7 @@ services:
       GEMINI_AI_ENABLED: "${GEMINI_AI_ENABLED:-true}"
       GEMINI_API_URL: "${GEMINI_API_URL:-http://host.docker.internal:20128/v1/chat/completions}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
-      GEMINI_MODEL: "${GEMINI_MODEL:-ag/gemini-3.7-flash-high}"
+      GEMINI_MODEL: "${GEMINI_MODEL:-ag/gemini-3.8-flash-high}"
       SPRING_MAIL_USERNAME: "${SPRING_MAIL_USERNAME:-}"
       SPRING_MAIL_PASSWORD: "${SPRING_MAIL_PASSWORD:-}"
       JAVA_OPTS: "-XX:+UseG1GC -Xms256m -Xmx768m -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8"

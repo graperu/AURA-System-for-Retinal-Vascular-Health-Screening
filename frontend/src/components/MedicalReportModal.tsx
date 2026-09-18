@@ -1148,7 +1148,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     data-testid="report-model-version-badge"
                     className="font-bold text-slate-800 font-mono-data bg-slate-100 px-2 py-0.5 rounded border border-slate-200"
                   >
-                    {result.modelVersion || 'Gemini 3.7 Flash High / AURA-Core v2.4'}
+                    {result.modelVersion || 'Gemini 3.8 Flash High / AURA-Core v2.4'}
                   </span>
                   <span
                     data-testid="report-calibration-badge"

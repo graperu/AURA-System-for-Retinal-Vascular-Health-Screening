@@ -216,4 +216,27 @@ class BillingWebhookControllerTest {
     assertThat(response.getBody().get("message")).isEqualTo("Webhook secret not configured on server");
     verify(billingService, never()).processPaymentSuccess(any(), any(), any());
   }
+
+  @Test
+  @DisplayName("BE-BILL-2: Bank Transfer Webhook trích xuất chuẩn định dạng AURA NAP AURA_TXN_...")
+  void handleBankTransferWebhook_AuraTxnPattern_Success() {
+    BankTransferIpnRequest req = new BankTransferIpnRequest(
+        "VietQR", "BANK_TXN_777", null,
+        "FT2600123456.AURA NAP AURA_TXN_20260918_ABCD1234.Cam on quy khach",
+        BigDecimal.valueOf(150_000), "1208123456", null, "COMPLETED"
+    );
+
+    when(billingService.processPaymentSuccess(eq("AURA NAP AURA_TXN_20260918_ABCD1234"), eq("BANK_TXN_777"), eq(BigDecimal.valueOf(150_000))))
+        .thenReturn(PaymentTransaction.builder().status(PaymentStatus.SUCCEEDED).build());
+
+    ResponseEntity<Map<String, Object>> response = controller.handleBankTransferWebhook(
+        properties.getWebhookSecret(), null, req
+    );
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().get("success")).isEqualTo(true);
+    verify(billingService).processPaymentSuccess(eq("AURA NAP AURA_TXN_20260918_ABCD1234"), eq("BANK_TXN_777"), eq(BigDecimal.valueOf(150_000)));
+  }
 }
+

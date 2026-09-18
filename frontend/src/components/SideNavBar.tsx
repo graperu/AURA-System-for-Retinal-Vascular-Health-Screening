@@ -198,8 +198,8 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
               },
               {
                 id: 'risk-analytics',
-                label: t('navigation.riskAnalytics', isVi ? 'Cài đặt' : 'Settings'),
-                icon: Settings,
+                label: t('navigation.riskAnalytics', isVi ? 'Thống kê nguy cơ' : 'Analytics'),
+                icon: Activity,
               },
             ],
           },

@@ -63,7 +63,7 @@ class AiServiceClientTest {
       assertThat(result.vesselDensityPercentage()).isEqualTo(12.5);
       assertThat(result.tortuosityIndex()).isEqualTo(1.45);
       assertThat(result.opticCupToDiscRatio()).isEqualTo(0.65);
-      assertThat(result.xaiRationales()).contains("Phân tích tự động từ Cloud AI Gemini 3.7 Flash High");
+      assertThat(result.xaiRationales()).contains("Phân tích tự động từ Cloud AI Gemini 3.8 Flash High");
       verify(geminiAiService).analyzeRetinalVascular("OD", "base64image");
     }
 

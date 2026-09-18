@@ -164,7 +164,7 @@ class BillingServiceOptimizedTest {
   @Test
   @DisplayName("deductCredit: Không có subscription nào -> trả về false")
   void testDeductCreditNoSubscriptionReturnsFalse() {
-    when(subscriptionRepository.findByOwnerId(ownerId)).thenReturn(List.of());
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of());
 
     boolean deducted = billingService.deductCredit(ownerId);
 
@@ -183,7 +183,7 @@ class BillingServiceOptimizedTest {
         .status(SubscriptionStatus.ACTIVE)
         .build();
 
-    when(subscriptionRepository.findByOwnerId(ownerId)).thenReturn(List.of(expiredSub));
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of(expiredSub));
 
     boolean deducted = billingService.deductCredit(ownerId);
 
@@ -203,7 +203,7 @@ class BillingServiceOptimizedTest {
         .status(SubscriptionStatus.ACTIVE)
         .build();
 
-    when(subscriptionRepository.findByOwnerId(ownerId)).thenReturn(List.of(activeSub));
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of(activeSub));
 
     boolean deducted = billingService.deductCredit(ownerId);
 
@@ -231,7 +231,7 @@ class BillingServiceOptimizedTest {
         .status(SubscriptionStatus.ACTIVE)
         .build();
 
-    when(subscriptionRepository.findByOwnerId(ownerId)).thenReturn(List.of(laterSub, earlierSub));
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of(laterSub, earlierSub));
 
     boolean deducted = billingService.deductCredit(ownerId);
 
@@ -323,11 +323,41 @@ class BillingServiceOptimizedTest {
         .status(SubscriptionStatus.ACTIVE)
         .build();
 
-    when(subscriptionRepository.findByOwnerId(ownerId)).thenReturn(List.of(zeroCreditSub));
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of(zeroCreditSub));
 
     boolean deducted = billingService.deductCredit(ownerId);
 
     assertThat(deducted).isFalse();
+    verify(subscriptionRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("BE-BILL-4: refundCredit hoàn trả số lượt khám cho subscription ACTIVE có thời hạn xa nhất")
+  void testRefundCreditSuccess() {
+    Subscription sub = Subscription.builder()
+        .owner(ownerUser)
+        .servicePackage(servicePackage)
+        .remainingCredits(2)
+        .expiresAt(LocalDateTime.now().plusDays(15))
+        .status(SubscriptionStatus.ACTIVE)
+        .build();
+
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of(sub));
+
+    billingService.refundCredit(ownerId, 1);
+
+    assertThat(sub.getRemainingCredits()).isEqualTo(3);
+    verify(subscriptionRepository).save(sub);
+  }
+
+  @Test
+  @DisplayName("BE-BILL-4: refundCredit với null hoặc <= 0 không thực hiện lưu DB")
+  void testRefundCreditInvalidArgsNoOp() {
+    billingService.refundCredit(null, 1);
+    billingService.refundCredit(ownerId, 0);
+    billingService.refundCredit(ownerId, -1);
+
+    verify(subscriptionRepository, never()).findByOwnerIdForUpdate(any());
     verify(subscriptionRepository, never()).save(any());
   }
 

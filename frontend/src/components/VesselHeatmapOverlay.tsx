@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { VesselAnomalyRegion } from '../types/cds';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuraReducedMotion } from '../hooks/useAuraReducedMotion';
 
 export interface VesselHeatmapOverlayProps {
   imageUrl: string;
@@ -95,6 +96,7 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
   activeAnomalyId,
 }) => {
   const { t, isVi } = useLanguage();
+  const prefersReducedMotion = useAuraReducedMotion();
 
   // 1. Quản lý trạng thái các lớp (Layers State)
   const [showVessels, setShowVessels] = useState<boolean>(true);
@@ -511,6 +513,7 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                     strokeWidth="0.8"
                     strokeDasharray="1.2 0.8"
                     opacity="0.8"
+                    className="animate-reticle-pulse"
                   />
                   <circle cx={opticDiscX} cy={opticDiscY} r="2.2" fill="#10B981" opacity="0.4" />
                 </g>
@@ -526,6 +529,7 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                     strokeWidth="0.5"
                     strokeDasharray="0.8 0.8"
                     opacity="0.65"
+                    className="animate-reticle-pulse"
                   />
                   <circle cx={maculaX} cy={maculaY} r="1.5" fill="#00FF66" opacity="0.15" />
                 </g>
@@ -542,6 +546,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="1.6"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     {/* Động mạch thái dương trên song hành */}
                     <path
@@ -550,7 +556,21 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#10B981"
                       strokeWidth="1.0"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
+                    {/* Hemodynamic flow pulse along superior temporal arcade */}
+                    <path
+                      d="M 72 50 C 65 30, 48 24, 34 32 S 22 45, 18 55"
+                      fill="none"
+                      stroke="#00FF66"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      className="vessel-flow-pulse pointer-events-none"
+                      pathLength={100}
+                      opacity="0.85"
+                    />
+
                     {/* Nhánh vi mạch thái dương trên rẽ về hoàng điểm */}
                     <path
                       d="M 46 29 C 43 36, 40 42, 38 48"
@@ -558,6 +578,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="0.6"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     <path
                       d="M 38 33 C 37 39, 36 44, 36 48"
@@ -565,6 +587,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#6EE7B7"
                       strokeWidth="0.5"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
 
                     {/* 2. Cung mạch thái dương dưới (Inferior Temporal Arcade) */}
@@ -574,6 +598,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="1.6"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     <path
                       d="M 72 51 C 64 67, 50 72, 36 65 S 25 52, 20 40"
@@ -581,7 +607,21 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#10B981"
                       strokeWidth="1.0"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
+                    {/* Hemodynamic flow pulse along inferior temporal arcade */}
+                    <path
+                      d="M 72 50 C 65 70, 48 76, 34 68 S 22 55, 18 45"
+                      fill="none"
+                      stroke="#00FF66"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      className="vessel-flow-pulse pointer-events-none"
+                      pathLength={100}
+                      opacity="0.85"
+                    />
+
                     {/* Nhánh vi mạch thái dương dưới rẽ về hoàng điểm */}
                     <path
                       d="M 46 71 C 43 64, 40 58, 38 56"
@@ -589,6 +629,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="0.6"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
 
                     {/* 3. Cung mạch phía mũi (Nasal Arcades) */}
@@ -598,6 +640,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="1.1"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     <path
                       d="M 72 50 C 78 65, 84 72, 92 76"
@@ -605,6 +649,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#10B981"
                       strokeWidth="1.1"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     <path
                       d="M 72 50 C 80 48, 88 50, 96 50"
@@ -612,11 +658,13 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="0.7"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
 
                     {/* Các tiểu mạch ngoại vi (Capillaries) */}
-                    <path d="M 32 32 C 26 26, 20 22, 12 18" fill="none" stroke="#00FF66" strokeWidth="0.5" />
-                    <path d="M 32 68 C 26 74, 20 78, 12 82" fill="none" stroke="#00FF66" strokeWidth="0.5" />
+                    <path d="M 32 32 C 26 26, 20 22, 12 18" fill="none" stroke="#00FF66" strokeWidth="0.5" className="vessel-path-draw" pathLength={100} />
+                    <path d="M 32 68 C 26 74, 20 78, 12 82" fill="none" stroke="#00FF66" strokeWidth="0.5" className="vessel-path-draw" pathLength={100} />
                   </g>
                 ) : (
                   // Cung thái dương cho MẮT PHẢI (OD): Gai thị ở x=28, uốn sang phải ôm x=64
@@ -628,6 +676,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="1.6"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     {/* Động mạch thái dương trên song hành */}
                     <path
@@ -636,7 +686,21 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#10B981"
                       strokeWidth="1.0"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
+                    {/* Hemodynamic flow pulse along superior temporal arcade */}
+                    <path
+                      d="M 28 50 C 35 30, 52 24, 66 32 S 78 45, 82 55"
+                      fill="none"
+                      stroke="#00FF66"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      className="vessel-flow-pulse pointer-events-none"
+                      pathLength={100}
+                      opacity="0.85"
+                    />
+
                     {/* Nhánh vi mạch thái dương trên rẽ về hoàng điểm */}
                     <path
                       d="M 54 29 C 57 36, 60 42, 62 48"
@@ -644,6 +708,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="0.6"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     <path
                       d="M 62 33 C 63 39, 64 44, 64 48"
@@ -651,6 +717,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#6EE7B7"
                       strokeWidth="0.5"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
 
                     {/* 2. Cung mạch thái dương dưới (Inferior Temporal Arcade) */}
@@ -660,6 +728,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="1.6"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     <path
                       d="M 28 51 C 36 67, 50 72, 64 65 S 75 52, 80 40"
@@ -667,7 +737,21 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#10B981"
                       strokeWidth="1.0"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
+                    {/* Hemodynamic flow pulse along inferior temporal arcade */}
+                    <path
+                      d="M 28 50 C 35 70, 52 76, 66 68 S 78 55, 82 45"
+                      fill="none"
+                      stroke="#00FF66"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      className="vessel-flow-pulse pointer-events-none"
+                      pathLength={100}
+                      opacity="0.85"
+                    />
+
                     {/* Nhánh vi mạch thái dương dưới rẽ về hoàng điểm */}
                     <path
                       d="M 54 71 C 57 64, 60 58, 62 56"
@@ -675,6 +759,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="0.6"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
 
                     {/* 3. Cung mạch phía mũi (Nasal Arcades) */}
@@ -684,6 +770,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="1.1"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     <path
                       d="M 28 50 C 22 65, 16 72, 8 76"
@@ -691,6 +779,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#10B981"
                       strokeWidth="1.1"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
                     <path
                       d="M 28 50 C 20 48, 12 50, 4 50"
@@ -698,11 +788,13 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                       stroke="#00FF66"
                       strokeWidth="0.7"
                       strokeLinecap="round"
+                      className="vessel-path-draw"
+                      pathLength={100}
                     />
 
                     {/* Các tiểu mạch ngoại vi (Capillaries) */}
-                    <path d="M 68 32 C 74 26, 80 22, 88 18" fill="none" stroke="#00FF66" strokeWidth="0.5" />
-                    <path d="M 68 68 C 74 74, 80 78, 88 82" fill="none" stroke="#00FF66" strokeWidth="0.5" />
+                    <path d="M 68 32 C 74 26, 80 22, 88 18" fill="none" stroke="#00FF66" strokeWidth="0.5" className="vessel-path-draw" pathLength={100} />
+                    <path d="M 68 68 C 74 74, 80 78, 88 82" fill="none" stroke="#00FF66" strokeWidth="0.5" className="vessel-path-draw" pathLength={100} />
                   </g>
                 )}
               </svg>
