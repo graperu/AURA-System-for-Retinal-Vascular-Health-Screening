@@ -1,5 +1,6 @@
 package com.aura.patient.controller;
 
+import com.aura.audit.annotation.Audited;
 import com.aura.auth.exception.AuthException;
 import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.common.response.ApiResponse;
@@ -47,6 +48,7 @@ public class PatientProfileController {
         profileService.getAvailableDoctors());
   }
 
+  @Audited(action = "PHI_REGISTER_EXAM", module = "PATIENT", resourceType = "PATIENT_PROFILE", description = "Đăng ký khám sàng lọc võng mạc")
   @PostMapping("/register-examination")
   public ApiResponse<PatientProfileResponse> registerExamination(
       @AuthenticationPrincipal AuraUserPrincipal principal,
@@ -56,6 +58,7 @@ public class PatientProfileController {
         profileService.registerExamination(principal.id(), request != null ? request : new RegisterExaminationRequest(null, null, null, null, null, null, null, null, null, null)));
   }
 
+  @Audited(action = "PHI_READ", module = "PATIENT", resourceType = "PATIENT_PROFILE", description = "Bệnh nhân đọc hồ sơ y tế cá nhân")
   @GetMapping
   public ApiResponse<PatientProfileResponse> getMyProfile(
       @AuthenticationPrincipal AuraUserPrincipal principal) {
@@ -64,6 +67,7 @@ public class PatientProfileController {
         profileService.getOrCreateProfile(principal.id()));
   }
 
+  @Audited(action = "PHI_UPDATE", module = "PATIENT", resourceType = "PATIENT_PROFILE", description = "Bệnh nhân cập nhật hồ sơ y tế cá nhân")
   @PutMapping
   public ApiResponse<PatientProfileResponse> updateMyProfile(
       @AuthenticationPrincipal AuraUserPrincipal principal,
@@ -73,6 +77,7 @@ public class PatientProfileController {
         profileService.updateProfile(principal.id(), request));
   }
 
+  @Audited(action = "PHI_UPDATE", module = "PATIENT", resourceType = "PATIENT_PROFILE", description = "Bệnh nhân lưu hồ sơ y tế cá nhân")
   @PostMapping
   public ApiResponse<PatientProfileResponse> createOrUpdateMyProfile(
       @AuthenticationPrincipal AuraUserPrincipal principal,
@@ -82,6 +87,7 @@ public class PatientProfileController {
         profileService.updateProfile(principal.id(), request));
   }
 
+  @Audited(action = "PHI_READ", module = "PATIENT", resourceType = "PATIENT_PROFILE", description = "Tra cứu hồ sơ y tế bệnh nhân theo ID")
   @GetMapping("/{patientId}")
   @PreAuthorize("@patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<PatientProfileResponse> getPatientProfileById(
@@ -91,6 +97,7 @@ public class PatientProfileController {
         profileService.getProfileByPatientId(patientId));
   }
 
+  @Audited(action = "PHI_LAB_READ", module = "PATIENT", resourceType = "LAB_DOCUMENT", description = "Xem danh sách tài liệu xét nghiệm cá nhân")
   @GetMapping("/lab-documents")
   @PreAuthorize("hasRole('USER')")
   public ApiResponse<List<PatientLabDocumentResponse>> getMyLabDocuments(
@@ -98,6 +105,7 @@ public class PatientProfileController {
     return ApiResponse.success(labDocumentService.list(principal.id()));
   }
 
+  @Audited(action = "PHI_LAB_UPLOAD", module = "PATIENT", resourceType = "LAB_DOCUMENT", description = "Tải lên tệp xét nghiệm cá nhân")
   @PostMapping(value = "/lab-documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("hasRole('USER')")
   public ApiResponse<PatientLabDocumentResponse> uploadMyLabDocument(
@@ -107,6 +115,7 @@ public class PatientProfileController {
         labDocumentService.upload(principal.id(), file));
   }
 
+  @Audited(action = "PHI_LAB_DELETE", module = "PATIENT", resourceType = "LAB_DOCUMENT", description = "Xóa tệp xét nghiệm cá nhân")
   @DeleteMapping("/lab-documents/{documentId}")
   @PreAuthorize("hasRole('USER')")
   public ApiResponse<Void> deleteMyLabDocument(
@@ -116,6 +125,7 @@ public class PatientProfileController {
     return ApiResponse.success("Đã xóa tệp xét nghiệm", null);
   }
 
+  @Audited(action = "PHI_LAB_READ", module = "PATIENT", resourceType = "LAB_DOCUMENT", description = "Xem tài liệu xét nghiệm của bệnh nhân")
   @GetMapping("/{patientId}/lab-documents")
   @PreAuthorize("@patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<List<PatientLabDocumentResponse>> getPatientLabDocuments(
@@ -123,6 +133,7 @@ public class PatientProfileController {
     return ApiResponse.success(labDocumentService.list(patientId));
   }
 
+  @Audited(action = "PHI_LAB_DOWNLOAD", module = "PATIENT", resourceType = "LAB_DOCUMENT", description = "Tải nội dung tệp xét nghiệm của bệnh nhân")
   @GetMapping("/{patientId}/lab-documents/{documentId}/content")
   @PreAuthorize("@patientAccessService.canAccessPatient(principal, #patientId)")
   public ResponseEntity<ByteArrayResource> downloadLabDocument(

@@ -9,3 +9,6 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.opencode.json
+.company_agents/
+.scripts

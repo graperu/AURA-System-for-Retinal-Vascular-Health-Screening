@@ -161,6 +161,7 @@ public class AuraPaymentGatewayProvider implements PaymentGateway {
                 vnpParams.put("vnp_OrderType", "other");
                 vnpParams.put("vnp_Locale", "vn");
                 vnpParams.put("vnp_ReturnUrl", vnpay.getReturnUrl());
+                vnpParams.put("vnp_IpAddr", "127.0.0.1");
                 vnpParams.put("vnp_CreateDate", timestamp);
 
                 StringBuilder hashData = new StringBuilder();

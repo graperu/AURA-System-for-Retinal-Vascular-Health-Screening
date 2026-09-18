@@ -17,10 +17,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.aura.auth.config.AuthProperties;
+import com.aura.auth.dto.ForgotPasswordRequest;
 import com.aura.auth.dto.GoogleLoginRequest;
 import com.aura.auth.dto.LoginRequest;
 import com.aura.auth.dto.LoginResponse;
 import com.aura.auth.dto.RegisterRequest;
+import com.aura.auth.dto.ResetPasswordRequest;
 import com.aura.auth.dto.SendOtpRequest;
 import com.aura.auth.dto.SocialLoginRequest;
 import com.aura.auth.dto.UserResponse;
@@ -571,6 +573,72 @@ class AuthControllerFullTest {
       assertThat(response.getBody()).isNotNull();
       assertThat(response.getBody().data().accessToken()).isEqualTo("mock-access-jwt-token");
       verify(authService).verifyOtpAndRegister(request);
+    }
+  }
+
+  @Nested
+  @DisplayName("Forgot Password & Reset Password Tests (/api/v1/auth/forgot-password, /api/v1/auth/reset-password)")
+  class ForgotPasswordTests {
+
+    @Test
+    @DisplayName("POST /api/v1/auth/forgot-password - Thành công khi gửi OTP đặt lại mật khẩu")
+    void forgotPassword_Success() throws Exception {
+      ForgotPasswordRequest request = new ForgotPasswordRequest("user@aura.test");
+      when(authService.sendForgotPasswordOtp(any(ForgotPasswordRequest.class))).thenReturn(300L);
+      Map<String, Object> otpData = Map.of("email", "user@aura.test", "expiresInSeconds", 300L);
+      when(authService.getOtpDataResponse(eq("user@aura.test"), eq(300L))).thenReturn(otpData);
+
+      mockMvc.perform(post("/api/v1/auth/forgot-password")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request)))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.success").value(true))
+          .andExpect(jsonPath("$.data.email").value("user@aura.test"))
+          .andExpect(jsonPath("$.data.expiresInSeconds").value(300));
+
+      verify(authService).sendForgotPasswordOtp(any(ForgotPasswordRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/forgot-password - Lỗi Validation khi email rỗng hoặc sai định dạng")
+    void forgotPassword_ValidationError() throws Exception {
+      ForgotPasswordRequest request = new ForgotPasswordRequest("invalid-email");
+
+      mockMvc.perform(post("/api/v1/auth/forgot-password")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request)))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/reset-password - Thành công đặt lại mật khẩu và cấp session mới")
+    void resetPassword_Success() throws Exception {
+      ResetPasswordRequest request = new ResetPasswordRequest("user@aura.test", "123456", "NewStrongPass123@!");
+      when(authService.resetPassword(any(ResetPasswordRequest.class))).thenReturn(testLoginResult);
+
+      mockMvc.perform(post("/api/v1/auth/reset-password")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request)))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.success").value(true))
+          .andExpect(jsonPath("$.message").value("Đặt lại mật khẩu thành công"))
+          .andExpect(jsonPath("$.data.accessToken").value("mock-access-jwt-token"))
+          .andExpect(header().exists(HttpHeaders.SET_COOKIE));
+
+      verify(authService).resetPassword(any(ResetPasswordRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/reset-password - Lỗi Validation khi mật khẩu mới không đủ độ mạnh")
+    void resetPassword_WeakPassword_ValidationError() throws Exception {
+      ResetPasswordRequest request = new ResetPasswordRequest("user@aura.test", "123456", "weak");
+
+      mockMvc.perform(post("/api/v1/auth/reset-password")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request)))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.success").value(false));
     }
   }
 }

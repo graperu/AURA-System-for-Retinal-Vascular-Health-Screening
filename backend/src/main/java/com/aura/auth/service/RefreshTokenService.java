@@ -71,6 +71,13 @@ public class RefreshTokenService {
         .ifPresent(token -> token.revoke(null));
   }
 
+  @Transactional
+  public void revokeAllUserTokens(java.util.UUID userId) {
+    if (userId != null) {
+      repository.revokeAllActiveByUserId(userId, Instant.now());
+    }
+  }
+
   private AuthException invalid(ErrorCode code, String message) {
     return new AuthException(code, message);
   }

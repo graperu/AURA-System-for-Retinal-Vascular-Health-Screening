@@ -408,39 +408,40 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-fade-in">
-      <div className="bg-white border border-[#CCFBF1] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden animate-modal-enter">
+      <div className="bg-white border border-[#EAECF0] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden animate-modal-enter">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#134E4A] via-[#0E7490] to-[#0891B2] text-white p-4 sm:p-5 flex items-center justify-between">
+        <div className="bg-white text-slate-900 p-4 sm:p-5 border-b border-[#EAECF0] flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
-              <Eye className="w-5 h-5 text-cyan-200" />
+            <div className="w-10 h-10 rounded-xl bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] flex items-center justify-center shrink-0">
+              <Eye className="w-5 h-5 text-[#3478F6]" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base font-bold truncate">
+                <h3 className="text-base font-bold text-slate-900 truncate">
                   {item.patientName || (isVi ? 'Bệnh nhân' : 'Patient')}
                 </h3>
                 {item.mrn && item.patientName !== item.mrn && (
-                  <span className="font-mono-data text-xs bg-white/20 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="font-mono-data text-xs bg-[#EEF5FF] text-[#3478F6] px-2 py-0.5 rounded-full border border-[#C7D7FE] shrink-0 font-bold">
                     {item.mrn}
                   </span>
                 )}
-                <span className="text-[11px] font-mono-data bg-cyan-900/50 text-cyan-200 px-2.5 py-0.5 rounded-full border border-cyan-400/30 shrink-0">
+                <span className="text-[11px] font-mono-data bg-[#EEF5FF] text-[#3478F6] px-2.5 py-0.5 rounded-full border border-[#C7D7FE] font-bold shrink-0">
                   {item.eye === 'OD' ? t('eyeLaterality.rightEye') : t('eyeLaterality.leftEye')}
                 </span>
               </div>
-              <p className="text-xs text-cyan-100/90 flex items-center gap-2 mt-0.5 truncate">
-                <span>{t('clinic.batchDetailModal.deidHipaa')}: <strong className="font-mono-data">{item.pseudonymId || 'ANO-PAT-DEID'}</strong></span>
+              <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5 truncate">
+                <span>{t('clinic.batchDetailModal.deidHipaa')}: <strong className="font-mono-data text-slate-700">{item.pseudonymId || 'ANO-PAT-DEID'}</strong></span>
                 <span>&bull;</span>
-                <span className="truncate" title={item.fileName}>{t('clinic.batchDetailModal.fileLabel')}: <strong className="font-mono-data">{displayFileName}</strong></span>
+                <span className="truncate" title={item.fileName}>{t('clinic.batchDetailModal.fileLabel')}: <strong className="font-mono-data text-slate-700">{displayFileName}</strong></span>
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer shrink-0 ml-2"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0 ml-2"
             title={t('common.close', 'Đóng')}
+            aria-label="Đóng"
           >
             <X className="w-5 h-5" />
           </button>
@@ -526,7 +527,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   onClick={() => setViewMode('sideBySide')}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                     viewMode === 'sideBySide'
-                      ? 'bg-white text-teal-800 shadow-xs'
+                      ? 'bg-white text-[#3478F6] shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -537,7 +538,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   onClick={() => setViewMode('overlay')}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                     viewMode === 'overlay'
-                      ? 'bg-white text-teal-800 shadow-xs'
+                      ? 'bg-white text-[#3478F6] shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -547,7 +548,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
 
               {/* Opacity slider */}
               <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
-                <Sliders className="w-3.5 h-3.5 text-teal-600" />
+                <Sliders className="w-3.5 h-3.5 text-[#3478F6]" />
                 <span className="text-slate-600 font-medium text-[11px] whitespace-nowrap">
                   {t('clinic.batchDetailModal.heatmapOpacityLabel')}
                 </span>
@@ -558,9 +559,9 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                   step="0.05"
                   value={heatmapOpacity}
                   onChange={(e) => setHeatmapOpacity(parseFloat(e.target.value))}
-                  className="w-20 sm:w-24 accent-teal-600 cursor-pointer"
+                  className="w-20 sm:w-24 accent-[#3478F6] cursor-pointer"
                 />
-                <span className="font-mono-data font-bold text-teal-700 text-[11px] w-8 text-right">
+                <span className="font-mono-data font-bold text-[#3478F6] text-[11px] w-8 text-right">
                   {Math.round(heatmapOpacity * 100)}%
                 </span>
               </div>
@@ -574,7 +575,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 onClick={() => setShowRoiBoxes(!showRoiBoxes)}
                 className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
                   showRoiBoxes
-                    ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                    ? 'bg-[#3478F6] text-white border-[#3478F6] shadow-xs'
                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
               >
@@ -586,7 +587,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 onClick={() => setShowAnatomyMarkers(!showAnatomyMarkers)}
                 className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
                   showAnatomyMarkers
-                    ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
+                    ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-xs'
                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
               >
@@ -596,15 +597,15 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               {/* Zoom Controls */}
               <div className="flex items-center bg-white rounded-xl p-0.5 border border-slate-200 shadow-2xs">
                 {zoomLevel > 1.0 && (
-                  <span className="hidden lg:inline-flex items-center gap-1 text-[10px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg border border-teal-200 font-medium mr-1">
-                    <Move className="w-2.5 h-2.5 text-teal-600 shrink-0" />
+                  <span className="hidden lg:inline-flex items-center gap-1 text-[10px] text-[#3478F6] bg-[#EEF5FF] px-2 py-0.5 rounded-lg border border-[#C7D7FE] font-medium mr-1">
+                    <Move className="w-2.5 h-2.5 text-[#3478F6] shrink-0" />
                     <span>{isVi ? 'Kéo để di chuyển' : 'Drag to pan'}</span>
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => handleZoomChange((z) => z - 0.2)}
-                  className="p-1.5 text-slate-600 hover:text-teal-600 transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
+                  className="p-1.5 text-slate-600 hover:text-[#3478F6] transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
                   title={t('clinic.batchDetailModal.zoomOutTitle')}
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
@@ -615,7 +616,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 <button
                   type="button"
                   onClick={() => handleZoomChange((z) => z + 0.2)}
-                  className="p-1.5 text-slate-600 hover:text-teal-600 transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
+                  className="p-1.5 text-slate-600 hover:text-[#3478F6] transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
                   title={t('clinic.batchDetailModal.zoomInTitle')}
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
@@ -643,11 +644,11 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 title={t('clinic.batchDetailModal.downloadPng')}
               >
                 {isDownloading ? (
-                  <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 text-[#3478F6] animate-spin" />
                 ) : downloadSuccessNotice ? (
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
                 ) : (
-                  <Download className="w-3.5 h-3.5 text-teal-600" />
+                  <Download className="w-3.5 h-3.5 text-[#3478F6]" />
                 )}
                 <span>
                   {isDownloading
@@ -674,8 +675,8 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 }`}
               >
                 <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1 pointer-events-none">
-                  <span className="font-semibold flex items-center gap-1.5 text-teal-300">
-                    <Eye className="w-3.5 h-3.5 text-teal-400" /> {t('clinic.batchDetailModal.nativeFundusTitle')}
+                  <span className="font-semibold flex items-center gap-1.5 text-sky-300">
+                    <Eye className="w-3.5 h-3.5 text-sky-400" /> {t('clinic.batchDetailModal.nativeFundusTitle')}
                   </span>
                   <span className="text-[10px] font-mono-data text-slate-400">{t('clinic.batchDetailModal.nativeResolution')}</span>
                 </div>
@@ -732,13 +733,13 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className={`border border-teal-900/60 rounded-2xl overflow-hidden bg-slate-950 relative flex flex-col items-center justify-center p-3 shadow-xl select-none ${
+                className={`border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 relative flex flex-col items-center justify-center p-3 shadow-xl select-none ${
                   zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
                 }`}
               >
                 <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1 pointer-events-none">
-                  <span className="font-semibold flex items-center gap-1.5 text-teal-300">
-                    <Sparkles className="w-3.5 h-3.5 text-teal-400" /> {t('clinic.batchDetailModal.heatmapLesionTitle')}
+                  <span className="font-semibold flex items-center gap-1.5 text-sky-300">
+                    <Sparkles className="w-3.5 h-3.5 text-sky-400" /> {t('clinic.batchDetailModal.heatmapLesionTitle')}
                   </span>
                   <span className="text-[10px] font-semibold flex items-center gap-1">
                     {heatmapDataUrl ? (
@@ -752,7 +753,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 </div>
 
                 <div
-                  className="w-full aspect-square max-w-[360px] rounded-full overflow-hidden border-2 border-teal-600/80 shadow-2xl relative bg-black flex items-center justify-center"
+                  className="w-full aspect-square max-w-[360px] rounded-full overflow-hidden border-2 border-[#3478F6]/80 shadow-2xl relative bg-black flex items-center justify-center"
                   style={{
                     transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                     transformOrigin: 'center center',
@@ -913,7 +914,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                       ? `${getAnatomyZone(mousePos.x, mousePos.y)}`
                       : t('clinic.batchDetailModal.hudHoverHint')}
                   </span>
-                  <span className="text-teal-300 font-semibold">Grad-CAM Overlay</span>
+                  <span className="text-sky-300 font-semibold">Grad-CAM Overlay</span>
                 </div>
               </div>
             </div>
@@ -929,8 +930,8 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               }`}
             >
               <div className="w-full flex items-center justify-between text-xs text-slate-300 mb-2 px-1 pointer-events-none">
-                <span className="font-semibold flex items-center gap-1.5 text-teal-300">
-                  <Layers className="w-4 h-4 text-teal-400" /> {t('clinic.batchDetailModal.directOverlayTitle')}
+                <span className="font-semibold flex items-center gap-1.5 text-sky-300">
+                  <Layers className="w-4 h-4 text-sky-400" /> {t('clinic.batchDetailModal.directOverlayTitle')}
                 </span>
                 <span className="text-[11px] text-slate-400">
                   {t('clinic.batchDetailModal.directOverlaySubtitle')}
@@ -938,7 +939,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               </div>
 
               <div
-                className="w-full aspect-square max-w-[420px] rounded-full overflow-hidden border-2 border-teal-600/80 shadow-2xl relative bg-black flex items-center justify-center"
+                className="w-full aspect-square max-w-[420px] rounded-full overflow-hidden border-2 border-[#3478F6]/80 shadow-2xl relative bg-black flex items-center justify-center"
                 style={{
                   transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                   transformOrigin: 'center center',
@@ -1025,7 +1026,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
               <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-teal-600" />
+                    <Layers className="w-3.5 h-3.5 text-[#3478F6]" />
                     {t('clinic.batchDetailModal.biomarkersTitle')}
                   </h4>
                   <span className="text-[10px] text-slate-500 font-medium">{t('clinic.batchDetailModal.biomarkers')}</span>
@@ -1078,8 +1079,8 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                         onClick={() => setActiveAnomalyId(ano.id)}
                         className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
                           activeAnomalyId === ano.id
-                            ? 'bg-teal-50/80 border-teal-500 ring-2 ring-teal-500/20 shadow-xs'
-                            : 'bg-white border-slate-200/80 hover:border-teal-400'
+                            ? 'bg-[#EEF5FF]/80 border-[#3478F6] ring-2 ring-[#3478F6]/20 shadow-xs'
+                            : 'bg-white border-slate-200/80 hover:border-[#3478F6]'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -1087,7 +1088,7 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                             <Target className="w-3 h-3 text-rose-500 shrink-0" />
                             {ano.label}
                           </span>
-                          <span className="text-[10px] font-mono-data font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                          <span className="text-[10px] font-mono-data font-bold text-[#3478F6] bg-[#EEF5FF] px-1.5 py-0.5 rounded border border-[#C7D7FE]">
                             {(ano.confidence * 100).toFixed(0)}%
                           </span>
                         </div>
@@ -1105,20 +1106,20 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
             </div>
 
             {/* Right Column: AI Explainability Rationales & Medical Disclaimer */}
-            <div className="flex flex-col justify-between bg-teal-50/40 border border-teal-100 rounded-2xl p-3.5 space-y-3 shadow-2xs">
+            <div className="flex flex-col justify-between bg-[#EEF5FF]/40 border border-[#C7D7FE] rounded-2xl p-3.5 space-y-3 shadow-2xs">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#3478F6]" />
                     {t('clinic.batchDetailModal.rationalesTitle')}
                   </h4>
-                  <span className="text-[10px] font-semibold text-teal-700 bg-teal-100/70 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-semibold text-[#3478F6] bg-[#EEF5FF] px-2 py-0.5 rounded-full">
                     AURA CDS Insight
                   </span>
                 </div>
                 <ul className="space-y-1.5 text-xs text-slate-700">
                   {rationales.map((rat, i) => (
-                    <li key={i} className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-teal-100/60 shadow-2xs">
+                    <li key={i} className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-[#EAECF0] shadow-2xs">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                       <span className="leading-relaxed font-medium">{rat}</span>
                     </li>

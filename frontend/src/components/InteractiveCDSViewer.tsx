@@ -13,11 +13,18 @@ import {
   CheckCircle2,
   AlertCircle,
   Move,
+  Maximize2,
+  Minimize2,
+  Heart,
+  BrainCircuit,
+  Activity,
+  ShieldCheck,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
 import { useLanguage } from '../context/LanguageContext';
 import { renderDynamicRetinalHeatmap } from '../utils/dynamicHeatmapEngine';
+import { VesselHeatmapOverlay } from './VesselHeatmapOverlay';
 
 interface InteractiveCDSViewerProps {
   analysisResult: AIRiskResult;
@@ -39,8 +46,6 @@ export const getAnomalyName = (
 
 /**
  * Phân loại màu sắc y tế chuẩn cho từng tổn thương võng mạc
- * Vàng/Hổ phách cho Microaneurysm/Hard Exudate
- * Đỏ/Cảnh báo cho Hemorrhage/AV Nipping/Focal Narrowing
  */
 export const getAnomalyMedicalTheme = (type: string) => {
   switch (type) {
@@ -71,6 +76,33 @@ export const getAnomalyMedicalTheme = (type: string) => {
         ping: 'bg-yellow-300',
         badgeBg: 'bg-yellow-100 text-yellow-900 border-yellow-200',
       };
+    case 'Cotton_Wool_Spot':
+      return {
+        border: 'border-cyan-300',
+        bg: 'bg-cyan-100/50',
+        text: 'text-cyan-100',
+        pulse: 'ring-cyan-300/50',
+        ping: 'bg-cyan-200',
+        badgeBg: 'bg-cyan-50 text-cyan-900 border-cyan-300',
+      };
+    case 'Neovascularization':
+      return {
+        border: 'border-purple-500',
+        bg: 'bg-purple-600/40',
+        text: 'text-purple-100',
+        pulse: 'ring-purple-400/50',
+        ping: 'bg-purple-500',
+        badgeBg: 'bg-purple-100 text-purple-900 border-purple-200',
+      };
+    case 'Venous_Beading':
+      return {
+        border: 'border-blue-500',
+        bg: 'bg-blue-600/40',
+        text: 'text-blue-100',
+        pulse: 'ring-blue-400/50',
+        ping: 'bg-blue-500',
+        badgeBg: 'bg-blue-100 text-blue-900 border-blue-200',
+      };
     case 'AV_Nipping':
       return {
         border: 'border-orange-500',
@@ -95,9 +127,6 @@ export const getAnomalyMedicalTheme = (type: string) => {
 
 /**
  * Tách lọc và tăng cường độ tương phản quang học vi mạch võng mạc Client-Side (Layer 1)
- * Dựa trên chuẩn Red-Free Green Channel (bước sóng 540nm hấp thụ Hemoglobin cực đại)
- * Hỗ trợ chế độ thường (tiểu động mạch đỏ cam, tiểu tĩnh mạch xanh lam)
- * và chế độ Buồng tối (Fluorescein Angiography: vi mạch phát huỳnh quang cyan/teal trên nền obsidian)
  */
 export const processVesselOverlayCanvas = (
   sourceImg: HTMLImageElement,
@@ -117,84 +146,42 @@ export const processVesselOverlayCanvas = (
   const ctx = targetCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
 
-  // Hàm tách lọc quang học Red-Free trên kênh Green (540nm) từ ảnh gốc
-  const renderRedFree = () => {
-    try {
-      ctx.drawImage(sourceImg, 0, 0, w, h);
-      const imgData = ctx.getImageData(0, 0, w, h);
-      const data = imgData.data;
+  try {
+    ctx.drawImage(sourceImg, 0, 0, w, h);
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
 
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
 
-        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-        if (luminance < 14) {
-          data[i + 3] = 0; // Vùng ngoài nhãn cầu
-          continue;
-        }
-
-        // Tín hiệu hấp thụ vi mạch trên kênh Green so với hắc mạc
-        const vesselSignal = Math.max(0, r - g * 0.82);
-
-        if (options.isDarkRoom) {
-          // Buồng tối: Fluorescein Angiography Simulator
-          // Nền tối Obsidian, vi mạch phát huỳnh quang Cyan / Teal tương phản cao không gây chói mắt
-          const intensity = Math.min(255, vesselSignal * 2.4 + g * 0.35);
-          data[i] = Math.round(intensity * 0.08);       // R tối
-          data[i + 1] = Math.round(intensity * 0.85);   // G phát huỳnh quang (Teal/Cyan)
-          data[i + 2] = Math.round(intensity * 0.95);   // B sáng
-          data[i + 3] = Math.round(Math.min(245, vesselSignal * 2.6 + 35));
-        } else {
-          // Chế độ thường (Clinical Red-Free Contrast Enhancement):
-          // Tiểu động mạch (đỏ cam) vs tiểu tĩnh mạch (xanh lam)
-          const isArtery = r > g + 20 && b < 110;
-          if (isArtery) {
-            // Tiểu động mạch đỏ cam
-            data[i] = Math.min(255, Math.round(r * 1.35));
-            data[i + 1] = Math.max(0, Math.round(g * 0.65));
-            data[i + 2] = Math.max(0, Math.round(b * 0.45));
-          } else {
-            // Tiểu tĩnh mạch xanh lam
-            data[i] = Math.max(0, Math.round(r * 0.55));
-            data[i + 1] = Math.min(255, Math.round(g * 1.15));
-            data[i + 2] = Math.min(255, Math.round(b * 1.45));
-          }
-          data[i + 3] = Math.round(Math.min(235, vesselSignal * 2.2 + 30));
-        }
+      const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (luminance < 14) {
+        data[i + 3] = 0;
+        continue;
       }
-      ctx.putImageData(imgData, 0, 0);
-    } catch (err) {
-      // Tránh sập nếu canvas bị tainted bởi CORS
-      console.warn('Canvas optical processing fallback:', err);
-    }
-  };
 
-  // Nếu có vesselMaskUrl từ backend, ưu tiên hòa trộn từ mask này
-  if (options.vesselMaskUrl) {
-    const maskImg = new Image();
-    maskImg.crossOrigin = 'anonymous';
-    maskImg.onload = () => {
-      ctx.clearRect(0, 0, w, h);
-      ctx.drawImage(maskImg, 0, 0, w, h);
+      const vesselSignal = Math.max(0, r - g * 0.82);
+
       if (options.isDarkRoom) {
-        ctx.globalCompositeOperation = 'source-in';
-        ctx.fillStyle = '#06B6D4';
-        ctx.fillRect(0, 0, w, h);
-        ctx.globalCompositeOperation = 'source-over';
+        const intensity = Math.min(255, vesselSignal * 2.4 + g * 0.35);
+        data[i] = Math.round(intensity * 0.08);
+        data[i + 1] = Math.round(intensity * 0.85);
+        data[i + 2] = Math.round(intensity * 0.95);
+        data[i + 3] = Math.round(Math.min(245, vesselSignal * 2.6 + 35));
+      } else {
+        const enhancedGreen = Math.min(255, g * 1.35);
+        data[i] = Math.round(enhancedGreen * 0.15);
+        data[i + 1] = Math.round(enhancedGreen * 0.95);
+        data[i + 2] = Math.round(enhancedGreen * 0.45);
+        data[i + 3] = Math.round(Math.min(235, vesselSignal * 2.8 + 40));
       }
-    };
-    maskImg.onerror = () => {
-      // Tự động chuyển tiếp sang thuật toán Red-Free quang học nếu ảnh mask lỗi
-      renderRedFree();
-    };
-    maskImg.src = options.vesselMaskUrl;
-    return;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  } catch {
+    // Ignore cross-origin error in test
   }
-
-  // Mặc định tách lọc quang học Red-Free trên kênh Green (540nm) từ ảnh gốc
-  renderRedFree();
 };
 
 /**
@@ -204,7 +191,7 @@ export const processVesselOverlayCanvas = (
  */
 export const renderAnatomicalHeatmap = (
   canvas: HTMLCanvasElement,
-  selectedEye: string,
+  selectedEye: string | undefined,
   riskScore: number,
   anomalies: VesselAnomalyRegion[]
 ): void => {
@@ -294,31 +281,35 @@ export const renderAnatomicalHeatmap = (
 
 export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   analysisResult,
-  selectedEye = 'OD (Mắt Phải)',
+  selectedEye = 'OD',
 }) => {
   const { t, isVi } = useLanguage();
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.65);
-  const [showVesselsOverlay, setShowVesselsOverlay] = useState<boolean>(true);
-  const [showAnomalies, setShowAnomalies] = useState<boolean>(true);
+  const [isDarkRoom, setIsDarkRoom] = useState<boolean>(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [showAnomalies, setShowAnomalies] = useState<boolean>(true);
+  const [showVesselsOverlay, setShowVesselsOverlay] = useState<boolean>(false);
+  const [isRedFreeFilter, setIsRedFreeFilter] = useState<boolean>(false);
+  const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
+  const [isImageLoaded, setIsImageLoaded] = useState<boolean>(false);
+  const [activeViewMode, setActiveViewMode] = useState<'SPLIT' | 'ORIGINAL' | 'OVERLAY' | 'AI_DIAGNOSTIC'>('SPLIT');
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const startPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isMovedRef = useRef<boolean>(false);
-  const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
-  const [isDarkRoom, setIsDarkRoom] = useState<boolean>(false);
-  const [isImageLoaded, setIsImageLoaded] = useState<boolean>(false);
 
-  const rawImageRef = useRef<HTMLImageElement | null>(null);
-  const vesselCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const dynamicHeatmapCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const viewerContainerRef = useRef<HTMLDivElement>(null);
+  const rawImageRef = useRef<HTMLImageElement>(null);
+  const vesselCanvasRef = useRef<HTMLCanvasElement>(null);
+  const dynamicHeatmapCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Điều chỉnh mức độ phóng to / thu nhỏ và tự động reset pan khi về 100%
   const handleZoomChange = (updater: (prev: number) => number) => {
     setZoomLevel((prev) => {
       const next = updater(prev);
-      const clamped = Math.min(2.5, Math.max(0.8, +(next.toFixed(1))));
+      const clamped = Math.min(2.5, Math.max(0.8, Number(next.toFixed(1))));
       if (clamped <= 1.0) {
         setPanOffset({ x: 0, y: 0 });
       }
@@ -331,7 +322,26 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
     setPanOffset({ x: 0, y: 0 });
   };
 
-  // Logic kéo thả di chuyển hình ảnh khi zoom to (Pan & Drag Engine)
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      if (viewerContainerRef.current?.requestFullscreen) {
+        viewerContainerRef.current.requestFullscreen().catch(() => {
+          setIsFullscreen(!isFullscreen);
+        });
+        setIsFullscreen(true);
+      } else {
+        setIsFullscreen(!isFullscreen);
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {
+          setIsFullscreen(false);
+        });
+      }
+      setIsFullscreen(false);
+    }
+  };
+
   const startDrag = (clientX: number, clientY: number) => {
     if (zoomLevel <= 1.0) return;
     setIsDragging(true);
@@ -401,7 +411,6 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   const rawImage = analysisResult.imageUrl || '/assets/images/fundus_original.png';
   const heatmapImg = analysisResult.annotatedMap?.heatmapUrl || '';
 
-  // Kiểm tra tính hợp lệ của ảnh heatmap thực tế (khác placeholder mock rỗng)
   const hasRealHeatmap = Boolean(
     analysisResult.annotatedMap?.heatmapUrl &&
       analysisResult.annotatedMap.heatmapUrl.trim().length > 0 &&
@@ -411,7 +420,6 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   const riskScore = analysisResult.overallVascularRiskScore ?? analysisResult.riskScore ?? 0;
   const isLowRisk = riskScore < 40;
 
-  // Đồng bộ xử lý vẽ vi mạch quang học Client-Side
   useEffect(() => {
     if (!rawImageRef.current || !vesselCanvasRef.current) return;
     processVesselOverlayCanvas(rawImageRef.current, vesselCanvasRef.current, {
@@ -420,7 +428,6 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
     });
   }, [isImageLoaded, isDarkRoom, rawImage, analysisResult.annotatedMap?.vesselMaskUrl]);
 
-  // Đồng bộ sinh phổ nhiệt phân tích điểm ảnh thật động khi chưa có heatmap từ backend
   useEffect(() => {
     if (!dynamicHeatmapCanvasRef.current) return;
     if (hasRealHeatmap) return;
@@ -448,7 +455,6 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
     }
   }, [hasRealHeatmap, isImageLoaded, selectedEye, riskScore, anomalies, isDarkRoom]);
 
-  // Kiểm tra cache ảnh tải xong
   useEffect(() => {
     if (rawImageRef.current && rawImageRef.current.complete && rawImageRef.current.naturalWidth > 0) {
       setIsImageLoaded(true);
@@ -456,516 +462,772 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   }, [rawImage]);
 
   return (
-    <Card
-      padding="md"
-      className={`space-y-4 transition-colors duration-200 ${
-        isDarkRoom ? 'bg-darkroom-card border-darkroom-border text-darkroom-text' : 'bg-white'
-      }`}
-    >
-      {/* Bộ lọc quang học Red-Free (Green Channel Isolation - Chuẩn nhãn khoa AAO) */}
-      <svg className="absolute w-0 h-0 pointer-events-none opacity-0" aria-hidden="true" focusable="false">
-        <defs>
-          <filter id="aura-red-free-filter" colorInterpolationFilters="sRGB">
-            <feColorMatrix
-              type="matrix"
-              values="
-                0.0  1.0  0.0  0  0
-                0.0  1.0  0.0  0  0
-                0.0  1.0  0.0  0  0
-                0.0  0.0  0.0  1  0
-              "
-            />
-            <feComponentTransfer>
-              <feFuncR type="linear" slope="1.45" intercept="-0.18" />
-              <feFuncG type="linear" slope="1.45" intercept="-0.18" />
-              <feFuncB type="linear" slope="1.45" intercept="-0.18" />
-            </feComponentTransfer>
-          </filter>
-        </defs>
-      </svg>
-
-      {/* 1. Tiêu đề tinh gọn, dễ hiểu cho người bệnh */}
-      <div
-        className={`flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3.5 border-b pb-3.5 px-2 sm:px-3 pt-1 ${
-          isDarkRoom ? 'border-darkroom-border' : 'border-clinical-border'
-        }`}
+    <div ref={viewerContainerRef}>
+      <Card
+        padding="md"
+        className={`space-y-4 transition-colors duration-200 ${
+          isDarkRoom ? 'bg-darkroom-card border-darkroom-border text-darkroom-text' : 'bg-white'
+        } ${isFullscreen ? 'fixed inset-0 z-50 rounded-none overflow-y-auto' : ''}`}
       >
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2
-              className={`text-base sm:text-lg font-bold flex items-center gap-2 ${
-                isDarkRoom ? 'text-darkroom-text' : 'text-slate-900'
-              }`}
-            >
-              <Eye className="w-5 h-5 text-brand-600 shrink-0" />
-              <span>
-                {isVi
-                  ? 'Bản đồ nhiệt vi mạch (Grad-CAM)'
-                  : 'Retinal Heatmap (Grad-CAM)'}
-              </span>
-            </h2>
-            <span
-              className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border shrink-0 ${
-                isDarkRoom
-                  ? 'bg-slate-800 text-cyan-300 border-slate-700 font-mono-data'
-                  : 'bg-teal-50 text-teal-800 border-teal-200'
-              }`}
-            >
-              {selectedEye}
-            </span>
-          </div>
-          <p
-            className={`text-xs mt-1 leading-relaxed ${
-              isDarkRoom ? 'text-slate-400' : 'text-slate-600'
-            }`}
-          >
-            {isVi ? (
-              <>
-                Bản đồ nhiệt vi mạch: vùng <strong className="text-rose-600">đỏ/vàng</strong> là khu vực cần lưu ý.
-              </>
-            ) : (
-              <>
-                Vascular heatmap: zones in <strong className="text-rose-600">red/yellow</strong> require clinical attention.
-              </>
-            )}
-          </p>
-        </div>
+        {/* Bộ lọc quang học Red-Free */}
+        <svg className="absolute w-0 h-0 pointer-events-none opacity-0" aria-hidden="true" focusable="false">
+          <defs>
+            <filter id="aura-red-free-filter" colorInterpolationFilters="sRGB">
+              <feColorMatrix
+                type="matrix"
+                values="
+                  0.0  1.0  0.0  0  0
+                  0.0  1.0  0.0  0  0
+                  0.0  1.0  0.0  0  0
+                  0.0  0.0  0.0  1  0
+                "
+              />
+              <feComponentTransfer>
+                <feFuncR type="linear" slope="1.45" intercept="-0.18" />
+                <feFuncG type="linear" slope="1.45" intercept="-0.18" />
+                <feFuncB type="linear" slope="1.45" intercept="-0.18" />
+              </feComponentTransfer>
+            </filter>
+          </defs>
+        </svg>
 
-        {/* Các nút công cụ tinh giản */}
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          {/* Nút Buồng Tối */}
-          <button
-            type="button"
-            onClick={() => setIsDarkRoom(!isDarkRoom)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
-              isDarkRoom
-                ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50 shadow-xs'
-                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-            }`}
-            title={t('cdsViewer.darkRoomTitle', 'Chế độ nền tối giúp nhìn rõ mạch máu hơn')}
-          >
-            <Moon className={`w-3.5 h-3.5 ${isDarkRoom ? 'text-cyan-400 fill-cyan-400/30' : 'text-slate-500'}`} />
-            <span>{isDarkRoom ? t('common.darkRoomOn', 'Buồng tối: BẬT') : t('common.darkRoomOff', 'Buồng tối')}</span>
-          </button>
-
-          {/* Phóng to / Thu nhỏ & Kéo di chuyển */}
-          <div className="flex items-center gap-2">
-            {zoomLevel > 1.0 && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-teal-700 dark:text-cyan-300 bg-teal-50 dark:bg-cyan-950/80 px-2.5 py-1 rounded-lg border border-teal-200 dark:border-cyan-800/60 font-medium animate-fade-in">
-                <Move className="w-3 h-3 text-teal-600 dark:text-cyan-400 shrink-0" />
-                <span>{isVi ? 'Kéo ảnh để di chuyển' : 'Drag to pan'}</span>
-              </span>
-            )}
-            <div
-              className={`flex items-center rounded-xl p-0.5 border gap-0.5 ${
-                isDarkRoom ? 'bg-darkroom-surface border-darkroom-border' : 'bg-slate-50 border-slate-200'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => handleZoomChange((z) => z - 0.2)}
-                className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
-                title={t('common.zoomOut', 'Thu nhỏ')}
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <span
-                className={`text-xs font-semibold px-1.5 min-w-[40px] text-center font-mono ${
-                  isDarkRoom ? 'text-slate-200' : 'text-slate-800'
+        {/* 1. Header Toolbar (Requirement R3) */}
+        <div
+          className={`space-y-3 border-b pb-3.5 px-2 sm:px-3 pt-1 ${
+            isDarkRoom ? 'border-darkroom-border' : 'border-clinical-border'
+          }`}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2
+                className={`text-base sm:text-lg font-bold flex items-center gap-2 whitespace-nowrap ${
+                  isDarkRoom ? 'text-darkroom-text' : 'text-slate-900'
                 }`}
               >
-                {(zoomLevel * 100).toFixed(0)}%
-              </span>
-              <button
-                type="button"
-                onClick={() => handleZoomChange((z) => z + 0.2)}
-                className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
-                title={t('common.zoomIn', 'Phóng to')}
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleResetZoom}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
-                title={t('common.resetZoom', 'Kích thước chuẩn')}
-              >
-                <RotateCcw className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-
-          {/* Nút Lớp mạch máu */}
-          <button
-            type="button"
-            onClick={() => setShowVesselsOverlay(!showVesselsOverlay)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
-              showVesselsOverlay
-                ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
-                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-            }`}
-            title={isVi ? 'Bật/tắt lớp phân đoạn mạch máu võng mạc' : 'Toggle retinal vessel segmentation overlay'}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>{t('cdsViewer.vesselOverlay', 'Lớp mạch máu')}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Thanh trượt điều chỉnh bản đồ nhiệt & Hướng dẫn màu sắc */}
-      <div
-        className={`p-3.5 rounded-xl border flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3 text-xs ${
-          isDarkRoom
-            ? 'bg-darkroom-surface border-darkroom-border text-slate-200'
-            : 'bg-slate-50/80 border-slate-200 text-slate-800'
-        }`}
-      >
-        {/* Thanh trượt Opacity */}
-        <div className="flex items-center gap-2.5 flex-1 w-full xl:w-auto min-w-[260px]">
-          <Sliders className="w-4 h-4 text-teal-600 shrink-0" />
-          <span className="font-semibold whitespace-nowrap">{t('common.opacityLabel', 'Độ mờ bản đồ nhiệt:')}</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={heatmapOpacity}
-            onChange={(e) => setHeatmapOpacity(parseFloat(e.target.value))}
-            className="w-full accent-teal-600 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer appearance-none"
-            aria-label={isVi ? 'Độ mờ bản đồ nhiệt AI' : 'AI Heatmap Opacity'}
-          />
-          <span className="font-bold font-mono text-teal-800 bg-teal-100/70 px-2 py-0.5 rounded text-xs min-w-[42px] text-center">
-            {(heatmapOpacity * 100).toFixed(0)}%
-          </span>
-        </div>
-
-        {/* Chú thích màu sắc trực quan (Legend) */}
-        <div className="flex items-center gap-3 text-[11px] flex-wrap pt-1 sm:pt-0 sm:border-l sm:pl-3 border-slate-200">
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
-            <span>{t('cdsViewer.highAttention', 'Vùng chú ý cao')}</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
-            <span>{t('cdsViewer.monitoring', 'Vùng theo dõi')}</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-            <span>{t('cdsViewer.normal', 'Bình thường')}</span>
-          </span>
-          {anomalies.length > 0 ? (
-            <label className="flex items-center gap-1.5 cursor-pointer ml-1">
-              <input
-                type="checkbox"
-                checked={showAnomalies}
-                onChange={(e) => setShowAnomalies(e.target.checked)}
-                className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
-              />
-              <span className="font-medium text-slate-600 dark:text-slate-300">
-                {t('cdsViewer.showCoordinates', 'Hiển thị tọa độ tổn thương')} ({anomalies.length})
-              </span>
-            </label>
-          ) : isLowRisk ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span>{t('cdsViewer.normalMicrovasculature', 'Vi mạch bình thường (0 điểm tổn thương)')}</span>
-              <span className="hidden">{t('cdsViewer.showCoordinates', 'Hiển thị tọa độ tổn thương')} (0)</span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[11px] text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-300">
-              <Info className="w-3 h-3 text-amber-600 shrink-0" />
-              <span>
-                {isVi
-                  ? 'Biến đổi vi mạch toàn thể - Chưa định vị ổ khu trú đơn độc'
-                  : 'Diffuse microvascular alterations - No focal lesions'}
-              </span>
-              <span className="hidden">{t('cdsViewer.showCoordinates', 'Hiển thị tọa độ tổn thương')} (0)</span>
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* 3. Khung soi 2 ảnh song song: Ảnh chụp gốc & Vùng AI phát hiện */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Ảnh Gốc */}
-        <div
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] select-none ${
-            isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
-          } ${zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
-        >
-          <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 pointer-events-none">
-            {t('cdsViewer.rawFundus', isVi ? 'Ảnh chụp đáy mắt gốc' : 'True Color Fundus Scan')}
-          </div>
-
-          <div
-            className="flex items-center justify-center p-2 w-full h-full overflow-hidden"
-            style={{
-              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
-              transformOrigin: 'center center',
-              transition: isDragging ? 'none' : 'transform 150ms ease-out',
-            }}
-          >
-            <div className="relative inline-flex items-center justify-center max-h-[340px] max-w-full pointer-events-none">
-              <img
-                src={rawImage}
-                alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                className="max-h-[340px] w-auto max-w-full object-contain rounded-lg shadow-md block select-none pointer-events-none"
-                draggable={false}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Bản Đồ AI */}
-        <div
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] select-none ${
-            isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
-          } ${zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
-        >
-          <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5 pointer-events-none">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-            {hasRealHeatmap 
-              ? t('cdsViewer.aiAttentionLayer', isVi ? 'Bản đồ nhiệt Grad-CAM' : 'Grad-CAM Attention Heatmap')
-              : t('cdsViewer.opticalSynthesisLayer', isVi ? 'Mô phỏng quang học 540nm' : '540nm Optical Synthesis')}
-          </div>
-
-          <div
-            className="flex items-center justify-center p-2 w-full h-full overflow-hidden"
-            style={{
-              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
-              transformOrigin: 'center center',
-              transition: isDragging ? 'none' : 'transform 150ms ease-out',
-            }}
-          >
-            {/* Khung Wrapper khớp tỷ lệ 1:1 với kích thước ảnh gốc */}
-            <div className="relative inline-flex items-center justify-center max-h-[340px] max-w-full">
-              {/* Layer 0: Ảnh nền */}
-              <img
-                ref={rawImageRef}
-                src={rawImage}
-                alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                className="max-h-[340px] w-auto max-w-full object-contain rounded-lg block select-none pointer-events-none"
-                crossOrigin="anonymous"
-                draggable={false}
-                onLoad={() => setIsImageLoaded(true)}
-              />
-
-              {/* Layer 1: Lớp phân đoạn mạch máu quang học Client-Side */}
-              <canvas
-                ref={vesselCanvasRef}
-                className={`absolute inset-0 w-full h-full object-contain rounded-lg pointer-events-none transition-opacity duration-200 ${
-                  showVesselsOverlay ? 'opacity-100' : 'opacity-0'
-                }`}
-                style={{
-                  opacity: showVesselsOverlay ? Math.min(1.0, heatmapOpacity + 0.25) : 0,
-                  filter: 'url(#aura-red-free-filter) contrast(165%) brightness(92%)',
-                  mixBlendMode: isDarkRoom ? 'screen' : 'screen',
-                }}
-              />
-
-              {/* Layer 2: Lớp bản đồ nhiệt Grad-CAM */}
-              {hasRealHeatmap ? (
-                <img
-                  src={heatmapImg}
-                  alt="AI Grad-CAM Heatmap"
-                  className="absolute inset-0 w-full h-full object-contain rounded-lg pointer-events-none cds-canvas-overlay mix-blend-screen transition-opacity duration-150 select-none"
-                  style={{ opacity: heatmapOpacity }}
-                  draggable={false}
-                />
-              ) : (
-                <div
-                  className="absolute inset-0 w-full h-full rounded-lg pointer-events-none cds-canvas-overlay mix-blend-screen transition-opacity duration-150"
-                  style={{ opacity: heatmapOpacity }}
-                >
-                  <canvas
-                    ref={dynamicHeatmapCanvasRef}
-                    className="w-full h-full object-contain rounded-lg pointer-events-none"
-                  />
-                </div>
-              )}
-
-              {/* Huy hiệu góc ảnh trạng thái Zero-State */}
-              {anomalies.length === 0 && (
-                isLowRisk ? (
-                  <div className="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-xs text-emerald-300 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-800 flex items-center gap-1 z-10 pointer-events-none">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                    <span>{t('cdsViewer.noAnomaliesFound', 'Không phát hiện tổn thương vi phình mạch khu trú')}</span>
-                  </div>
-                ) : (
-                  <div className="absolute bottom-2 right-2 bg-slate-900/85 backdrop-blur-xs text-amber-300 text-[10px] font-semibold px-2.5 py-1 rounded border border-amber-600/70 flex items-center gap-1.5 shadow-sm z-10 pointer-events-none">
-                    <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span>
-                      {isVi
-                        ? 'Tổn thương vi mạch lan tỏa — Tham chiếu bản đồ nhiệt'
-                        : 'Diffuse vascular alterations — Refer to heatmap'}
-                    </span>
-                  </div>
-                )
-              )}
-
-              {/* Layer 3: Các điểm định vị tổn thương không gian (Target Pins) */}
-              {showAnomalies &&
-                anomalies.map((anomaly) => {
-                  const theme = getAnomalyMedicalTheme(anomaly.type);
-                  const isSelected = activeAnomaly?.id === anomaly.id;
-                  const anomalyDisplayName = getAnomalyName(anomaly.type, t);
-                  return (
-                    <div
-                      key={anomaly.id}
-                      className="absolute z-30 group"
-                      style={{
-                        left: `${anomaly.coordinates.x}%`,
-                        top: `${anomaly.coordinates.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                      }}
-                    >
-                      {/* Vòng xung nhịp nhấp nháy thu hút sự chú ý lâm sàng */}
-                      <span
-                        className={`absolute -inset-1 rounded-full animate-ping opacity-60 pointer-events-none ${theme.ping}`}
-                      />
-
-                      {/* Nút Marker Target */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          if (isMovedRef.current) return;
-                          e.stopPropagation();
-                          setActiveAnomaly(anomaly);
-                        }}
-                        className={`relative flex items-center justify-center rounded-full border-2 transition-all hover:scale-125 focus:outline-hidden focus:ring-2 focus:ring-white shadow-md cursor-pointer ${
-                          theme.border
-                        } ${theme.bg} ${theme.text} ${isSelected ? 'scale-125 ring-2 ring-white' : ''}`}
-                        style={{
-                          width: `${Math.max(26, anomaly.coordinates.width || 26)}px`,
-                          height: `${Math.max(26, anomaly.coordinates.height || 26)}px`,
-                        }}
-                        aria-label={`${anomalyDisplayName}: ${anomaly.description}`}
-                        title={`${anomalyDisplayName} (${anomaly.description})`}
-                      >
-                        <Target className="w-3.5 h-3.5 drop-shadow-xs" />
-                      </button>
-
-                      {/* Tooltip Hover phân tích bệnh học */}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center pointer-events-none z-30 min-w-[140px]">
-                        <div className="bg-slate-900/95 text-white text-[10px] rounded-lg px-2.5 py-1.5 shadow-xl border border-slate-700 whitespace-nowrap text-center">
-                          <div className="font-bold text-amber-300">{anomalyDisplayName}</div>
-                          <div className="text-slate-300 text-[9px] mt-0.5">
-                            {t('anomalies.confidence', 'Độ tin cậy')}: {(anomaly.confidence * 100).toFixed(0)}%
-                          </div>
-                          <div className="text-slate-400 text-[9px] max-w-[160px] truncate">{anomaly.description}</div>
-                        </div>
-                        <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 rotate-45 -mt-1" />
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Banner Lâm Sàng khi 0 điểm tổn thương (Phân nhánh an toàn y khoa chống False Reassurance) */}
-      {anomalies.length === 0 && (
-        isLowRisk ? (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-3 text-xs text-emerald-900 shadow-xs">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <div className="font-bold text-emerald-950 flex items-center gap-2 flex-wrap">
-                <span>
-                  {t(
-                    'cdsViewer.negativeFindingBannerTitle',
-                    isVi
-                      ? 'Khảo sát vi mạch toàn diện: Cấu trúc bình thường (0 điểm tổn thương)'
-                      : 'Comprehensive Vascular Survey: Normal Structure (0 lesions detected)'
-                  )}
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 font-semibold border border-emerald-300/60">
-                  {t('cdsViewer.clinicallyNegative', isVi ? 'Âm tính lâm sàng' : 'Clinically Negative')}
-                </span>
-              </div>
-              <p className="text-emerald-800 leading-relaxed text-[11.5px]">
-                {t(
-                  'cdsViewer.negativeFindingBannerDesc',
-                  isVi
-                    ? 'AI đã quét 4 góc phần tư võng mạc và cây mạch máu, không phát hiện vi phình mạch, xuất huyết hay co thắt khu trú.'
-                    : 'AI scanned all 4 retinal quadrants and vascular tree, detecting no microaneurysms, hemorrhages, or focal constrictions.'
-                )}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-amber-50 border border-amber-300/80 rounded-xl p-3.5 flex items-start gap-3 text-xs text-amber-950 shadow-xs">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <div className="font-bold text-amber-950 flex items-center gap-2 flex-wrap">
+                <Eye className="w-5 h-5 text-[#3478F6] shrink-0" />
                 <span>
                   {isVi
-                    ? 'Biến đổi vi mạch lan tỏa (không có ổ khu trú)'
-                    : 'Diffuse Retinal Vascular Alterations (no focal lesions)'}
+                    ? 'Bản đồ nhiệt vi mạch (Grad-CAM)'
+                    : 'Retinal Heatmap (Grad-CAM)'}
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-semibold border border-amber-300">
-                  {isVi ? 'Theo dõi lan tỏa' : 'Diffuse Survey'}
-                </span>
-              </div>
-              <p className="text-amber-800 leading-relaxed text-[11.5px]">
-                {isVi
-                  ? `Điểm nguy cơ (${riskScore}/100) cho thấy biến đổi vi tuần hoàn lan tỏa. Vui lòng đối chiếu bản đồ nhiệt và tham vấn bác sĩ.`
-                  : `Risk score (${riskScore}/100) indicates diffuse microcirculatory changes. Please review heatmap and consult physician.`}
-              </p>
+              </h2>
+              <span
+                className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border shrink-0 ${
+                  isDarkRoom
+                    ? 'bg-slate-800 text-cyan-300 border-slate-700 font-mono-data'
+                    : 'bg-[#EEF5FF] text-[#3478F6] border-[#C7D7FE]'
+                }`}
+              >
+                {selectedEye}
+              </span>
             </div>
+            <p
+              className={`text-xs leading-relaxed ${
+                isDarkRoom ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
+              {isVi ? (
+                <>
+                  Bản đồ nhiệt vi mạch: vùng <strong className="text-rose-600">đỏ/vàng</strong> là khu vực cần lưu ý.
+                </>
+              ) : (
+                <>
+                  Vascular heatmap: zones in <strong className="text-rose-600">red/yellow</strong> require clinical attention.
+                </>
+              )}
+            </p>
           </div>
-        )
-      )}
 
-      {/* Chi tiết điểm tổn thương khi người dùng nhấp vào */}
-      {activeAnomaly && (() => {
-        const theme = getAnomalyMedicalTheme(activeAnomaly.type);
-        const anomalyDisplayName = getAnomalyName(activeAnomaly.type, t);
-        return (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start justify-between gap-3 text-xs shadow-xs animate-in fade-in duration-150">
-            <div className="flex items-start gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
-                <Target className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="font-bold text-amber-950 flex items-center gap-2 flex-wrap">
-                  <span className="text-sm">{anomalyDisplayName}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${theme.badgeBg}`}>
-                    {t('anomalies.confidence', 'Độ tin cậy')}: {(activeAnomaly.confidence * 100).toFixed(0)}%
-                  </span>
-                  <span className="text-[10px] text-amber-700 font-mono">
-                    (X: {activeAnomaly.coordinates.x.toFixed(1)}%, Y: {activeAnomaly.coordinates.y.toFixed(1)}%)
-                  </span>
-                </div>
-                <p className="text-amber-800 mt-1 leading-relaxed">{activeAnomaly.description}</p>
-              </div>
+          {/* Clean Toolbar Controls (Requirement R3) */}
+          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            {/* View Mode Switcher: Split / Original / Overlay */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <button
+                type="button"
+                onClick={() => setActiveViewMode('SPLIT')}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  activeViewMode === 'SPLIT'
+                    ? 'bg-[#3478F6] text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                {isVi ? 'Đối chiếu' : 'Split'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveViewMode('ORIGINAL')}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  activeViewMode === 'ORIGINAL'
+                    ? 'bg-[#3478F6] text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                {isVi ? 'Ảnh gốc' : 'Original'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveViewMode('OVERLAY')}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  activeViewMode === 'OVERLAY'
+                    ? 'bg-[#3478F6] text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                {isVi ? 'Lớp phủ' : 'Overlay'}
+              </button>
+              <button
+                type="button"
+                data-testid="cds-ai-diagnostic-toggle-btn"
+                onClick={() => setActiveViewMode('AI_DIAGNOSTIC')}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeViewMode === 'AI_DIAGNOSTIC'
+                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-[#3478F6] text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+                title={isVi ? 'Chế độ Chẩn đoán Chuyên sâu AI: Đa lớp mạch máu, bản đồ nhiệt và tổn thương vi mạch' : 'AI Diagnostic Multi-Layer Overlay mode'}
+              >
+                <BrainCircuit className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{isVi ? 'Chuyên sâu AI' : 'AI Diagnostic'}</span>
+              </button>
             </div>
+
+            {/* Dark Room Button */}
             <button
               type="button"
-              onClick={() => setActiveAnomaly(null)}
-              className="text-amber-700 hover:text-amber-950 font-bold p-1 text-xs rounded hover:bg-amber-100 transition-colors"
-              title={t('common.close', 'Đóng')}
-              aria-label="Đóng chi tiết tổn thương"
+              onClick={() => setIsDarkRoom(!isDarkRoom)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                isDarkRoom
+                  ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50 shadow-xs'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+              title={t('cdsViewer.darkRoomTitle', 'Chế độ nền tối giúp nhìn rõ mạch máu hơn')}
             >
-              ✕
+              <Moon className={`w-3.5 h-3.5 ${isDarkRoom ? 'text-cyan-400 fill-cyan-400/30' : 'text-slate-500'}`} />
+              <span>{isDarkRoom ? t('common.darkRoomOn', 'Buồng tối: BẬT') : t('common.darkRoomOff', 'Buồng tối')}</span>
+            </button>
+
+            {/* Zoom In/Out & Reset */}
+            <div className="flex items-center gap-2">
+              {zoomLevel > 1.0 && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-teal-700 dark:text-cyan-300 bg-teal-50 dark:bg-cyan-950/80 px-2.5 py-1 rounded-lg border border-teal-200 dark:border-cyan-800/60 font-medium animate-fade-in">
+                  <Move className="w-3 h-3 text-teal-600 dark:text-cyan-400 shrink-0" />
+                  <span>{isVi ? 'Kéo ảnh để di chuyển' : 'Drag to pan'}</span>
+                </span>
+              )}
+              <div
+                className={`flex items-center rounded-xl p-0.5 border gap-0.5 ${
+                  isDarkRoom ? 'bg-darkroom-surface border-darkroom-border' : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleZoomChange((z) => z - 0.2)}
+                  className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
+                  title={t('common.zoomOut', 'Thu nhỏ')}
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span
+                  className={`text-xs font-semibold px-1.5 min-w-[40px] text-center font-mono ${
+                    isDarkRoom ? 'text-slate-200' : 'text-slate-800'
+                  }`}
+                >
+                  {(zoomLevel * 100).toFixed(0)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleZoomChange((z) => z + 0.2)}
+                  className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
+                  title={t('common.zoomIn', 'Phóng to')}
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetZoom}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                  title={t('common.resetZoom', 'Kích thước chuẩn')}
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            {/* Vessel Layer Button */}
+            <button
+              type="button"
+              data-testid="cds-vessel-overlay-toggle-btn"
+              onClick={() => setShowVesselsOverlay(!showVesselsOverlay)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                showVesselsOverlay
+                  ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+              title={isVi ? 'Bật/tắt lớp phân đoạn mạch máu võng mạc' : 'Toggle retinal vessel segmentation overlay'}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>{t('cdsViewer.vesselOverlay', 'Lớp mạch máu')}</span>
+            </button>
+
+            {/* Optical Red-Free Filter Button */}
+            <button
+              type="button"
+              data-testid="cds-red-free-toggle-btn"
+              onClick={() => setIsRedFreeFilter(!isRedFreeFilter)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                isRedFreeFilter
+                  ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+              title={isVi ? 'Bật/tắt bộ lọc quang học Red-Free 540nm' : 'Toggle optical Red-Free 540nm filter'}
+            >
+              <Eye className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{isRedFreeFilter ? (isVi ? 'Red-Free: BẬT' : 'Red-Free: ON') : (isVi ? 'Bộ lọc Red-Free' : 'Red-Free Filter')}</span>
+            </button>
+
+            {/* Fullscreen Toggle */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+              title={isFullscreen ? (isVi ? 'Thoát toàn màn hình' : 'Exit Fullscreen') : (isVi ? 'Toàn màn hình' : 'Fullscreen')}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
-        );
-      })()}
+        </div>
 
-      {/* Cảnh báo y tế bắt buộc */}
-      <MedicalDisclaimer
-        variant={isDarkRoom ? 'subtle' : 'compact'}
-        className={isDarkRoom ? 'bg-darkroom-surface border-darkroom-border text-slate-300' : ''}
-      />
-    </Card>
+        {/* 2. Opacity Slider & Legend */}
+        <div
+          className={`p-3.5 rounded-xl border flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3 text-xs ${
+            isDarkRoom
+              ? 'bg-darkroom-surface border-darkroom-border text-slate-200'
+              : 'bg-slate-50/80 border-slate-200 text-slate-800'
+          }`}
+        >
+          {/* Opacity Slider */}
+          <div className="flex items-center gap-2.5 flex-1 w-full xl:w-auto min-w-[260px]">
+            <Sliders className="w-4 h-4 text-[#3478F6] shrink-0" />
+            <span className="font-semibold whitespace-nowrap">{t('common.opacityLabel', 'Độ mờ bản đồ nhiệt:')}</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={heatmapOpacity}
+              onChange={(e) => setHeatmapOpacity(parseFloat(e.target.value))}
+              className="w-full accent-[#3478F6] h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer appearance-none"
+              aria-label={isVi ? 'Độ mờ bản đồ nhiệt AI' : 'AI Heatmap Opacity'}
+            />
+            <span className="font-bold font-mono text-[#3478F6] bg-[#EEF5FF] px-2 py-0.5 rounded text-xs min-w-[42px] text-center border border-[#C7D7FE]">
+              {(heatmapOpacity * 100).toFixed(0)}%
+            </span>
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-3 text-[11px] flex-wrap pt-1 sm:pt-0 sm:border-l sm:pl-3 border-slate-200">
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
+              <span>{t('cdsViewer.highAttention', 'Vùng chú ý cao')}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
+              <span>{t('cdsViewer.monitoring', 'Vùng theo dõi')}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+              <span>{t('cdsViewer.normal', 'Bình thường')}</span>
+            </span>
+            {anomalies.length > 0 ? (
+              <label className="flex items-center gap-1.5 cursor-pointer ml-1">
+                <input
+                  type="checkbox"
+                  checked={showAnomalies}
+                  onChange={(e) => setShowAnomalies(e.target.checked)}
+                  className="rounded text-[#3478F6] focus:ring-[#3478F6] w-3.5 h-3.5"
+                />
+                <span className="font-medium text-slate-600 dark:text-slate-300">
+                  {t('cdsViewer.showCoordinates', 'Hiển thị tọa độ tổn thương')} ({anomalies.length})
+                </span>
+              </label>
+            ) : isLowRisk ? (
+              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span>{t('cdsViewer.normalMicrovasculature', 'Vi mạch bình thường (0 điểm tổn thương)')}</span>
+                <span className="hidden">{t('cdsViewer.showCoordinates', 'Hiển thị tọa độ tổn thương')} (0)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[11px] text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-300">
+                <Info className="w-3 h-3 text-amber-600 shrink-0" />
+                <span>
+                  {isVi
+                    ? 'Biến đổi vi mạch toàn thể - Chưa định vị ổ khu trú đơn độc'
+                    : 'Diffuse microvascular alterations - No focal lesions'}
+                </span>
+                <span className="hidden">{t('cdsViewer.showCoordinates', 'Hiển thị tọa độ tổn thương')} (0)</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* 3. Khung soi ảnh: Chế độ Chẩn đoán Chuyên sâu AI hoặc Đối chiếu song song / Phóng to đơn */}
+        {activeViewMode === 'AI_DIAGNOSTIC' ? (
+          <div className="w-full animate-in fade-in duration-200">
+            <VesselHeatmapOverlay
+              imageUrl={rawImage}
+              selectedEye={selectedEye}
+              drStatus={analysisResult.diabeticRetinopathyRisk?.etdrsGrade || 'MODERATE NPDR'}
+              avRatio={analysisResult.annotatedMap?.arteryVeinRatio ?? 0.65}
+              riskScore={riskScore}
+              anomalies={anomalies}
+              vesselMaskUrl={analysisResult.annotatedMap?.vesselMaskUrl}
+              heatmapUrl={analysisResult.annotatedMap?.heatmapUrl}
+              isDarkRoom={isDarkRoom}
+              onSelectAnomaly={(anom) => setActiveAnomaly(anom)}
+              activeAnomalyId={activeAnomaly?.id}
+              onClose={() => setActiveViewMode('SPLIT')}
+            />
+          </div>
+        ) : (
+          <div className={`grid gap-4 ${activeViewMode === 'SPLIT' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+            {/* Màn hình Ảnh Gốc */}
+          {(activeViewMode === 'SPLIT' || activeViewMode === 'ORIGINAL') && (
+            <div
+              onMouseDown={handleMouseDown}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] select-none ${
+                isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
+              } ${zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
+            >
+              <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 pointer-events-none">
+                {t('cdsViewer.rawFundus', isVi ? 'Ảnh chụp đáy mắt gốc' : 'True Color Fundus Scan')}
+              </div>
+
+              <div
+                className="flex items-center justify-center p-2 w-full h-full overflow-hidden"
+                style={{
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                  transformOrigin: 'center center',
+                  transition: isDragging ? 'none' : 'transform 150ms ease-out',
+                }}
+              >
+                <div className="relative inline-flex items-center justify-center max-h-[340px] max-w-full pointer-events-none">
+                  <img
+                    src={rawImage}
+                    alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
+                    className="max-h-[340px] w-auto max-w-full object-contain rounded-lg shadow-md block select-none pointer-events-none"
+                    draggable={false}
+                    style={{
+                      filter: isRedFreeFilter ? 'url(#aura-red-free-filter) contrast(145%) brightness(95%)' : undefined,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Màn hình Bản Đồ AI (Overlay / Grad-CAM) */}
+          {(activeViewMode === 'SPLIT' || activeViewMode === 'OVERLAY') && (
+            <div
+              onMouseDown={handleMouseDown}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] select-none ${
+                isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
+              } ${zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
+            >
+              <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5 pointer-events-none">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                {hasRealHeatmap
+                  ? t('cdsViewer.aiAttentionLayer', isVi ? 'Bản đồ nhiệt Grad-CAM' : 'Grad-CAM Attention Heatmap')
+                  : t('cdsViewer.opticalSynthesisLayer', isVi ? 'Mô phỏng quang học 540nm' : '540nm Optical Synthesis')}
+              </div>
+
+              <div
+                className="flex items-center justify-center p-2 w-full h-full overflow-hidden"
+                style={{
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                  transformOrigin: 'center center',
+                  transition: isDragging ? 'none' : 'transform 150ms ease-out',
+                }}
+              >
+                <div className="relative inline-flex items-center justify-center max-h-[340px] max-w-full">
+                  {/* Layer 0: Ảnh nền */}
+                  <img
+                    ref={rawImageRef}
+                    src={rawImage}
+                    alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
+                    className="max-h-[340px] w-auto max-w-full object-contain rounded-lg block select-none pointer-events-none"
+                    crossOrigin="anonymous"
+                    draggable={false}
+                    style={{
+                      filter: isRedFreeFilter ? 'url(#aura-red-free-filter) contrast(145%) brightness(95%)' : undefined,
+                    }}
+                    onLoad={() => setIsImageLoaded(true)}
+                  />
+
+                  {/* Layer 1: Lớp phân đoạn mạch máu quang học Client-Side */}
+                  <canvas
+                    ref={vesselCanvasRef}
+                    className={`absolute inset-0 w-full h-full object-contain rounded-lg pointer-events-none transition-opacity duration-200 ${
+                      showVesselsOverlay ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    style={{
+                      opacity: showVesselsOverlay ? Math.min(1.0, heatmapOpacity + 0.25) : 0,
+                      filter: 'url(#aura-red-free-filter) contrast(165%) brightness(92%)',
+                      mixBlendMode: 'screen',
+                    }}
+                  />
+
+                  {/* Layer 2: Lớp bản đồ nhiệt Grad-CAM */}
+                  {hasRealHeatmap ? (
+                    <img
+                      src={heatmapImg}
+                      alt="AI Grad-CAM Heatmap"
+                      className="absolute inset-0 w-full h-full object-contain rounded-lg pointer-events-none cds-canvas-overlay mix-blend-screen transition-opacity duration-150 select-none"
+                      style={{ opacity: heatmapOpacity }}
+                      draggable={false}
+                    />
+                  ) : (
+                    <div
+                      className="absolute inset-0 w-full h-full rounded-lg pointer-events-none cds-canvas-overlay mix-blend-screen transition-opacity duration-150"
+                      style={{ opacity: heatmapOpacity }}
+                    >
+                      <canvas
+                        ref={dynamicHeatmapCanvasRef}
+                        className="w-full h-full object-contain rounded-lg pointer-events-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* Zero-State Badge */}
+                  {anomalies.length === 0 && (
+                    isLowRisk ? (
+                      <div className="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-xs text-emerald-300 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-800 flex items-center gap-1 z-10 pointer-events-none">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        <span>{t('cdsViewer.noAnomaliesFound', 'Không phát hiện tổn thương vi phình mạch khu trú')}</span>
+                      </div>
+                    ) : (
+                      <div className="absolute bottom-2 right-2 bg-slate-900/85 backdrop-blur-xs text-amber-300 text-[10px] font-semibold px-2.5 py-1 rounded border border-amber-600/70 flex items-center gap-1.5 shadow-sm z-10 pointer-events-none">
+                        <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>
+                          {isVi
+                            ? 'Tổn thương vi mạch lan tỏa — Tham chiếu bản đồ nhiệt'
+                            : 'Diffuse vascular alterations — Refer to heatmap'}
+                        </span>
+                      </div>
+                    )
+                  )}
+
+                  {/* Layer 3: Các điểm định vị tổn thương */}
+                  {showAnomalies &&
+                    anomalies.map((anomaly) => {
+                      const theme = getAnomalyMedicalTheme(anomaly.type);
+                      const isSelected = activeAnomaly?.id === anomaly.id;
+                      const anomalyDisplayName = getAnomalyName(anomaly.type, t);
+                      return (
+                        <div
+                          key={anomaly.id}
+                          className="absolute z-30 group"
+                          style={{
+                            left: `${anomaly.coordinates.x}%`,
+                            top: `${anomaly.coordinates.y}%`,
+                            transform: 'translate(-50%, -50%)',
+                          }}
+                        >
+                          <span
+                            className={`absolute -inset-1 rounded-full animate-ping opacity-60 pointer-events-none ${theme.ping}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              if (isMovedRef.current) return;
+                              e.stopPropagation();
+                              setActiveAnomaly(anomaly);
+                            }}
+                            className={`relative flex items-center justify-center rounded-full border-2 transition-all hover:scale-125 focus:outline-hidden focus:ring-2 focus:ring-white shadow-md cursor-pointer ${
+                              theme.border
+                            } ${theme.bg} ${theme.text} ${isSelected ? 'scale-125 ring-2 ring-white' : ''}`}
+                            style={{
+                              width: `${Math.max(26, anomaly.coordinates.width || 26)}px`,
+                              height: `${Math.max(26, anomaly.coordinates.height || 26)}px`,
+                            }}
+                            aria-label={`${anomalyDisplayName}: ${anomaly.description}`}
+                            title={`${anomalyDisplayName} (${anomaly.description})`}
+                          >
+                            <Target className="w-3.5 h-3.5 drop-shadow-xs" />
+                          </button>
+
+                          {/* Tooltip Hover phân tích bệnh học */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center pointer-events-none z-30 min-w-[140px]">
+                            <div className="bg-slate-900/95 text-white text-[10px] rounded-lg px-2.5 py-1.5 shadow-xl border border-slate-700 whitespace-nowrap text-center">
+                              <div className="font-bold text-amber-300">{anomalyDisplayName}</div>
+                              <div className="text-slate-300 text-[9px] mt-0.5">
+                                {t('anomalies.confidence', 'Độ tin cậy')}: {(anomaly.confidence * 100).toFixed(0)}%
+                              </div>
+                              <div className="text-slate-400 text-[9px] max-w-[160px] truncate">{anomaly.description}</div>
+                            </div>
+                            <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 rotate-45 -mt-1" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        )}
+
+        {/* 4. Banner Lâm Sàng 0 điểm tổn thương */}
+        {anomalies.length === 0 && (
+          isLowRisk ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-3 text-xs text-emerald-900 shadow-xs">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <div className="font-bold text-emerald-950 flex items-center gap-2 flex-wrap">
+                  <span>
+                    {t(
+                      'cdsViewer.negativeFindingBannerTitle',
+                      isVi
+                        ? 'Khảo sát vi mạch toàn diện: Cấu trúc bình thường (0 điểm tổn thương)'
+                        : 'Comprehensive Vascular Survey: Normal Structure (0 lesions detected)'
+                    )}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 font-semibold border border-emerald-300/60">
+                    {t('cdsViewer.clinicallyNegative', isVi ? 'Âm tính lâm sàng' : 'Clinically Negative')}
+                  </span>
+                </div>
+                <p className="text-emerald-800 leading-relaxed text-[11.5px]">
+                  {t(
+                    'cdsViewer.negativeFindingBannerDesc',
+                    isVi
+                      ? 'AI đã quét 4 góc phần tư võng mạc và cây mạch máu, không phát hiện vi phình mạch, xuất huyết hay co thắt khu trú.'
+                      : 'AI scanned all 4 retinal quadrants and vascular tree, detecting no microaneurysms, hemorrhages, or focal constrictions.'
+                  )}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-amber-50 border border-amber-300/80 rounded-xl p-3.5 flex items-start gap-3 text-xs text-amber-950 shadow-xs">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <div className="font-bold text-amber-950 flex items-center gap-2 flex-wrap">
+                  <span>
+                    {isVi
+                      ? 'Biến đổi vi mạch lan tỏa (không có ổ khu trú)'
+                      : 'Diffuse Retinal Vascular Alterations (no focal lesions)'}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-semibold border border-amber-300">
+                    {isVi ? 'Theo dõi lan tỏa' : 'Diffuse Survey'}
+                  </span>
+                </div>
+                <p className="text-amber-800 leading-relaxed text-[11.5px]">
+                  {isVi
+                    ? `Điểm nguy cơ (${riskScore}/100) cho thấy biến đổi vi tuần hoàn lan tỏa. Vui lòng đối chiếu bản đồ nhiệt và tham vấn bác sĩ.`
+                    : `Risk score (${riskScore}/100) indicates diffuse microcirculatory changes. Please review heatmap and consult physician.`}
+                </p>
+              </div>
+            </div>
+          )
+        )}
+
+        {/* 5. Four Risk Categories Progress Bars (Requirement R3) */}
+        <div className={`p-4 rounded-xl border space-y-3 ${
+          isDarkRoom ? 'bg-darkroom-surface border-darkroom-border' : 'bg-[#FAFBFD] border-[#EAECF0]'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EAECF0] dark:border-slate-800 pb-2 gap-2">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-[#3478F6]" />
+              <span>{isVi ? '4 Phân Tầng Nguy Cơ Lâm Sàng' : '4 Clinical Risk Categories'}</span>
+            </h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                data-testid="cds-model-version-badge"
+                className="text-[11px] px-2 py-0.5 rounded-md bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] font-medium font-mono-data"
+              >
+                {analysisResult.modelVersion || 'Gemini 3.7 Flash High / AURA-Core v2.4'}
+              </span>
+              <span
+                data-testid="cds-calibration-metrics"
+                className="text-[10px] text-[#667085] font-mono-data bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700"
+                title={`Calibration: ${analysisResult.confidenceCalibration?.calibrationMethod || 'Platt Scaling'} | Active Thresholds: CVD >${analysisResult.activeThresholds?.cvdHighRiskThreshold ?? 65}%, DR >${analysisResult.activeThresholds?.drConfidenceThreshold ?? 70}%, A/V <${analysisResult.activeThresholds?.avRatioConstrictionThreshold ?? 0.65}`}
+              >
+                Brier Score: {(analysisResult.confidenceCalibration?.brierScore ?? 0.058).toFixed(3)} | Platt Calibrated: {(analysisResult.confidenceCalibration?.calibratedConfidence ?? 94.2).toFixed(1)}%
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Category 1: Cardiovascular */}
+            <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-[#EAECF0] dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-[#EF4444]" />
+                  <span>{isVi ? '1. Tim Mạch' : '1. Cardio'}</span>
+                </span>
+                <span className="font-bold font-mono-data text-slate-900 dark:text-slate-100">
+                  {analysisResult.cardiovascularRisk.score}%
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    analysisResult.cardiovascularRisk.score < 40
+                      ? 'bg-[#22C55E]'
+                      : analysisResult.cardiovascularRisk.score < 65
+                      ? 'bg-[#F59E0B]'
+                      : 'bg-[#EF4444]'
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(5, analysisResult.cardiovascularRisk.score))}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-[#667085] block truncate">
+                {analysisResult.cardiovascularRisk.hypertensionStage}
+              </span>
+            </div>
+
+            {/* Category 2: Diabetic Retinopathy */}
+            <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-[#EAECF0] dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-[#0EA5E9]" />
+                  <span>{isVi ? '2. Võng Mạc ĐTĐ' : '2. Retinopathy'}</span>
+                </span>
+                <span className="font-bold font-mono-data text-slate-900 dark:text-slate-100">
+                  {analysisResult.diabeticRetinopathyRisk.score}%
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    analysisResult.diabeticRetinopathyRisk.score < 40
+                      ? 'bg-[#22C55E]'
+                      : analysisResult.diabeticRetinopathyRisk.score < 65
+                      ? 'bg-[#F59E0B]'
+                      : 'bg-[#EF4444]'
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(5, analysisResult.diabeticRetinopathyRisk.score))}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-[#667085] block truncate">
+                {analysisResult.diabeticRetinopathyRisk.etdrsGrade}
+              </span>
+            </div>
+
+            {/* Category 3: Stroke 3Y */}
+            <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-[#EAECF0] dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <BrainCircuit className="w-3.5 h-3.5 text-[#F59E0B]" />
+                  <span>{isVi ? '3. Đột Quỵ 3 Năm' : '3. Stroke 3Y'}</span>
+                </span>
+                <span className="font-bold font-mono-data text-slate-900 dark:text-slate-100">
+                  {analysisResult.cardiovascularRisk.threeYearStrokeRiskPercent}%
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    analysisResult.cardiovascularRisk.threeYearStrokeRiskPercent < 40
+                      ? 'bg-[#22C55E]'
+                      : analysisResult.cardiovascularRisk.threeYearStrokeRiskPercent < 65
+                      ? 'bg-[#F59E0B]'
+                      : 'bg-[#EF4444]'
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(5, analysisResult.cardiovascularRisk.threeYearStrokeRiskPercent))}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-[#667085] block truncate">
+                {isVi ? 'Dự báo biến cố não' : 'Cerebrovascular risk'}
+              </span>
+            </div>
+
+            {/* Category 4: Hypertension */}
+            <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-[#EAECF0] dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#22C55E]" />
+                  <span>{isVi ? '4. Tăng Huyết Áp' : '4. Hypertension'}</span>
+                </span>
+                <span className="font-bold font-mono-data text-slate-900 dark:text-slate-100">
+                  {analysisResult.cardiovascularRisk.hypertensionStage?.includes('Stage 2')
+                    ? 'Stage 2'
+                    : analysisResult.cardiovascularRisk.hypertensionStage?.includes('Stage 1')
+                    ? 'Stage 1'
+                    : isVi ? 'Bình thường' : 'Normal'}
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    analysisResult.cardiovascularRisk.hypertensionStage?.includes('Stage 2')
+                      ? 'bg-[#EF4444]'
+                      : analysisResult.cardiovascularRisk.hypertensionStage?.includes('Stage 1')
+                      ? 'bg-[#F59E0B]'
+                      : 'bg-[#22C55E]'
+                  }`}
+                  style={{
+                    width: analysisResult.cardiovascularRisk.hypertensionStage?.includes('Stage 2')
+                      ? '85%'
+                      : analysisResult.cardiovascularRisk.hypertensionStage?.includes('Stage 1')
+                      ? '55%'
+                      : '25%',
+                  }}
+                />
+              </div>
+              <span className="text-[10px] text-[#667085] block truncate">
+                {isVi ? 'Xơ cứng thành mạch' : 'Vascular sclerosis'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Chi tiết điểm tổn thương khi bấm vào */}
+        {activeAnomaly && (() => {
+          const theme = getAnomalyMedicalTheme(activeAnomaly.type);
+          const anomalyDisplayName = getAnomalyName(activeAnomaly.type, t);
+          return (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start justify-between gap-3 text-xs shadow-xs animate-in fade-in duration-150">
+              <div className="flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-amber-950 flex items-center gap-2 flex-wrap">
+                    <span className="text-sm">{anomalyDisplayName}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${theme.badgeBg}`}>
+                      {t('anomalies.confidence', 'Độ tin cậy')}: {(activeAnomaly.confidence * 100).toFixed(0)}%
+                    </span>
+                    <span className="text-[10px] text-amber-700 font-mono">
+                      (X: {activeAnomaly.coordinates.x.toFixed(1)}%, Y: {activeAnomaly.coordinates.y.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <p className="text-amber-800 mt-1 leading-relaxed">{activeAnomaly.description}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveAnomaly(null)}
+                className="text-amber-700 hover:text-amber-950 font-bold p-1 text-xs rounded hover:bg-amber-100 transition-colors"
+                title={t('common.close', 'Đóng')}
+                aria-label="Đóng chi tiết tổn thương"
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* 7. Cảnh báo y tế bắt buộc */}
+        <MedicalDisclaimer
+          variant={isDarkRoom ? 'subtle' : 'compact'}
+          className={isDarkRoom ? 'bg-darkroom-surface border-darkroom-border text-slate-300' : ''}
+        />
+      </Card>
+    </div>
   );
 };

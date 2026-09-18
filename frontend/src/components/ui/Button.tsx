@@ -1,5 +1,8 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { buttonHoverPhysics, buttonTapPhysics } from '../../utils/motion';
+import { useAuraReducedMotion } from '../../hooks/useAuraReducedMotion';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
@@ -18,6 +21,9 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   ...props
 }) => {
+  const prefersReducedMotion = useAuraReducedMotion();
+  const isDisabled = disabled || loading;
+
   const baseClasses = 'inline-flex items-center justify-center font-bold whitespace-nowrap shrink-0 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 select-none';
 
   const sizeClasses = {
@@ -36,10 +42,12 @@ export const Button: React.FC<ButtonProps> = ({
   }[variant];
 
   return (
-    <button
-      disabled={disabled || loading}
+    <motion.button
+      disabled={isDisabled}
+      whileHover={!isDisabled && !prefersReducedMotion ? buttonHoverPhysics : undefined}
+      whileTap={!isDisabled && !prefersReducedMotion ? buttonTapPhysics : undefined}
       className={`${baseClasses} ${sizeClasses} ${variantClasses} ${className}`}
-      {...props}
+      {...(props as any)}
     >
       {loading ? (
         <Loader2 className="w-4 h-4 animate-spin text-current" />
@@ -47,6 +55,6 @@ export const Button: React.FC<ButtonProps> = ({
         <span className="flex-shrink-0">{icon}</span>
       ) : null}
       {children}
-    </button>
+    </motion.button>
   );
 };

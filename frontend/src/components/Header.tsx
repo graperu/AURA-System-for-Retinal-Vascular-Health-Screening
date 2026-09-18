@@ -1,36 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Bell,
-  Eye,
-  LogOut,
   Menu,
-  ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  X,
-  Sparkles,
-  CreditCard,
+  ChevronDown,
   User,
+  LogOut,
+  Settings,
+  Sparkles,
+  X,
+  Languages,
 } from 'lucide-react';
 import { UserSession } from '../types/auth';
 import { notificationApi, getAccessToken } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import { realtimeBus } from '../services/realtimeService';
+import { NotificationCenterDrawer } from './NotificationCenterDrawer';
+import { playNotificationChime } from '../utils/soundEffects';
+import { SearchField } from './common/SearchField';
+import { SyncIndicator } from '../context/DataSyncContext';
 
-interface HeaderProps {
+export interface HeaderProps {
   currentUser: UserSession;
   onLogout: () => void;
   onOpenMenu: () => void;
   onOpenChat?: () => void;
   onNavigate?: (section: string) => void;
+  title?: string;
+  onSearch?: (query: string) => void;
 }
 
-const roleLabels: Record<string, string> = {
-  patient: 'Bệnh nhân',
-  doctor: 'Bác sĩ',
-  clinic: 'Phòng khám',
-  admin: 'Quản trị viên',
+const roleLabels: Record<string, { vi: string; en: string }> = {
+  patient: { vi: 'Bệnh nhân', en: 'Patient' },
+  doctor: { vi: 'Bác sĩ', en: 'Doctor' },
+  clinic: { vi: 'Phòng khám', en: 'Clinic' },
+  admin: { vi: 'Quản trị viên', en: 'Admin' },
 };
 
 export const Header: React.FC<HeaderProps> = ({
@@ -38,12 +41,30 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   onOpenMenu,
   onNavigate,
+  title,
+  onSearch,
 }) => {
-  const { t, language, isVi } = useLanguage();
+  const { t, language, setLanguage, isVi } = useLanguage();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [activeToast, setActiveToast] = useState<any | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(e.target as Node)
+      ) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadNotifications = async () => {
     try {
@@ -81,6 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
           setNotifications((prev) => [data, ...prev]);
           setUnreadCount((prev) => prev + 1);
           setActiveToast(data);
+          playNotificationChime();
           setTimeout(() => {
             setActiveToast((curr: any) => (curr?.id === data.id ? null : curr));
           }, 6000);
@@ -99,8 +121,26 @@ export const Header: React.FC<HeaderProps> = ({
       console.warn('SSE stream setup error:', e);
     }
 
+    const unsubBusNotif = realtimeBus.subscribe('NOTIFICATION_CREATED', (evtPayload) => {
+      const data = (evtPayload?.data || evtPayload?.payload || evtPayload) as any;
+      if (data && (data.title || data.message)) {
+        setNotifications((prev) => {
+          const notifId = String(data.id || Date.now());
+          if (prev.some((n) => n.id === notifId)) return prev;
+          return [data, ...prev];
+        });
+        setUnreadCount((prev) => prev + 1);
+        setActiveToast(data);
+        playNotificationChime();
+        setTimeout(() => {
+          setActiveToast((curr: any) => (curr?.id === data.id ? null : curr));
+        }, 6000);
+      }
+    });
+
     return () => {
       if (eventSource) eventSource.close();
+      unsubBusNotif();
     };
   }, [currentUser]);
 
@@ -108,19 +148,63 @@ export const Header: React.FC<HeaderProps> = ({
     try {
       await notificationApi.markAsRead(id);
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+        prev.map((n) => (n.id === id ? { ...n, isRead: true, read: true } : n))
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      const nextUnread = Math.max(0, unreadCount - 1);
+      setUnreadCount(nextUnread);
+      realtimeBus.emit('NOTIFICATION_READ', { id, remainingUnread: nextUnread });
     } catch (e) {
       console.warn('Could not mark notification as read:', e);
+    }
+  };
+
+  const handleMarkAsUnread = async (id: string) => {
+    try {
+      await notificationApi.markAsUnread(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: false, read: false } : n))
+      );
+      const nextUnread = unreadCount + 1;
+      setUnreadCount(nextUnread);
+      realtimeBus.emit('NOTIFICATION_UNREAD', { id, remainingUnread: nextUnread });
+    } catch (e) {
+      console.warn('Could not mark notification as unread:', e);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await notificationApi.clearAll();
+      setNotifications([]);
+      setUnreadCount(0);
+      realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
+    } catch (e) {
+      console.warn('Could not clear all notifications:', e);
+    }
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      const target = notifications.find((n) => n.id === id);
+      const wasUnread = target ? !target.isRead && !target.read : false;
+      await notificationApi.deleteNotification(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      if (wasUnread) {
+        const nextUnread = Math.max(0, unreadCount - 1);
+        setUnreadCount(nextUnread);
+        realtimeBus.emit('NOTIFICATION_READ', { id, remainingUnread: nextUnread });
+      }
+    } catch (e) {
+      console.warn('Could not delete notification:', e);
     }
   };
 
   const handleMarkAllAsRead = async () => {
     try {
       await notificationApi.markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, read: true })));
       setUnreadCount(0);
+      realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
     } catch (e) {
       console.warn('Could not mark all as read:', e);
     }
@@ -151,9 +235,6 @@ export const Header: React.FC<HeaderProps> = ({
     if (cleanLink === 'patient-list' || cleanLink === 'patients') {
       return 'patient-list';
     }
-    if (cleanLink === 'risk-analytics' || cleanLink === 'analytics') {
-      return currentUser.role === 'clinic' ? 'campaign-analytics' : 'risk-analytics';
-    }
     if (cleanLink === 'reports' || cleanLink === 'medical-reports') {
       return 'reports';
     }
@@ -164,7 +245,6 @@ export const Header: React.FC<HeaderProps> = ({
       return 'user-management';
     }
 
-    // Fallback theo type thông báo
     const type = String(notif?.type || '').toUpperCase();
     if (type === 'AI_READY') {
       return currentUser.role === 'doctor' ? 'cds-viewer' : 'scan-history';
@@ -199,42 +279,58 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const pageTitle = title || (isVi ? 'Tổng quan' : 'Dashboard');
+
+  const roleText =
+    roleLabels[currentUser.role]?.[language] ||
+    currentUser.role;
+
+  const initials = currentUser.name
+    ? currentUser.name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'AU';
+
   return (
-    <header className="sticky top-0 z-40 border-b border-clinical-border bg-white backdrop-blur-md shadow-medical-sm">
+    <header className="sticky top-0 z-40 flex h-[76px] w-full items-center justify-between border-b border-[#EAECF0] bg-white px-5 sm:px-8 shadow-xs">
       {/* Realtime Toast Alert */}
       {activeToast && (
         <div
           onClick={() => handleNotificationClick(activeToast)}
-          className="fixed top-18 right-6 z-50 max-w-sm rounded-2xl border border-clinical-border bg-white p-4 shadow-medical-modal animate-in slide-in-from-top-4 duration-200 cursor-pointer hover:border-brand-300 transition-all"
+          className="fixed top-20 right-6 z-50 max-w-sm rounded-2xl border border-[#EAECF0] bg-white p-4 shadow-xl cursor-pointer hover:border-[#3478F6] transition-all"
         >
           <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-brand-50 p-2 text-brand-700 shrink-0 border border-brand-100">
+            <div className="rounded-xl bg-[#EEF5FF] p-2 text-[#3478F6] shrink-0 border border-[#E0EAFF]">
               <Sparkles className="h-4 w-4" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-clinical-text truncate">
+                <h4 className="text-xs font-bold text-[#111827] truncate">
                   {activeToast.title}
                 </h4>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setActiveToast(null);
                   }}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-clinical-text-muted hover:text-clinical-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-                  aria-label="Đóng"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-lg text-[#98A2B3] hover:text-[#111827]"
+                  aria-label={isVi ? 'Đóng' : 'Close'}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <p className="text-xs text-clinical-text-secondary mt-1 leading-snug line-clamp-2">
+              <p className="text-xs text-[#667085] mt-1 leading-snug line-clamp-2">
                 {activeToast.message}
               </p>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-[11px] text-brand-700 font-semibold">
-                  {t('header.newNotification', 'Thông báo mới')}
+                <span className="text-[11px] text-[#3478F6] font-semibold">
+                  {t('header.newNotification', isVi ? 'Thông báo mới' : 'New notification')}
                 </span>
-                <span className="text-[11px] font-semibold text-brand-700 hover:underline">
+                <span className="text-[11px] font-semibold text-[#3478F6] hover:underline">
                   {isVi ? 'Xem chi tiết →' : 'View details →'}
                 </span>
               </div>
@@ -243,161 +339,172 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      <div className="mx-auto flex h-16 w-full max-w-[1536px] 2xl:max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        {/* Left Branding */}
-        <div className="flex min-w-0 items-center gap-3">
+      {/* Left: Mobile hamburger toggle & Page title */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#EAECF0] text-[#667085] hover:bg-[#F8F9FA] hover:text-[#111827] lg:hidden transition-colors"
+          aria-label={isVi ? 'Mở menu' : 'Open menu'}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111827]">
+          {pageTitle}
+        </h1>
+      </div>
+
+      {/* Center: Search Field */}
+      <div className="hidden md:flex flex-1 max-w-md mx-6">
+        <SearchField
+          onSearch={onSearch}
+          placeholder={isVi ? 'Tìm kiếm bệnh nhân, hồ sơ...' : 'Search room, patients...'}
+          className="w-full"
+        />
+      </div>
+
+      {/* Right: Notifications & User Profile */}
+      <div className="flex items-center gap-3.5">
+        <SyncIndicator showLabel={false} />
+        {/* Notification Bell */}
+        <div className="relative">
           <button
             type="button"
-            onClick={onOpenMenu}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-clinical-border text-clinical-text-secondary hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-colors lg:hidden"
-            aria-label="Mở menu"
+            onClick={() => setIsNotifOpen(!isNotifOpen)}
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#EAECF0] bg-white text-[#667085] hover:bg-[#F8F9FA] hover:text-[#111827] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3478F6]"
+            aria-label={t('common.notifications', isVi ? 'Thông báo' : 'Notifications')}
           >
-            <Menu className="h-5 w-5" />
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-xs">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
 
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-medical-xs">
-            <Eye className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-base font-bold tracking-tight text-clinical-text">
-                AURA
-              </span>
-              <span className="hidden rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 sm:inline border border-brand-100">
-                AI Y Tế
-              </span>
-            </div>
-            <p className="truncate text-xs text-clinical-text-muted">
-              {t('header.tagline', 'Tầm soát mạch máu võng mạc & tim mạch')}
-            </p>
-          </div>
+          {/* Notification Center Drawer */}
+          <NotificationCenterDrawer
+            isOpen={isNotifOpen}
+            onClose={() => setIsNotifOpen(false)}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            onNotificationClick={handleNotificationClick}
+            onMarkAsUnread={handleMarkAsUnread}
+            onClearAll={handleClearAll}
+            onDeleteNotification={handleDeleteNotification}
+          />
         </div>
 
-        {/* Right Actions */}
-        <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-1.5 rounded-full bg-brand-50 border border-brand-100 px-3.5 py-1.5 text-xs font-bold text-brand-700 xl:flex">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-            {t('header.hipaaStandard', 'Bảo mật chuẩn y tế')}
-          </div>
-
-          {/* Notifications Dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsNotifOpen(!isNotifOpen)}
-              className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl text-clinical-text-muted hover:bg-brand-50 hover:text-brand-700 border border-clinical-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-              aria-label={t('common.notifications', 'Thông báo')}
-            >
-              <Bell className="h-4 w-4" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-xs">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {isNotifOpen && (
-              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-medical-modal border border-clinical-border overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
-                <div className="flex items-center justify-between border-b border-clinical-border bg-brand-50 px-4 py-3">
-                  <span className="font-bold text-xs text-clinical-text flex items-center gap-1.5">
-                    <Bell className="h-4 w-4 text-brand-700" />
-                    {t('header.notificationCenter', 'Trung Tâm Thông Báo')}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={handleMarkAllAsRead}
-                        className="text-[11px] font-bold text-brand-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
-                      >
-                        {t('header.markAllAsRead', 'Đọc tất cả')}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setIsNotifOpen(false)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-clinical-text-muted hover:text-clinical-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-clinical-text-muted">
-                      {t('header.noNotifications', 'Không có thông báo mới nào.')}
-                    </div>
-                  ) : (
-                    notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        onClick={() => handleNotificationClick(n)}
-                        className={`p-3.5 transition-colors cursor-pointer hover:bg-brand-50/50 ${
-                          !n.isRead ? 'bg-brand-50/70' : 'bg-white'
-                        }`}
-                      >
-                        <div className="flex items-start gap-2.5">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-1">
-                              <h5 className={`text-xs truncate ${!n.isRead ? 'font-bold text-clinical-text' : 'font-medium text-clinical-text-secondary'}`}>
-                                {n.title}
-                              </h5>
-                              <span className="text-[10px] text-clinical-text-muted shrink-0">
-                                {new Date(n.createdAt || Date.now()).toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                            <p className="text-xs text-clinical-text-muted mt-0.5 leading-snug line-clamp-2">
-                              {n.message}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* User Profile Info */}
-          <div className="flex items-center gap-2.5 pl-3 border-l border-clinical-border">
+        {/* User Profile Menu */}
+        <div className="relative" ref={profileMenuRef}>
+          <button
+            type="button"
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            className="flex items-center gap-3 rounded-xl p-1.5 hover:bg-[#F8F9FA] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3478F6]"
+          >
+            {/* Avatar thumbnail */}
             {currentUser.avatarUrl ? (
               <img
                 src={currentUser.avatarUrl}
-                alt={currentUser.name || 'Avatar'}
-                className="h-10 w-10 rounded-xl object-cover border border-brand-200 shadow-xs"
+                alt={currentUser.name || 'User avatar'}
+                className="h-9 w-9 rounded-xl object-cover border border-[#EAECF0] shadow-xs"
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 text-white font-bold text-xs shadow-xs">
-                {currentUser.name
-                  ? currentUser.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()
-                  : 'AU'}
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#3478F6] text-white font-bold text-xs shadow-xs">
+                {initials}
               </div>
             )}
 
-            <div className="hidden text-left md:block">
-              <div className="text-xs font-bold text-clinical-text truncate max-w-[140px]">
-                {currentUser.name || 'Người dùng'}
+            {/* Name and Role */}
+            <div className="hidden sm:block text-left">
+              <div className="text-xs font-bold text-[#111827] truncate max-w-[130px]">
+                {currentUser.name || (isVi ? 'Người dùng' : 'User')}
               </div>
-              <div className="text-[11px] font-medium text-brand-700">
-                {t(`roles.${currentUser.role}`, roleLabels[currentUser.role] || currentUser.role)}
+              <div className="text-[11px] font-medium text-[#667085]">
+                {roleText}
               </div>
             </div>
 
-            <button
-              onClick={onLogout}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-clinical-text-muted hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-100 transition-colors ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-              title={t('header.logout', 'Đăng xuất')}
-              aria-label={t('header.logout', 'Đăng xuất')}
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+            <ChevronDown
+              className={`h-4 w-4 text-[#98A2B3] transition-transform duration-150 ${
+                isProfileOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {/* Profile Dropdown Popup */}
+          {isProfileOpen && (
+            <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-[#EAECF0] bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 z-50">
+              <div className="px-3 py-2 border-b border-[#EAECF0] mb-1">
+                <p className="text-xs font-bold text-[#111827] truncate">
+                  {currentUser.name || (isVi ? 'Người dùng' : 'User')}
+                </p>
+                <p className="text-[11px] text-[#667085] truncate">
+                  {currentUser.email || roleText}
+                </p>
+              </div>
+
+              {onNavigate && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      onNavigate('medical-profile');
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-[#4B5563] hover:bg-[#F4F6F8] hover:text-[#111827] transition-colors"
+                  >
+                    <User className="h-4 w-4 text-[#667085]" />
+                    <span>{isVi ? 'Hồ sơ của tôi' : 'My Profile'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      onNavigate(currentUser.role === 'clinic' ? 'credit-package' : 'billing');
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-[#4B5563] hover:bg-[#F4F6F8] hover:text-[#111827] transition-colors"
+                  >
+                    <Settings className="h-4 w-4 text-[#667085]" />
+                    <span>{isVi ? 'Cài đặt hệ thống' : 'Settings'}</span>
+                  </button>
+                </>
+              )}
+
+              {/* Language Switch */}
+              <button
+                type="button"
+                onClick={() => {
+                  setLanguage(isVi ? 'en' : 'vi');
+                  setIsProfileOpen(false);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-[#4B5563] hover:bg-[#F4F6F8] hover:text-[#111827] transition-colors"
+              >
+                <Languages className="h-4 w-4 text-[#667085]" />
+                <span>{isVi ? 'English (EN)' : 'Tiếng Việt (VI)'}</span>
+              </button>
+
+              <div className="my-1 border-t border-[#EAECF0]" />
+
+              {/* Log Out */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProfileOpen(false);
+                  onLogout();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>{isVi ? 'Đăng xuất' : 'Log Out'}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

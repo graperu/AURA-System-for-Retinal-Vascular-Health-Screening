@@ -239,7 +239,7 @@ export const ClinicalRiskSummaryCard: React.FC<ClinicalRiskSummaryCardProps> = (
       ? 'from-orange-950 via-amber-900 to-orange-900 text-white'
       : riskLevel === 'Moderate'
       ? 'from-amber-900/90 via-yellow-900/80 to-amber-950 text-white'
-      : 'from-[#115E59] via-[#0D9488] to-[#0891B2] text-white';
+      : 'from-[#115E59] via-[#0D9488] to-[#3478F6] text-white';
 
   // Danh sách nhận định và khuyến nghị được phân tách ngắn gọn
   const findingsItems = useMemo(

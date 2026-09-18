@@ -159,6 +159,13 @@ export interface ClinicalTranslationSchema {
     gotIt: string;
     hipaaStandard: string;
     logout: string;
+    scanResults: string;
+    doctorReviews: string;
+    systemAlerts: string;
+    markAsUnread: string;
+    clearAll: string;
+    unread: string;
+    all: string;
   };
   eyeLaterality: {
     rightEye: string;
@@ -234,6 +241,9 @@ export interface ClinicalTranslationSchema {
     Hard_Exudate: string;
     AV_Nipping: string;
     Focal_Narrowing: string;
+    Cotton_Wool_Spot: string;
+    Neovascularization: string;
+    Venous_Beading: string;
     confidence: string;
   };
   cdsViewer: {
@@ -1531,12 +1541,12 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
       newScan: "Tải ảnh mắt",
       cdsWorkspace: "Bàn chẩn đoán tương tác CDS",
       patientList: "Danh sách bệnh nhân",
-      historyReports: "Lịch sử khám",
+      historyReports: "Kết quả & Lịch sử",
       consultation: "Nhắn tin Bác sĩ",
       medicalProfile: "Hồ sơ y tế",
       billingCredits: "Gói cước & Lượt khám",
       riskAnalytics: "Thống kê nguy cơ",
-      medicalReportsSignoff: "Báo cáo & Ký duyệt",
+      medicalReportsSignoff: "Lịch sử đánh giá",
       bulkScreening: "Sàng lọc theo lô",
       campaignAnalytics: "Báo cáo chiến dịch",
       doctorManagement: "Quản lý Bác sĩ",
@@ -1580,6 +1590,13 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
       gotIt: "Đã hiểu",
       hipaaStandard: "Bảo mật chuẩn y tế",
       logout: "Đăng xuất",
+      scanResults: "Kết quả sàng lọc",
+      doctorReviews: "Thẩm định bác sĩ",
+      systemAlerts: "Cảnh báo hệ thống",
+      markAsUnread: "Đánh dấu chưa đọc",
+      clearAll: "Xóa tất cả",
+      unread: "Chưa đọc",
+      all: "Tất cả",
     },
     eyeLaterality: {
       rightEye: "Mắt phải (OD)",
@@ -1685,6 +1702,9 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
       Hard_Exudate: "Xuất tiết cứng",
       AV_Nipping: "Bắt chéo mạch máu",
       Focal_Narrowing: "Co thắt mạch máu",
+      Cotton_Wool_Spot: "Đốm bông (Xuất tiết mềm)",
+      Neovascularization: "Tân mạch võng mạc",
+      Venous_Beading: "Tĩnh mạch chuỗi hạt",
       confidence: "Độ tin cậy",
     },
     cdsViewer: {
@@ -3009,12 +3029,12 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
       newScan: "Upload Scan",
       cdsWorkspace: "CDS Viewer",
       patientList: "Patients",
-      historyReports: "History & Reports",
+      historyReports: "Results & History",
       consultation: "Message Doctor",
       medicalProfile: "Medical Profile",
       billingCredits: "Credits & Plans",
       riskAnalytics: "Analytics",
-      medicalReportsSignoff: "Reports & Sign-off",
+      medicalReportsSignoff: "Review History",
       bulkScreening: "Batch Screening",
       campaignAnalytics: "Campaign Stats",
       doctorManagement: "Doctors",
@@ -3058,6 +3078,13 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
       gotIt: "Got it",
       hipaaStandard: "HIPAA Compliant",
       logout: "Log Out",
+      scanResults: "Scan Results",
+      doctorReviews: "Doctor Reviews",
+      systemAlerts: "System Alerts",
+      markAsUnread: "Mark as unread",
+      clearAll: "Clear all",
+      unread: "Unread",
+      all: "All",
     },
     eyeLaterality: {
       rightEye: "Right Eye (OD)",
@@ -3163,6 +3190,9 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
       Hard_Exudate: "Hard Exudate",
       AV_Nipping: "A/V Nicking",
       Focal_Narrowing: "Vessel Narrowing",
+      Cotton_Wool_Spot: "Cotton Wool Spot",
+      Neovascularization: "Neovascularization",
+      Venous_Beading: "Venous Beading",
       confidence: "Confidence",
     },
     cdsViewer: {

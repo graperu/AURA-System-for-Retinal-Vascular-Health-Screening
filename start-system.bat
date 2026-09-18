@@ -6,15 +6,16 @@ echo            TICH HOP CLOUD AI ENGINE (GEMINI 3.7 FLASH HIGH)
 echo =========================================================================
 echo.
 echo Chon che do khoi chay:
-echo [1] Khoi chay toan bo bang Docker Compose (Frontend + Backend + PostgreSQL)
+echo [1] Khoi chay toan bo bang Docker Compose (Frontend + Backend - Supabase Cloud DB)
 echo [2] Dung toan bo he thong Docker Compose
 echo [3] Khoi chay cuc bo (Frontend Vite + Backend Spring Boot) - KHONG CAN DOCKER
 echo [4] Chi khoi chay Frontend Web (Vite Dev Server - Port 5173)
 echo [5] Chi khoi chay Backend (Java Spring Boot 3.4 - Port 8081)
 echo [6] Chay bo Kiem thu Tu dong toan dien (Full Automated Test Suite)
+echo [7] Khoi dong AURA Clinical AI Agent (Google Antigravity Python SDK)
 echo.
 
-set /p choice="Nhap lua chon cua ban [1-6]: "
+set /p choice="Nhap lua chon cua ban [1-7]: "
 
 if "%choice%"=="1" (
     echo.
@@ -75,6 +76,14 @@ if "%choice%"=="6" (
     echo.
     echo Dang chay bo kiem thu tu dong...
     call "%~dp0run-automated-tests.bat"
+    pause
+    exit /b
+)
+
+if "%choice%"=="7" (
+    echo.
+    echo Dang khoi dong AURA Clinical AI Agent (Google Antigravity Python SDK)...
+    python "%~dp0scripts\aura_clinical_agent.py"
     pause
     exit /b
 )

@@ -80,7 +80,16 @@ export interface FundusAnalysisRequest {
 
 export interface VesselAnomalyRegion {
   id: string;
-  type: 'Focal_Narrowing' | 'AV_Nipping' | 'Microaneurysm' | 'Hard_Exudate' | 'Hemorrhage';
+  type:
+    | 'Focal_Narrowing'
+    | 'AV_Nipping'
+    | 'Microaneurysm'
+    | 'Hard_Exudate'
+    | 'Hemorrhage'
+    | 'Cotton_Wool_Spot'
+    | 'Neovascularization'
+    | 'Venous_Beading'
+    | string;
   coordinates: { x: number; y: number; width: number; height: number };
   confidence: number;
   description: string;
@@ -97,6 +106,7 @@ export interface AnnotatedVesselMap {
 }
 
 export interface AIRiskResult {
+  id?: string;
   analysisId: string;
   imageUrl?: string;
   status: 'QUEUED' | 'SEGMENTING_VESSELS' | 'CALCULATING_METRICS' | 'SCORING_RISK' | 'COMPLETED' | 'FAILED' | string;
@@ -115,6 +125,17 @@ export interface AIRiskResult {
   patientId?: string;
   findings?: string;
   recommendations?: string;
+  modelVersion?: string; // e.g. "Gemini 3.7 Flash High / AURA-Core v2.4"
+  activeThresholds?: {
+    cvdHighRiskThreshold: number;
+    drConfidenceThreshold: number;
+    avRatioConstrictionThreshold: number;
+  };
+  confidenceCalibration?: {
+    brierScore?: number;
+    calibratedConfidence?: number;
+    calibrationMethod?: string;
+  };
   cardiovascularRisk: {
     level: RiskLevel;
     score: number;
@@ -149,6 +170,8 @@ export interface DoctorFeedback {
   adjustedDrRisk?: RiskLevel;
   icd10Codes: string[];
   clinicalNotes: string;
+  overrideReason?: string;
+  recommendations?: string;
   reviewedAt: string;
   signedDigitalSignature?: string;
 }

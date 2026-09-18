@@ -1,5 +1,6 @@
 package com.aura.doctor.controller;
 
+import com.aura.audit.annotation.Audited;
 import com.aura.auth.exception.AuthException;
 import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.common.response.ApiResponse;
@@ -203,6 +204,7 @@ public class DoctorPatientController {
     return createPatient(patient, null);
   }
 
+  @Audited(action = "PHI_UPDATE", module = "DOCTOR", resourceType = "PATIENT_PROFILE", description = "Cập nhật hồ sơ bệnh nhân")
   @PutMapping("/{id}")
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN', 'CLINIC')")
   @Operation(summary = "Update patient profile")
@@ -229,6 +231,7 @@ public class DoctorPatientController {
     return updatePatient(id, patient, null);
   }
 
+  @Audited(action = "PHI_DELETE", module = "DOCTOR", resourceType = "PATIENT_PROFILE", description = "Xóa hồ sơ bệnh nhân")
   @DeleteMapping("/{id}")
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN', 'CLINIC')")
   @Operation(summary = "Delete patient profile")
@@ -256,6 +259,7 @@ public class DoctorPatientController {
 
   public record BatchDeletePatientRequest(List<UUID> patientIds) {}
 
+  @Audited(action = "PHI_BATCH_DELETE", module = "DOCTOR", resourceType = "PATIENT_PROFILE", description = "Xóa hàng loạt hồ sơ bệnh nhân")
   @PostMapping("/batch-delete")
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN', 'CLINIC')")
   @Operation(summary = "Batch delete patient profiles")
@@ -316,6 +320,7 @@ public class DoctorPatientController {
     return false;
   }
 
+  @Audited(action = "PHI_READ", module = "DOCTOR", resourceType = "PATIENT_PROFILE", description = "Bác sĩ đọc hồ sơ bệnh nhân được phân công")
   @GetMapping("/{patientId}")
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<PatientProfileResponse> getAssignedPatientProfile(
@@ -331,6 +336,7 @@ public class DoctorPatientController {
     return ApiResponse.success("Lấy thông tin hồ sơ bệnh nhân thành công", response);
   }
 
+  @Audited(action = "PHI_READ", module = "DOCTOR", resourceType = "SCREENING_HISTORY", description = "Bác sĩ đọc lịch sử sàng lọc của bệnh nhân")
   @GetMapping("/{patientId}/screenings")
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN') && @patientAccessService.canAccessPatient(principal, #patientId)")
   public ApiResponse<List<Screening>> getAssignedPatientScreenings(
@@ -352,6 +358,7 @@ public class DoctorPatientController {
     return ApiResponse.success("Lấy lịch sử ca sàng lọc của bệnh nhân thành công", screenings);
   }
 
+  @Audited(action = "SCREENING_CREATE", module = "DOCTOR", resourceType = "SCREENING", description = "Bác sĩ tạo ca sàng lọc cho bệnh nhân được phân công")
   @PostMapping("/{patientId}/screenings")
   @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN') && @patientAccessService.canAccessPatient(principal, #patientId)")

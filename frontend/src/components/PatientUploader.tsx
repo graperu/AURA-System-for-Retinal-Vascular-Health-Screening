@@ -61,7 +61,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       sublabel: isVi
         ? 'Chụp vùng trung tâm võng mạc'
         : 'Macula & central retina',
-      icon: <Target className="w-4 h-4 text-[#0891B2]" />,
+      icon: <Target className="w-4 h-4 text-[#3478F6]" />,
     },
     {
       value: 'Fundus_OpticDisc',
@@ -69,7 +69,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       sublabel: isVi
         ? 'Chụp vùng thần kinh thị giác'
         : 'Optic disc & cup-to-disc',
-      icon: <CircleDot className="w-4 h-4 text-[#0891B2]" />,
+      icon: <CircleDot className="w-4 h-4 text-[#3478F6]" />,
     },
     {
       value: 'OCT_Scan',
@@ -77,7 +77,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       sublabel: isVi
         ? 'Ảnh cắt lớp võng mạc chuyên sâu'
         : 'Cross-sectional retinal imaging',
-      icon: <Layers className="w-4 h-4 text-[#0891B2]" />,
+      icon: <Layers className="w-4 h-4 text-[#3478F6]" />,
     },
   ], [isVi]);
 
@@ -360,7 +360,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       <div className="flex flex-col gap-3 border-b border-clinical-border pb-4">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-clinical-text flex items-center gap-2">
-            <UploadCloud className="w-5 h-5 text-[#0891B2] shrink-0" />
+            <UploadCloud className="w-5 h-5 text-[#3478F6] shrink-0" />
             <span>{isVi ? 'Tải Ảnh Mắt' : 'Upload Eye Scan'}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
@@ -377,12 +377,12 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             onClick={handleLoadDemoSample}
             disabled={isLoadingDemo || isAnalyzing}
             loading={isLoadingDemo}
-            icon={<Sparkles className="w-3.5 h-3.5 text-[#0891B2]" />}
+            icon={<Sparkles className="w-3.5 h-3.5 text-[#3478F6]" />}
             className="text-xs font-semibold py-1.5 px-3"
           >
             {isLoadingDemo ? (isVi ? 'Đang nạp...' : 'Loading...') : (isVi ? 'Dùng ảnh mẫu' : 'Sample scan')}
           </Button>
-          <div className="flex items-center gap-1.5 text-xs bg-[#F0FDFA] text-[#0891B2] px-2.5 py-1.5 rounded-xl border border-[#CCFBF1] font-semibold whitespace-nowrap">
+          <div className="flex items-center gap-1.5 text-xs bg-[#EEF5FF] text-[#3478F6] px-2.5 py-1.5 rounded-xl border border-[#BFDBFE] font-semibold whitespace-nowrap">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{isVi ? 'Bảo mật HIPAA' : 'HIPAA Compliant'}</span>
           </div>
@@ -447,13 +447,13 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                   onClick={() => setEyeMode(opt.id)}
                   className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     eyeMode === opt.id
-                      ? 'bg-[#0891B2] text-white border-[#0891B2] shadow-xs'
+                      ? 'bg-[#3478F6] text-white border-[#3478F6] shadow-xs'
                       : 'bg-white text-clinical-text-secondary border-clinical-border hover:bg-slate-100 hover:text-clinical-text'
                   }`}
                 >
                   <span
                     className={`w-2 h-2 rounded-full shrink-0 ${
-                      eyeMode === opt.id ? 'bg-white' : opt.id === 'Right_OD' ? 'bg-[#0891B2]' : 'bg-teal-600'
+                      eyeMode === opt.id ? 'bg-white' : opt.id === 'Right_OD' ? 'bg-[#3478F6]' : 'bg-blue-600'
                     }`}
                   />
                   <span className="truncate">{opt.label}</span>
@@ -481,7 +481,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-clinical-text flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#0891B2]" />
+                  <span className="w-2 h-2 rounded-full bg-[#3478F6]" />
                   Mắt Phải
                 </span>
                 {odFile && (
@@ -570,7 +570,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-clinical-text flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-teal-600" />
+                  <span className="w-2 h-2 rounded-full bg-blue-600" />
                   Mắt Trái
                 </span>
                 {osFile && (
@@ -656,19 +656,19 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
 
         {/* Thanh Tiến Trình Hiển Thị Mượt Mà Từ 0% Đến 100% */}
         {isAnalyzing && (
-          <div className="bg-gradient-to-r from-teal-50/90 via-cyan-50/90 to-blue-50/90 p-5 rounded-2xl border-2 border-[#0891B2]/30 shadow-sm space-y-3 animate-in fade-in">
+          <div className="bg-[#F5F6F8] p-5 rounded-2xl border border-[#EAECF0] shadow-sm space-y-3 animate-in fade-in">
             <div className="flex items-center justify-between text-xs sm:text-sm">
               <span className="font-bold text-slate-800 flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-[#0891B2]" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#3478F6]" />
                 {analysisProgress.status || (isVi ? 'Đang phân tích ảnh mắt...' : 'Analyzing eye scan...')}
               </span>
-              <span className="font-mono-data font-black text-[#0891B2] bg-white px-3 py-1 rounded-xl border border-cyan-200 shadow-xs text-sm">
+              <span className="font-mono-data font-black text-[#3478F6] bg-white px-3 py-1 rounded-xl border border-[#EAECF0] shadow-xs text-sm">
                 {Math.min(100, Math.max(0, analysisProgress.percent))}%
               </span>
             </div>
             <div className="w-full bg-slate-200/90 h-3.5 rounded-full overflow-hidden p-0.5 shadow-inner">
               <div
-                className="bg-gradient-to-r from-[#0891B2] via-[#0D9488] to-[#16A34A] h-full rounded-full transition-all duration-300 ease-out shadow-xs"
+                className="bg-gradient-to-r from-[#3478F6] via-[#2563EB] to-[#10B981] h-full rounded-full transition-all duration-300 ease-out shadow-xs"
                 style={{ width: `${Math.min(100, Math.max(0, analysisProgress.percent))}%` }}
               />
             </div>
@@ -702,9 +702,9 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                 <button
                   type="button"
                   onClick={onOpenCreditModal}
-                  className="text-xs font-bold text-teal-700 hover:text-teal-800 hover:underline flex items-center gap-1 ml-1 cursor-pointer"
+                  className="text-xs font-bold text-[#3478F6] hover:text-[#2563EB] hover:underline flex items-center gap-1 ml-1 cursor-pointer"
                 >
-                  <Zap className="w-3.5 h-3.5 fill-teal-600 text-teal-600" />
+                  <Zap className="w-3.5 h-3.5 fill-[#3478F6] text-[#3478F6]" />
                   <span>{t('uploader.topUp', isVi ? 'Nạp thêm' : 'Top up')}</span>
                 </button>
               )}

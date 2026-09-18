@@ -53,6 +53,50 @@ public class AuthService {
     return otpService.sendOtp(email, q.fullName(), "REGISTER");
   }
 
+  public long sendForgotPasswordOtp(ForgotPasswordRequest q) {
+    String email = q.email().trim().toLowerCase(Locale.ROOT);
+    var userOpt = users.findByEmailIgnoreCase(email);
+    if (userOpt.isEmpty()) {
+      throw new AuthException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy tài khoản với email này trong hệ thống.");
+    }
+    var user = userOpt.get();
+    if (!user.isActive()) {
+      throw new AuthException(ErrorCode.ACCOUNT_DISABLED, "Tài khoản của bạn hiện đang bị khóa hoặc vô hiệu hóa.");
+    }
+    return otpService.sendOtp(email, user.getFullName(), "FORGOT_PASSWORD");
+  }
+
+  @Transactional
+  public LoginResult resetPassword(ResetPasswordRequest q) {
+    String email = q.email().trim().toLowerCase(Locale.ROOT);
+    var user = users.findByEmailIgnoreCase(email)
+        .orElseThrow(() -> new AuthException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy tài khoản với email này trong hệ thống."));
+
+    if (!user.isActive()) {
+      throw new AuthException(ErrorCode.ACCOUNT_DISABLED, "Tài khoản của bạn hiện đang bị khóa hoặc vô hiệu hóa.");
+    }
+
+    // Verify OTP code
+    otpService.verifyOtp(email, q.otp());
+
+    // Update password
+    user.setPasswordHash(encoder.encode(q.newPassword()));
+    user.setEmailVerified(true);
+    var savedUser = users.save(user);
+
+    // Invalidate old refresh tokens for security
+    refresh.revokeAllUserTokens(savedUser.getId());
+
+    var names = userRoles.findAllByUserId(savedUser.getId()).stream()
+        .map(x -> x.getRole().getName().name())
+        .toList();
+    if (names.isEmpty()) {
+      names = List.of("USER");
+    }
+
+    return result(savedUser, names);
+  }
+
   public Map<String, Object> getOtpDataResponse(String rawEmail, long expiresIn) {
     String email = rawEmail.trim().toLowerCase(Locale.ROOT);
     Map<String, Object> map = new java.util.HashMap<>();

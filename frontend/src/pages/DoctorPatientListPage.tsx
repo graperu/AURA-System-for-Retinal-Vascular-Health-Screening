@@ -226,7 +226,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 value={form.fullName}
                 onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                 placeholder="Nguyễn Văn A"
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:border-[#0891B2] focus:ring-2 focus:ring-[#0891B2]/15 transition-all"
+                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:border-[#3478F6] focus:ring-2 focus:ring-[#3478F6]/15 transition-all"
               />
             </FormField>
 
@@ -236,7 +236,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 required
                 value={form.mrn}
                 onChange={(e) => setForm({ ...form, mrn: e.target.value })}
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data text-sm focus:outline-none focus:border-[#0891B2] focus:ring-2 focus:ring-[#0891B2]/15 transition-all"
+                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data text-sm focus:outline-none focus:border-[#3478F6] focus:ring-2 focus:ring-[#3478F6]/15 transition-all"
               />
             </FormField>
           </div>
@@ -249,7 +249,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 max={130}
                 value={form.age}
                 onChange={(e) => setForm({ ...form, age: parseInt(e.target.value) || 0 })}
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:border-[#0891B2] focus:ring-2 focus:ring-[#0891B2]/15 transition-all"
+                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:border-[#3478F6] focus:ring-2 focus:ring-[#3478F6]/15 transition-all"
               />
             </FormField>
 
@@ -269,7 +269,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 placeholder="0987654321"
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:border-[#0891B2] focus:ring-2 focus:ring-[#0891B2]/15 transition-all"
+                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:border-[#3478F6] focus:ring-2 focus:ring-[#3478F6]/15 transition-all"
               />
             </FormField>
           </div>
@@ -287,7 +287,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                   max={300}
                   value={form.systolicBp}
                   onChange={(e) => setForm({ ...form, systolicBp: parseInt(e.target.value) || 0 })}
-                  className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data text-xs focus:outline-none focus:border-[#0891B2]"
+                  className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data text-xs focus:outline-none focus:border-[#3478F6]"
                 />
               </FormField>
               <FormField label={t('doctor.newPatientModal.diastolicBp', 'HA Tâm trương (mmHg)')}>
@@ -297,7 +297,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                   max={200}
                   value={form.diastolicBp}
                   onChange={(e) => setForm({ ...form, diastolicBp: parseInt(e.target.value) || 0 })}
-                  className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data text-xs focus:outline-none focus:border-[#0891B2]"
+                  className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data text-xs focus:outline-none focus:border-[#3478F6]"
                 />
               </FormField>
               <FormField label={t('doctor.newPatientModal.hba1c', 'HbA1c (%)')}>
@@ -308,7 +308,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
                   max={20.0}
                   value={form.hba1c}
                   onChange={(e) => setForm({ ...form, hba1c: parseFloat(e.target.value) || 0 })}
-                  className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data text-xs focus:outline-none focus:border-[#0891B2]"
+                  className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-mono-data text-xs focus:outline-none focus:border-[#3478F6]"
                 />
               </FormField>
             </div>
@@ -331,7 +331,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
               size="md"
               loading={submitting}
               icon={<UserPlus className="w-4 h-4" />}
-              className="rounded-xl px-5 font-bold shadow-xs bg-[#0891B2] hover:bg-[#0E7490]"
+              className="rounded-xl px-5 font-bold shadow-xs bg-[#3478F6] hover:bg-[#2563EB]"
             >
               {t('doctor.newPatientModal.save', 'Lưu Hồ Sơ')}
             </Button>

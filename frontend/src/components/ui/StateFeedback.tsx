@@ -73,8 +73,8 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   const displayTitle = title !== undefined ? title : (isVi ? 'Đã xảy ra lỗi' : 'An error occurred');
 
   return (
-    <div className={`flex flex-col items-center justify-center p-8 text-center bg-red-50/50 rounded-xl border border-red-200 ${className}`}>
-      <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3 text-red-600">
+    <div className={`flex flex-col items-center justify-center p-8 text-center bg-red-50/50 rounded-2xl border border-red-200 ${className}`}>
+      <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center mb-3 text-red-600">
         <AlertCircle className="w-6 h-6" />
       </div>
       <h4 className="text-base font-semibold text-red-950 mb-1">{displayTitle}</h4>
@@ -87,3 +87,71 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
     </div>
   );
 };
+
+/* Unified Skeletons */
+export const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`animate-pulse bg-slate-200/80 rounded-xl ${className}`} />
+);
+
+export const SkeletonCard: React.FC<{ lines?: number; className?: string }> = ({
+  lines = 3,
+  className = '',
+}) => (
+  <div className={`bg-white rounded-2xl border border-slate-200 p-5 space-y-3.5 ${className}`}>
+    <div className="flex items-center gap-3">
+      <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+      <div className="flex-1 space-y-1.5">
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
+    </div>
+    <div className="space-y-2 pt-2">
+      {Array.from({ length: lines }).map((_, i) => (
+        <Skeleton key={i} className="h-3.5 w-full" />
+      ))}
+    </div>
+  </div>
+);
+
+export const SkeletonTable: React.FC<{ rows?: number; cols?: number; className?: string }> = ({
+  rows = 5,
+  cols = 5,
+  className = '',
+}) => (
+  <div className={`bg-white rounded-2xl border border-slate-200 overflow-hidden ${className}`}>
+    <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
+      <Skeleton className="h-8 w-48 rounded-xl" />
+      <Skeleton className="h-8 w-32 rounded-xl" />
+    </div>
+    <div className="divide-y divide-slate-100">
+      {Array.from({ length: rows }).map((_, rIdx) => (
+        <div key={rIdx} className="p-4 flex items-center justify-between gap-4">
+          {Array.from({ length: cols }).map((_, cIdx) => (
+            <Skeleton
+              key={cIdx}
+              className={`h-4 ${cIdx === 0 ? 'w-28' : cIdx === 1 ? 'w-36' : 'w-20'}`}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+export const SkeletonProfile: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`bg-white rounded-2xl border border-slate-200 p-6 space-y-6 ${className}`}>
+    <div className="flex items-center gap-4">
+      <Skeleton className="w-14 h-14 rounded-2xl shrink-0" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-5 w-44" />
+        <Skeleton className="h-3.5 w-64" />
+      </div>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <Skeleton className="h-20 rounded-xl" />
+      <Skeleton className="h-20 rounded-xl" />
+      <Skeleton className="h-20 rounded-xl" />
+    </div>
+  </div>
+);
+

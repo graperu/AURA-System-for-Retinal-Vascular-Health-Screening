@@ -1,5 +1,6 @@
 package com.aura.auth.controller;
 
+import com.aura.audit.annotation.Audited;
 import com.aura.auth.config.AuthProperties;
 import com.aura.auth.dto.*;
 import com.aura.auth.exception.AuthException;
@@ -28,37 +29,58 @@ public class AuthController {
   @PostMapping("/send-otp")
   public ApiResponse<Map<String, Object>> sendOtp(@Valid @RequestBody SendOtpRequest q) {
     long expiresIn = service.sendRegistrationOtp(q);
-    String devOtp = null;
     return ApiResponse.success(
         "Mã OTP đã được gửi đến " + q.email(),
         service.getOtpDataResponse(q.email(), expiresIn)
     );
   }
 
+  @Audited(action = "AUTH_FORGOT_PASSWORD_REQUEST", module = "AUTH", resourceType = "USER", description = "Yêu cầu mã OTP đặt lại mật khẩu")
+  @PostMapping("/forgot-password")
+  public ApiResponse<Map<String, Object>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest q) {
+    long expiresIn = service.sendForgotPasswordOtp(q);
+    return ApiResponse.success(
+        "Mã OTP đặt lại mật khẩu đã được gửi đến " + q.email(),
+        service.getOtpDataResponse(q.email(), expiresIn)
+    );
+  }
+
+  @Audited(action = "AUTH_RESET_PASSWORD", module = "AUTH", resourceType = "USER", description = "Đặt lại mật khẩu bằng mã OTP")
+  @PostMapping("/reset-password")
+  public ResponseEntity<ApiResponse<LoginResponse>> resetPassword(@Valid @RequestBody ResetPasswordRequest q) {
+    var r = service.resetPassword(q);
+    return withCookie(r, "Đặt lại mật khẩu thành công");
+  }
+
+  @Audited(action = "AUTH_REGISTER_VERIFY", module = "AUTH", resourceType = "USER", description = "Xác thực email và tạo tài khoản")
   @PostMapping("/verify-otp")
   public ResponseEntity<ApiResponse<LoginResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest q) {
     var r = service.verifyOtpAndRegister(q);
     return withCookie(r, "Xác thực email và tạo tài khoản thành công");
   }
 
+  @Audited(action = "AUTH_REGISTER", module = "AUTH", resourceType = "USER", description = "Đăng ký tài khoản mới")
   @PostMapping("/register")
   @ResponseStatus(HttpStatus.CREATED)
   public ApiResponse<UserResponse> register(@Valid @RequestBody RegisterRequest q) {
     return ApiResponse.success("Đăng ký thành công", service.register(q));
   }
 
+  @Audited(action = "AUTH_LOGIN", module = "AUTH", resourceType = "USER", description = "Đăng nhập hệ thống bằng email và mật khẩu")
   @PostMapping("/login")
   public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest q) {
     var r = service.login(q);
     return withCookie(r, "Đăng nhập thành công");
   }
 
+  @Audited(action = "AUTH_LOGIN_GOOGLE", module = "AUTH", resourceType = "USER", description = "Đăng nhập hệ thống bằng tài khoản Google")
   @PostMapping("/google")
   public ResponseEntity<ApiResponse<LoginResponse>> loginGoogle(@Valid @RequestBody GoogleLoginRequest q) {
     var r = service.loginWithGoogle(q);
     return withCookie(r, "Đăng nhập Google thành công");
   }
 
+  @Audited(action = "AUTH_LOGIN_SOCIAL", module = "AUTH", resourceType = "USER", description = "Đăng nhập mạng xã hội")
   @PostMapping("/social")
   public ResponseEntity<ApiResponse<LoginResponse>> loginSocial(@Valid @RequestBody SocialLoginRequest q) {
     var r = service.loginWithSocial(q);
@@ -74,6 +96,7 @@ public class AuthController {
     return withCookie(r, "Làm mới token thành công");
   }
 
+  @Audited(action = "AUTH_LOGOUT", module = "AUTH", resourceType = "USER", description = "Đăng xuất tài khoản")
   @PostMapping("/logout")
   public ResponseEntity<ApiResponse<Void>> logout(
       @CookieValue(name = COOKIE, required = false) String raw) {

@@ -13,6 +13,8 @@ import { bulkScreeningApi, BulkUploadPayload, BulkUploadItemPayload, billingApi 
 import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
 import { useLanguage } from '../context/LanguageContext';
+import { realtimeBus } from '../services/realtimeService';
+import { eventBus } from '../services/eventBusService';
 
 const BATCH_STATUS_OPTIONS: ClinicalSelectOption<string>[] = [
   { value: 'ALL', label: 'Tất cả Trạng thái' },
@@ -514,6 +516,61 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
     setCurrentJob(newJob);
     if (onUpdateBatch) onUpdateBatch(newJob);
     setIsUploadModalOpen(false);
+
+    // 1. Invoke backend batch API if available
+    try {
+      if (bulkScreeningApi?.uploadBatch) {
+        bulkScreeningApi
+          .uploadBatch({
+            campaignName: payload.campaignName,
+            clinicId: payload.clinicId,
+            images: payload.items.map((it) => ({
+              fileName: it.fileName,
+              eyePosition: it.eyePosition,
+              imageContent: it.base64ImageContent || it.previewUrl,
+              mrn: it.rawMrn,
+              patientName: it.rawPatientName,
+              patientAge: it.patientAge,
+              patientGender: it.patientGender,
+            })),
+          })
+          .catch((err) => {
+            console.warn('Backend bulkScreeningApi.uploadBatch notice:', err);
+          });
+      }
+    } catch (apiErr) {
+      console.warn('Error invoking uploadBatch:', apiErr);
+    }
+
+    // 2. Dispatch real-time events across portals (Flow 3: Clinic -> Admin Audit & Doctor Worklist)
+    realtimeBus.emit('batch:created', {
+      batchId: generatedBatchId,
+      clinicId: payload.clinicId,
+      campaignName: payload.campaignName,
+      totalImages: payload.items.length,
+      status: 'QUEUED',
+      submittedAt: Date.now(),
+    });
+    realtimeBus.emit('batch:submitted', {
+      batchId: generatedBatchId,
+      clinicId: payload.clinicId,
+      totalImages: payload.items.length,
+    });
+    realtimeBus.emit('audit:new', {
+      action: 'BATCH_SCREENING_SUBMITTED',
+      category: 'BATCH',
+      details: `Đợt khám ${generatedBatchId} (${payload.items.length} ảnh) đã tải lên`,
+      timestamp: Date.now(),
+      batchId: generatedBatchId,
+      clinicId: payload.clinicId,
+    });
+    eventBus.publish('BATCH_STATUS_CHANGED', {
+      batchId: generatedBatchId,
+      status: 'QUEUED',
+      processedCount: 0,
+      totalImages: payload.items.length,
+    });
+
     setFeedbackMsg(
       isVi
         ? `Đã khởi tạo đợt khám ${generatedBatchId} (${payload.items.length} ảnh) và chuyển vào hàng đợi xử lý AI.`
@@ -732,7 +789,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
     <div className="space-y-6">
       {/* Toast Feedback Notification */}
       {feedbackMsg && (
-        <div className="bg-gradient-to-r from-[#0891B2] to-[#134E4A] text-white px-4 py-3 rounded-2xl shadow-lg flex items-center justify-between animate-in slide-in-from-top duration-300">
+        <div className="bg-gradient-to-r from-[#3478F6] to-[#111827] text-white px-4 py-3 rounded-2xl shadow-lg flex items-center justify-between animate-in slide-in-from-top duration-300">
           <div className="flex items-center gap-2.5 text-xs font-semibold">
             <Sparkles className="w-4 h-4 text-cyan-200" />
             <span>{feedbackMsg}</span>
@@ -749,17 +806,17 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
       {/* Clinic Campaign Metrics & Credit Banner */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Clinic Info & Campaign */}
-        <div className="bg-white border border-[#CCFBF1] rounded-2xl p-5 shadow-medical-md flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#F0FDFA] text-[#0891B2] border border-[#CCFBF1] flex items-center justify-center shrink-0">
+        <div className="bg-white border border-[#C7D7FE] rounded-2xl p-5 shadow-medical-md flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] flex items-center justify-center shrink-0">
             <Building2 className="w-6 h-6" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm text-[#134E4A] truncate">{currentJob.clinicName}</h3>
+              <h3 className="font-bold text-sm text-[#111827] truncate">{currentJob.clinicName}</h3>
             </div>
             <span className="text-xs text-slate-500 block font-mono-data mt-0.5">
               {t('clinic.batchProcessing.campaignIdLabel')}{' '}
-              <strong className="text-[#0891B2]">
+              <strong className="text-[#3478F6]">
                 {currentJob.totalImages === 0 ? t('clinic.batchProcessing.readyForNewBatch') : currentJob.batchId}
               </strong>
             </span>
@@ -771,7 +828,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                   : `${t('clinic.batchProcessing.campaignSubtitle')} (${currentJob.status})`}
               </span>
               {isPolling && (
-                <span className="inline-flex items-center gap-1 text-[10px] text-[#0891B2] bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded-full font-mono-data animate-pulse">
+                <span className="inline-flex items-center gap-1 text-[10px] text-[#3478F6] bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded-full font-mono-data animate-pulse">
                   <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Live Polling 1.5s
                 </span>
               )}
@@ -780,12 +837,12 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         </div>
 
         {/* Batch Queue Real-Time Progress */}
-        <div className="bg-white border border-[#CCFBF1] rounded-2xl p-5 shadow-medical-md space-y-2">
+        <div className="bg-white border border-[#C7D7FE] rounded-2xl p-5 shadow-medical-md space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-[#134E4A] flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-[#0891B2]" /> {t('clinic.batchProcessing.bulkQueueProgress')}
+            <span className="font-bold text-[#111827] flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-[#3478F6]" /> {t('clinic.batchProcessing.bulkQueueProgress')}
             </span>
-            <span className="font-mono-data font-extrabold text-sm text-[#0891B2]">
+            <span className="font-mono-data font-extrabold text-sm text-[#3478F6]">
               {percentComplete}%
             </span>
           </div>
@@ -795,7 +852,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
               className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
                 percentComplete === 100
                   ? 'from-emerald-500 to-teal-600'
-                  : 'from-[#0891B2] via-cyan-500 to-[#0E7490]'
+                  : 'from-[#3478F6] via-cyan-500 to-[#2563EB]'
               }`}
               style={{ width: `${percentComplete}%` }}
             ></div>
@@ -820,7 +877,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         </div>
 
         {/* Screening Credits Management */}
-        <div className="bg-gradient-to-br from-[#0891B2] via-[#0E7490] to-[#134E4A] text-white rounded-2xl p-5 shadow-medical-md space-y-2 flex flex-col justify-between">
+        <div className="bg-gradient-to-br from-[#3478F6] via-[#2563EB] to-[#111827] text-white rounded-2xl p-5 shadow-medical-md space-y-2 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-cyan-100 flex items-center gap-1.5">
               <CreditCard className="w-4 h-4" /> {t('clinic.batchProcessing.creditsManagement')}
@@ -839,7 +896,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
             <span>{t('clinic.batchProcessing.syncedActivePackage')}</span>
             <button
               onClick={() => setIsCreditModalOpen(true)}
-              className="bg-white text-[#0891B2] hover:bg-cyan-50 px-2.5 py-1 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all"
+              className="bg-white text-[#3478F6] hover:bg-cyan-50 px-2.5 py-1 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all"
             >
               {t('clinic.batchProcessing.topUpButton')}
             </button>
@@ -909,11 +966,11 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         {/* In Queue / Processing */}
         <div className="bg-white border border-cyan-200 rounded-2xl p-4 shadow-medical-xs flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-[#0891B2] block flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-[#0891B2]" /> {t('clinic.batchProcessing.queueProcessingCard')}
+            <span className="text-xs font-bold text-[#3478F6] block flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-[#3478F6]" /> {t('clinic.batchProcessing.queueProcessingCard')}
             </span>
             <div className="flex items-baseline gap-1 mt-1">
-              <span className="text-2xl font-extrabold font-mono-data text-[#0891B2]">
+              <span className="text-2xl font-extrabold font-mono-data text-[#3478F6]">
                 {processingCount + pendingCount}
               </span>
               <span className="text-xs text-slate-400">/{currentJob.totalImages}</span>
@@ -924,7 +981,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 : t('clinic.batchProcessing.allCompleted')}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-cyan-50 text-[#0891B2] flex items-center justify-center font-bold font-mono-data">
+          <div className="w-10 h-10 rounded-xl bg-cyan-50 text-[#3478F6] flex items-center justify-center font-bold font-mono-data">
             {processingCount > 0 ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
@@ -1017,14 +1074,14 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
       )}
 
       {/* [FR-25] AGGREGATED RISK STATISTICS & DONUT DISTRIBUTION CHART */}
-      <div className="bg-white border border-[#CCFBF1] rounded-2xl p-6 shadow-medical-md space-y-6">
+      <div className="bg-white border border-[#C7D7FE] rounded-2xl p-6 shadow-medical-md space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="bg-[#CCFBF1] text-[#0F766E] text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full">
+              <span className="bg-[#C7D7FE] text-[#0F766E] text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full">
                 {t('clinic.batchProcessing.aggregatedSurveillanceTitle')}
               </span>
-              <h2 className="text-base font-extrabold text-[#134E4A]">
+              <h2 className="text-base font-extrabold text-[#111827]">
                 {t('clinic.batchProcessing.riskDistributionTitle')}
               </h2>
             </div>
@@ -1042,9 +1099,9 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1">
             <span className="text-[11px] text-slate-500 font-semibold flex items-center gap-1">
-              <Activity className="w-3.5 h-3.5 text-[#0891B2]" /> {t('clinic.batchProcessing.meanVascularScore')}
+              <Activity className="w-3.5 h-3.5 text-[#3478F6]" /> {t('clinic.batchProcessing.meanVascularScore')}
             </span>
-            <div className="text-2xl font-extrabold text-[#134E4A] font-mono-data">
+            <div className="text-2xl font-extrabold text-[#111827] font-mono-data">
               {statistics ? `${statistics.averageVascularRiskScore}/100` : '--'}
             </div>
             <span className="text-[10px] text-slate-400 block">Overall Vascular Score</span>
@@ -1142,7 +1199,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                   Điểm Trung Bình
                 </span>
-                <span className="text-2xl font-black text-[#134E4A] font-mono-data">
+                <span className="text-2xl font-black text-[#111827] font-mono-data">
                   {statistics ? statistics.averageVascularRiskScore : 0}
                 </span>
                 <span className="text-[10px] text-slate-500 font-semibold">trên thang 100</span>
@@ -1155,7 +1212,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
 
           {/* Interactive Legend & Details */}
           <div className="md:col-span-7 space-y-3">
-            <h4 className="text-xs font-bold text-[#134E4A] uppercase tracking-wider">
+            <h4 className="text-xs font-bold text-[#111827] uppercase tracking-wider">
               {t('clinic.batchProcessing.riskBreakdownTitle')}
             </h4>
 
@@ -1255,7 +1312,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
       </div>
 
       {/* Control & Filter Bar */}
-      <div className="bg-white border border-[#CCFBF1] rounded-2xl p-4 shadow-medical-sm space-y-4">
+      <div className="bg-white border border-[#C7D7FE] rounded-2xl p-4 shadow-medical-sm space-y-4">
         <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3">
           {/* Search & Filters */}
           <div className="flex flex-wrap items-center gap-2.5 flex-1">
@@ -1266,7 +1323,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={t('clinic.batchProcessing.searchPlaceholder')}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#0891B2]"
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#3478F6]"
               />
             </div>
 
@@ -1338,7 +1395,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
 
             <button
               onClick={() => setIsUploadModalOpen(true)}
-              className="px-4 py-2 bg-gradient-to-r from-[#0891B2] to-[#134E4A] hover:from-[#0E7490] hover:to-[#0F766E] text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1.5"
+              className="px-4 py-2 bg-gradient-to-r from-[#3478F6] to-[#111827] hover:from-[#2563EB] hover:to-[#0F766E] text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1.5"
             >
               <UploadCloud className="w-4 h-4" />
               <span>{t('clinic.batchProcessing.uploadFolderButton')}</span>
@@ -1348,11 +1405,11 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
       </div>
 
       {/* Main Monitoring Table */}
-      <div className="bg-white border border-[#CCFBF1] rounded-2xl shadow-medical-sm overflow-hidden">
+      <div className="bg-white border border-[#C7D7FE] rounded-2xl shadow-medical-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-[#F0FDFA] border-b border-[#CCFBF1] text-[#134E4A] font-extrabold uppercase text-[10px] tracking-wider">
+              <tr className="bg-[#EEF5FF] border-b border-[#C7D7FE] text-[#111827] font-extrabold uppercase text-[10px] tracking-wider">
                 <th className="py-3 px-3 text-center w-12">{t('clinic.batchProcessing.colNum')}</th>
                 <th className="py-3 px-3 w-16">{t('clinic.batchProcessing.colThumbnail')}</th>
                 <th className="py-3 px-4">{t('clinic.batchProcessing.colPatientMrn')}</th>
@@ -1418,7 +1475,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                         <span
                           className={`px-2 py-0.5 rounded-md ${
                             item.eye === 'OD'
-                              ? 'bg-cyan-50 text-[#0891B2] border border-cyan-200'
+                              ? 'bg-cyan-50 text-[#3478F6] border border-cyan-200'
                               : 'bg-teal-50 text-teal-700 border border-teal-200'
                           }`}
                         >
@@ -1434,7 +1491,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                           </span>
                         )}
                         {item.status === 'PROCESSING' && (
-                          <span className="inline-flex items-center gap-1 text-[#0891B2] font-medium bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200 text-[11px] animate-pulse">
+                          <span className="inline-flex items-center gap-1 text-[#3478F6] font-medium bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200 text-[11px] animate-pulse">
                             <Loader2 className="w-3 h-3 animate-spin" /> {t('clinic.batchProcessing.badgeProcessing')}
                           </span>
                         )}
@@ -1506,7 +1563,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                             e.stopPropagation();
                             setSelectedItemForCds(item);
                           }}
-                          className="text-[#0891B2] hover:text-[#0E7490] font-bold text-xs bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 rounded-lg border border-cyan-200 transition-colors"
+                          className="text-[#3478F6] hover:text-[#2563EB] font-bold text-xs bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 rounded-lg border border-cyan-200 transition-colors"
                         >
                           {t('clinic.batchProcessing.viewCdsButton')}
                         </button>
@@ -1568,7 +1625,7 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
                 <ChevronLeft className="w-3.5 h-3.5 text-slate-600" />
               </button>
 
-              <div className="px-3 py-1 bg-white border border-slate-300 rounded-lg font-bold text-[#134E4A]">
+              <div className="px-3 py-1 bg-white border border-slate-300 rounded-lg font-bold text-[#111827]">
                 {t('clinic.batchProcessing.pageOf')} {effectivePage} / {totalPages}
               </div>
 

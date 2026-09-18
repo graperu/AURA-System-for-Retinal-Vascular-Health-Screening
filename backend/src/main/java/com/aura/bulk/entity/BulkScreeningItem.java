@@ -53,7 +53,7 @@ public class BulkScreeningItem {
   @Column(name = "diastolic_bp")
   private Integer diastolicBp;
 
-  @Column(name = "hba1c")
+  @Column(name = "hba1c", columnDefinition = "numeric(4,2)")
   private Double hba1c;
 
   @Column(name = "status", nullable = false, length = 32)

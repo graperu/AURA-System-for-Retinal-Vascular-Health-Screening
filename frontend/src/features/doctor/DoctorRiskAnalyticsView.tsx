@@ -335,7 +335,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
         const patient = patientMap.get(String(row.patientId));
         return (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#F0FDFA] text-[#0891B2] font-bold flex items-center justify-center border border-[#CCFBF1] shrink-0 text-xs">
+            <div className="w-8 h-8 rounded-lg bg-[#EEF5FF] text-[#3478F6] font-bold flex items-center justify-center border border-[#C7D7FE] shrink-0 text-xs">
               {patient?.fullName ? patient.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : (isVi ? 'BN' : 'PT')}
             </div>
             <div>
@@ -415,7 +415,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
               const p = patientMap.get(String(row.patientId));
               onSelectPatientForCDS(row.patientId, row.id, p);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0891B2] hover:bg-[#0e7490] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#3478F6] hover:bg-[#2563eb] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             title={t('doctor.worklist.openCds', 'Mở CDS')}
           >
             <Eye className="w-3.5 h-3.5" />
@@ -576,7 +576,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
         <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 shadow-medical-sm space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-[#0891B2]" />
+              <BarChart3 className="w-4 h-4 text-[#3478F6]" />
               <h3 className="text-sm font-bold text-slate-900">
                 {t('doctor.riskAnalytics.riskDistributionTitle', 'Phân Bố Nguy Cơ Vi Mạch Lâm Sàng')}
               </h3>
@@ -794,7 +794,7 @@ export const DoctorRiskAnalyticsView: React.FC<DoctorRiskAnalyticsViewProps> = (
           {riskFilter !== 'ALL' && (
             <button
               onClick={() => setRiskFilter('ALL')}
-              className="text-xs text-[#0891B2] hover:underline font-bold self-start cursor-pointer"
+              className="text-xs text-[#3478F6] hover:underline font-bold self-start cursor-pointer"
             >
               {isVi ? 'Xem tất cả' : 'View all'} ({screenings.length})
             </button>

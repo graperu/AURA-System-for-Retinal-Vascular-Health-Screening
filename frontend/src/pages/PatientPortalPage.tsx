@@ -5,11 +5,16 @@ import { InteractiveCDSViewer } from "../components/InteractiveCDSViewer";
 import { ClinicalRiskSummaryCard } from "../components/ClinicalRiskSummaryCard";
 import { PatientDashboardView } from "../features/patient/PatientDashboardView";
 import { PatientHistoryView, PatientHistoryItem } from "../features/patient/PatientHistoryView";
+import { PatientUploadWizard } from "../features/patient/PatientUploadWizard";
+import { PatientScreeningResultView } from "../features/patient/PatientScreeningResultView";
+import { AppointmentBookingModal } from "../features/patient/AppointmentBookingModal";
+import { SkeletonProfile } from "../components/ui/StateFeedback";
 import { MedicalReportModal } from "../components/MedicalReportModal";
 import { ConsultationChatModal } from "../components/ConsultationChatModal";
 import { CreditPurchaseModal } from "../components/CreditPurchaseModal";
 import { MedicalProfileModal } from "../components/MedicalProfileModal";
 import { RegisterExaminationModal } from "../components/RegisterExaminationModal";
+import { StatusBadge } from "../components/ui/StatusBadge";
 import { useAnalysisProgress } from "../hooks/useAnalysisProgress";
 import {
   AIRiskResult,
@@ -21,8 +26,11 @@ import { stompClient } from "../services/websocketService";
 import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
+import { realtimeBus, RealtimeEvent } from "../services/realtimeService";
 import { useRealtimeSync } from "../hooks/useRealtimeSync";
-import { realtimeBus } from "../services/realtimeService";
+import { AnimatePresence, motion } from "framer-motion";
+import { pageTransitionVariants } from "../utils/motion";
+import { useAuraReducedMotion } from "../hooks/useAuraReducedMotion";
 import {
   Eye,
   Heart,
@@ -73,6 +81,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
 }) => {
   const { t, isVi } = useLanguage();
   const { updateUser } = useAuth();
+  const prefersReducedMotion = useAuraReducedMotion();
   const [patient, setPatient] = useState<PatientProfile>({
     fullName: user.name || (isVi ? "Bệnh nhân" : "Patient"),
     mrn: user.mrn || "",
@@ -119,6 +128,43 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [userCredits, setUserCredits] = useState(0);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [upcomingAppointment, setUpcomingAppointment] = useState<{
+    doctorName: string;
+    doctorId?: string;
+    date: string;
+    time: string;
+    reason?: string;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem("aura_patient_upcoming_appointment");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleAppointmentSuccess = async (details: {
+    doctorName: string;
+    doctorId: string;
+    date: string;
+    time: string;
+    reason: string;
+  }) => {
+    setUpcomingAppointment(details);
+    try {
+      localStorage.setItem("aura_patient_upcoming_appointment", JSON.stringify(details));
+    } catch (e) {
+      console.warn("Could not save appointment:", e);
+    }
+    await fetchProfileData();
+    if (details.doctorName) {
+      setPatient((prev) => ({ ...prev, assignedDoctor: details.doctorName }));
+    }
+    if (details.doctorId) {
+      setAssignedDoctorId(details.doctorId);
+    }
+    setIsRegisterModalOpen(false);
+  };
 
   // In-app chat messages for dedicated consultation view
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -129,6 +175,33 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   // Scan History
   const [scanHistory, setScanHistory] = useState<PatientHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState<boolean>(false);
+
+  const assignedDoctorName = formatDoctorName(patient.assignedDoctor);
+  const doctorSpecialty = isVi ? "Chuyên khoa Mắt & Tim Mạch" : "Ophthalmology & Cardiology";
+
+  const reviewStatus = React.useMemo(() => {
+    const isReviewed = analysisResult?.status === 'REVIEWED' || scanHistory.some((s) => s.status === 'REVIEWED' || s.doctorReviewed);
+    if (isReviewed) {
+      return {
+        status: 'reviewed',
+        label: isVi ? 'Đã duyệt' : 'Reviewed',
+        variant: 'success' as const,
+      };
+    }
+    const hasScreening = Boolean(analysisResult || scanHistory.length > 0);
+    if (hasScreening) {
+      return {
+        status: 'pending',
+        label: isVi ? 'Đang chờ duyệt' : 'Pending Review',
+        variant: 'warning' as const,
+      };
+    }
+    return {
+      status: 'draft',
+      label: isVi ? 'Chưa gửi' : 'Not Submitted',
+      variant: 'neutral' as const,
+    };
+  }, [analysisResult, scanHistory, isVi]);
 
   const loadBillingData = async () => {
     try {
@@ -322,7 +395,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         setAnalysisResult(mapScreeningToAIRiskResult(item.rawScreening, item.imageUrl || ""));
       }
     }
-    onNavigate("cds-viewer");
+    onNavigate("screening-result");
   };
 
   const handleUploadNewScanClick = () => {
@@ -358,44 +431,49 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     setIsReportModalOpen(true);
   };
 
-  // Load real history and chat messages from PostgreSQL on mount
+  // Load real history and chat messages from PostgreSQL on mount in parallel
   useEffect(() => {
     const fetchRealData = async () => {
-      await loadScreeningHistory();
-
-      // Fetch profile
-      await fetchProfileData();
-
-      const subscriptions = await billingApi.mySubscriptions();
-      if (subscriptions.success && Array.isArray(subscriptions.data)) {
-        setUserCredits(
-          subscriptions.data.reduce(
-            (total: number, item: any) =>
-              total +
-              (item.status === "ACTIVE"
-                ? Number(item.remainingCredits || 0)
-                : 0),
-            0,
-          ),
-        );
-      }
+      await Promise.allSettled([
+        loadScreeningHistory(),
+        fetchProfileData(),
+        billingApi.mySubscriptions().then((subscriptions) => {
+          if (subscriptions.success && Array.isArray(subscriptions.data)) {
+            setUserCredits(
+              subscriptions.data.reduce(
+                (total: number, item: any) =>
+                  total +
+                  (item.status === "ACTIVE"
+                    ? Number(item.remainingCredits || 0)
+                    : 0),
+                0,
+              ),
+            );
+          }
+        }),
+      ]);
     };
     fetchRealData();
   }, []);
 
-  // Universal Real-time State Synchronization across all clinical topics (FR-6, FR-10, FR-12)
+  // Universal Real-time State Synchronization across all clinical topics (FR-6, FR-10, FR-12, Flow 2 & Flow 4)
   useRealtimeSync(
     [
       'screening:new',
+      'screening:created',
+      'screening:completed',
       'screening:reviewed',
       'screening:update',
       'screening:deleted',
+      'doctor:reviewed',
+      'RESULT_REVIEWED',
+      'notification:new',
       'billing:update',
       'credit:change',
       'profile:update',
       'doctor:assignment',
     ],
-    async (event) => {
+    async (event?: RealtimeEvent) => {
       const type = event?.type || '';
       if (type.startsWith('billing') || type.startsWith('credit')) {
         await loadBillingData();
@@ -403,6 +481,23 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         await fetchProfileData();
       } else {
         await loadScreeningHistory();
+        // Instant state update for active screening result on doctor review (<5s SLA, Zero-F5)
+        if (type === 'doctor:reviewed' || type === 'RESULT_REVIEWED' || type === 'screening:reviewed') {
+          const eventData = event?.data;
+          if (eventData) {
+            setAnalysisResult((prev) => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                status: 'REVIEWED',
+                isReviewed: true,
+                doctorNotes: eventData.doctorNotes || eventData.notes || prev.doctorNotes,
+                doctorName: eventData.doctorName || eventData.reviewerName || prev.doctorName,
+                digitalSignature: eventData.digitalSignature || prev.digitalSignature,
+              };
+            });
+          }
+        }
       }
     },
     { pollIntervalMs: 12000, syncOnFocus: true }
@@ -413,7 +508,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     if (!user?.id) return;
 
     stompClient.connect();
-    const topic = `/topic/chat.${user.id}`;
+    const chatTopic = `/topic/chat.${user.id}`;
+    const screeningTopic = `/topic/screening.${user.id}`;
+    const notifTopic = `/topic/notifications.${user.id}`;
 
     const handleIncomingChatMessage = (msg: any) => {
       if (!msg || !msg.messageText) return;
@@ -447,14 +544,22 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       }
     };
 
-    stompClient.subscribe(topic, handleIncomingChatMessage);
+    const unsubChat = stompClient.subscribe(chatTopic, handleIncomingChatMessage);
+    const unsubScreening = stompClient.subscribe(screeningTopic, (payload) => {
+      realtimeBus.handleIncomingPayload(payload, 'websocket');
+    });
+    const unsubNotif = stompClient.subscribe(notifTopic, (payload) => {
+      realtimeBus.handleIncomingPayload(payload, 'websocket');
+    });
 
     if (activeView === "consultation" && assignedDoctorId) {
       chatApi.markAsRead(assignedDoctorId).catch(() => {});
     }
 
     return () => {
-      stompClient.unsubscribe(topic);
+      unsubChat();
+      unsubScreening();
+      unsubNotif();
     };
   }, [user?.id, assignedDoctorId, activeView, isVi]);
 
@@ -524,8 +629,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         setShowAiNotification(true);
         setTimeout(() => setShowAiNotification(false), 7000);
 
-        // Navigate to CDS Viewer automatically
-        onNavigate("cds-viewer");
+        // Navigate to dedicated AI Result page automatically
+        onNavigate("screening-result");
       });
     } catch (err) {
       console.error(err);
@@ -606,7 +711,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       {/* Toast Notification (FR-9) */}
       {showAiNotification && analysisResult && (
         <div className="fixed top-20 right-6 z-50 max-w-md bg-white border border-cyan-200 rounded-2xl p-4 shadow-medical-modal animate-slideInRight flex items-start gap-3">
-          <div className="p-2.5 rounded-xl bg-cyan-50 text-[#0891B2] shrink-0 border border-cyan-100">
+          <div className="p-2.5 rounded-xl bg-cyan-50 text-[#3478F6] shrink-0 border border-cyan-100">
             {analysisResult.status === 'REVIEWED' ? (
               <ShieldCheck className="w-5 h-5 text-emerald-600" />
             ) : (
@@ -665,66 +770,90 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         </div>
       )}
 
-      {/* Top Patient Hero Banner */}
-      <div className="bg-white border border-clinical-border shadow-medical-card rounded-2xl p-6 sm:p-7 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
-        {/* Subtle Brand Accent Stripe on Top */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-600 via-brand-500 to-teal-500" />
-
-        <div className="flex items-center gap-4 z-10">
-          <div className="w-14 h-14 rounded-2xl bg-brand-50 text-brand-600 border border-brand-100 flex items-center justify-center font-bold text-xl shadow-medical-xs shrink-0">
-            <UserCheck className="w-7 h-7" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-clinical-text">
-                {patient.fullName}
-              </h1>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-clinical-text-secondary font-semibold font-mono-data border border-clinical-border">
-                {patient.mrn || (isVi ? "Chưa có MRN" : "No MRN")}
-              </span>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeView}
+          custom={prefersReducedMotion}
+          variants={pageTransitionVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="space-y-6"
+        >
+          {/* Top Patient Hero Banner - Chỉ hiển thị trên tab Dashboard Tổng quan */}
+          {activeView === "dashboard" && (
+        <div className="bg-white border border-slate-200/90 shadow-xs rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+          <div className="flex items-center gap-3.5 z-10">
+            <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 border border-brand-100/80 flex items-center justify-center font-bold text-lg shadow-xs shrink-0">
+              <UserCheck className="w-6 h-6" />
             </div>
-            <p className="text-xs text-clinical-text-muted mt-1.5 flex flex-wrap items-center gap-3">
-              <span>
-                {t('patient.chat.assignedDoctor', isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}:{" "}
-                <strong className="text-clinical-text-secondary font-semibold">
-                  {formatDoctorName(patient.assignedDoctor) || (isVi ? "Đang chờ phân công bác sĩ" : "Awaiting doctor assignment")}
-                </strong>
-              </span>
-              <span>
-                {isVi ? "Lần khám gần nhất" : "Last exam"}:{" "}
-                <strong className="text-clinical-text-secondary font-semibold font-mono-data">
-                  {patient.lastExamDate || (isVi ? "Chưa có lần khám" : "No previous exam")}
-                </strong>
-              </span>
-              <span className="flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> {isVi ? "Khám Định Kỳ Võng Mạc" : "Periodic Retinal Screening"}
-              </span>
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+                  {patient.fullName}
+                </h1>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold font-mono-data border border-slate-200">
+                  {patient.mrn || (isVi ? "Chưa có MRN" : "No MRN")}
+                </span>
+              </div>
+              <div className="text-xs text-slate-600 mt-1.5 flex flex-wrap items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <Stethoscope className="w-3.5 h-3.5 text-brand-600" />
+                  <span>{t('patient.chat.assignedDoctor', isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}:</span>{" "}
+                  <strong className="text-slate-800 font-semibold">
+                    {assignedDoctorName || (isVi ? "Đang chờ phân công bác sĩ" : "Awaiting doctor assignment")}
+                  </strong>
+                  {assignedDoctorName && (
+                    <span className="text-[11px] text-slate-500 font-normal">
+                      • {doctorSpecialty}
+                    </span>
+                  )}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-slate-500">{isVi ? "Trạng thái thẩm định:" : "Review status:"}</span>
+                  <StatusBadge
+                    status={reviewStatus.status}
+                    label={reviewStatus.label}
+                    variant={reviewStatus.variant}
+                    size="sm"
+                  />
+                </span>
+                <span>
+                  {isVi ? "Lần khám gần nhất" : "Last exam"}:{" "}
+                  <strong className="text-slate-800 font-semibold font-mono-data">
+                    {patient.lastExamDate || (isVi ? "Chưa có lần khám" : "No previous exam")}
+                  </strong>
+                </span>
+                <span className="flex items-center gap-1 text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80 text-[11px]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> {isVi ? "Khám Định Kỳ Võng Mạc" : "Periodic Retinal Screening"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Shortcuts */}
+          <div className="z-10 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setIsRegisterModalOpen(true)}
+              className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+            >
+              <CalendarCheck className="w-3.5 h-3.5" /> {isVi ? "Đăng Ký Khám" : "Register Exam"}
+            </button>
+            <button
+              onClick={handleUploadNewScanClick}
+              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-800 font-semibold rounded-xl text-xs border border-slate-200 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+            >
+              <UploadCloud className="w-3.5 h-3.5" /> {t('patient.dashboard.quickActions.uploadScan', isVi ? "Tải Ảnh Khám Mới" : "Upload new scan")}
+            </button>
+            <button
+              onClick={() => setIsProfileModalOpen(true)}
+              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-800 font-semibold rounded-xl text-xs border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <UserCog className="w-3.5 h-3.5" /> {t('navigation.medicalProfile', isVi ? "Hồ Sơ Y Tế" : "Medical Profile")}
+            </button>
           </div>
         </div>
-
-        {/* Action Shortcuts */}
-        <div className="z-10 flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={() => setIsRegisterModalOpen(true)}
-            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
-          >
-            <CalendarCheck className="w-4 h-4" /> {isVi ? "Đăng Ký Khám" : "Register Exam"}
-          </button>
-          <button
-            onClick={handleUploadNewScanClick}
-            className="px-4 py-2.5 bg-clinical-surface-subtle hover:bg-slate-100 text-clinical-text-secondary font-bold rounded-xl text-xs border border-clinical-border transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
-          >
-            <UploadCloud className="w-4 h-4" /> {t('patient.dashboard.quickActions.uploadScan', isVi ? "Tải Ảnh Khám Mới" : "Upload new scan")}
-          </button>
-          <button
-            onClick={() => setIsProfileModalOpen(true)}
-            className="px-4 py-2.5 bg-clinical-surface-subtle hover:bg-slate-100 text-clinical-text-secondary font-bold rounded-xl text-xs border border-clinical-border transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <UserCog className="w-4 h-4" /> {t('navigation.medicalProfile', isVi ? "Hồ Sơ Y Tế" : "Medical Profile")}
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* =========================================================================
           VIEW 1: DASHBOARD TỔNG QUAN
@@ -734,20 +863,22 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           patient={patient}
           latestResult={analysisResult}
           userCredits={userCredits}
+          upcomingAppointment={upcomingAppointment}
           onNavigate={onNavigate}
           onOpenCreditModal={() => setIsCreditModalOpen(true)}
           onOpenChatModal={() => setIsChatModalOpen(true)}
           onOpenReportModal={() => setIsReportModalOpen(true)}
           onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
+          scanHistory={scanHistory}
         />
       )}
 
       {/* =========================================================================
-          VIEW 2: UPLOAD SCAN - PHÂN TÍCH ẢNH MỚI (FR-2)
+          VIEW 2: UPLOAD SCAN - PHÂN TÍCH ẢNH MỚI WIZARD (P0 REQ)
       ========================================================================== */}
       {activeView === "upload-scan" && (
         <div className="max-w-4xl mx-auto space-y-6">
-          <PatientUploader
+          <PatientUploadWizard
             activePatient={patient}
             onStartAnalysis={handleStartAnalysis}
             isAnalyzing={isAnalyzing}
@@ -764,100 +895,153 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       )}
 
       {/* =========================================================================
-          VIEW 3: CDS VIEWER - TRỰC QUAN HÓA & HEATMAP (FR-4)
+          VIEW 3: DEDICATED AI RESULT PAGE (P0 REQ) & CDS VIEWER
       ========================================================================== */}
-      {activeView === "cds-viewer" && (
+      {(activeView === "screening-result" || activeView === "cds-viewer") && (
         <div className="space-y-6">
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Eye className="w-5 h-5 text-[#0891B2]" />
-                {isVi ? "Bản Đồ Nhiệt AI" : "AI Heatmap"}
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+          {analysisResult ? (
+            <PatientScreeningResultView
+              result={analysisResult}
+              selectedEye={
+                analysisResult.eyePosition === "Left_OS" || analysisResult.eyePosition === "OS"
+                  ? (isVi ? "Mắt Trái (OS)" : "Left Eye (OS)")
+                  : (isVi ? "Mắt Phải (OD)" : "Right Eye (OD)")
+              }
+              onOpenReportModal={() => setIsReportModalOpen(true)}
+              onOpenChatModal={() => onNavigate("consultation")}
+            />
+          ) : (
+            <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-xs">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-4">
+                <Eye className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-slate-800 mb-1">
+                {isVi ? "Chưa có kết quả phân tích AI" : "No AI Screening Results Available"}
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
                 {isVi
-                  ? "So sánh ảnh chụp mắt với vùng tổn thương AI phát hiện."
-                  : "Compare original fundus scan with AI anomaly heatmap."}
+                  ? "Hãy bắt đầu bằng cách tải lên ảnh chụp đáy mắt để AI phân tích 4 nhóm nguy cơ mạch máu võng mạc."
+                  : "Start by uploading a fundus scan to screen for cardiovascular and microvascular health risks."}
               </p>
-            </div>
-            <div className="flex items-center gap-2">
               <button
-                onClick={() => setIsReportModalOpen(true)}
-                className="px-3.5 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                onClick={() => onNavigate("upload-scan")}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
               >
-                <Download className="w-4 h-4" /> {t('patient.history.exportReport', isVi ? "Xuất Phiếu" : "Export Report")}
+                <UploadCloud className="w-4 h-4" />
+                {isVi ? "Tải Ảnh Sàng Lọc Ngay" : "Start Screening"}
               </button>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          VIEW 3B: APPOINTMENTS - ĐẶT & QUẢN LÝ LỊCH HẸN (P1 REQ)
+      ========================================================================== */}
+      {activeView === "appointment" && (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <CalendarCheck className="w-5 h-5 text-teal-600" />
+                {isVi ? "Lịch Hẹn Khám Bác Sĩ Chuyên Khoa" : "Specialist Appointments"}
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                {isVi
+                  ? "Đặt lịch và theo dõi cuộc hẹn khám chuyên sâu với bác sĩ mắt & tim mạch."
+                  : "Schedule and track consultations with ophthalmologists & cardiologists."}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsRegisterModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <CalendarCheck className="w-4 h-4" />
+              {isVi ? "Đặt Lịch Khám Mới" : "Book New Appointment"}
+            </button>
           </div>
 
-          {/* Banner Trạng Thái Thẩm Định Bác Sĩ */}
-          {analysisResult && (
-            analysisResult.status === 'REVIEWED' ? (
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-start gap-3 shadow-xs">
-                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
+          {upcomingAppointment ? (
+            <div className="bg-white p-6 rounded-2xl border border-teal-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
+                    {isVi ? "Cuộc hẹn sắp tới (Đã xác nhận)" : "Upcoming Confirmed Appointment"}
+                  </span>
                 </div>
-                <div className="space-y-0.5 flex-1">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <h4 className="font-bold text-xs sm:text-sm text-emerald-900">
-                      {isVi ? 'Bác sĩ đã xem và ký duyệt' : 'Doctor Reviewed & Approved'}
-                    </h4>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-bold shrink-0">
-                      {isVi ? 'Đã duyệt' : 'Approved'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-emerald-800 leading-snug">
-                    {isVi
-                      ? `Bác sĩ ${analysisResult.doctorName || formatDoctorName(patient.assignedDoctor) || 'phụ trách'} đã duyệt kết quả. Bạn có thể tải hoặc in phiếu khám.`
-                      : `Doctor has approved your results. You can now download the report.`}
-                  </p>
-                </div>
+                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-xs border border-emerald-200">
+                  {isVi ? "Đã lên lịch" : "Scheduled"}
+                </span>
               </div>
-            ) : (
-              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex items-start gap-3 shadow-xs">
-                <div className="p-2 bg-amber-100 text-amber-700 rounded-xl shrink-0">
-                  <Clock className="w-5 h-5 text-amber-600 animate-pulse" />
-                </div>
-                <div className="space-y-0.5 flex-1">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <h4 className="font-bold text-xs sm:text-sm text-amber-900">
-                      {isVi ? 'Đang chờ Bác sĩ duyệt' : 'Pending Doctor Review'}
-                    </h4>
-                    <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-bold shrink-0">
-                      {isVi ? 'Chờ duyệt' : 'Pending'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-amber-800 leading-snug">
-                    {isVi
-                      ? `Kết quả đã được gửi tới Bác sĩ. Báo cáo chính thức sẽ có ngay sau khi Bác sĩ ký duyệt.`
-                      : `Results sent to doctor. Official report will be available once reviewed.`}
-                  </p>
-                </div>
-              </div>
-            )
-          )}
 
-          {analysisResult ? (
-            <div className="space-y-6">
-              <InteractiveCDSViewer
-                analysisResult={analysisResult}
-                selectedEye={
-                  analysisResult.eyePosition === "Left_OS" || analysisResult.eyePosition === "OS"
-                    ? (isVi ? "OS (Mắt Trái)" : "OS (Left Eye)")
-                    : (isVi ? "OD (Mắt Phải)" : "OD (Right Eye)")
-                }
-              />
-              <ClinicalRiskSummaryCard
-                analysisResult={analysisResult}
-                onOpenFullReport={() => setIsReportModalOpen(true)}
-                onConsultDoctor={() => {
-                  onNavigate("consultation");
-                }}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <span className="text-slate-500 text-xs block">{isVi ? "Bác sĩ phụ trách" : "Doctor"}</span>
+                  <strong className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <Stethoscope className="w-4 h-4 text-teal-600" />
+                    {upcomingAppointment.doctorName}
+                  </strong>
+                  <span className="text-[11px] text-slate-400 block">{isVi ? "Chuyên khoa Mắt & Mạch Máu" : "Ophthalmology & Vascular"}</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <span className="text-slate-500 text-xs block">{isVi ? "Thời gian hẹn" : "Date & Time"}</span>
+                  <strong className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-teal-600" />
+                    {upcomingAppointment.time} - {upcomingAppointment.date}
+                  </strong>
+                  <span className="text-[11px] text-slate-400 block">{isVi ? "Thời lượng dự kiến: 30 phút" : "Est. duration: 30 mins"}</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <span className="text-slate-500 text-xs block">{isVi ? "Lý do khám" : "Chief Complaint"}</span>
+                  <strong className="text-sm font-bold text-slate-900 line-clamp-1">
+                    {upcomingAppointment.reason || (isVi ? "Tư vấn nguy cơ võng mạc" : "Retinal risk consultation")}
+                  </strong>
+                  <span className="text-[11px] text-slate-400 block">{isVi ? "Hình thức: Khám chuyên khoa" : "In-person clinic"}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  onClick={() => {
+                    setUpcomingAppointment(null);
+                    localStorage.removeItem("aura_patient_upcoming_appointment");
+                  }}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  {isVi ? "Hủy Lịch Hẹn" : "Cancel"}
+                </button>
+                <button
+                  onClick={() => onNavigate("consultation")}
+                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  {isVi ? "Nhắn Tin Với Bác Sĩ" : "Message Doctor"}
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
-              {isVi ? "Chưa có kết quả phân tích thật. Hãy tải ảnh võng mạc để bắt đầu." : "No active screening results. Please upload a retinal scan to begin."}
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-xs">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-4">
+                <CalendarCheck className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-slate-800 mb-1">
+                {isVi ? "Chưa có lịch hẹn khám nào" : "No appointments scheduled"}
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
+                {isVi
+                  ? "Bạn có thể chủ động đặt lịch khám chuyên sâu với bác sĩ phụ trách để được tư vấn chi tiết về kết quả mạch máu võng mạc."
+                  : "Book a consultation with a specialist doctor to evaluate your retinal vascular screening results."}
+              </p>
+              <button
+                onClick={() => setIsRegisterModalOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+              >
+                <CalendarCheck className="w-4 h-4" />
+                {isVi ? "Đặt Lịch Khám Ngay" : "Schedule Consultation"}
+              </button>
             </div>
           )}
         </div>
@@ -869,15 +1053,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       {activeView === "medical-profile" && (
         <div className="max-w-4xl mx-auto space-y-6">
           {isProfileLoading ? (
-            <div className="bg-white p-12 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center justify-center space-y-3">
-              <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
-              <p className="text-sm font-bold text-slate-700">
-                {isVi ? "Đang tải hồ sơ y tế..." : "Loading medical profile..."}
-              </p>
-              <p className="text-xs text-slate-400">
-                {isVi ? "Vui lòng chờ trong giây lát" : "Please wait a moment"}
-              </p>
-            </div>
+            <SkeletonProfile />
           ) : isProfileError ? (
             <div className="bg-white p-8 rounded-2xl border border-red-200 shadow-xs flex flex-col items-center justify-center space-y-3">
               <AlertTriangle className="w-8 h-8 text-red-500" />
@@ -1032,11 +1208,20 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                       {t('patient.chat.assignedDoctor', isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}
                     </span>
                     <span className="text-sm font-bold text-slate-800 line-clamp-1 mt-1">
-                      {formatDoctorName(patient.assignedDoctor) || (isVi ? "Chưa phân công" : "Unassigned")}
+                      {assignedDoctorName || (isVi ? "Chưa phân công" : "Unassigned")}
                     </span>
                     <span className="text-[11px] text-slate-500 block mt-0.5">
-                      {isVi ? "Bệnh viện chỉ định" : "Hospital assigned"}
+                      {assignedDoctorName ? doctorSpecialty : (isVi ? "Bệnh viện chỉ định" : "Hospital assigned")}
                     </span>
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500">{isVi ? "Trạng thái:" : "Status:"}</span>
+                      <StatusBadge
+                        status={reviewStatus.status}
+                        label={reviewStatus.label}
+                        variant={reviewStatus.variant}
+                        size="sm"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1161,7 +1346,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 <button
                   onClick={fetchProfileData}
                   disabled={isProfileLoading}
-                  className="px-4 py-2 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 bg-[#3478F6] hover:bg-[#2563EB] text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   <RefreshCw className={`w-4 h-4 ${isProfileLoading ? "animate-spin" : ""}`} /> {isVi ? "Làm Mới" : "Refresh"}
                 </button>
@@ -1208,7 +1393,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                       <div
                         className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
                           msg.sender === "patient"
-                            ? "bg-[#0891B2] text-white rounded-br-none"
+                            ? "bg-[#3478F6] text-white rounded-br-none"
                             : "bg-white text-slate-800 border border-slate-200 rounded-bl-none"
                         }`}
                       >
@@ -1233,11 +1418,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   value={newChatText}
                   onChange={(e) => setNewChatText(e.target.value)}
                   placeholder={t('patient.chat.placeholder', isVi ? "Nhập tin nhắn trao đổi với Bác sĩ..." : "Type a consultation message for the doctor...")}
-                  className="flex-1 px-4 py-2.5 text-xs bg-slate-100 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0891B2] outline-none"
+                  className="flex-1 px-4 py-2.5 text-xs bg-slate-100 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#3478F6] outline-none"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2.5 bg-[#0891B2] hover:bg-[#0E7490] text-white font-bold rounded-xl text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2.5 bg-[#3478F6] hover:bg-[#2563EB] text-white font-bold rounded-xl text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" /> {t('patient.chat.sendButton', isVi ? "Gửi" : "Send")}
                 </button>
@@ -1473,6 +1658,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           </div>
         </div>
       )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* Modals */}
       {analysisResult && (
@@ -1534,25 +1721,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         }}
       />
 
-      <RegisterExaminationModal
+      <AppointmentBookingModal
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         patient={patient}
-        onSuccess={async (data) => {
-          await fetchProfileData();
-          if (data) {
-            const safeDoc = formatDoctorName(
-              typeof data === 'object' ? (data.assignedDoctor || data.doctorName) : data,
-              ''
-            );
-            if (safeDoc) {
-              setPatient((prev) => ({ ...prev, assignedDoctor: safeDoc }));
-            }
-            if (typeof data === 'object' && data.assignedDoctorId) {
-              setAssignedDoctorId(data.assignedDoctorId);
-            }
-          }
-        }}
+        onSuccess={handleAppointmentSuccess}
       />
     </div>
   );

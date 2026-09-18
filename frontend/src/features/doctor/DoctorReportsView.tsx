@@ -317,11 +317,11 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#CCFBF1] rounded-2xl p-5 shadow-medical-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#C7D7FE] rounded-2xl p-5 shadow-medical-sm">
         <div>
           <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-[#0891B2]" />
-            <h1 className="text-lg font-bold text-[#134E4A]">
+            <FileSpreadsheet className="w-5 h-5 text-[#3478F6]" />
+            <h1 className="text-lg font-bold text-[#111827]">
               {t('doctor.reportsView.title', 'Hồ Sơ Báo Cáo Y Khoa & Ký Duyệt Chẩn Đoán')}
             </h1>
           </div>

@@ -243,8 +243,17 @@ export const notificationApi = {
   markAsRead: (id: string) =>
     apiFetch<any>(`/api/v1/notifications/${id}/read`, { method: "PUT" }),
 
+  markAsUnread: (id: string) =>
+    apiFetch<any>(`/api/v1/notifications/${id}/unread`, { method: "PUT" }),
+
   markAllAsRead: () =>
     apiFetch<void>("/api/v1/notifications/read-all", { method: "PUT" }),
+
+  deleteNotification: (id: string) =>
+    apiFetch<void>(`/api/v1/notifications/${id}`, { method: "DELETE" }),
+
+  clearAll: () =>
+    apiFetch<void>("/api/v1/notifications", { method: "DELETE" }),
 
   getStreamUrl: () => `${API_BASE_URL}/api/v1/notifications/stream`,
 };
@@ -309,7 +318,7 @@ export const billingApi = {
   purchasePackage: (packageId: number, paymentMethod = "VIETQR") =>
     billingApi.purchase(packageId, paymentMethod),
 
-  getTransactionStatus: (transactionId: number) =>
+  getTransactionStatus: (transactionId: number | string) =>
     apiFetch<PaymentStatusResponse>(
       `/api/v1/me/payments/${transactionId}/status`,
       {
@@ -317,7 +326,7 @@ export const billingApi = {
       },
     ),
 
-  confirmLocalPayment: (transactionId: number) =>
+  confirmLocalPayment: (transactionId: number | string) =>
     apiFetch<PaymentStatusResponse>(
       `/api/v1/me/payments/${transactionId}/confirm-local`,
       {
@@ -681,7 +690,9 @@ export interface BulkUploadItemPayload {
 
 export interface BulkUploadPayload {
   clinicId: string;
-  imageItems: BulkUploadItemPayload[];
+  imageItems?: BulkUploadItemPayload[];
+  campaignName?: string;
+  images?: any[];
 }
 
 export const bulkScreeningApi = {

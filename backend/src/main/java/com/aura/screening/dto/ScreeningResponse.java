@@ -55,7 +55,9 @@ public record ScreeningResponse(
     @JsonProperty("signedAt") Instant signedAt,
     @JsonProperty("reviewedAt") Instant reviewedAt,
     @JsonProperty("createdAt") Instant createdAt,
-    @JsonProperty("updatedAt") Instant updatedAt
+    @JsonProperty("updatedAt") Instant updatedAt,
+    @JsonProperty("aiModelVersion") String aiModelVersion,
+    @JsonProperty("appliedThresholds") String appliedThresholds
 ) {
   public static ScreeningResponse fromEntity(Screening s) {
     if (s == null) return null;
@@ -106,7 +108,64 @@ public record ScreeningResponse(
         s.getSignedAt(),
         s.getReviewedAt(),
         s.getCreatedAt(),
-        s.getUpdatedAt()
+        s.getUpdatedAt(),
+        s.getAiModelVersion(),
+        s.getAppliedThresholds()
+    );
+  }
+
+  public static ScreeningResponse fromEntitySummary(Screening s) {
+    if (s == null) return null;
+    return new ScreeningResponse(
+        s.getId(),
+        s.getPatientId(),
+        s.getDoctorId(),
+        s.getClinicId(),
+        s.getBatchId(),
+        s.getImageUrl(),
+        s.getStatus(),
+        s.getRiskLevel(),
+        s.getAiRiskLevel(),
+        s.getDoctorRiskLevel(),
+        s.getConfidence(),
+        s.getFindings(),
+        s.getCardiovascularRiskScore(),
+        s.getCardiovascularRiskLevel(),
+        s.getDiabeticRetinopathyRiskScore(),
+        s.getDiabeticRetinopathyRiskLevel(),
+        s.getHypertensionRiskScore(),
+        s.getHypertensionRiskLevel(),
+        s.getStrokeRiskScore(),
+        s.getStrokeRiskLevel(),
+        s.getRecommendations(),
+        null, // omit heavy Grad-CAM heatmap in list response to uphold < 3s SLA (NFR-3)
+        s.getDetectedAnomalies(),
+        s.getVesselMaskUrl(),
+        s.getEyePosition(),
+        s.getScanType(),
+        s.getFileName(),
+        s.getFileSize(),
+        s.getMimeType(),
+        s.getRiskScore(),
+        s.getAvRatio(),
+        s.getVesselDensity(),
+        s.getVesselDensityPercent(),
+        s.getTortuosityIndex(),
+        s.getVerticalCdr(),
+        s.getReviewDecision(),
+        s.getDoctorNotes(),
+        s.getIcd10Codes(),
+        s.getOriginalAiRiskLevel(),
+        s.getDoctorCardiovascularRiskLevel(),
+        s.getDoctorDiabeticRetinopathyRiskLevel(),
+        s.getEtdrsGrade(),
+        s.getDigitalSignature(),
+        s.getSignedAt(),
+        s.getReviewedAt(),
+        s.getCreatedAt(),
+        s.getUpdatedAt(),
+        s.getAiModelVersion(),
+        s.getAppliedThresholds()
     );
   }
 }

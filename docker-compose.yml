@@ -1,38 +1,6 @@
 name: aura
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: aura-postgres
-    restart: unless-stopped
-    command: postgres -c shared_buffers=128MB -c work_mem=8MB -c maintenance_work_mem=32MB -c max_connections=60 -c temp_buffers=8MB
-    environment:
-      POSTGRES_DB: aura_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: aura_password123
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d aura_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-    deploy:
-      resources:
-        limits:
-          cpus: "1.00"
-          memory: 512M
-        reservations:
-          memory: 128M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
-
   backend:
     build:
       context: ./backend
@@ -42,22 +10,19 @@ services:
     ports:
       - "8081:8081"
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/aura_db
-      DB_USERNAME: postgres
-      DB_PASSWORD: aura_password123
-      SERVER_PORT: 8081
-      GEMINI_AI_ENABLED: "true"
-      GEMINI_API_URL: "http://host.docker.internal:20128/v1/chat/completions"
+      DB_URL: "${DB_URL}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      SERVER_PORT: "${SERVER_PORT:-8081}"
+      GEMINI_AI_ENABLED: "${GEMINI_AI_ENABLED:-true}"
+      GEMINI_API_URL: "${GEMINI_API_URL:-http://host.docker.internal:20128/v1/chat/completions}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
-      GEMINI_MODEL: "ag/gemini-3.7-flash-high"
+      GEMINI_MODEL: "${GEMINI_MODEL:-ag/gemini-3.7-flash-high}"
       SPRING_MAIL_USERNAME: "${SPRING_MAIL_USERNAME:-}"
       SPRING_MAIL_PASSWORD: "${SPRING_MAIL_PASSWORD:-}"
       JAVA_OPTS: "-XX:+UseG1GC -Xms256m -Xmx768m -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8081/api/v1/system/health || exit 1"]
       interval: 10s
@@ -106,6 +71,3 @@ services:
       options:
         max-size: "5m"
         max-file: "2"
-
-volumes:
-  postgres_data:

@@ -9,10 +9,24 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aura_db}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:aura_password123}
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 20000
+      keepalive-time: 30000
+      connection-test-query: "SELECT 1"
   jpa:
     hibernate:
       ddl-auto: ${HIBERNATE_DDL_AUTO:none}
     open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     baseline-on-migrate: true
@@ -64,6 +78,9 @@ aura:
     hmac-secret: ${HIPAA_HMAC_SECRET:AURA_HIPAA_NFR_JAVA_HMAC_SECRET_2026}
   signature:
     secret: ${REVIEW_SIGNATURE_SECRET:AURA_REVIEW_SIGNATURE_SECRET_2026}
+  security:
+    encryption:
+      aes-key: ${AURA_ENCRYPTION_AES_KEY:AURA_SYSTEM_SECURE_AES_KEY_2026_32BYTES_LEN_!!}
 payment:
   webhook-secret: ${PAYMENT_WEBHOOK_SECRET:AURA_BILLING_WEBHOOK_SECRET_2026}
   sandbox-mode: ${PAYMENT_SANDBOX_MODE:true}

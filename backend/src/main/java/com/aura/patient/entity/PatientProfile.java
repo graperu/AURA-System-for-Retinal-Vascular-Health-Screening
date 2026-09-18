@@ -1,6 +1,8 @@
 package com.aura.patient.entity;
 
+import com.aura.common.crypto.AesGcmAttributeConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -35,10 +37,12 @@ public class PatientProfile {
   @Column(name = "gender", length = 20)
   private String gender = "Other";
 
-  @Column(name = "phone", length = 50)
+  @Convert(converter = AesGcmAttributeConverter.class)
+  @Column(name = "phone", length = 255)
   private String phone;
 
-  @Column(name = "address", length = 255)
+  @Convert(converter = AesGcmAttributeConverter.class)
+  @Column(name = "address", length = 500)
   private String address;
 
   @Column(name = "systolic_bp")

@@ -67,42 +67,54 @@ public class OtpService {
     log.info(">>> [AURA AUTH OTP] Mã OTP xác thực cho email [{}]: {} <<<", email, otp);
     log.info("================================================================================");
 
-    // 2. Dispatch real email via SMTP if configured
+    // 2. Dispatch real email via SMTP asynchronously in background
     if (mailSender != null && senderEmail != null && !senderEmail.isBlank()) {
-      try {
-        boolean sentHtml = false;
-        try {
-          MimeMessage mimeMessage = mailSender.createMimeMessage();
-          if (mimeMessage != null) {
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-            helper.setFrom(senderEmail, "Hệ thống Y tế AURA");
-            helper.setTo(email);
-            helper.setSubject("[AURA] Mã xác thực đăng ký tài khoản của bạn");
-            helper.setText(buildHtmlEmail(fullName, otp), true);
-            mailSender.send(mimeMessage);
-            sentHtml = true;
-            log.info("Đã gửi email OTP định dạng HTML thành công tới: {}", maskEmail(email));
-          }
-        } catch (Throwable t) {
-          log.warn("Fallback to SimpleMailMessage: {}", t.getMessage());
-        }
+      final String actionType = type != null ? type.trim().toUpperCase(Locale.ROOT) : "REGISTER";
+      final boolean isForgotPassword = "FORGOT_PASSWORD".equals(actionType) || "RESET_PASSWORD".equals(actionType);
+      final String emailSubject = isForgotPassword
+          ? "[AURA] Mã xác thực đặt lại mật khẩu của bạn"
+          : "[AURA] Mã xác thực đăng ký tài khoản của bạn";
 
-        if (!sentHtml) {
-          SimpleMailMessage message = new SimpleMailMessage();
-          message.setFrom(senderEmail);
-          message.setTo(email);
-          message.setSubject("[AURA] Mã xác thực đăng ký tài khoản của bạn");
-          message.setText("Xin chào " + (fullName != null ? fullName : "Quý khách") + ",\n\n"
-              + "Mã xác thực OTP của bạn là: " + otp + "\n"
-              + "Mã có hiệu lực trong vòng 5 phút.\n\n"
-              + "Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.\n\n"
-              + "Trân trọng,\nĐội ngũ Hệ thống AURA");
-          mailSender.send(message);
-          log.info("Đã gửi email OTP thực tế thành công tới: {}", maskEmail(email));
+      java.util.concurrent.CompletableFuture.runAsync(() -> {
+        try {
+          boolean sentHtml = false;
+          try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            if (mimeMessage != null) {
+              MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+              helper.setFrom(senderEmail, "Hệ thống Y tế AURA");
+              helper.setTo(email);
+              helper.setSubject(emailSubject);
+              helper.setText(buildHtmlEmail(fullName, otp, actionType), true);
+              mailSender.send(mimeMessage);
+              sentHtml = true;
+              log.info("Đã gửi email OTP định dạng HTML ({}) thành công tới: {}", actionType, maskEmail(email));
+            }
+          } catch (Throwable t) {
+            log.warn("Fallback to SimpleMailMessage: {}", t.getMessage());
+          }
+
+          if (!sentHtml) {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(senderEmail);
+            message.setTo(email);
+            message.setSubject(emailSubject);
+            String purpose = isForgotPassword
+                ? "đặt lại mật khẩu tài khoản"
+                : "đăng ký tài khoản";
+            message.setText("Xin chào " + (fullName != null ? fullName : "Quý khách") + ",\n\n"
+                + "Bạn đang yêu cầu " + purpose + " trên Hệ thống AURA.\n"
+                + "Mã xác thực OTP của bạn là: " + otp + "\n"
+                + "Mã có hiệu lực trong vòng 5 phút.\n\n"
+                + "Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.\n\n"
+                + "Trân trọng,\nĐội ngũ Hệ thống AURA");
+            mailSender.send(message);
+            log.info("Đã gửi email OTP thực tế ({}) thành công tới: {}", actionType, maskEmail(email));
+          }
+        } catch (Exception e) {
+          log.warn("Không thể gửi email OTP qua SMTP server: {}", e.getMessage());
         }
-      } catch (Exception e) {
-        log.warn("Không thể gửi email OTP qua SMTP server: {}", e.getMessage());
-      }
+      });
     }
 
     return OTP_VALID_SECONDS;
@@ -153,15 +165,22 @@ public class OtpService {
     return namePart.charAt(0) + "***" + domainPart;
   }
 
-  private String buildHtmlEmail(String fullName, String otp) {
+  private String buildHtmlEmail(String fullName, String otp, String actionType) {
     String displayName = (fullName != null && !fullName.isBlank()) ? fullName.trim() : "Quý khách";
+    boolean isForgot = "FORGOT_PASSWORD".equalsIgnoreCase(actionType) || "RESET_PASSWORD".equalsIgnoreCase(actionType);
+    String headerTitle = isForgot ? "Đặt Lại Mật Khẩu" : "Mã Xác Thực Tài Khoản";
+    String bodyIntro = isForgot
+        ? "Bạn vừa gửi yêu cầu đặt lại mật khẩu cho tài khoản trên hệ thống <strong>AURA</strong>. Vui lòng sử dụng mã xác thực dùng một lần (OTP) dưới đây để tiến hành thiết lập mật khẩu mới:"
+        : "Bạn đang thực hiện thao tác đăng ký tài khoản trên hệ thống <strong>AURA</strong>. Vui lòng sử dụng mã xác thực dùng một lần (OTP) dưới đây để hoàn tất kích hoạt tài khoản:";
+    String pageTitle = isForgot ? "Đặt lại mật khẩu AURA" : "Mã xác thực AURA";
+
     return """
         <!DOCTYPE html>
         <html lang="vi">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Mã xác thực AURA</title>
+          <title>{{PAGE_TITLE}}</title>
         </head>
         <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
           <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
@@ -179,7 +198,7 @@ public class OtpService {
                               HỆ THỐNG Y TẾ AURA
                             </span>
                             <h1 style="margin: 14px 0 0 0; color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
-                              Mã Xác Thực Tài Khoản
+                              {{HEADER_TITLE}}
                             </h1>
                             <p style="margin: 6px 0 0 0; color: #ccfbf1; font-size: 13px;">
                               Hệ thống Sàng lọc Sức khỏe Vi mạch Võng mạc
@@ -197,7 +216,7 @@ public class OtpService {
                         Xin chào <strong style="color: #0f766e;">{{FULL_NAME}}</strong>,
                       </p>
                       <p style="margin: 0 0 24px 0; color: #475569; font-size: 14px; line-height: 1.6;">
-                        Bạn đang thực hiện thao tác đăng ký tài khoản trên hệ thống <strong>AURA</strong>. Vui lòng sử dụng mã xác thực dùng một lần (OTP) dưới đây để hoàn tất kích hoạt tài khoản:
+                        {{BODY_INTRO}}
                       </p>
 
                       <!-- OTP Box -->
@@ -253,6 +272,11 @@ public class OtpService {
           </table>
         </body>
         </html>
-        """.replace("{{FULL_NAME}}", displayName).replace("{{OTP_CODE}}", otp);
+        """
+        .replace("{{PAGE_TITLE}}", pageTitle)
+        .replace("{{HEADER_TITLE}}", headerTitle)
+        .replace("{{BODY_INTRO}}", bodyIntro)
+        .replace("{{FULL_NAME}}", displayName)
+        .replace("{{OTP_CODE}}", otp);
   }
 }

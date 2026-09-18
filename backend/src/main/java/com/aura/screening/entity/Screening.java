@@ -217,6 +217,14 @@ public class Screening {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
+  @JsonProperty("aiModelVersion")
+  @Column(name = "ai_model_version", length = 100)
+  private String aiModelVersion;
+
+  @JsonProperty("appliedThresholds")
+  @Column(name = "applied_thresholds", length = 255)
+  private String appliedThresholds;
+
   protected Screening() {}
 
   public Screening(UUID patientId, String imageUrl) {
@@ -605,5 +613,21 @@ public class Screening {
   @JsonProperty("overallVascularRiskScore")
   public Integer getOverallVascularRiskScore() {
     return riskScore;
+  }
+
+  public String getAiModelVersion() {
+    return aiModelVersion;
+  }
+
+  public void setAiModelVersion(String aiModelVersion) {
+    this.aiModelVersion = aiModelVersion;
+  }
+
+  public String getAppliedThresholds() {
+    return appliedThresholds;
+  }
+
+  public void setAppliedThresholds(String appliedThresholds) {
+    this.appliedThresholds = appliedThresholds;
   }
 }

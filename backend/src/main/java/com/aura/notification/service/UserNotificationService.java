@@ -12,8 +12,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -25,10 +27,19 @@ public class UserNotificationService {
   private static final Long SSE_TIMEOUT = 30 * 60 * 1000L; // 30 minutes
 
   private final UserNotificationRepository notificationRepository;
+  private final SimpMessagingTemplate messagingTemplate;
   private final Map<UUID, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
   public UserNotificationService(UserNotificationRepository notificationRepository) {
+    this(notificationRepository, null);
+  }
+
+  @Autowired
+  public UserNotificationService(
+      UserNotificationRepository notificationRepository,
+      @Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
     this.notificationRepository = notificationRepository;
+    this.messagingTemplate = messagingTemplate;
   }
 
   public SseEmitter subscribe(UUID userId) {
@@ -77,7 +88,24 @@ public class UserNotificationService {
 
     // Push realtime via SSE
     pushToSse(userId, dto);
+
+    // Push realtime via WebSocket STOMP
+    pushToStomp(userId, dto);
+
     return dto;
+  }
+
+  private void pushToStomp(UUID userId, UserNotificationDto notification) {
+    if (messagingTemplate != null && userId != null) {
+      try {
+        com.aura.realtime.RealtimeEventEnvelope<UserNotificationDto> envelope =
+            com.aura.realtime.RealtimeEventEnvelope.of("NOTIFICATION_CREATED", notification);
+        messagingTemplate.convertAndSend("/topic/notifications." + userId, envelope);
+        log.debug("Published STOMP notification to /topic/notifications.{}", userId);
+      } catch (Exception e) {
+        log.warn("Failed to push STOMP notification to user {}: {}", userId, e.getMessage());
+      }
+    }
   }
 
   private void pushToSse(UUID userId, UserNotificationDto notification) {
@@ -126,6 +154,36 @@ public class UserNotificationService {
     }
     notification.setRead(true);
     return UserNotificationDto.fromEntity(notificationRepository.save(notification));
+  }
+
+  @Transactional
+  public UserNotificationDto markAsUnread(UUID userId, UUID notificationId) {
+    UserNotification notification =
+        notificationRepository
+            .findById(notificationId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông báo"));
+    if (!notification.getUserId().equals(userId)) {
+      throw new IllegalArgumentException("Bạn không có quyền thao tác trên thông báo này");
+    }
+    notification.setRead(false);
+    return UserNotificationDto.fromEntity(notificationRepository.save(notification));
+  }
+
+  @Transactional
+  public void deleteNotification(UUID userId, UUID notificationId) {
+    UserNotification notification =
+        notificationRepository
+            .findById(notificationId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông báo"));
+    if (!notification.getUserId().equals(userId)) {
+      throw new IllegalArgumentException("Bạn không có quyền thao tác trên thông báo này");
+    }
+    notificationRepository.delete(notification);
+  }
+
+  @Transactional
+  public void clearAllNotifications(UUID userId) {
+    notificationRepository.deleteAllByUserId(userId);
   }
 
   @Transactional

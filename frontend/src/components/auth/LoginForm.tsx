@@ -9,11 +9,12 @@ import { isFirebaseConfigured, signInWithGoogleFirebase, sendMagicLinkFirebase }
 interface Props {
   initialEmail: string;
   onRegister: () => void;
+  onForgotPassword?: () => void;
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
+export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister, onForgotPassword }) => {
   const { login, loginWithSocial } = useAuth();
   const { t, isVi } = useLanguage();
   const [email, setEmail] = useState(initialEmail);
@@ -176,14 +177,27 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister }) => {
       </div>
 
       {/* Password Input */}
-      <PasswordInput
-        id="login-password"
-        label={t('auth.loginForm.password', isVi ? 'Mật khẩu' : 'Password')}
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        autoComplete="current-password"
-        error={errors.password}
-      />
+      <div>
+        <PasswordInput
+          id="login-password"
+          label={t('auth.loginForm.password', isVi ? 'Mật khẩu' : 'Password')}
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          autoComplete="current-password"
+          error={errors.password}
+        />
+        {onForgotPassword && (
+          <div className="mt-1.5 flex justify-end">
+            <button
+              type="button"
+              onClick={onForgotPassword}
+              className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline transition"
+            >
+              {t('auth.loginForm.forgotPassword', isVi ? 'Quên mật khẩu?' : 'Forgot password?')}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* CTA Button */}
       <button

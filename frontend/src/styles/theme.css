@@ -3,23 +3,23 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #0891B2;
+  --color-primary: #3478F6;
   --color-on-primary: #FFFFFF;
   --color-secondary: #22D3EE;
   --color-accent: #16A34A;
-  --color-background: #F4F7FC;
-  --color-foreground: #0F172A;
+  --color-background: #F5F6F8;
+  --color-foreground: #111827;
   --color-muted: #E8F1F6;
-  --color-border: #E2E8F0;
+  --color-border: #EAECF0;
   --color-destructive: #DC2626;
-  --color-ring: #0891B2;
+  --color-ring: #3478F6;
 
   /* Clinical Surface & Text Tokens */
-  --clinical-bg: #F4F7FC;
+  --clinical-bg: #F5F6F8;
   --clinical-surface: #FFFFFF;
   --clinical-surface-subtle: #F8FAFC;
   --clinical-surface-strong: #E8F1F6;
-  --clinical-border: #E2E8F0;
+  --clinical-border: #EAECF0;
   --clinical-border-subtle: #F1F5F9;
   --clinical-border-strong: #CBD5E1;
   --clinical-text: #0F172A;
@@ -47,12 +47,12 @@
 }
 
 body {
-  font-family: 'Plus Jakarta Sans', 'Inter', 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-weight: 400;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 450;
   line-height: 1.5;
   letter-spacing: -0.01em;
   background-color: var(--color-background);
-  color: var(--color-foreground);
+  color: var(--clinical-text);
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
@@ -65,7 +65,7 @@ p, span, label, div {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   letter-spacing: -0.02em;
   line-height: 1.3;
   font-weight: 700;
@@ -85,7 +85,7 @@ a[href] {
 }
 
 ::selection {
-  background: #0e7490;
+  background: #3478F6;
   color: #ffffff;
 }
 
@@ -114,11 +114,11 @@ a[href] {
   background: #F4F7FC;
 }
 ::-webkit-scrollbar-thumb {
-  background: #99F6E4;
+  background: #C7D7FE;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #0891B2;
+  background: #3478F6;
 }
 
 /* Clinical Decision Support canvas overlay styling */
@@ -173,7 +173,7 @@ html,
   min-width: 0;
   min-height: 0;
   padding: clamp(8px, 1.2vw, 16px) clamp(26px, 3vw, 40px) clamp(24px, 3vw, 40px);
-  background: linear-gradient(145deg, #0e7490 0%, #0891b2 45%, #0f172a 100%);
+  background: linear-gradient(145deg, #1E40AF 0%, #3478F6 45%, #0f172a 100%);
 }
 
 .auth-hero::before {
@@ -469,7 +469,7 @@ html,
 .clinical-card-interactive:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px -4px rgba(7, 13, 45, 0.1);
-  border-color: #99F6E4;
+  border-color: #BFDBFE;
 }
 
 /* Interactive Button Micro-Scale */
@@ -486,7 +486,7 @@ html,
 /* Accessible focus ring helpers */
 .clinical-focus-ring {
   outline: none;
-  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px rgba(8, 145, 178, 0.35);
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px rgba(52, 120, 246, 0.35);
 }
 
 .darkroom-focus-ring {
@@ -512,7 +512,7 @@ html,
   transition: border-color 200ms ease-out, background-color 200ms ease-out, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .clinical-dropzone:hover {
-  border-color: #0891B2;
+  border-color: #3478F6;
   transform: translateY(-1px);
 }
 
@@ -540,7 +540,7 @@ html,
 
   body {
     background-color: #FFFFFF !important;
-    color: #0F172A !important;
+    color: #111827 !important;
   }
 
   #printable-report {

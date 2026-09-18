@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -81,5 +82,29 @@ public class UserNotificationController {
   public ApiResponse<Void> markAllAsRead(@AuthenticationPrincipal AuraUserPrincipal principal) {
     userNotificationService.markAllAsRead(principal.id());
     return ApiResponse.success("Đã đánh dấu tất cả thông báo đã đọc", null);
+  }
+
+  @PutMapping("/{id}/unread")
+  @Operation(summary = "Đánh dấu một thông báo chưa đọc")
+  public ApiResponse<UserNotificationDto> markAsUnread(
+      @AuthenticationPrincipal AuraUserPrincipal principal, @PathVariable UUID id) {
+    return ApiResponse.success(
+        "Đã đánh dấu chưa đọc", userNotificationService.markAsUnread(principal.id(), id));
+  }
+
+  @DeleteMapping("/{id}")
+  @Operation(summary = "Xóa một thông báo")
+  public ApiResponse<Void> deleteNotification(
+      @AuthenticationPrincipal AuraUserPrincipal principal, @PathVariable UUID id) {
+    userNotificationService.deleteNotification(principal.id(), id);
+    return ApiResponse.success("Đã xóa thông báo", null);
+  }
+
+  @DeleteMapping
+  @Operation(summary = "Xóa tất cả thông báo của người dùng")
+  public ApiResponse<Void> clearAllNotifications(
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    userNotificationService.clearAllNotifications(principal.id());
+    return ApiResponse.success("Đã xóa toàn bộ thông báo", null);
   }
 }

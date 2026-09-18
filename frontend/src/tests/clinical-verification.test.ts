@@ -647,3 +647,9 @@ runTest('NFR-3: Hiệu năng xử lý và lọc danh sách (Phản hồi < 50ms,
 console.log('\n=================================================================');
 console.log(`   KẾT QUẢ KIỂM THỬ: ${passedTests}/${totalTests} TESTS ĐÃ ĐẠT (100% PASS)`);
 console.log('=================================================================\n');
+
+if (passedTests === totalTests) {
+  process.exit(0);
+} else {
+  process.exit(1);
+}

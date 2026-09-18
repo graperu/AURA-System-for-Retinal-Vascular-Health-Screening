@@ -34,6 +34,7 @@ export interface AdminAuditWorkspaceProps {
   loading?: boolean;
   onRefresh?: () => void;
   onExportLogs?: () => void;
+  onSelectUser?: (userNameOrId: string) => void;
 }
 
 export const AdminAuditWorkspace: React.FC<AdminAuditWorkspaceProps> = ({
@@ -41,6 +42,7 @@ export const AdminAuditWorkspace: React.FC<AdminAuditWorkspaceProps> = ({
   loading = false,
   onRefresh,
   onExportLogs,
+  onSelectUser,
 }) => {
   const { t, isVi } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,9 +115,20 @@ export const AdminAuditWorkspace: React.FC<AdminAuditWorkspaceProps> = ({
       header: t('admin.audit.columns.user', isVi ? 'Người Thực Hiện' : 'Actor'),
       accessor: (row) => (
         <div className="min-w-[140px] space-y-0.5">
-          <span className="font-semibold text-slate-900 block truncate max-w-[180px]" title={row.actor}>
-            {row.actor}
-          </span>
+          {onSelectUser ? (
+            <button
+              type="button"
+              onClick={() => onSelectUser(row.actor)}
+              className="font-semibold text-slate-900 hover:text-[#3478F6] hover:underline block truncate max-w-[180px] text-left cursor-pointer"
+              title={row.actor}
+            >
+              {row.actor}
+            </button>
+          ) : (
+            <span className="font-semibold text-slate-900 block truncate max-w-[180px]" title={row.actor}>
+              {row.actor}
+            </span>
+          )}
           <span className="text-[11px] text-slate-500 block">
             {formatRole(row.role)}
           </span>

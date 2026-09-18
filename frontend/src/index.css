@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   AURA CLINICAL DESIGN SYSTEM - MEDIROOM TOKENS
+   Canvas: #F5F6F8 | Card: #FFFFFF | Border: #EAECF0 | Primary: #3478F6
+   ========================================================================== */
+
+:root {
+  /* MediRoom Clinical Primary Blue Palette */
+  --color-primary: #3478F6;
+  --color-primary-hover: #2563EB;
+  --color-primary-dark: #1D4ED8;
+  --color-primary-soft: #EEF5FF;
+  --color-on-primary: #FFFFFF;
+
+  /* Global Canvas & Surfaces */
+  --color-background: #F5F6F8;
+  --color-foreground: #111827;
+  --color-muted: #98A2B3;
+  --color-border: #EAECF0;
+  --color-border-subtle: #E8EBEF;
+  --color-soft-blue: #EEF5FF;
+
+  /* Clinical Surface Tokens */
+  --clinical-bg: #F5F6F8;
+  --clinical-surface: #FFFFFF;
+  --clinical-surface-subtle: #F8F9FA;
+  --clinical-surface-hover: #F9FAFB;
+  --clinical-border: #EAECF0;
+  --clinical-border-subtle: #E8EBEF;
+  --clinical-border-strong: #CBD5E1;
+  --clinical-text: #0F172A;
+  --clinical-text-secondary: #334155;
+  --clinical-text-muted: #64748B;
+
+  /* Status Badges */
+  --badge-success-text: #16A34A;
+  --badge-success-bg: #ECFDF3;
+  --badge-warning-text: #D97706;
+  --badge-warning-bg: #FFFAEB;
+  --badge-danger-text: #DC2626;
+  --badge-danger-bg: #FEF3F2;
+  --badge-info-text: #0284C7;
+  --badge-info-bg: #EEF5FF;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-weight: 450;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  background-color: var(--clinical-bg);
+  color: var(--clinical-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--clinical-text);
+}
+
+::selection {
+  background: #3478F6;
+  color: #FFFFFF;
+}
+
+/* Custom clinical ultra-thin scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F5F6F8;
+}
+::-webkit-scrollbar-thumb {
+  background: #D0D5DD;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #98A2B3;
+}
+
+/* Shimmer loading skeleton effect */
+@keyframes clinicalShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.clinical-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(242, 244, 247, 0.8) 0%,
+    rgba(234, 236, 240, 0.9) 50%,
+    rgba(242, 244, 247, 0.8) 100%
+  );
+  background-size: 200% 100%;
+  animation: clinicalShimmer 2s infinite linear;
+}
+
+/* Accessible focus ring */
+.clinical-focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px rgba(52, 120, 246, 0.25);
+}
+
+/* Card hover animation */
+.clinical-card-hover {
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+.clinical-card-hover:hover {
+  border-color: #C7D7FE;
+  box-shadow: 0 4px 12px -2px rgba(16, 24, 40, 0.08);
+}

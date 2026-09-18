@@ -272,3 +272,5 @@ runTest('CPM-3.4: Đồng bộ cổng thanh toán duy nhất VietQR Napas 24/7 t
 console.log('\n=================================================================');
 console.log('   KẾT QUẢ KIỂM THỬ: 13/13 TESTS ĐÃ ĐẠT (100% PASS)');
 console.log('=================================================================\n');
+
+process.exit(0);

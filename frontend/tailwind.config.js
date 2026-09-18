@@ -8,41 +8,55 @@ export default {
   theme: {
     extend: {
       colors: {
-        // AURA Brand & Primary Palette (Medical Teal & Ocean Blue)
+        // AURA Brand & Primary Palette (MediRoom Clinical Blue)
         brand: {
-          50: '#F0FDFA',
-          100: '#CCFBF1',
-          200: '#99F6E4',
-          300: '#5EEAD4',
-          400: '#2DD4BF',
-          500: '#14B8A6',
-          600: '#0891B2', // Primary Brand Medical Blue
-          700: '#0E7490', // Hover
-          800: '#155E75',
-          900: '#164E63',
-          DEFAULT: '#0891B2',
+          50: '#EEF5FF',   // Soft blue background
+          100: '#E0EAFF',  // Subtle tint
+          200: '#C7D7FE',  // Light border / accent
+          300: '#93B4FA',  // Interactive secondary
+          400: '#6090F7',  // Focus ring / hover
+          500: '#3478F6',  // Primary MediRoom Blue
+          600: '#2563EB',  // Primary Hover Blue
+          700: '#1D4ED8',  // Darker pressed Blue
+          800: '#1E40AF',
+          900: '#1E3A8A',
+          DEFAULT: '#3478F6',
         },
         primary: {
-          DEFAULT: '#0891B2',
-          light: '#22D3EE',
-          dark: '#0E7490',
-          50: '#F0FDFA',
-          100: '#CCFBF1',
-          700: '#0E7490',
-          900: '#134E4A',
+          DEFAULT: '#3478F6',
+          hover: '#2563EB',
+          dark: '#1D4ED8',
+          light: '#6090F7',
+          soft: '#EEF5FF',
+          50: '#EEF5FF',
+          100: '#E0EAFF',
+          700: '#1D4ED8',
+          900: '#1E3A8A',
         },
-        // Clinical Surface & Border Tokens
+        // Clinical Surface & Border Tokens (MediRoom Standard)
         clinical: {
-          bg: '#F4F7FC',
-          surface: '#FFFFFF',
-          'surface-subtle': '#F8FAFC',
-          'surface-strong': '#E8F1F6',
-          border: '#E2E8F0',
-          'border-subtle': '#F1F5F9',
-          'border-strong': '#CBD5E1',
-          text: '#0F172A',
-          'text-secondary': '#334155',
-          'text-muted': '#64748B',
+          bg: '#F5F6F8',           // Canvas background
+          surface: '#FFFFFF',      // Card & panel surface
+          'surface-subtle': '#F8F9FA', // Table headers & subtle panels
+          'surface-hover': '#F9FAFB',  // Table row & list hover
+          'surface-strong': '#EEF2F6',
+          border: '#EAECF0',       // Hairline border
+          'border-subtle': '#E8EBEF', // Inner dividers
+          'border-strong': '#D0D5DD',
+          text: '#111827',         // Primary text
+          'text-secondary': '#667085', // Secondary clinical text
+          'text-muted': '#98A2B3', // Muted timestamps & helpers
+        },
+        // Standardized Clinical Status & Badge Tokens
+        badge: {
+          'success-text': '#22C55E',
+          'success-bg': '#ECFDF3',
+          'warning-text': '#F59E0B',
+          'warning-bg': '#FFFAEB',
+          'danger-text': '#EF4444',
+          'danger-bg': '#FEF3F2',
+          'info-text': '#0EA5E9',
+          'info-bg': '#EEF5FF',
         },
         // Standardized Clinical Risk Stratification
         risk: {
@@ -74,8 +88,8 @@ export default {
       },
       fontFamily: {
         sans: [
-          '"Plus Jakarta Sans"',
           'Inter',
+          '"Plus Jakarta Sans"',
           '"Be Vietnam Pro"',
           'system-ui',
           '-apple-system',
@@ -85,8 +99,8 @@ export default {
           'sans-serif',
         ],
         heading: [
-          '"Plus Jakarta Sans"',
           'Inter',
+          '"Plus Jakarta Sans"',
           'system-ui',
           'sans-serif',
         ],
@@ -97,11 +111,11 @@ export default {
         wide: '0.025em',
       },
       boxShadow: {
-        'medical-xs': '0 1px 2px 0 rgba(7, 13, 45, 0.05)',
-        'medical-sm': '0 2px 8px -2px rgba(7, 13, 45, 0.05)',
-        'medical-md': '0 4px 14px 0 rgba(7, 13, 45, 0.08)',
-        'medical-card': '0 4px 20px -4px rgba(7, 13, 45, 0.06)',
-        'medical-modal': '0 20px 60px rgba(7, 13, 45, 0.25)',
+        'medical-xs': '0 1px 2px 0 rgba(16, 24, 40, 0.05)',
+        'medical-sm': '0 1px 3px 0 rgba(16, 24, 40, 0.08), 0 1px 2px 0 rgba(16, 24, 40, 0.04)',
+        'medical-md': '0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.04)',
+        'medical-card': '0 1px 3px 0 rgba(16, 24, 40, 0.05)',
+        'medical-modal': '0 20px 25px -5px rgba(16, 24, 40, 0.1), 0 10px 10px -5px rgba(16, 24, 40, 0.04)',
       },
       borderRadius: {
         'medical-sm': '10px',

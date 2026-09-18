@@ -266,7 +266,7 @@ export function ClinicalSelect<T extends string | number = string>({
       ? 'bg-[#0F172A] text-[#F8FAFC] border-cyan-400 ring-2 ring-cyan-500/25 shadow-medical-sm'
       : 'bg-[#0B132B] text-[#F8FAFC] border-[#1E293B] hover:border-cyan-500/50 hover:bg-[#0F172A]'
     : isOpen
-    ? 'bg-white text-clinical-text border-[#0891B2] ring-2 ring-[#0891B2]/20 shadow-medical-xs'
+    ? 'bg-white text-clinical-text border-[#3478F6] ring-2 ring-[#3478F6]/20 shadow-medical-xs'
     : 'bg-white text-clinical-text border-clinical-border hover:border-brand-400 hover:bg-slate-50/60';
 
   const menuThemeStyles = effectiveDarkRoom
@@ -341,7 +341,7 @@ export function ClinicalSelect<T extends string | number = string>({
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {selectedOption?.icon && (
-            <span className="shrink-0 text-[#0891B2]">{selectedOption.icon}</span>
+            <span className="shrink-0 text-[#3478F6]">{selectedOption.icon}</span>
           )}
           {selectedOption?.riskLevel && (
             <span
@@ -367,7 +367,7 @@ export function ClinicalSelect<T extends string | number = string>({
         <ChevronDown
           className={`shrink-0 text-slate-400 transition-transform duration-200 ease-out ${
             sizeStyles.icon
-          } ${isOpen ? 'rotate-180 text-[#0891B2]' : ''}`}
+          } ${isOpen ? 'rotate-180 text-[#3478F6]' : ''}`}
           aria-hidden="true"
         />
       </button>
@@ -398,7 +398,7 @@ export function ClinicalSelect<T extends string | number = string>({
             } else if (isSelected) {
               itemTheme = effectiveDarkRoom
                 ? 'bg-cyan-950/70 text-cyan-300 font-bold border-l-2 border-cyan-400'
-                : 'bg-brand-50 text-[#0891B2] font-bold border-l-2 border-[#0891B2]';
+                : 'bg-brand-50 text-[#3478F6] font-bold border-l-2 border-[#3478F6]';
             } else if (isHighlighted) {
               itemTheme = effectiveDarkRoom
                 ? 'bg-slate-800 text-slate-100'
@@ -427,7 +427,7 @@ export function ClinicalSelect<T extends string | number = string>({
                   {option.icon && (
                     <span
                       className={`shrink-0 transition-colors ${
-                        isSelected ? 'text-[#0891B2]' : 'text-slate-400 group-hover:text-slate-600'
+                        isSelected ? 'text-[#3478F6]' : 'text-slate-400 group-hover:text-slate-600'
                       }`}
                     >
                       {option.icon}
@@ -461,7 +461,7 @@ export function ClinicalSelect<T extends string | number = string>({
                 {isSelected && (
                   <Check
                     className={`shrink-0 ml-2 ${sizeStyles.icon} ${
-                      effectiveDarkRoom ? 'text-cyan-400' : 'text-[#0891B2]'
+                      effectiveDarkRoom ? 'text-cyan-400' : 'text-[#3478F6]'
                     }`}
                     aria-hidden="true"
                   />

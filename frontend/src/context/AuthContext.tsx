@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiFetch, getAccessToken, setAccessToken, type ApiErrorDetail } from '../services/api';
 import { stompClient } from '../services/websocketService';
+import { realtimeBus } from '../services/realtimeService';
 import { getFirebaseCurrentUser, signOutFirebase } from '../config/firebase';
 import type { UserSession } from '../types/auth';
 import type { UserRole } from '../types/cds';
@@ -18,6 +19,8 @@ interface AuthContextType {
   register: (data: { fullName?: string; email: string; password: string; phone?: string; role?: string }) => Promise<AuthResult>;
   sendOtp: (data: { email: string; fullName?: string; type?: string }) => Promise<AuthResult<{ email: string; expiresInSeconds: number; devOtp?: string }>>;
   verifyOtpAndRegister: (data: { email: string; otp: string; fullName?: string; password: string }) => Promise<AuthResult>;
+  forgotPassword: (email: string) => Promise<AuthResult<{ email: string; expiresInSeconds: number; devOtp?: string }>>;
+  resetPassword: (data: { email: string; otp: string; newPassword: string }) => Promise<AuthResult>;
   logout: () => Promise<void>;
   updateUser: (partial: Partial<UserSession>) => void;
   refreshUser: () => Promise<void>;
@@ -62,6 +65,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => { void fetchCurrentUser(); }, []);
+
+  // Listen to role changes and profile updates across all connected tabs in real-time (Flow 5)
+  useEffect(() => {
+    const unsub = realtimeBus.subscribe(['user:role_changed', 'USER_ROLE_CHANGED', 'profile:update'], (event) => {
+      const data = event?.data;
+      if (data && user?.id && (data.userId === user.id || String(data.userId) === String(user.id))) {
+        if (data.newRole) {
+          const mappedRole = String(data.newRole).toLowerCase().replace('role_', '');
+          setUser((prev) => (prev ? { ...prev, role: mappedRole as any, roles: [data.newRole] } : null));
+        }
+        void fetchCurrentUser();
+      } else if (!data?.userId) {
+        void fetchCurrentUser();
+      }
+    });
+    return unsub;
+  }, [user?.id]);
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
     const response = await apiFetch<LoginResponse>('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ email: email.trim(), password }) });
@@ -116,6 +136,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         otp: data.otp.trim(),
         fullName: data.fullName?.trim(),
         password: data.password
+      })
+    });
+    if (response.success && response.data) {
+      setAccessToken(response.data.accessToken);
+      setUser(toSession(response.data.user, response.data.accessToken));
+    }
+    return { success: response.success, message: response.message, code: response.code, details: response.details };
+  };
+
+  const forgotPassword = async (email: string): Promise<AuthResult<{ email: string; expiresInSeconds: number; devOtp?: string }>> => {
+    const response = await apiFetch<{ email: string; expiresInSeconds: number; devOtp?: string }>('/api/v1/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: email.trim()
+      })
+    });
+    return { success: response.success, message: response.message, code: response.code, details: response.details, data: response.data };
+  };
+
+  const resetPassword = async (data: { email: string; otp: string; newPassword: string }): Promise<AuthResult> => {
+    const response = await apiFetch<LoginResponse>('/api/v1/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: data.email.trim(),
+        otp: data.otp.trim(),
+        newPassword: data.newPassword
       })
     });
     if (response.success && response.data) {
@@ -180,7 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await fetchCurrentUser();
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, loginWithSocial, register, sendOtp, verifyOtpAndRegister, logout, updateUser, refreshUser }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, loginWithSocial, register, sendOtp, verifyOtpAndRegister, forgotPassword, resetPassword, logout, updateUser, refreshUser }}>{children}</AuthContext.Provider>;
 };
 
 const defaultAuthContext: AuthContextType = {
@@ -192,6 +238,8 @@ const defaultAuthContext: AuthContextType = {
   register: async () => ({ success: false, message: 'No AuthProvider' }),
   sendOtp: async () => ({ success: false, message: 'No AuthProvider' }),
   verifyOtpAndRegister: async () => ({ success: false, message: 'No AuthProvider' }),
+  forgotPassword: async () => ({ success: false, message: 'No AuthProvider' }),
+  resetPassword: async () => ({ success: false, message: 'No AuthProvider' }),
   logout: async () => {},
   updateUser: () => {},
   refreshUser: async () => {},

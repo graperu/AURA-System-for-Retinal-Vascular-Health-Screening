@@ -312,3 +312,9 @@ runTest('AI-FLOW.10: useAnalysisProgress derived status thuần khiết, tính t
 console.log('\n=================================================================');
 console.log(`   KẾT QUẢ KIỂM THỬ: ${passedTests}/${totalTests} TESTS ĐÃ ĐẠT (100% PASS)`);
 console.log('=================================================================\n');
+
+if (passedTests === totalTests) {
+  process.exit(0);
+} else {
+  process.exit(1);
+}

@@ -2,6 +2,7 @@ package com.aura.auth.config;
 
 import com.aura.auth.security.*;
 import com.aura.billing.config.PaymentGatewayProperties;
+import com.aura.common.filter.MdcCorrelationFilter;
 import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.*;
@@ -42,7 +43,7 @@ public class SecurityConfig {
     config.setAllowedOrigins(origins);
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
     config.setAllowedHeaders(List.of("*"));
-    config.setExposedHeaders(List.of("Authorization", "Set-Cookie"));
+    config.setExposedHeaders(List.of("Authorization", "Set-Cookie", "X-Request-ID"));
     config.setAllowCredentials(true);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", config);
@@ -54,6 +55,7 @@ public class SecurityConfig {
       HttpSecurity http,
       JwtAuthenticationFilter jwt,
       TrustedOriginFilter origin,
+      MdcCorrelationFilter mdcFilter,
       RestAuthenticationEntryPoint entryPoint,
       RestAccessDeniedHandler deniedHandler)
       throws Exception {
@@ -70,6 +72,8 @@ public class SecurityConfig {
                         HttpMethod.POST,
                         "/api/v1/auth/send-otp",
                         "/api/v1/auth/verify-otp",
+                        "/api/v1/auth/forgot-password",
+                        "/api/v1/auth/reset-password",
                         "/api/v1/auth/register",
                         "/api/v1/auth/login",
                         "/api/v1/auth/google",
@@ -78,6 +82,10 @@ public class SecurityConfig {
                         "/api/v1/auth/logout")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/system/health")
+                    .permitAll()
+                    .requestMatchers("/ws-aura/**", "/ws-aura-raw/**")
+                    .permitAll()
+                    .requestMatchers("/api/v1/events/**", "/api/events/**")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/packages", "/api/v1/packages/**", "/api/v1/billing/packages", "/api/v1/billing/packages/**")
                     .permitAll()
@@ -89,6 +97,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/v1/bulk-screening/**").hasAnyRole("CLINIC", "ADMIN")
                     .anyRequest()
                     .authenticated())
+        .addFilterBefore(mdcFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(origin, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
         .build();

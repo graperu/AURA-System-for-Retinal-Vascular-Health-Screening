@@ -33,15 +33,29 @@ public class AdminUserService {
   private final UserRepository userRepository;
   private final UserRoleRepository userRoleRepository;
   private final RoleRepository roleRepository;
+  private final com.aura.system.service.SystemConfigService systemConfigService;
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.aura.realtime.RealtimeEventPublisher realtimeEventPublisher;
   private final Map<String, Object> aiConfigStore = new ConcurrentHashMap<>();
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public AdminUserService(
+      UserRepository userRepository,
+      UserRoleRepository userRoleRepository,
+      RoleRepository roleRepository,
+      @org.springframework.beans.factory.annotation.Autowired(required = false)
+          com.aura.system.service.SystemConfigService systemConfigService) {
+    this.userRepository = userRepository;
+    this.userRoleRepository = userRoleRepository;
+    this.roleRepository = roleRepository;
+    this.systemConfigService = systemConfigService;
+  }
 
   public AdminUserService(
       UserRepository userRepository,
       UserRoleRepository userRoleRepository,
       RoleRepository roleRepository) {
-    this.userRepository = userRepository;
-    this.userRoleRepository = userRoleRepository;
-    this.roleRepository = roleRepository;
+    this(userRepository, userRoleRepository, roleRepository, null);
   }
 
   @Transactional(readOnly = true)
@@ -101,10 +115,27 @@ public class AdminUserService {
     userRoleRepository.deleteAllByUserId(userId);
     userRoleRepository.flush();
     userRoleRepository.save(new UserRole(user, role));
+
+    if (realtimeEventPublisher != null) {
+      try {
+        Map<String, Object> eventData = Map.of(
+            "userId", userId.toString(),
+            "newRole", nextRole.name(),
+            "timestamp", System.currentTimeMillis()
+        );
+        realtimeEventPublisher.publish("/topic/notifications." + userId, "USER_ROLE_CHANGED", eventData);
+        realtimeEventPublisher.publish("/topic/admin.activity", "USER_ROLE_CHANGED", eventData);
+      } catch (Exception ignored) {
+      }
+    }
+
     return toDto(user);
   }
 
   public AiConfigDto getAiConfig() {
+    if (systemConfigService != null) {
+      return systemConfigService.getAiConfig();
+    }
     return new AiConfigDto(
         (String) aiConfigStore.get("activeModelVersion"),
         (Double) aiConfigStore.get("sensitivityThreshold"),
@@ -115,6 +146,13 @@ public class AdminUserService {
   }
 
   public AiConfigDto updateAiConfig(AiConfigDto update) {
+    return updateAiConfig(update, "ADMIN");
+  }
+
+  public AiConfigDto updateAiConfig(AiConfigDto update, String updatedBy) {
+    if (systemConfigService != null) {
+      return systemConfigService.updateAiConfig(update, updatedBy);
+    }
     if (update.activeModelVersion() != null) {
       aiConfigStore.put("activeModelVersion", update.activeModelVersion());
     }

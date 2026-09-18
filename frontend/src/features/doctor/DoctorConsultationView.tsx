@@ -250,11 +250,11 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
   return (
     <div className="space-y-4">
       {/* Page Header */}
-      <div className="bg-white border border-[#CCFBF1] rounded-2xl p-5 shadow-medical-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white border border-[#C7D7FE] rounded-2xl p-5 shadow-medical-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-[#0891B2]" />
-            <h1 className="text-lg font-bold text-[#134E4A]">
+            <MessageSquare className="w-5 h-5 text-[#3478F6]" />
+            <h1 className="text-lg font-bold text-[#111827]">
               {t('doctor.consultation.title', isVi ? 'Tư Vấn Bệnh Nhân Trực Tuyến' : 'Online Patient Consultation')}
             </h1>
           </div>
@@ -278,7 +278,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
           <div className="p-3.5 border-b border-slate-100 bg-slate-50/50 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-[#0891B2]" />
+                <UserCheck className="w-4 h-4 text-[#3478F6]" />
                 {t('doctor.consultation.assignedPatients', 'Bệnh Nhân Phụ Trách')} ({assignedPatients.length})
               </span>
             </div>
@@ -289,7 +289,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                 value={searchPatient}
                 onChange={(e) => setSearchPatient(e.target.value)}
                 placeholder={t('doctor.consultation.searchPlaceholder', 'Tìm theo tên, MRN, SĐT...')}
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0891B2] transition-all"
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3478F6] transition-all"
               />
             </div>
           </div>
@@ -310,15 +310,15 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                     onClick={() => setSelectedPatientId(p.patientId)}
                     className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
                       isSelected
-                        ? 'bg-[#F0FDFA] border-l-4 border-l-[#0891B2] shadow-xs'
+                        ? 'bg-[#EEF5FF] border-l-4 border-l-[#3478F6] shadow-xs'
                         : 'hover:bg-slate-50 border-l-4 border-l-transparent'
                     }`}
                   >
                     <div
                       className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center shrink-0 text-xs border ${
                         isSelected
-                          ? 'bg-[#0891B2] text-white border-[#0E7490]'
-                          : 'bg-teal-50 text-[#0891B2] border-[#CCFBF1]'
+                          ? 'bg-[#3478F6] text-white border-[#2563EB]'
+                          : 'bg-teal-50 text-[#3478F6] border-[#C7D7FE]'
                       }`}
                     >
                       {p.fullName
@@ -328,7 +328,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
-                        <span className={`text-xs font-bold truncate ${isSelected ? 'text-[#134E4A]' : 'text-slate-900'}`}>
+                        <span className={`text-xs font-bold truncate ${isSelected ? 'text-[#111827]' : 'text-slate-900'}`}>
                           {p.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono-data shrink-0">
@@ -358,7 +358,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
               {/* Active Conversation Header */}
               <div className="p-3.5 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-[#F0FDFA] text-[#0891B2] border border-[#CCFBF1] flex items-center justify-center font-bold text-xs shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] flex items-center justify-center font-bold text-xs shrink-0">
                     <User className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
@@ -366,7 +366,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                       <h3 className="text-sm font-bold text-slate-900 truncate">
                         {activePatient.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}
                       </h3>
-                      <span className="text-[11px] font-mono-data px-2 py-0.5 rounded-md bg-cyan-50 text-[#0891B2] font-semibold border border-cyan-200">
+                      <span className="text-[11px] font-mono-data px-2 py-0.5 rounded-md bg-cyan-50 text-[#3478F6] font-semibold border border-cyan-200">
                         {activePatient.mrn || (isVi ? 'Chưa có MRN' : 'No MRN')}
                       </span>
                       {activePatient.latestRiskLevel && (
@@ -416,7 +416,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="text-center py-16 space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 text-[#0891B2] flex items-center justify-center mx-auto">
+                    <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 text-[#3478F6] flex items-center justify-center mx-auto">
                       <MessageSquare className="w-6 h-6" />
                     </div>
                     <h4 className="text-xs font-bold text-slate-700">
@@ -441,7 +441,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold shadow-xs ${
                             isDoctor
-                              ? 'bg-gradient-to-r from-[#0891B2] to-[#0E7490] text-white'
+                              ? 'bg-gradient-to-r from-[#3478F6] to-[#2563EB] text-white'
                               : 'bg-teal-700 text-white'
                           }`}
                         >
@@ -451,7 +451,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                         <div
                           className={`p-3 rounded-2xl text-xs space-y-1 shadow-xs ${
                             isDoctor
-                              ? 'bg-gradient-to-r from-[#0891B2] to-[#0E7490] text-white rounded-tr-none'
+                              ? 'bg-gradient-to-r from-[#3478F6] to-[#2563EB] text-white rounded-tr-none'
                               : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
                           }`}
                         >
@@ -482,7 +482,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                     key={idx}
                     type="button"
                     onClick={() => setInputMessage(reply)}
-                    className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 hover:bg-[#CCFBF1] hover:text-[#0891B2] text-slate-700 transition-colors border border-slate-200 cursor-pointer"
+                    className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 hover:bg-[#C7D7FE] hover:text-[#3478F6] text-slate-700 transition-colors border border-slate-200 cursor-pointer"
                   >
                     {reply}
                   </button>
@@ -503,7 +503,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                       ? `Gửi hướng dẫn lâm sàng cho ${activePatient.fullName || 'bệnh nhân'}...`
                       : `Send clinical guidance to ${activePatient.fullName || 'patient'}...`
                   }
-                  className="flex-1 px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0891B2] focus:bg-white transition-all text-slate-800"
+                  className="flex-1 px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3478F6] focus:bg-white transition-all text-slate-800"
                 />
                 <Button
                   type="submit"

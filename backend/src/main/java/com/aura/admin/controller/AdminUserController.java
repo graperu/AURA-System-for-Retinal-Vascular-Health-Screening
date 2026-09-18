@@ -1,6 +1,7 @@
 package com.aura.admin.controller;
 
 import com.aura.admin.dto.AiConfigDto;
+import com.aura.audit.annotation.Audited;
 import com.aura.admin.dto.AssignmentBoardResponse;
 import com.aura.admin.dto.BulkPatientAssignmentRequest;
 import com.aura.admin.dto.UpdateUserRequest;
@@ -60,6 +61,7 @@ public class AdminUserController {
     return ApiResponse.success(PageResponse.from(users));
   }
 
+  @Audited(action = "ADMIN_USER_UPDATE", module = "ADMIN", resourceType = "USER", description = "Quản trị viên cập nhật thông tin tài khoản")
   @PutMapping("/users/{userId}")
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Edit user, doctor or clinic account profile (FR-31)")
@@ -68,6 +70,7 @@ public class AdminUserController {
     return ApiResponse.success("Đã cập nhật thông tin tài khoản", adminUserService.updateUser(userId, request));
   }
 
+  @Audited(action = "ADMIN_USER_STATUS_CHANGE", module = "ADMIN", resourceType = "USER", description = "Quản trị viên thay đổi trạng thái kích hoạt tài khoản")
   @RequestMapping(value = "/users/{userId}/status", method = {RequestMethod.PUT, RequestMethod.PATCH})
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Enable or disable a user/doctor/clinic account (FR-31)")
@@ -77,6 +80,7 @@ public class AdminUserController {
     return ApiResponse.success(adminUserService.updateUserStatus(userId, request));
   }
 
+  @Audited(action = "ADMIN_ROLE_UPDATE", module = "ADMIN", resourceType = "USER", description = "Quản trị viên thay đổi vai trò tài khoản")
   @RequestMapping(value = "/users/{userId}/role", method = {RequestMethod.PUT, RequestMethod.PATCH})
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Assign a system role to an account (FR-32)")
@@ -85,6 +89,7 @@ public class AdminUserController {
     return ApiResponse.success("Đã cập nhật vai trò người dùng", adminUserService.updateUserRole(userId, request));
   }
 
+  @Audited(action = "ADMIN_CLINIC_APPROVE", module = "ADMIN", resourceType = "CLINIC", description = "Quản trị viên phê duyệt phòng khám")
   @PutMapping("/clinics/{clinicId}/approve")
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Approve a clinic registration")
@@ -93,6 +98,7 @@ public class AdminUserController {
         adminUserService.updateUserStatus(clinicId, new UpdateUserStatusRequest(true)));
   }
 
+  @Audited(action = "ADMIN_CLINIC_SUSPEND", module = "ADMIN", resourceType = "CLINIC", description = "Quản trị viên tạm dừng tài khoản phòng khám")
   @PutMapping("/clinics/{clinicId}/suspend")
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Suspend a clinic organization account")
@@ -108,10 +114,20 @@ public class AdminUserController {
     return ApiResponse.success(adminUserService.getAiConfig());
   }
 
+  @Audited(action = "ADMIN_AI_CONFIG_UPDATE", module = "ADMIN", resourceType = "AI_CONFIG", description = "Quản trị viên cập nhật cấu hình ngưỡng AI")
   @PutMapping("/ai-config")
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Update global AI sensitivity, thresholds and retraining policy")
-  public ApiResponse<AiConfigDto> updateAiConfig(@RequestBody AiConfigDto update) {
+  public ApiResponse<AiConfigDto> updateAiConfig(
+      @RequestBody AiConfigDto update,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    if (principal != null && principal.email() != null) {
+      return ApiResponse.success(adminUserService.updateAiConfig(update, principal.email()));
+    }
+    return ApiResponse.success(adminUserService.updateAiConfig(update));
+  }
+
+  public ApiResponse<AiConfigDto> updateAiConfig(AiConfigDto update) {
     return ApiResponse.success(adminUserService.updateAiConfig(update));
   }
 
@@ -122,6 +138,7 @@ public class AdminUserController {
     return ApiResponse.success(assignmentService.getBoard());
   }
 
+  @Audited(action = "ADMIN_PATIENT_ASSIGN", module = "ADMIN", resourceType = "ASSIGNMENT", description = "Quản trị viên phân công bệnh nhân cho bác sĩ")
   @PutMapping("/patient-assignments")
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Assign one or more patients to a doctor")
@@ -132,6 +149,7 @@ public class AdminUserController {
         assignmentService.assign(request, principal.id()));
   }
 
+  @Audited(action = "ADMIN_PATIENT_UNASSIGN", module = "ADMIN", resourceType = "ASSIGNMENT", description = "Quản trị viên hủy phân công bệnh nhân")
   @DeleteMapping("/patient-assignments/{doctorId}/{patientId}")
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Remove a patient from a doctor's active worklist")

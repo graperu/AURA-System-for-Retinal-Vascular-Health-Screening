@@ -2751,3 +2751,9 @@ runTest('LAB-DOCUMENTS-1: LabDocumentsPanel render vùng tải lên tài liệu 
 console.log('\n=================================================================');
 console.log(`   KẾT QUẢ KIỂM THỬ: ${passedTests}/${totalTests} TESTS ĐÃ ĐẠT (100% PASS)`);
 console.log('=================================================================\n');
+
+if (passedTests === totalTests) {
+  process.exit(0);
+} else {
+  process.exit(1);
+}

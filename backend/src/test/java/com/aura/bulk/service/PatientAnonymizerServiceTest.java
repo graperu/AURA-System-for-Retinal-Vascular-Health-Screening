@@ -228,5 +228,26 @@ class PatientAnonymizerServiceTest {
 
       assertThat(result).isEqualTo(fakeBase64);
     }
+
+    @Test
+    @DisplayName("Real binary DICOM payload is detected, PHI tags stripped and extracted as PNG")
+    void stripDicom_RealBinaryDicom_StripsAndExtractsCleanImage() {
+      byte[] sampleDicom = new byte[256];
+      // Set DICOM magic "DICM" at offset 128
+      sampleDicom[128] = 'D';
+      sampleDicom[129] = 'I';
+      sampleDicom[130] = 'C';
+      sampleDicom[131] = 'M';
+
+      String dicomB64 = "data:application/dicom;base64," + java.util.Base64.getEncoder().encodeToString(sampleDicom);
+      String stripped = anonymizerService.stripDicomMetadataHeaders(dicomB64);
+
+      assertThat(stripped).isNotNull().startsWith("data:image/png;base64,");
+      byte[] decoded = java.util.Base64.getDecoder().decode(stripped.substring("data:image/png;base64,".length()));
+      assertThat(decoded[0]).isEqualTo((byte) 0x89);
+      assertThat(decoded[1]).isEqualTo((byte) 0x50);
+      assertThat(decoded[2]).isEqualTo((byte) 0x4E);
+      assertThat(decoded[3]).isEqualTo((byte) 0x47);
+    }
   }
 }

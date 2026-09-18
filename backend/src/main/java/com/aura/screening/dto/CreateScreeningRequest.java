@@ -37,4 +37,18 @@ public record CreateScreeningRequest(
 
     @JsonProperty("clinicId")
     UUID clinicId
-) {}
+) {
+  public CreateScreeningRequest(
+      String imageUrl,
+      String eyePosition,
+      String scanType,
+      String fileName,
+      Long fileSize,
+      String mimeType) {
+    this(imageUrl, eyePosition, scanType, fileName, fileSize, mimeType, null, null, null, null);
+  }
+
+  public CreateScreeningRequest(String imageUrl) {
+    this(imageUrl, "OD", "Fundus", "image.png", 0L, "image/png", null, null, null, null);
+  }
+}

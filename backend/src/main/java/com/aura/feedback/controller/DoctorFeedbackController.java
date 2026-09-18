@@ -1,10 +1,12 @@
 package com.aura.feedback.controller;
 
+import com.aura.audit.annotation.Audited;
 import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.common.response.ApiResponse;
 import com.aura.common.response.PageResponse;
 import com.aura.feedback.dto.DoctorFeedbackRequest;
 import com.aura.feedback.dto.DoctorFeedbackResponse;
+import com.aura.feedback.dto.RetrainingDatasetItemDto;
 import com.aura.feedback.service.DoctorFeedbackService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -65,5 +67,14 @@ public class DoctorFeedbackController {
   public ApiResponse<List<DoctorFeedbackResponse>> getFeedbacksByScreening(
       @PathVariable UUID screeningId) {
     return ApiResponse.success(doctorFeedbackService.getFeedbacksByScreening(screeningId));
+  }
+
+  @Audited(action = "RETRAINING_DATASET_EXPORT", module = "FEEDBACK", resourceType = "RETRAINING_DATASET", description = "Xuất tập dữ liệu tái huấn luyện AI đã ẩn danh hóa HIPAA")
+  @GetMapping("/retraining-export")
+  @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")
+  @Operation(summary = "Export HIPAA de-identified doctor feedback dataset for AI retraining (NFR-10, NFR-11)")
+  public ApiResponse<List<RetrainingDatasetItemDto>> exportRetrainingDataset() {
+    List<RetrainingDatasetItemDto> dataset = doctorFeedbackService.exportRetrainingDataset();
+    return ApiResponse.success("Xuất dữ liệu phản hồi lâm sàng đã ẩn danh hóa (HIPAA De-Identified) thành công", dataset);
   }
 }

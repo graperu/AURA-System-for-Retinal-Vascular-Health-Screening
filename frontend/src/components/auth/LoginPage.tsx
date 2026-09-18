@@ -3,19 +3,20 @@ import { CheckCircle2 } from 'lucide-react';
 import { AuthHeroPanel } from './AuthHeroPanel';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
+import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { useLanguage } from '../../context/LanguageContext';
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register' | 'forgot';
 
 export const LoginPage: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, isVi } = useLanguage();
   const [mode, setMode] = useState<Mode>('login');
   const [loginEmail, setLoginEmail] = useState('');
   const [success, setSuccess] = useState('');
 
   const selectMode = (next: Mode) => {
     setMode(next);
-    if (next === 'register') setSuccess('');
+    if (next !== 'login') setSuccess('');
   };
 
   const returnToLogin = (email?: string, message?: string) => {
@@ -32,7 +33,7 @@ export const LoginPage: React.FC = () => {
           <div className="auth-form-card w-full max-w-[500px] rounded-[26px] border border-slate-100/80 bg-white p-6 sm:p-8 shadow-sm">
             {/* Header Tabs */}
             <div className="grid grid-cols-2 border-b border-slate-200" role="tablist" aria-label={t('login.tabLogin', 'Chọn hình thức xác thực')}>
-              {(['login', 'register'] as Mode[]).map(item => (
+              {(['login', 'register'] as ('login' | 'register')[]).map(item => (
                 <button
                   key={item}
                   type="button"
@@ -40,7 +41,7 @@ export const LoginPage: React.FC = () => {
                   aria-selected={mode === item}
                   onClick={() => selectMode(item)}
                   className={`relative pb-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600 ${
-                    mode === item
+                    (mode === item || (item === 'login' && mode === 'forgot'))
                       ? 'text-brand-700 after:absolute after:bottom-0 after:left-1/4 after:h-0.5 after:w-1/2 after:rounded-full after:bg-brand-600'
                       : 'text-slate-400 hover:text-slate-600'
                   }`}
@@ -53,10 +54,18 @@ export const LoginPage: React.FC = () => {
             {/* Title & Subtitle */}
             <div className="mt-5">
               <h1 className="text-[30px] font-bold tracking-tight text-slate-900 leading-tight">
-                {mode === 'login' ? t('login.titleLogin', 'Đăng nhập') : t('login.titleRegister', 'Đăng ký')}
+                {mode === 'login'
+                  ? t('login.titleLogin', 'Đăng nhập')
+                  : mode === 'register'
+                  ? t('login.titleRegister', 'Đăng ký')
+                  : (isVi ? 'Quên mật khẩu' : 'Forgot Password')}
               </h1>
               <p className="mt-1 text-[15px] text-slate-500">
-                {mode === 'login' ? t('login.subtitleLogin', 'Truy cập hệ thống AURA') : t('login.subtitleRegister', 'Tạo tài khoản để sử dụng hệ thống AURA')}
+                {mode === 'login'
+                  ? t('login.subtitleLogin', 'Truy cập hệ thống AURA')
+                  : mode === 'register'
+                  ? t('login.subtitleRegister', 'Tạo tài khoản để sử dụng hệ thống AURA')
+                  : (isVi ? 'Khôi phục mật khẩu tài khoản AURA của bạn' : 'Recover access to your AURA account')}
               </p>
             </div>
 
@@ -67,10 +76,24 @@ export const LoginPage: React.FC = () => {
               </div>
             )}
 
-            {mode === 'login' ? (
-              <LoginForm key={loginEmail} initialEmail={loginEmail} onRegister={() => selectMode('register')} />
-            ) : (
+            {mode === 'login' && (
+              <LoginForm
+                key={loginEmail}
+                initialEmail={loginEmail}
+                onRegister={() => selectMode('register')}
+                onForgotPassword={() => selectMode('forgot')}
+              />
+            )}
+
+            {mode === 'register' && (
               <RegisterForm onLogin={returnToLogin} />
+            )}
+
+            {mode === 'forgot' && (
+              <ForgotPasswordForm
+                initialEmail={loginEmail}
+                onBackToLogin={returnToLogin}
+              />
             )}
           </div>
         </section>

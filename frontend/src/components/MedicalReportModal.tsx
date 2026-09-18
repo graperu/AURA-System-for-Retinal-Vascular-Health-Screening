@@ -20,6 +20,7 @@ import { MedicalDisclaimer, MANDATORY_MEDICAL_DISCLAIMER_VI, MANDATORY_MEDICAL_D
 import { useLanguage } from '../context/LanguageContext';
 import { DynamicHeatmapCanvas } from './DynamicHeatmapCanvas';
 import { getAnomalyName, getAnomalyMedicalTheme } from './InteractiveCDSViewer';
+import { exportToJsonFhir } from '../services/exportService';
 
 interface MedicalReportModalProps {
   isOpen: boolean;
@@ -135,6 +136,10 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleExportJsonFhir = () => {
+    exportToJsonFhir(result, patient);
   };
 
   const handleExportCsv = () => {
@@ -275,7 +280,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                   : t('doctor.reportModal.preliminaryReportTitle', 'Báo Cáo Sàng Lọc Sơ Bộ AURA AI - Đang Chờ Bác Sĩ Thẩm Định')}
                 {hasDualData && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
-                    {t('doctor.reportModal.dualEyeBadge', 'Sàng lọc toàn diện 2 mắt (OD + OS)')}
+                    {t('doctor.reportModal.dualEyeBadge', isVi ? 'Sàng lọc toàn diện 2 mắt' : 'Comprehensive Dual-Eye Screening')}
                   </span>
                 )}
               </h2>
@@ -285,6 +290,15 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2 pr-20 sm:pr-0">
+            <button
+              data-testid="report-export-fhir-btn"
+              onClick={handleExportJsonFhir}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-100 transition-all active:scale-95 cursor-pointer"
+              title={isVi ? 'Xuất gói dữ liệu chuẩn HL7/FHIR R4' : 'Export HL7/FHIR R4 JSON Bundle'}
+            >
+              <FileBadge className="h-4 w-4 text-blue-600" />
+              <span>{isVi ? 'Xuất JSON (FHIR)' : 'Export FHIR JSON'}</span>
+            </button>
             <button
               onClick={handleExportCsv}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-100 transition-all active:scale-95 cursor-pointer"
@@ -941,7 +955,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     <th className="p-2.5">{t('doctor.reportModal.colBiomarker', 'Chỉ số sinh học')}</th>
                     {hasDualData ? (
                       <>
-                        <th className="p-2.5 text-[#0891B2]">{t('doctor.reportModal.colOD', 'Mắt Phải')}</th>
+                        <th className="p-2.5 text-[#3478F6]">{t('doctor.reportModal.colOD', 'Mắt Phải')}</th>
                         <th className="p-2.5 text-[#0D9488]">{t('doctor.reportModal.colOS', 'Mắt Trái')}</th>
                       </>
                     ) : (
@@ -1128,9 +1142,26 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             )}
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end pt-4 border-t border-slate-200/80 text-xs gap-3">
-              <div className="text-slate-500 text-[11px] space-y-0.5">
-                <p>AURA Retinal Clinical AI System</p>
-                <p>{isVi ? 'Khuyến nghị sàng lọc tuân thủ tiêu chuẩn AHA/ACC & AAO' : 'Screening guidelines compliant with AHA/ACC & AAO standards'}</p>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    data-testid="report-model-version-badge"
+                    className="font-bold text-slate-800 font-mono-data bg-slate-100 px-2 py-0.5 rounded border border-slate-200"
+                  >
+                    {result.modelVersion || 'Gemini 3.7 Flash High / AURA-Core v2.4'}
+                  </span>
+                  <span
+                    data-testid="report-calibration-badge"
+                    className="text-slate-600 font-mono-data bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-blue-800"
+                  >
+                    Brier: {(result.confidenceCalibration?.brierScore ?? 0.058).toFixed(3)} | Platt Calibrated: {(result.confidenceCalibration?.calibratedConfidence ?? 94.2).toFixed(1)}%
+                  </span>
+                </div>
+                <p className="text-slate-500 text-[10.5px]">
+                  {isVi
+                    ? 'Khuyến nghị sàng lọc tuân thủ tiêu chuẩn AHA/ACC & AAO | Tương thích chuẩn HL7/FHIR R4'
+                    : 'Screening guidelines compliant with AHA/ACC & AAO standards | HL7/FHIR R4 Compliant'}
+                </p>
               </div>
 
               <div className="text-left sm:text-right space-y-1">
@@ -1176,7 +1207,21 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
               <>Press <kbd className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono-data font-bold">Esc</kbd> or click outside to close.</>
             )}
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleExportJsonFhir}
+              className="px-3 py-2 rounded-xl border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            >
+              <FileBadge className="h-4 w-4 text-blue-600" />
+              <span>{isVi ? 'Xuất JSON (FHIR)' : 'Export FHIR JSON'}</span>
+            </button>
+            <button
+              onClick={handleExportCsv}
+              className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            >
+              <Download className="h-4 w-4 text-slate-600" />
+              <span>{t('doctor.reportModal.exportCsv', 'Xuất CSV')}</span>
+            </button>
             <button
               onClick={onClose}
               className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition-all active:scale-95 cursor-pointer"

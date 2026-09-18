@@ -1,10 +1,12 @@
 package com.aura.screening.controller;
 
+import com.aura.audit.annotation.Audited;
 import com.aura.auth.exception.AuthException;
 import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.auth.service.PatientAccessService;
 import com.aura.common.response.ApiResponse;
 import com.aura.common.response.ErrorCode;
+import com.aura.common.response.PageResponse;
 import com.aura.screening.dto.BatchDeleteScreeningsRequest;
 import com.aura.screening.dto.CreateScreeningRequest;
 import com.aura.screening.dto.ReviewScreeningRequest;
@@ -14,6 +16,10 @@ import com.aura.screening.service.ScreeningService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,9 +50,53 @@ public class ScreeningController {
   }
 
   @GetMapping
-  public ApiResponse<List<Screening>> getScreenings(
+  public ApiResponse<PageResponse<ScreeningResponse>> getScreenings(
       @RequestParam(required = false) UUID patientId,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "15") int size,
       @AuthenticationPrincipal AuraUserPrincipal principal) {
+    if (principal == null) {
+      throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để xem danh sách sàng lọc");
+    }
+
+    Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Page<Screening> screeningsPage;
+    boolean isAdmin = hasRole(principal, "ADMIN");
+    boolean isDoctor = hasRole(principal, "DOCTOR");
+
+    if (isAdmin) {
+      if (patientId != null) {
+        screeningsPage = screeningService.getScreeningsForPatient(patientId, pageable);
+      } else {
+        screeningsPage = screeningService.getAllScreenings(pageable);
+      }
+    } else if (isDoctor) {
+      if (patientId != null) {
+        if (!patientAccessService.canAccessPatient(principal, patientId)) {
+          throw new AuthException(
+              ErrorCode.ACCESS_DENIED,
+              "Bác sĩ không có quyền truy cập lịch sử của bệnh nhân chưa được phân công");
+        }
+        screeningsPage = screeningService.getScreeningsForPatient(patientId, pageable);
+      } else {
+        screeningsPage = screeningService.getScreeningsForDoctor(principal.id(), pageable);
+      }
+    } else {
+      if (patientId != null && !patientId.equals(principal.id())) {
+        throw new AuthException(
+            ErrorCode.ACCESS_DENIED,
+            "Không có quyền truy cập lịch sử sàng lọc của bệnh nhân khác");
+      }
+      screeningsPage = screeningService.getScreeningsForPatient(principal.id(), pageable);
+    }
+
+    Page<ScreeningResponse> responsePage = screeningsPage.map(ScreeningResponse::fromEntitySummary);
+    return ApiResponse.success("Lấy danh sách ca sàng lọc thành công", PageResponse.from(responsePage));
+  }
+
+  public ApiResponse<List<Screening>> getScreenings(
+      UUID patientId,
+      AuraUserPrincipal principal) {
     if (principal == null) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để xem danh sách sàng lọc");
     }
@@ -107,6 +157,7 @@ public class ScreeningController {
     return getScreening(id, principal);
   }
 
+  @Audited(action = "CLINICAL_REVIEW", module = "SCREENING", resourceType = "SCREENING", description = "Bác sĩ thẩm định đánh giá lâm sàng và điều chỉnh nguy cơ")
   @PostMapping("/{id}/review")
   @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canReviewScreening(principal, #id)")
   public ApiResponse<Screening> reviewScreening(

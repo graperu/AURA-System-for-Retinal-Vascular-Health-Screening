@@ -327,7 +327,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
   if (loading) {
     return (
       <div className="p-12 text-center space-y-3">
-        <RefreshCw className="w-8 h-8 text-[#0891B2] animate-spin mx-auto" />
+        <RefreshCw className="w-8 h-8 text-[#3478F6] animate-spin mx-auto" />
         <p className="text-sm font-semibold text-slate-600">{t('clinic.creditPackage.loading')}</p>
       </div>
     );
@@ -429,10 +429,10 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
           <div className="p-4 rounded-2xl bg-gradient-to-br from-white to-slate-50 border border-slate-200 shadow-xs relative overflow-hidden">
             <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
               <span>{t('clinic.creditPackage.availableCredits')}</span>
-              <CreditCard className="w-4 h-4 text-[#0891B2]" />
+              <CreditCard className="w-4 h-4 text-[#3478F6]" />
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold font-mono-data text-[#0891B2]">
+              <span className="text-3xl font-extrabold font-mono-data text-[#3478F6]">
                 {remainingCredits.toLocaleString(isVi ? 'vi-VN' : 'en-US')}
               </span>
               <span className="text-xs font-semibold text-slate-500">{t('clinic.creditPackage.scansUnit')}</span>
@@ -521,7 +521,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
         <div className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
             <div className="font-bold text-slate-800 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[#0891B2]" />
+              <TrendingUp className="w-4 h-4 text-[#3478F6]" />
               <span>{t('clinic.creditPackage.consumptionProgress')}</span>
             </div>
             <div className="flex items-center gap-4 text-slate-600 font-mono-data text-[11px]">
@@ -529,7 +529,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                 {t('clinic.creditPackage.processedCount')} <strong className="text-slate-900">{scannedInBatch} {isVi ? 'ảnh' : 'scans'}</strong> ({usedPercent}%)
               </span>
               <span>
-                {t('clinic.creditPackage.availableCount')} <strong className="text-[#0891B2]">{remainingCredits} {t('clinic.creditPackage.scansUnit')}</strong> ({remainingPercent}%)
+                {t('clinic.creditPackage.availableCount')} <strong className="text-[#3478F6]">{remainingCredits} {t('clinic.creditPackage.scansUnit')}</strong> ({remainingPercent}%)
               </span>
             </div>
           </div>
@@ -542,7 +542,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
               title={`${t('clinic.creditPackage.processedCount')} ${scannedInBatch} (${usedPercent}%)`}
             />
             <div
-              className="h-full bg-gradient-to-r from-[#0891B2] to-[#06B6D4] rounded-r-full transition-all duration-500"
+              className="h-full bg-gradient-to-r from-[#3478F6] to-[#2563EB] rounded-r-full transition-all duration-500"
               style={{ width: `${remainingPercent}%` }}
               title={`${t('clinic.creditPackage.availableCount')} ${remainingCredits} (${remainingPercent}%)`}
             />
@@ -553,7 +553,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
               <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" /> {t('clinic.creditPackage.processedInBatchLegend')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#0891B2] inline-block" /> {t('clinic.creditPackage.availableCreditsLegend')}
+              <span className="w-2.5 h-2.5 rounded-full bg-[#3478F6] inline-block" /> {t('clinic.creditPackage.availableCreditsLegend')}
             </span>
           </div>
         </div>
@@ -566,7 +566,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-[#0891B2]" />
+              <Building2 className="w-5 h-5 text-[#3478F6]" />
               {t('clinic.creditPackage.packagesSectionTitle')}
             </h2>
             <p className="text-xs text-slate-500">
@@ -588,13 +588,13 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                 key={pkg.id}
                 className={`rounded-2xl border-2 transition-all duration-200 flex flex-col justify-between relative bg-white overflow-hidden ${
                   pkg.isPopular
-                    ? 'border-[#0891B2] shadow-md ring-2 ring-[#0891B2]/20'
+                    ? 'border-[#3478F6] shadow-md ring-2 ring-[#3478F6]/20'
                     : 'border-slate-200 shadow-xs hover:border-slate-300'
                 }`}
               >
                 {/* Ribbon nổi bật */}
                 {pkg.isPopular && (
-                  <div className="bg-[#0891B2] text-white text-[11px] font-extrabold uppercase py-1 text-center tracking-wider flex items-center justify-center gap-1">
+                  <div className="bg-[#3478F6] text-white text-[11px] font-extrabold uppercase py-1 text-center tracking-wider flex items-center justify-center gap-1">
                     <Zap className="w-3.5 h-3.5" /> {t('clinic.creditPackage.recommendedRibbon')}
                   </div>
                 )}
@@ -619,7 +619,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                   {/* Giá tiền */}
                   <div className="pt-2 pb-1 border-y border-slate-100">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-extrabold font-mono-data text-[#0891B2]">
+                      <span className="text-3xl font-extrabold font-mono-data text-[#3478F6]">
                         {pkg.priceVnd.toLocaleString(isVi ? 'vi-VN' : 'en-US')}
                       </span>
                       <span className="text-xs font-bold text-slate-500">{t('clinic.creditPackage.currencyVnd')}</span>
@@ -640,7 +640,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                     <ul className="space-y-2 text-xs text-slate-700">
                       {pkg.features.map((feat, idx) => (
                         <li key={idx} className="flex items-start gap-2">
-                          <Check className="w-4 h-4 text-[#0891B2] mt-0.5 shrink-0" />
+                          <Check className="w-4 h-4 text-[#3478F6] mt-0.5 shrink-0" />
                           <span className="leading-tight">{feat}</span>
                         </li>
                       ))}
@@ -672,7 +672,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
       <Card padding="md" className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <History className="w-5 h-5 text-[#0891B2]" />
+            <History className="w-5 h-5 text-[#3478F6]" />
             <div>
               <h3 className="text-base font-bold text-slate-900">
                 {t('clinic.creditPackage.historySectionTitle')}
@@ -685,7 +685,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
 
           <button
             onClick={() => fetchAllData(true)}
-            className="text-xs font-semibold text-[#0891B2] hover:text-cyan-800 flex items-center gap-1.5 self-end sm:self-auto"
+            className="text-xs font-semibold text-[#3478F6] hover:text-[#2563EB] flex items-center gap-1.5 self-end sm:self-auto"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>{t('clinic.creditPackage.reloadHistory')}</span>
@@ -727,7 +727,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                     return (
                       <tr key={p.id} className="hover:bg-slate-50/60 transition">
                         {/* Mã giao dịch */}
-                        <td className="p-3.5 font-mono font-bold text-[#0891B2]">
+                        <td className="p-3.5 font-mono font-bold text-[#3478F6]">
                           {p.providerReference || `TXN-CLN-${p.id.toString().padStart(5, '0')}`}
                         </td>
 
@@ -786,7 +786,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
                         <td className="p-3.5 text-right">
                           <button
                             onClick={() => setSelectedReceipt(p)}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0891B2] hover:underline"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3478F6] hover:underline"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             <span>{t('clinic.creditPackage.viewReceipt')}</span>
@@ -820,7 +820,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#0891B2]" />
+                <FileText className="w-5 h-5 text-[#3478F6]" />
                 <h4 className="text-base font-bold text-slate-900">{t('clinic.creditPackage.receiptTitle')}</h4>
               </div>
               <button

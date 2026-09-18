@@ -1092,6 +1092,14 @@ runTest('PATIENT-I18N-7: PatientPortalPage render song ngữ chuẩn (VI & EN)',
     viHtml.includes('Hồ sơ sức khỏe') || viHtml.includes('Hồ sơ bệnh án') || viHtml.includes('Hồ Sơ Y Tế') || viHtml.includes('Hồ sơ y tế'),
     'VI: Nút hồ sơ'
   );
+  assert.ok(
+    viHtml.includes('Bác sĩ phụ trách') || viHtml.includes('Assigned doctor'),
+    'VI: Doctor info section present'
+  );
+  assert.ok(
+    viHtml.includes('Chưa gửi') || viHtml.includes('Đang chờ duyệt') || viHtml.includes('Đã duyệt'),
+    'VI: Review status badge present'
+  );
 
   const enHtml = renderWithLang(
     React.createElement(PatientPortalPage, {
@@ -1895,3 +1903,9 @@ localStorage.setItem('aura_language', 'vi');
 console.log('\n=================================================================');
 console.log(`   KẾT QUẢ KIỂM THỬ: ${passed}/${passed + failed} TESTS ĐÃ ĐẠT (100% PASS)`);
 console.log('=================================================================\n');
+
+if (failed === 0) {
+  process.exit(0);
+} else {
+  process.exit(1);
+}

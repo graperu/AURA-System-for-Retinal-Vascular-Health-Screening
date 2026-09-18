@@ -21,7 +21,7 @@ import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
 import { useLanguage } from '../context/LanguageContext';
 
 export const DICOM_PLACEHOLDER_DATA_URI =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="%230f172a"/><rect x="25" y="20" width="110" height="120" rx="8" fill="%231e293b" stroke="%230891b2" stroke-width="2"/><text x="80" y="72" fill="%2338bdf8" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle">DICOM</text><text x="80" y="96" fill="%2394a3b8" font-family="sans-serif" font-size="10" font-weight="600" text-anchor="middle">Medical File</text><circle cx="80" cy="118" r="4" fill="%230891b2"/></svg>';
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="%230f172a"/><rect x="25" y="20" width="110" height="120" rx="8" fill="%231e293b" stroke="%233478f6" stroke-width="2"/><text x="80" y="72" fill="%2338bdf8" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle">DICOM</text><text x="80" y="96" fill="%2394a3b8" font-family="sans-serif" font-size="10" font-weight="600" text-anchor="middle">Medical File</text><circle cx="80" cy="118" r="4" fill="%233478f6"/></svg>';
 
 interface BatchUploadModalProps {
   isOpen: boolean;
@@ -56,7 +56,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
   isOpen,
   onClose,
   onSubmitBatch,
-  currentCredits,
+  currentCredits = 0,
 }) => {
   const { t, isVi } = useLanguage();
   const { user: currentUser } = useAuth();
@@ -425,30 +425,31 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
-      <div className="bg-white border border-[#CCFBF1] rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-modal-enter">
+      <div className="bg-white border border-[#EAECF0] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-modal-enter">
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-[#134E4A] via-[#0E7490] to-[#0891B2] text-white p-6 flex items-center justify-between">
+        <div className="bg-white text-slate-900 p-5 sm:p-6 border-b border-[#EAECF0] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20">
-              <UploadCloud className="w-6 h-6 text-cyan-200" />
+            <div className="w-11 h-11 rounded-xl bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] flex items-center justify-center shrink-0">
+              <UploadCloud className="w-6 h-6 text-[#3478F6]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-extrabold tracking-tight">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                   {t('clinic.batchUploadModal.uploadTitle')}
                 </h2>
-                <span className="bg-cyan-400/20 text-cyan-200 text-[10px] font-mono-data uppercase px-2 py-0.5 rounded-full border border-cyan-300/30">
+                <span className="bg-[#EEF5FF] text-[#3478F6] text-[10px] font-mono-data uppercase px-2.5 py-0.5 rounded-full border border-[#C7D7FE] font-bold">
                   {t('clinic.batchUploadModal.standardBadge')}
                 </span>
               </div>
-              <p className="text-xs text-cyan-100 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 {t('clinic.batchUploadModal.description')}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label="Đóng"
           >
             <X className="w-5 h-5" />
           </button>
@@ -466,7 +467,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                 type="text"
                 value={campaignName}
                 onChange={(e) => setCampaignName(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:border-[#0891B2] outline-none font-medium text-slate-800"
+                className="w-full px-3.5 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:border-[#3478F6] outline-none font-medium text-slate-800"
                 placeholder={t('clinic.batchUploadModal.campaignNamePlaceholder')}
               />
             </div>
@@ -497,14 +498,14 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
               }}
               className={`lg:col-span-2 border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all ${
                 isDragging
-                  ? 'border-[#0891B2] bg-cyan-50/70'
-                  : 'border-slate-300 hover:border-[#0891B2] bg-[#F0FDFA]/30'
+                  ? 'border-[#3478F6] bg-blue-50/50'
+                  : 'border-[#EAECF0] hover:border-[#3478F6] bg-[#F5F6F8]'
               }`}
             >
-              <div className="w-14 h-14 rounded-2xl bg-cyan-100 text-[#0891B2] flex items-center justify-center mb-3">
+              <div className="w-14 h-14 rounded-2xl bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] flex items-center justify-center mb-3">
                 <UploadCloud className="w-7 h-7" />
               </div>
-              <h4 className="text-sm font-bold text-[#134E4A]">
+              <h4 className="text-sm font-bold text-slate-900">
                 {t('clinic.batchUploadModal.dropzone')}
               </h4>
               <p className="text-xs text-slate-500 mt-1 max-w-md">
@@ -523,9 +524,9 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-white border border-slate-300 hover:border-[#0891B2] text-slate-700 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+                  className="px-4 py-2 bg-white border border-[#EAECF0] hover:border-[#3478F6] text-slate-700 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
-                  <Layers className="w-4 h-4 text-[#0891B2]" /> {t('clinic.batchUploadModal.selectFilesButton')}
+                  <Layers className="w-4 h-4 text-[#3478F6]" /> {t('clinic.batchUploadModal.selectFilesButton')}
                 </button>
 
                 <input
@@ -540,30 +541,30 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                 <button
                   type="button"
                   onClick={() => folderInputRef.current?.click()}
-                  className="px-4 py-2 bg-white border border-slate-300 hover:border-[#0891B2] text-slate-700 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+                  className="px-4 py-2 bg-white border border-[#EAECF0] hover:border-[#3478F6] text-slate-700 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
-                  <FolderUp className="w-4 h-4 text-[#0891B2]" /> {t('clinic.batchUploadModal.selectFolderButton')}
+                  <FolderUp className="w-4 h-4 text-[#3478F6]" /> {t('clinic.batchUploadModal.selectFolderButton')}
                 </button>
               </div>
             </div>
 
             {/* Quick 1-Click Demo Generator Card */}
-            <div className="bg-gradient-to-br from-[#0891B2]/10 via-[#F0FDFA] to-white border border-[#CCFBF1] rounded-2xl p-5 flex flex-col justify-between shadow-medical-sm">
+            <div className="bg-white border border-[#EAECF0] rounded-2xl p-5 flex flex-col justify-between shadow-xs">
               <div>
-                <div className="flex items-center gap-2 text-[#134E4A] font-extrabold text-sm mb-2">
-                  <Sparkles className="w-4 h-4 text-[#0891B2]" />
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm mb-2">
+                  <Sparkles className="w-4 h-4 text-[#3478F6]" />
                   {t('clinic.batchUploadModal.quickDemoTitle')}
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs text-slate-500 leading-relaxed">
                   {t('clinic.batchUploadModal.quickDemoDesc')}
                 </p>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-cyan-100">
+              <div className="mt-4 pt-4 border-t border-[#EAECF0]">
                 <button
                   type="button"
                   onClick={handleLoadDemo100}
-                  className="w-full py-2.5 bg-gradient-to-r from-[#0891B2] to-[#134E4A] hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="w-full py-2.5 bg-[#3478F6] hover:bg-[#2563EB] text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4" /> {t('clinic.batchUploadModal.loadDemoButton')}
                 </button>
@@ -578,10 +579,10 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
           <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
             <div className="bg-slate-50 p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-[#134E4A]">
+                <span className="text-xs font-bold text-slate-800">
                   {t('clinic.batchUploadModal.preflightTitle')}
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono-data font-bold bg-cyan-100 text-[#0891B2]">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono-data font-bold bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE]">
                   {stagedItems.length} {t('clinic.batchUploadModal.scansLoaded')}
                 </span>
                 {stagedItems.length >= 100 ? (
@@ -602,14 +603,14 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleBulkAssignEye('ALL_OD')}
-                    className="px-2 py-1 bg-cyan-50 hover:bg-cyan-100 text-[#0891B2] border border-cyan-200 rounded-lg text-[10px] font-bold transition-all"
+                    className="px-2 py-1 bg-[#EEF5FF] hover:bg-[#E0EDFE] text-[#3478F6] border border-[#C7D7FE] rounded-lg text-[10px] font-bold transition-all cursor-pointer"
                   >
                     {t('clinic.batchUploadModal.allOdButton')}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleBulkAssignEye('ALL_OS')}
-                    className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-lg text-[10px] font-bold transition-all"
+                    className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
                   >
                     {t('clinic.batchUploadModal.allOsButton')}
                   </button>
@@ -683,7 +684,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                           {item.fileName}
                         </td>
                         <td className="py-2 px-3">
-                          <div className="font-bold text-[#134E4A]">{item.patientName}</div>
+                          <div className="font-bold text-[#111827]">{item.patientName}</div>
                           <div className="text-[11px] text-slate-400 font-mono-data">{item.mrn}</div>
                         </td>
                         <td className="py-2 px-3">
@@ -724,7 +725,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5 text-slate-600">
-              <CreditCard className="w-4 h-4 text-[#0891B2]" />
+              <CreditCard className="w-4 h-4 text-[#3478F6]" />
               <span>{t('clinic.batchUploadModal.estimatedConsumption')} <strong>{stagedItems.length} Credits</strong></span>
             </div>
             <span className="text-slate-300">|</span>
@@ -738,7 +739,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-all"
+              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-all cursor-pointer"
             >
               {t('clinic.batchUploadModal.cancelButton')}
             </button>
@@ -746,7 +747,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
               type="button"
               onClick={handleSubmit}
               disabled={stagedItems.length === 0 || isSubmitting}
-              className="px-5 py-2.5 bg-gradient-to-r from-[#0891B2] to-[#134E4A] hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2.5 bg-[#3478F6] hover:bg-[#2563EB] text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isSubmitting ? (
                 <>

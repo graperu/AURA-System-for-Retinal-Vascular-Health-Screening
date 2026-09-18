@@ -20,6 +20,7 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -84,24 +85,106 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
           }
         } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
           String destination = accessor.getDestination();
-          if (destination != null && (destination.startsWith("/topic/chat.") || destination.startsWith("/topic/notifications."))) {
-            String prefix = destination.startsWith("/topic/chat.") ? "/topic/chat." : "/topic/notifications.";
-            String targetUserId = destination.substring(prefix.length());
-            Object userObj = accessor.getUser();
-            if (!(userObj instanceof UsernamePasswordAuthenticationToken auth
-                && auth.getPrincipal() instanceof AuraUserPrincipal principal)) {
-              log.warn("Unauthenticated subscription attempt to {}", destination);
-              throw new AccessDeniedException("Yêu cầu đăng nhập để đăng ký kênh thông tin riêng tư");
-            }
-            boolean isAdmin = principal.roles() != null && principal.roles().contains("ADMIN");
-            if (!isAdmin && !principal.id().toString().equalsIgnoreCase(targetUserId)) {
-              log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
-              throw new AccessDeniedException("Unauthorized subscription to private channel");
-            }
+          if (destination != null) {
+            authorizeSubscription(destination, accessor);
           }
         }
 
         return message;
+      }
+
+      private void authorizeSubscription(String destination, StompHeaderAccessor accessor) {
+        boolean isPrivateTopic = destination.startsWith("/topic/chat.")
+            || destination.startsWith("/topic/notifications.")
+            || destination.startsWith("/topic/screening.")
+            || destination.startsWith("/topic/appointments.")
+            || destination.startsWith("/topic/clinic.")
+            || destination.startsWith("/topic/screening-chat.");
+
+        if (!isPrivateTopic) {
+          return;
+        }
+
+        Object userObj = accessor.getUser();
+        if (!(userObj instanceof UsernamePasswordAuthenticationToken auth
+            && auth.getPrincipal() instanceof AuraUserPrincipal principal)) {
+          log.warn("Unauthenticated subscription attempt to {}", destination);
+          throw new AccessDeniedException("Yêu cầu đăng nhập để đăng ký kênh thông tin thời gian thực: " + destination);
+        }
+
+        boolean isAdmin = hasRole(principal, "ADMIN");
+        if (isAdmin) {
+          return;
+        }
+
+        if (destination.startsWith("/topic/chat.")) {
+          String targetUserId = destination.substring("/topic/chat.".length());
+          boolean isSelf = principal.id().toString().equalsIgnoreCase(targetUserId);
+          boolean isDoctor = hasRole(principal, "DOCTOR");
+          if (!isSelf && !isDoctor) {
+            log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
+            throw new AccessDeniedException("Unauthorized subscription to private channel");
+          }
+        } else if (destination.startsWith("/topic/notifications.")) {
+          String targetUserId = destination.substring("/topic/notifications.".length());
+          boolean isSelf = principal.id().toString().equalsIgnoreCase(targetUserId);
+          if (!isSelf) {
+            log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
+            throw new AccessDeniedException("Unauthorized subscription to private channel");
+          }
+        } else if (destination.startsWith("/topic/screening.")) {
+          String patientId = destination.substring("/topic/screening.".length());
+          boolean isSelf = principal.id().toString().equalsIgnoreCase(patientId);
+          boolean isClinicalStaff = hasRole(principal, "DOCTOR") || hasRole(principal, "CLINIC");
+          if (!isSelf && !isClinicalStaff) {
+            log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
+            throw new AccessDeniedException("Unauthorized subscription to screening channel");
+          }
+        } else if (destination.startsWith("/topic/appointments.")) {
+          String targetUserId = destination.substring("/topic/appointments.".length());
+          boolean isSelf = principal.id().toString().equalsIgnoreCase(targetUserId);
+          boolean isClinicalStaff = hasRole(principal, "DOCTOR") || hasRole(principal, "CLINIC");
+          if (!isSelf && !isClinicalStaff) {
+            log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
+            throw new AccessDeniedException("Unauthorized subscription to appointments channel");
+          }
+        } else if (destination.startsWith("/topic/clinic.")) {
+          boolean isClinicOrDoctor = hasRole(principal, "CLINIC") || hasRole(principal, "DOCTOR");
+          if (!isClinicOrDoctor) {
+            log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
+            throw new AccessDeniedException("Unauthorized subscription to clinic channel");
+          }
+        } else if (destination.startsWith("/topic/screening-chat.")) {
+          boolean isAuthorized = hasRole(principal, "USER")
+              || hasRole(principal, "PATIENT")
+              || hasRole(principal, "DOCTOR")
+              || hasRole(principal, "CLINIC");
+          if (!isAuthorized) {
+            log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
+            throw new AccessDeniedException("Unauthorized subscription to screening chat channel");
+          }
+        }
+      }
+
+      private boolean hasRole(AuraUserPrincipal principal, String role) {
+        if (principal == null) {
+          return false;
+        }
+        if (principal.roles() != null) {
+          for (String r : principal.roles()) {
+            if (r != null && (r.equalsIgnoreCase(role) || r.equalsIgnoreCase("ROLE_" + role))) {
+              return true;
+            }
+          }
+        }
+        if (principal.getAuthorities() != null) {
+          for (GrantedAuthority ga : principal.getAuthorities()) {
+            if (ga != null && (ga.getAuthority().equalsIgnoreCase("ROLE_" + role) || ga.getAuthority().equalsIgnoreCase(role))) {
+              return true;
+            }
+          }
+        }
+        return false;
       }
     });
   }

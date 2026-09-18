@@ -322,7 +322,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
         sanitizeCsvCell(item.rawId || item.id),
         sanitizeCsvCell(dateStr),
         sanitizeCsvCell(eyeStr),
-        sanitizeCsvCell(item.scanType || (isVi ? 'Chụp đáy mắt (Fundus)' : 'Fundus')),
+        sanitizeCsvCell(item.scanType || (isVi ? 'Chụp đáy mắt' : 'Fundus Photography')),
         sanitizeCsvCell(item.riskScore ?? 0),
         sanitizeCsvCell(riskLevelStr),
         sanitizeCsvCell(statusStr),

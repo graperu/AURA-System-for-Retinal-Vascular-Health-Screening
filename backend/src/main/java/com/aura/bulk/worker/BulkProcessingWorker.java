@@ -8,7 +8,9 @@ import com.aura.bulk.queue.BatchJobQueue;
 import com.aura.bulk.repository.BulkScreeningBatchRepository;
 import com.aura.bulk.repository.BulkScreeningItemRepository;
 import com.aura.bulk.service.AiServiceClient;
+import com.aura.realtime.RealtimeEventPublisher;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,6 +34,7 @@ public class BulkProcessingWorker implements CommandLineRunner {
     private final AiServiceClient aiServiceClient;
     private final BulkScreeningItemRepository itemRepository;
     private final BulkScreeningBatchRepository batchRepository;
+    private final RealtimeEventPublisher realtimeEventPublisher;
     private final ExecutorService executorService = Executors.newFixedThreadPool(4);
 
     @Autowired
@@ -39,15 +42,25 @@ public class BulkProcessingWorker implements CommandLineRunner {
             BatchJobQueue jobQueue,
             AiServiceClient aiServiceClient,
             BulkScreeningItemRepository itemRepository,
-            BulkScreeningBatchRepository batchRepository) {
+            BulkScreeningBatchRepository batchRepository,
+            @Autowired(required = false) RealtimeEventPublisher realtimeEventPublisher) {
         this.jobQueue = jobQueue;
         this.aiServiceClient = aiServiceClient;
         this.itemRepository = itemRepository;
         this.batchRepository = batchRepository;
+        this.realtimeEventPublisher = realtimeEventPublisher;
+    }
+
+    public BulkProcessingWorker(
+            BatchJobQueue jobQueue,
+            AiServiceClient aiServiceClient,
+            BulkScreeningItemRepository itemRepository,
+            BulkScreeningBatchRepository batchRepository) {
+        this(jobQueue, aiServiceClient, itemRepository, batchRepository, null);
     }
 
     public BulkProcessingWorker(BatchJobQueue jobQueue, AiServiceClient aiServiceClient) {
-        this(jobQueue, aiServiceClient, null, null);
+        this(jobQueue, aiServiceClient, null, null, null);
     }
 
     @Override
@@ -139,6 +152,17 @@ public class BulkProcessingWorker implements CommandLineRunner {
                 batch.setStatus("IN_PROGRESS");
             }
             batchRepository.save(batch);
+
+            if (realtimeEventPublisher != null && batch.getClinicId() != null) {
+                Map<String, Object> progressPayload = Map.of(
+                    "batchId", batch.getBatchCode(),
+                    "total", total,
+                    "processed", processed,
+                    "failed", failed,
+                    "status", batch.getStatus()
+                );
+                realtimeEventPublisher.publishBatchProgress(batch.getClinicId(), progressPayload);
+            }
         } catch (Exception ex) {
             log.error("[Bulk Worker Java] Failed to sync COMPLETED item {} to PostgreSQL: {}", task.itemId(), ex.getMessage());
         }
@@ -175,6 +199,17 @@ public class BulkProcessingWorker implements CommandLineRunner {
                 batch.setStatus("IN_PROGRESS");
             }
             batchRepository.save(batch);
+
+            if (realtimeEventPublisher != null && batch.getClinicId() != null) {
+                Map<String, Object> progressPayload = Map.of(
+                    "batchId", batch.getBatchCode(),
+                    "total", totalImagesOf(batch),
+                    "processed", processed,
+                    "failed", failed,
+                    "status", batch.getStatus()
+                );
+                realtimeEventPublisher.publishBatchProgress(batch.getClinicId(), progressPayload);
+            }
         } catch (Exception ex) {
             log.error("[Bulk Worker Java] Failed to sync FAILED item {} to PostgreSQL: {}", task.itemId(), ex.getMessage());
         }

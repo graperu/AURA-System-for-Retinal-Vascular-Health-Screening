@@ -37,11 +37,26 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   const [adjustedCardioRisk, setAdjustedCardioRisk] = useState<RiskLevel>('Moderate');
   const [adjustedDrRisk, setAdjustedDrRisk] = useState<RiskLevel>('Low');
   const [doctorNotes, setDoctorNotes] = useState<string>('');
+  const [overrideReason, setOverrideReason] = useState<string>('');
+  const [recommendations, setRecommendations] = useState<string>('');
+  const [overrideError, setOverrideError] = useState<string | null>(null);
   const [icd10Input, setIcd10Input] = useState<string>('H35.0');
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
 
-  const handleSave = async () => {
+  const handleSave = async (isDraft: boolean = false) => {
+    // R4 requirement: Override reason required if modifying AI finding
+    if (decision === 'MODIFIED' && !overrideReason.trim() && !isDraft) {
+      setOverrideError(
+        isVi
+          ? 'Bắt buộc nhập lý do lâm sàng khi điều chỉnh phân tầng nguy cơ của AI.'
+          : 'Clinical override reason is mandatory when altering AI risk classification.'
+      );
+      return;
+    }
+
+    setOverrideError(null);
     setSaving(true);
     const feedback: DoctorFeedback = {
       feedbackId: `FB-${Date.now()}`,
@@ -53,12 +68,19 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       adjustedDrRisk: decision === 'MODIFIED' ? adjustedDrRisk : undefined,
       icd10Codes: icd10Input.split(',').map((c) => c.trim()).filter(Boolean),
       clinicalNotes: doctorNotes,
+      overrideReason: decision === 'MODIFIED' ? overrideReason.trim() : undefined,
+      recommendations: recommendations.trim() || undefined,
       reviewedAt: new Date().toISOString(),
-      signedDigitalSignature: 'SHA256-AURA-SIGNED',
+      signedDigitalSignature: isDraft ? undefined : 'SHA256-AURA-SIGNED',
     };
 
     try {
       await onSaveFeedback(feedback);
+      setSuccessMessage(
+        isDraft
+          ? (isVi ? 'Đã lưu bản nháp đánh giá lâm sàng thành công!' : 'Draft clinical assessment saved successfully!')
+          : (isVi ? 'Đã ký số và phê duyệt kết quả chẩn đoán thành công!' : 'Screening validated and signed successfully!')
+      );
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 4000);
     } catch (e) {
@@ -99,12 +121,25 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       {saveSuccess && (
         <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{t('doctor.validationBar.savedSuccess', 'Đã lưu kết luận lâm sàng và đồng bộ báo cáo sàng lọc thành công!')}</span>
+          <span>{successMessage || t('doctor.validationBar.savedSuccess', 'Đã lưu kết luận lâm sàng và đồng bộ báo cáo sàng lọc thành công!')}</span>
+        </div>
+      )}
+
+      {overrideError && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-2 animate-in fade-in">
+          <span>{overrideError}</span>
+          <button
+            type="button"
+            onClick={() => setOverrideError(null)}
+            className="text-red-500 hover:text-red-700 font-bold"
+          >
+            ✕
+          </button>
         </div>
       )}
 
       {/* Action Controls */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {/* Left: Decision & Risk Override */}
         <div className="space-y-3">
           <div>
@@ -120,7 +155,10 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setDecision(opt.id as any)}
+                  onClick={() => {
+                    setDecision(opt.id as any);
+                    if (opt.id !== 'MODIFIED') setOverrideError(null);
+                  }}
                   className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
                     decision === opt.id
                       ? opt.id === 'APPROVED'
@@ -192,6 +230,26 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
                   ))}
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-amber-900 mb-1">
+                  {isVi ? 'Lý do hiệu chỉnh nguy cơ (Bắt buộc):' : 'Override Reason (Required):'} *
+                </label>
+                <textarea
+                  rows={2}
+                  value={overrideReason}
+                  onChange={(e) => {
+                    setOverrideReason(e.target.value);
+                    if (e.target.value.trim()) setOverrideError(null);
+                  }}
+                  placeholder={
+                    isVi
+                      ? 'Nhập căn cứ lâm sàng khi điều chỉnh phân tầng nguy cơ của AI (ví dụ: tiền sử bệnh nhân, triệu chứng kèm theo, biến chứng đáy mắt...)'
+                      : 'Enter clinical rationale for altering AI risk classification...'
+                  }
+                  className="w-full text-xs p-2.5 rounded-lg border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
             </div>
           )}
 
@@ -209,33 +267,57 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
           </div>
         </div>
 
-        {/* Right: Notes */}
+        {/* Right: Notes & Recommendations */}
         <div className="space-y-3 flex flex-col justify-between">
-          <div>
-            <label className="block text-xs font-semibold text-clinical-text mb-1">
-              {t('doctor.validationBar.notesLabel', 'Ghi chú chẩn đoán lâm sàng:')}
-            </label>
-            <textarea
-              rows={4}
-              value={doctorNotes}
-              onChange={(e) => setDoctorNotes(e.target.value)}
-              placeholder={isVi ? "Nhập chẩn đoán chuyên môn, hướng dẫn điều trị bổ sung..." : "Enter clinical findings, supplementary treatment guidelines..."}
-              className="w-full text-xs p-3 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-clinical-text mb-1">
+                {t('doctor.validationBar.notesLabel', 'Ghi chú chẩn đoán lâm sàng:')}
+              </label>
+              <textarea
+                rows={3}
+                value={doctorNotes}
+                onChange={(e) => setDoctorNotes(e.target.value)}
+                placeholder={isVi ? "Nhập chẩn đoán chuyên môn, hướng dẫn điều trị bổ sung..." : "Enter clinical findings, supplementary treatment guidelines..."}
+                className="w-full text-xs p-3 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-clinical-text mb-1">
+                {isVi ? 'Khuyến nghị y khoa & Kế hoạch theo dõi:' : 'Recommendations & Follow-up:'}
+              </label>
+              <textarea
+                rows={2}
+                value={recommendations}
+                onChange={(e) => setRecommendations(e.target.value)}
+                placeholder={isVi ? "Ví dụ: Tái khám chuyên khoa sau 3 tháng, kiểm soát huyết áp < 130/80..." : "e.g., Follow up in 3 months, monitor BP < 130/80..."}
+                className="w-full text-xs p-2.5 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#EAECF0]">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              loading={saving || isSubmitting}
+              onClick={() => handleSave(true)}
+            >
+              {isVi ? 'Lưu bản nháp' : 'Save Draft'}
+            </Button>
             <Button
               type="button"
               variant="primary"
-              size="md"
+              size="sm"
               loading={saving || isSubmitting}
-              onClick={handleSave}
+              onClick={() => handleSave(false)}
               icon={<Save className="w-4 h-4" />}
             >
               {saving || isSubmitting
                 ? t('doctor.validationBar.savingButton', 'Đang lưu và ký số...')
-                : t('doctor.validationBar.saveButton', 'Ký Số & Lưu Kết Quả Lâm Sàng')}
+                : t('doctor.validationBar.saveButton', 'Ký Số & Phê Duyệt')}
             </Button>
           </div>
         </div>

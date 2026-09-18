@@ -384,10 +384,10 @@ export const ClinicBatchWorkspace: React.FC<ClinicBatchWorkspaceProps> = ({
       <div className="flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2.5">
           <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <UploadCloud className="w-5 h-5 text-[#0891B2]" />
+            <UploadCloud className="w-5 h-5 text-[#3478F6]" />
             {t('clinic.batchWorkspace.campaignImagesTitle')}
           </h3>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200/80">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EEF5FF] text-[#3478F6] border border-[#BFDBFE]">
             ({filteredItems.length})
           </span>
         </div>

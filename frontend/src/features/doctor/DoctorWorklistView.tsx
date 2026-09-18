@@ -602,7 +602,7 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2.5">
           <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Stethoscope className="w-5 h-5 text-[#0891B2]" />
+            <Stethoscope className="w-5 h-5 text-[#3478F6]" />
             {t('doctor.worklist.title', 'Danh sách bệnh nhân')}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200/80">

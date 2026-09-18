@@ -9,10 +9,12 @@ import com.aura.screening.entity.Screening;
 import com.aura.screening.entity.ScreeningStatus;
 import com.aura.screening.repository.ScreeningRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.aura.realtime.RealtimeEventPublisher;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -21,7 +23,10 @@ import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +47,38 @@ public class ScreeningService {
   private final com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private SimpMessagingTemplate messagingTemplate;
+
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private RealtimeEventPublisher realtimeEventPublisher;
+
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.aura.system.service.SystemConfigService systemConfigService;
+
+  public void setMessagingTemplate(SimpMessagingTemplate messagingTemplate) {
+    this.messagingTemplate = messagingTemplate;
+  }
+
+  public void setRealtimeEventPublisher(RealtimeEventPublisher realtimeEventPublisher) {
+    this.realtimeEventPublisher = realtimeEventPublisher;
+  }
+
+  public void setSystemConfigService(com.aura.system.service.SystemConfigService systemConfigService) {
+    this.systemConfigService = systemConfigService;
+  }
+
+  private RealtimeEventPublisher getPublisher() {
+    if (this.realtimeEventPublisher != null) {
+      return this.realtimeEventPublisher;
+    }
+    if (this.messagingTemplate != null) {
+      this.realtimeEventPublisher = new RealtimeEventPublisher(this.messagingTemplate);
+      return this.realtimeEventPublisher;
+    }
+    return null;
+  }
+
   @Value("${aura.signature.secret:AURA_REVIEW_SIGNATURE_SECRET_2026}")
   private String signatureSecret = "AURA_REVIEW_SIGNATURE_SECRET_2026";
 
@@ -56,7 +93,8 @@ public class ScreeningService {
       GeminiRetinalAiService geminiAiService,
       @org.springframework.beans.factory.annotation.Autowired(required = false) com.aura.billing.service.BillingService billingService,
       @org.springframework.beans.factory.annotation.Autowired(required = false) com.aura.patient.repository.PatientProfileRepository patientProfileRepository,
-      @org.springframework.beans.factory.annotation.Autowired(required = false) com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository) {
+      @org.springframework.beans.factory.annotation.Autowired(required = false) com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository,
+      @org.springframework.beans.factory.annotation.Autowired(required = false) com.aura.system.service.SystemConfigService systemConfigService) {
     this.screeningRepository = screeningRepository;
     this.assignmentRepository = assignmentRepository;
     this.userNotificationService = userNotificationService;
@@ -67,6 +105,22 @@ public class ScreeningService {
     this.billingService = billingService;
     this.patientProfileRepository = patientProfileRepository;
     this.patientMedicalProfileRepository = patientMedicalProfileRepository;
+    this.systemConfigService = systemConfigService;
+  }
+
+  public ScreeningService(
+      ScreeningRepository screeningRepository,
+      com.aura.doctor.repository.DoctorPatientAssignmentRepository assignmentRepository,
+      com.aura.notification.service.UserNotificationService userNotificationService,
+      com.aura.audit.service.AuditLogService auditLogService,
+      com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepository,
+      com.aura.user.repository.UserRepository userRepository,
+      GeminiRetinalAiService geminiAiService,
+      com.aura.billing.service.BillingService billingService,
+      com.aura.patient.repository.PatientProfileRepository patientProfileRepository,
+      com.aura.patient.repository.PatientMedicalProfileRepository patientMedicalProfileRepository) {
+    this(screeningRepository, assignmentRepository, userNotificationService, auditLogService, clinicMemberRepository,
+        userRepository, geminiAiService, billingService, patientProfileRepository, patientMedicalProfileRepository, null);
   }
 
   public ScreeningService(
@@ -167,6 +221,20 @@ public class ScreeningService {
     // gán bác sĩ)
     resolveAndAssignDoctorAndClinic(screening, patientId);
 
+    var pub1 = getPublisher();
+    if (pub1 != null) {
+      pub1.publishScreeningCreated(screening);
+      pub1.publishScreeningProcessing(
+          patientId,
+          screening.getId(),
+          "IMAGE_UPLOADED",
+          1,
+          5,
+          "Tải ảnh thành công",
+          "Đã tải ảnh võng mạc lên hệ thống và kiểm tra định dạng"
+      );
+    }
+
     // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, eye, request.imageUrl());
 
@@ -194,6 +262,20 @@ public class ScreeningService {
     }
 
     resolveAndAssignDoctorAndClinic(screening, patientId);
+
+    var pub2 = getPublisher();
+    if (pub2 != null) {
+      pub2.publishScreeningCreated(screening);
+      pub2.publishScreeningProcessing(
+          patientId,
+          screening.getId(),
+          "IMAGE_UPLOADED",
+          1,
+          5,
+          "Tải ảnh thành công",
+          "Đã tải ảnh võng mạc lên hệ thống và kiểm tra định dạng"
+      );
+    }
 
     // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, "OD", imageUrl);
@@ -279,6 +361,27 @@ public class ScreeningService {
 
   private void executeAiAnalysisAndPopulate(Screening screening, String eye, String imageUrl) {
     try {
+      var pub = getPublisher();
+      if (pub != null) {
+        pub.publishScreeningProcessing(
+            screening.getPatientId(),
+            screening.getId(),
+            "PREPARING_ANALYSIS",
+            2,
+            5,
+            "Khởi tạo phân tích",
+            "Khởi tạo mã hóa bảo mật & tiền xử lý ảnh võng mạc..."
+        );
+        pub.publishScreeningProcessing(
+            screening.getPatientId(),
+            screening.getId(),
+            "GEMINI_INFERENCE",
+            3,
+            5,
+            "AURA AI Core",
+            "Hệ thống AURA AI đang phân tích vi mạch..."
+        );
+      }
       Map body = null;
       // 1. Cloud AI Engine (Gemini 3.7 Flash High API)
       if (geminiAiService != null) {
@@ -300,14 +403,22 @@ public class ScreeningService {
           throw new IllegalStateException("AI response is missing overallVascularRiskScore");
         }
         int score = overallRisk.intValue();
-        if (score >= 80)
+        int criticalLimit = systemConfigService != null ? systemConfigService.getCriticalThreshold() : 80;
+        int highLimit = systemConfigService != null ? systemConfigService.getHighThreshold() : 65;
+        int modLimit = systemConfigService != null ? systemConfigService.getModerateThreshold() : 40;
+        String modelVer = systemConfigService != null ? systemConfigService.getActiveModelVersion() : "Gemini 3.7 Flash High / AURA-Core v2.4";
+
+        if (score >= criticalLimit)
           calculatedRisk = RiskLevel.CRITICAL;
-        else if (score >= 65)
+        else if (score >= highLimit)
           calculatedRisk = RiskLevel.HIGH;
-        else if (score >= 40)
+        else if (score >= modLimit)
           calculatedRisk = RiskLevel.MODERATE;
         else
           calculatedRisk = RiskLevel.LOW;
+
+        screening.setAiModelVersion(modelVer);
+        screening.setAppliedThresholds(String.format("CRIT:%d,HIGH:%d,MOD:%d", criticalLimit, highLimit, modLimit));
 
         Double confidence = null;
         Number conf = (Number) body.get("confidence");
@@ -364,9 +475,9 @@ public class ScreeningService {
 
               String etdrs = (String) prediction.get("etdrsGrade");
               if (etdrs == null || etdrs.isBlank()) {
-                if (predScore >= 80 || "CRITICAL".equalsIgnoreCase(predRiskLevel)) {
+                if (predScore >= criticalLimit || "CRITICAL".equalsIgnoreCase(predRiskLevel)) {
                   etdrs = "Cấp độ 4 (PDR - Tăng sinh)";
-                } else if (predScore >= 65 || "HIGH".equalsIgnoreCase(predRiskLevel)) {
+                } else if (predScore >= highLimit || "HIGH".equalsIgnoreCase(predRiskLevel)) {
                   etdrs = "Cấp độ 3 (NPDR nặng - Tiền tăng sinh)";
                 } else if (predScore >= 45 || "MODERATE".equalsIgnoreCase(predRiskLevel)) {
                   etdrs = "Cấp độ 2 (NPDR trung bình)";
@@ -451,6 +562,26 @@ public class ScreeningService {
         screening.setFindings(findings);
         // --- FR-5: auto-generate health recommendations/warnings from the computed
         // risk level ---
+        if (pub != null) {
+          pub.publishScreeningProcessing(
+              screening.getPatientId(),
+              screening.getId(),
+              "GENERATING_RESULT",
+              4,
+              5,
+              "Trích xuất bản đồ & biomarkers",
+              "Nhận diện vi phình mạch, xuất huyết & tính toán Biomarkers..."
+          );
+          pub.publishScreeningProcessing(
+              screening.getPatientId(),
+              screening.getId(),
+              "SAVING_RESULT",
+              5,
+              5,
+              "Lưu trữ kết quả",
+              "Đang lưu kết quả & đồng bộ hồ sơ bệnh án..."
+          );
+        }
         screening.setRecommendations(generateRecommendations(calculatedRisk));
         screening.setStatus(ScreeningStatus.ANALYZED);
       } else {
@@ -462,6 +593,14 @@ public class ScreeningService {
         screening.setConfidence(null);
         screening.setDetectedAnomalies("[]");
         screening.setFindings("Dịch vụ AI trả về kết quả không hợp lệ. Ảnh chụp đã được lưu trữ an toàn.");
+        if (pub != null) {
+          pub.publishScreeningFailed(
+              screening.getPatientId(),
+              screening.getId(),
+              "AI_INVALID_RESPONSE",
+              "Dịch vụ AI trả về kết quả không hợp lệ. Ảnh chụp đã được lưu trữ an toàn."
+          );
+        }
       }
     } catch (Exception e) {
       log.error("AI service call failed (server offline or inference error): {}", e.getMessage());
@@ -473,6 +612,15 @@ public class ScreeningService {
       screening.setDetectedAnomalies("[]");
       screening.setFindings(
           "Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại.");
+      var pub = getPublisher();
+      if (pub != null) {
+        pub.publishScreeningFailed(
+            screening.getPatientId(),
+            screening.getId(),
+            "AI_INFERENCE_TIMEOUT",
+            "Không thể kết nối đến máy chủ phân tích AI. Ảnh chụp võng mạc đã được lưu trữ an toàn để thẩm định lại."
+        );
+      }
     }
   }
 
@@ -486,6 +634,44 @@ public class ScreeningService {
             "AI_READY",
             "INFO",
             "/cds-viewer");
+
+        if (saved.getDoctorId() != null) {
+          userNotificationService.sendNotificationToUser(
+              saved.getDoctorId(),
+              "Ca khám mới cần thẩm định",
+              "Bệnh nhân đã tải ảnh võng mạc và AI đã phân tích xong. Vui lòng kiểm tra và thẩm định ca khám.",
+              "DOCTOR_REVIEW",
+              "INFO",
+              "/doctor/worklist");
+        }
+
+        var pub = getPublisher();
+        if (pub != null) {
+          Map<String, Object> biomarkersMap = new HashMap<>();
+          if (saved.getAvRatio() != null) biomarkersMap.put("avRatio", saved.getAvRatio());
+          if (saved.getVesselDensityPercent() != null) biomarkersMap.put("vesselDensityPercent", saved.getVesselDensityPercent());
+          if (saved.getTortuosityIndex() != null) biomarkersMap.put("tortuosityIndex", saved.getTortuosityIndex());
+          if (saved.getVerticalCdr() != null) biomarkersMap.put("verticalCdr", saved.getVerticalCdr());
+
+          int detectedCount = 0;
+          if (saved.getDetectedAnomalies() != null && !saved.getDetectedAnomalies().isBlank() && !saved.getDetectedAnomalies().equals("[]")) {
+            try {
+              List<?> anomalies = objectMapper.readValue(saved.getDetectedAnomalies(), List.class);
+              detectedCount = anomalies != null ? anomalies.size() : 0;
+            } catch (Exception ignored) {}
+          }
+          pub.publishScreeningCompleted(saved, biomarkersMap, detectedCount);
+        }
+      } else if (saved.getStatus() == ScreeningStatus.FAILED) {
+        var pub = getPublisher();
+        if (pub != null) {
+          pub.publishScreeningFailed(
+              patientId,
+              saved.getId(),
+              "SCREENING_FAILED",
+              saved.getFindings() != null ? saved.getFindings() : "Quá trình phân tích AI gặp sự cố"
+          );
+        }
       }
     } catch (Exception e) {
       log.warn("Không thể gửi thông báo AI_READY: {}", e.getMessage());
@@ -587,6 +773,108 @@ public class ScreeningService {
   }
 
   @Transactional(readOnly = true)
+  public Page<Screening> getAllScreenings(Pageable pageable) {
+    return screeningRepository.findAllByOrderByCreatedAtDesc(pageable);
+  }
+
+  @Transactional(readOnly = true)
+  public Page<Screening> getScreeningsForPatient(UUID patientId, Pageable pageable) {
+    if (patientId == null) {
+      return Page.empty(pageable);
+    }
+    List<UUID> candidateIds = new ArrayList<>();
+    candidateIds.add(patientId);
+
+    if (patientProfileRepository != null) {
+      patientProfileRepository.findByUserId(patientId).ifPresent(p -> {
+        if (p.getId() != null && !candidateIds.contains(p.getId()))
+          candidateIds.add(p.getId());
+      });
+      patientProfileRepository.findById(patientId).ifPresent(p -> {
+        if (p.getUserId() != null && !candidateIds.contains(p.getUserId()))
+          candidateIds.add(p.getUserId());
+      });
+    }
+
+    if (patientMedicalProfileRepository != null) {
+      patientMedicalProfileRepository.findByUserId(patientId).ifPresent(p -> {
+        if (p.getId() != null && !candidateIds.contains(p.getId()))
+          candidateIds.add(p.getId());
+      });
+      patientMedicalProfileRepository.findById(patientId).ifPresent(p -> {
+        if (p.getUser() != null && p.getUser().getId() != null && !candidateIds.contains(p.getUser().getId())) {
+          candidateIds.add(p.getUser().getId());
+        }
+      });
+    }
+
+    if (candidateIds.size() == 1) {
+      return screeningRepository.findByPatientIdOrderByCreatedAtDesc(patientId, pageable);
+    }
+    return screeningRepository.findByPatientIdInOrderByCreatedAtDesc(candidateIds, pageable);
+  }
+
+  @Transactional(readOnly = true)
+  public Page<Screening> getScreeningsForDoctor(UUID doctorId, Pageable pageable) {
+    List<UUID> assignedPatientIds = new ArrayList<>();
+    if (assignmentRepository != null) {
+      List<UUID> ids = assignmentRepository.findPatientIdsByDoctorIdAndStatus(
+          doctorId, com.aura.doctor.entity.AssignmentStatus.ACTIVE);
+      if (ids != null) {
+        assignedPatientIds.addAll(ids);
+      }
+    }
+
+    if (userRepository != null && doctorId != null) {
+      userRepository.findById(doctorId).ifPresent(doc -> {
+        if (doc.getFullName() != null && !doc.getFullName().isBlank()) {
+          String docName = doc.getFullName().trim();
+          if (patientProfileRepository != null) {
+            var profilesByDoctor = patientProfileRepository.findByAssignedDoctor(docName);
+            if (profilesByDoctor != null) {
+              for (var p : profilesByDoctor) {
+                if (p.getUserId() != null && !assignedPatientIds.contains(p.getUserId())) {
+                  assignedPatientIds.add(p.getUserId());
+                }
+                if (p.getId() != null && !assignedPatientIds.contains(p.getId())) {
+                  assignedPatientIds.add(p.getId());
+                }
+              }
+            }
+          }
+          if (patientMedicalProfileRepository != null) {
+            var medProfilesByDoctor = patientMedicalProfileRepository.findByAssignedDoctor(docName);
+            if (medProfilesByDoctor != null) {
+              for (var med : medProfilesByDoctor) {
+                if (med.getUser() != null && med.getUser().getId() != null
+                    && !assignedPatientIds.contains(med.getUser().getId())) {
+                  assignedPatientIds.add(med.getUser().getId());
+                }
+                if (med.getId() != null && !assignedPatientIds.contains(med.getId())) {
+                  assignedPatientIds.add(med.getId());
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    if (assignedPatientIds.isEmpty()) {
+      return Page.empty(pageable);
+    }
+    return screeningRepository.findByPatientIdInOrderByCreatedAtDesc(assignedPatientIds, pageable);
+  }
+
+  @Transactional(readOnly = true)
+  public Page<Screening> getScreeningsForClinic(UUID clinicId, Pageable pageable) {
+    if (clinicId == null) {
+      return Page.empty(pageable);
+    }
+    return screeningRepository.findByClinicIdOrderByCreatedAtDesc(clinicId, pageable);
+  }
+
+  @Transactional(readOnly = true)
   public Screening getScreeningById(UUID id) {
     return screeningRepository
         .findById(id)
@@ -641,6 +929,30 @@ public class ScreeningService {
           "/scan-history");
     } catch (Exception e) {
       log.warn("Không thể gửi thông báo DOCTOR_REVIEW: {}", e.getMessage());
+    }
+
+    try {
+      var pub = getPublisher();
+      if (pub != null) {
+        String doctorName = "Bác sĩ chuyên khoa";
+        if (userRepository != null && doctorId != null) {
+          doctorName = userRepository.findById(doctorId)
+              .map(u -> u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : u.getEmail())
+              .orElse("Bác sĩ chuyên khoa");
+        }
+        pub.publishDoctorReviewed(saved, doctorName, decision, doctorNotes, icd10Codes);
+
+        boolean isModified = decision == ReviewDecision.MODIFIED
+            || (saved.getDoctorRiskLevel() != null && saved.getOriginalAiRiskLevel() != null
+                && !saved.getDoctorRiskLevel().equals(saved.getOriginalAiRiskLevel()));
+        if (isModified) {
+          String origRisk = saved.getOriginalAiRiskLevel() != null ? saved.getOriginalAiRiskLevel().name() : "UNKNOWN";
+          String adjRisk = saved.getRiskLevel() != null ? saved.getRiskLevel().name() : "MODIFIED";
+          pub.publishDoctorOverride(saved, origRisk, adjRisk, doctorNotes != null ? doctorNotes : "Bác sĩ điều chỉnh phân tầng rủi ro lâm sàng");
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Không thể publish STOMP DOCTOR_REVIEW: {}", e.getMessage());
     }
 
     return saved;
