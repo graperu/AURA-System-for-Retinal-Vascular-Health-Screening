@@ -1,6 +1,9 @@
+# Environment & Secrets
 .env
 .env*
 *.env
+
+# Dependencies & Build Outputs
 node_modules/
 dist/
 target/
@@ -9,6 +12,15 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# Internal Agent & Task Artifacts
+opencode.json
 .opencode.json
+ORIGINAL_REQUEST.md
 .company_agents/
-.scripts
+.agents/
+
+# Helper Scripts & Launchers
+scripts/
+.scripts/
+*.bat
