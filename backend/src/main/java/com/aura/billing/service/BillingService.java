@@ -368,21 +368,41 @@ public class BillingService {
     }
 
     @Transactional
-    public boolean deductCredit(UUID ownerId) {
+    public boolean deductCredits(UUID ownerId, int amount) {
+        if (ownerId == null || amount <= 0) {
+            return true;
+        }
         List<Subscription> activeSubs = subscriptionRepository.findByOwnerIdForUpdate(ownerId).stream()
                 .map(this::expireIfPast)
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE && s.getRemainingCredits() > 0)
                 .sorted(java.util.Comparator.comparing(Subscription::getExpiresAt))
                 .toList();
 
-        if (activeSubs.isEmpty()) {
+        int totalAvailable = activeSubs.stream().mapToInt(Subscription::getRemainingCredits).sum();
+        if (totalAvailable < amount) {
             return false;
         }
 
-        Subscription sub = activeSubs.get(0);
-        sub.setRemainingCredits(sub.getRemainingCredits() - 1);
-        subscriptionRepository.save(sub);
+        int remainingToDeduct = amount;
+        for (Subscription sub : activeSubs) {
+            int subCredits = sub.getRemainingCredits();
+            if (subCredits >= remainingToDeduct) {
+                sub.setRemainingCredits(subCredits - remainingToDeduct);
+                subscriptionRepository.save(sub);
+                remainingToDeduct = 0;
+                break;
+            } else {
+                remainingToDeduct -= subCredits;
+                sub.setRemainingCredits(0);
+                subscriptionRepository.save(sub);
+            }
+        }
         return true;
+    }
+
+    @Transactional
+    public boolean deductCredit(UUID ownerId) {
+        return deductCredits(ownerId, 1);
     }
 
     @Transactional

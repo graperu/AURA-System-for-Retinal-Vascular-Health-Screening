@@ -199,10 +199,37 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
 
           // Process screenings response
           if (screeningsResult.status === 'fulfilled' && screeningsResult.value.success && Array.isArray(screeningsResult.value.data) && screeningsResult.value.data.length > 0) {
-            const targetScreening = specificScreeningId
+            let targetScreening = specificScreeningId
               ? screeningsResult.value.data.find((s: any) => String(s.id) === String(specificScreeningId)) || screeningsResult.value.data[0]
               : screeningsResult.value.data[0];
+
+            // On-demand full detail fetch if lightweight summary lacks heatmapBase64, vesselMaskUrl, or detectedAnomalies
+            if (
+              targetScreening?.id &&
+              (!targetScreening.heatmapBase64 || !targetScreening.vesselMaskUrl || !targetScreening.detectedAnomalies)
+            ) {
+              try {
+                const fullRes = await screeningApi.getById(String(targetScreening.id));
+                if (fullRes && fullRes.success && fullRes.data) {
+                  targetScreening = { ...targetScreening, ...fullRes.data };
+                }
+              } catch (fetchErr) {
+                console.warn('[CDSDashboardPage] Could not hydrate full screening details on-demand:', fetchErr);
+              }
+            }
+
             setAnalysisResult(mapScreeningToAIRiskResult(targetScreening, targetScreening.imageUrl));
+          } else if (specificScreeningId) {
+            try {
+              const directRes = await screeningApi.getById(specificScreeningId);
+              if (directRes && directRes.success && directRes.data) {
+                setAnalysisResult(mapScreeningToAIRiskResult(directRes.data, directRes.data.imageUrl));
+              } else {
+                setAnalysisResult(null);
+              }
+            } catch {
+              setAnalysisResult(null);
+            }
           } else {
             setAnalysisResult(null);
           }
@@ -858,7 +885,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       initial="initial"
       animate="animate"
       exit="exit"
-      className="space-y-4"
+      className="space-y-3 xl:h-[calc(100vh-100px)] xl:overflow-hidden flex flex-col"
     >
       {/* Toast notification */}
       {feedbackSuccessToast && (
@@ -886,17 +913,17 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         </div>
       )}
 
-      {/* Top Header Bar */}
-      <div className="bg-white border border-[#EAECF0] rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] flex items-center justify-center font-bold shrink-0">
-            <UserCheck className="w-5 h-5" />
+      {/* Top Header Bar (Slim 52px Patient Banner) */}
+      <div className="bg-white border border-[#EAECF0] rounded-xl px-3.5 py-1.5 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shrink-0 min-h-[52px]">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] flex items-center justify-center font-bold shrink-0">
+            <UserCheck className="w-4 h-4" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2
                 onClick={() => setIsProfileModalOpen(true)}
-                className="text-base font-bold text-slate-900 truncate hover:text-[#3478F6] hover:underline cursor-pointer"
+                className="text-sm font-bold text-slate-900 truncate hover:text-[#3478F6] hover:underline cursor-pointer"
                 title={isVi ? 'Xem hồ sơ bệnh nhân' : 'View patient profile'}
               >
                 {activePatient.fullName || (isVi ? 'Chưa cập nhật tên' : 'Unnamed')}
@@ -908,9 +935,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                 ({activePatient.age ? `${activePatient.age} ${t('doctor.cds.yearsOld', 'tuổi')}` : 'Chưa cập nhật tuổi'} •{' '}
                 {activePatient.gender === 'Female' ? t('common.gender.female', 'Nữ') : t('common.gender.male', 'Nam')})
               </span>
-            </div>
-            <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-3">
-              <span>
+              <span className="text-xs text-slate-500 ml-1">
                 {t('doctor.cds.bloodPressure', 'Huyết áp')}:{' '}
                 <strong className="text-slate-800 font-mono-data">
                   {activePatient.systolicBp && activePatient.diastolicBp
@@ -918,7 +943,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                     : 'Chưa đo'}
                 </strong>
               </span>
-              <span>
+              <span className="text-xs text-slate-500 ml-1">
                 {t('doctor.cds.hba1c', 'HbA1c')}:{' '}
                 <strong className="text-slate-800 font-mono-data">
                   {activePatient.hba1c ? `${activePatient.hba1c}%` : 'Chưa đo'}
@@ -929,11 +954,11 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         </div>
 
         {/* Quick actions */}
-        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
           <button
             type="button"
             onClick={() => setIsProfileModalOpen(true)}
-            className="px-3 py-1.5 bg-[#F5F6F8] hover:bg-[#EAECF0] text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-[#EAECF0]"
+            className="px-2.5 py-1 bg-[#F5F6F8] hover:bg-[#EAECF0] text-slate-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-[#EAECF0]"
             title={isVi ? 'Xem hồ sơ bệnh nhân' : 'View patient profile'}
           >
             <UserCheck className="w-3.5 h-3.5 text-[#3478F6]" />
@@ -942,7 +967,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
           <button
             type="button"
             onClick={() => setIsNewScanOpen(!isNewScanOpen)}
-            className={`px-3 py-1.5 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-xs border ${
+            className={`px-2.5 py-1 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-xs border ${
               isNewScanOpen
                 ? 'bg-slate-800 hover:bg-slate-900 text-white border-slate-700'
                 : 'bg-white hover:bg-slate-50 text-[#3478F6] border-[#3478F6]/40 hover:border-[#3478F6]'
@@ -955,7 +980,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
           </button>
           <button
             onClick={() => setIsChatModalOpen(true)}
-            className="px-3 py-1.5 bg-[#F5F6F8] hover:bg-[#EAECF0] text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-[#EAECF0]"
+            className="px-2.5 py-1 bg-[#F5F6F8] hover:bg-[#EAECF0] text-slate-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-[#EAECF0]"
           >
             <MessageSquare className="w-3.5 h-3.5 text-[#3478F6]" />
             <span>{isVi ? 'Nhắn Tin' : 'Message'}</span>
@@ -963,7 +988,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
           <button
             onClick={() => setIsReportModalOpen(true)}
             disabled={!analysisResult}
-            className="px-3 py-1.5 bg-[#3478F6] hover:bg-[#2563EB] text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 shadow-xs"
+            className="px-2.5 py-1 bg-[#3478F6] hover:bg-[#2563EB] text-white font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 shadow-xs"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>{isVi ? 'In Phiếu' : 'Report'}</span>
@@ -972,13 +997,13 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       </div>
 
       {/* 3-COLUMN CLINICAL REVIEW WORKSPACE (Requirement R4) */}
-      <div className="flex flex-col xl:flex-row gap-5 items-start">
+      <div className="flex flex-col xl:flex-row gap-4 items-start flex-1 min-h-0 xl:overflow-hidden">
         {/* ===================================================================
             CỘT TRÁI (260-300px, 280px): DANH SÁCH BỆNH NHÂN (PATIENT QUEUE)
         =================================================================== */}
-        <div className="w-full xl:w-[260px] 2xl:w-[280px] shrink-0 space-y-3">
-          <div className="bg-white rounded-2xl border border-[#EAECF0] p-3.5 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
+        <div className="w-full xl:w-[260px] 2xl:w-[280px] shrink-0 h-full flex flex-col">
+          <div className="bg-white rounded-2xl border border-[#EAECF0] p-3 shadow-xs space-y-2.5 h-full flex flex-col">
+            <div className="flex items-center justify-between shrink-0">
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-[#3478F6]" />
                 {isVi ? 'Danh Sách Bệnh Nhân' : 'Patient Queue'}
@@ -989,7 +1014,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
             </div>
 
             {/* Patient Cards List */}
-            <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+            <div className="space-y-2 flex-1 overflow-y-auto pr-1">
               {assignedPatients.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400">
                   {isVi ? 'Chưa có bệnh nhân nào' : 'No patients found'}
@@ -1050,7 +1075,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         {/* ===================================================================
             CỘT GIỮA (FLEX-GROW): TRÌNH XEM ẢNH & KẾT QUẢ AI (CDS VIEWER)
         =================================================================== */}
-        <div className="flex-1 min-w-0 space-y-4">
+        <div className="flex-1 min-w-0 h-full overflow-y-auto pr-1 space-y-3">
           {isScreeningLoading ? (
             <div className="bg-white border border-[#EAECF0] rounded-2xl p-10 text-center flex flex-col items-center justify-center min-h-[420px] space-y-3">
               <Loader2 className="w-8 h-8 text-[#3478F6] animate-spin" />
@@ -1158,16 +1183,16 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         {/* ===================================================================
             CỘT PHẢI (320-360px, 340px): ĐÁNH GIÁ & KÝ DUYỆT BÁC SĨ (DOCTOR ASSESSMENT)
         =================================================================== */}
-        <div className="w-full xl:w-[320px] 2xl:w-[340px] shrink-0 space-y-4">
+        <div className="w-full xl:w-[320px] 2xl:w-[340px] shrink-0 h-full flex flex-col">
           {analysisResult ? (
-            <div className="space-y-4">
+            <div className="h-full">
               <ClinicalValidationBar
                 analysisId={analysisResult.analysisId}
                 onSaveFeedback={handleSaveFeedback}
               />
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-[#EAECF0] p-5 text-center text-xs text-slate-400 space-y-2">
+            <div className="bg-white rounded-2xl border border-[#EAECF0] p-5 text-center text-xs text-slate-400 space-y-2 h-full flex flex-col items-center justify-center">
               <ShieldCheck className="w-8 h-8 text-slate-300 mx-auto" />
               <p className="font-semibold text-slate-600">
                 {isVi ? 'Bảng Đánh Giá Lâm Sàng' : 'Clinical Assessment'}

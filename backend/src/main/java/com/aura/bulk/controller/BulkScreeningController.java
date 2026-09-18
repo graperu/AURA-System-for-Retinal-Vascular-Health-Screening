@@ -38,23 +38,41 @@ public class BulkScreeningController {
     private final BatchJobQueue jobQueue;
     private final com.aura.bulk.repository.BulkScreeningBatchRepository batchRepository;
     private final com.aura.bulk.repository.BulkScreeningItemRepository itemRepository;
+    private final com.aura.billing.service.BillingService billingService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public BulkScreeningController(
             PatientAnonymizerService anonymizerService,
             BatchJobQueue jobQueue,
             com.aura.bulk.repository.BulkScreeningBatchRepository batchRepository,
-            com.aura.bulk.repository.BulkScreeningItemRepository itemRepository) {
+            com.aura.bulk.repository.BulkScreeningItemRepository itemRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.aura.billing.service.BillingService billingService) {
         this.anonymizerService = anonymizerService;
         this.jobQueue = jobQueue;
         this.batchRepository = batchRepository;
         this.itemRepository = itemRepository;
+        this.billingService = billingService;
+    }
+
+    public BulkScreeningController(
+            PatientAnonymizerService anonymizerService,
+            BatchJobQueue jobQueue,
+            com.aura.bulk.repository.BulkScreeningBatchRepository batchRepository,
+            com.aura.bulk.repository.BulkScreeningItemRepository itemRepository) {
+        this(anonymizerService, jobQueue, batchRepository, itemRepository, null);
     }
 
     public BulkScreeningController(
             PatientAnonymizerService anonymizerService,
             BatchJobQueue jobQueue) {
-        this(anonymizerService, jobQueue, null, null);
+        this(anonymizerService, jobQueue, null, null, null);
+    }
+
+    public BulkScreeningController(
+            PatientAnonymizerService anonymizerService,
+            BatchJobQueue jobQueue,
+            com.aura.billing.service.BillingService billingService) {
+        this(anonymizerService, jobQueue, null, null, billingService);
     }
 
     private boolean hasRole(AuraUserPrincipal principal, String role) {
@@ -118,17 +136,30 @@ public class BulkScreeningController {
             effectiveClinicId = (request.clinicId() != null && !request.clinicId().isBlank()) ? request.clinicId() : "33333333-3333-3333-3333-333333333333";
         }
 
-        String batchId = "BATCH-" + System.currentTimeMillis();
-        log.info("Creating Bulk Batch Job {} for Clinic {} with {} images.", batchId, effectiveClinicId, request.imageItems().size());
-
-        jobQueue.createBatchJob(batchId, effectiveClinicId, request.imageItems().size());
-
         java.util.UUID clinicUuid;
         try {
             clinicUuid = java.util.UUID.fromString(effectiveClinicId);
         } catch (Exception e) {
             clinicUuid = java.util.UUID.fromString("33333333-3333-3333-3333-333333333333");
         }
+
+        int requiredCredits = request.imageItems().size();
+        int availableCredits = billingService != null ? billingService.getRemainingCredits(clinicUuid) : Integer.MAX_VALUE;
+        if (requiredCredits > availableCredits) {
+            throw new IllegalArgumentException(String.format("Cơ sở y tế không đủ lượt quét khả dụng (Cần %d, hiện có %d). Vui lòng nạp thêm gói lượt khám.", requiredCredits, availableCredits));
+        }
+
+        if (billingService != null) {
+            boolean deducted = billingService.deductCredits(clinicUuid, requiredCredits);
+            if (!deducted) {
+                throw new IllegalArgumentException(String.format("Cơ sở y tế không đủ lượt quét khả dụng (Cần %d, hiện có %d). Vui lòng nạp thêm gói lượt khám.", requiredCredits, availableCredits));
+            }
+        }
+
+        String batchId = "BATCH-" + System.currentTimeMillis();
+        log.info("Creating Bulk Batch Job {} for Clinic {} with {} images.", batchId, effectiveClinicId, request.imageItems().size());
+
+        jobQueue.createBatchJob(batchId, effectiveClinicId, request.imageItems().size());
 
         com.aura.bulk.entity.BulkScreeningBatch batchEntity = null;
         if (batchRepository != null) {

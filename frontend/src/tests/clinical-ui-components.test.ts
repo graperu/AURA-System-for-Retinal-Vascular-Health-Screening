@@ -49,6 +49,7 @@ import {
   createEmptyBatchJob,
 } from '../pages/ClinicPortalPage.tsx';
 import type { AIRiskResult, ClinicBatchJob, PatientProfile } from '../types/cds.ts';
+import { normalizeImageDataUrl } from '../services/screeningMapper.ts';
 
 // Polyfill localStorage cho môi trường kiểm thử Node
 if (typeof globalThis.localStorage === 'undefined' || !globalThis.localStorage.getItem) {
@@ -61,6 +62,15 @@ if (typeof globalThis.localStorage === 'undefined' || !globalThis.localStorage.g
     key: (i: number) => Array.from(store.keys())[i] || null,
     length: 0,
   } as any;
+}
+
+// Polyfill Image cho môi trường kiểm thử Node
+if (typeof (globalThis as any).Image === 'undefined') {
+  (globalThis as any).Image = class MockImage {
+    crossOrigin?: string;
+    onload?: () => void;
+    src = '';
+  };
 }
 
 /**
@@ -2746,6 +2756,184 @@ runTest('LAB-DOCUMENTS-1: LabDocumentsPanel render vùng tải lên tài liệu 
   assert.ok(html.includes('Kết quả xét nghiệm đính kèm'), 'Có tiêu đề kết quả xét nghiệm đính kèm');
   assert.ok(html.includes('Chọn tệp (tối đa 10 MB)'), 'Có nút chọn tệp');
   assert.ok(html.includes('Chưa có kết quả xét nghiệm nào.'), 'Thông báo rỗng khi chưa có tài liệu');
+});
+
+// -----------------------------------------------------------------------------
+// PHẦN 15: KIỂM THỬ NẠP ẢNH AI VỮNG CHẮC, BẢO MẬT CANVAS & ĐỊNH VỊ TỔN THƯƠNG (MILESTONE 2)
+// -----------------------------------------------------------------------------
+console.log('\n--- 15. Kiểm Thử Nạp Ảnh AI Vững Chắc, Bảo Mật Canvas & Định Vị Tổn Thương (Milestone 2) ---');
+
+runTest('M2-NORMALIZE-1: normalizeImageDataUrl chuẩn hóa chính xác raw Base64 và bảo toàn các URL hợp lệ', () => {
+  const rawBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk';
+  assert.strictEqual(
+    normalizeImageDataUrl(rawBase64),
+    `data:image/png;base64,${rawBase64}`,
+    'Gắn đúng prefix data:image/png;base64, cho raw Base64'
+  );
+
+  const fullDataUri = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...';
+  assert.strictEqual(normalizeImageDataUrl(fullDataUri), fullDataUri, 'Bảo toàn nguyên vẹn data:image/ URL');
+
+  const blobUrl = 'blob:http://localhost:5173/3a9a16f8-45a7-476a-939a-65363402773c';
+  assert.strictEqual(normalizeImageDataUrl(blobUrl), blobUrl, 'Bảo toàn nguyên vẹn blob: URL');
+
+  const cdnUrl = 'https://storage.googleapis.com/aura-fundus/scan_001.png';
+  assert.strictEqual(normalizeImageDataUrl(cdnUrl), cdnUrl, 'Bảo toàn URL CDN HTTPS');
+
+  const relativePath = '/uploads/screenings/scan_001.png';
+  assert.strictEqual(normalizeImageDataUrl(relativePath), relativePath, 'Bảo toàn đường dẫn tương đối');
+
+  assert.strictEqual(normalizeImageDataUrl(null), undefined);
+  assert.strictEqual(normalizeImageDataUrl(undefined), undefined);
+  assert.strictEqual(normalizeImageDataUrl(''), undefined);
+  assert.strictEqual(normalizeImageDataUrl('   '), undefined);
+});
+
+runTest('M2-VIEWER-BLOB-1: InteractiveCDSViewer hỗ trợ mượt mà blob: URL do trình duyệt tạo mà không bị chặn', () => {
+  const blobImageUrl = 'blob:http://localhost:5173/mock-uuid-test-screening';
+  const blobResult: AIRiskResult = {
+    ...sampleAnalysisResult,
+    imageUrl: blobImageUrl,
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(InteractiveCDSViewer, {
+      analysisResult: blobResult,
+    })
+  );
+
+  assert.ok(html.includes(blobImageUrl), 'InteractiveCDSViewer render chính xác blob: URL');
+  assert.ok(!html.includes('/assets/images/fundus_original.png'), 'Không bị ép fallback về ảnh demo khi có blob URL');
+});
+
+runTest('M2-VIEWER-DATA-1: InteractiveCDSViewer hỗ trợ data: URL Base64 mà không gây lỗi', () => {
+  const dataImageUrl = 'data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  const dataResult: AIRiskResult = {
+    ...sampleAnalysisResult,
+    imageUrl: dataImageUrl,
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(InteractiveCDSViewer, {
+      analysisResult: dataResult,
+    })
+  );
+
+  assert.ok(html.includes(dataImageUrl), 'InteractiveCDSViewer render chính xác data:image/... URL');
+});
+
+runTest('M2-VIEWER-FALLBACK-1: InteractiveCDSViewer chỉ fallback về ảnh demo khi imageUrl rỗng hoặc không xác định', () => {
+  const emptyResult: AIRiskResult = {
+    ...sampleAnalysisResult,
+    imageUrl: '',
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(InteractiveCDSViewer, {
+      analysisResult: emptyResult,
+    })
+  );
+
+  assert.ok(html.includes('/assets/images/fundus_original.png'), 'Fallback có kiểm soát về ảnh demo khi imageUrl rỗng');
+});
+
+runTest('M2-CANVAS-SECURITY-1: processVesselOverlayCanvas bắt SecurityError khi ảnh bị tainted và không quăng lỗi ra ngoài', () => {
+  let warningLogged = false;
+  const originalWarn = console.warn;
+  console.warn = (...args: any[]) => {
+    warningLogged = true;
+    originalWarn(...args);
+  };
+
+  try {
+    let drawImageCalled = 0;
+    const mockTaintedCanvas = {
+      width: 0,
+      height: 0,
+      getContext: () => ({
+        drawImage: () => {
+          drawImageCalled++;
+        },
+        getImageData: () => {
+          const secErr = new Error('Failed to execute getImageData: The canvas has been tainted by cross-origin data.');
+          secErr.name = 'SecurityError';
+          throw secErr;
+        },
+        clearRect: () => {},
+        putImageData: () => {},
+      }),
+    } as unknown as HTMLCanvasElement;
+
+    const mockImg = {
+      naturalWidth: 400,
+      naturalHeight: 300,
+      width: 400,
+      height: 300,
+    } as unknown as HTMLImageElement;
+
+    assert.doesNotThrow(() => {
+      processVesselOverlayCanvas(mockImg, mockTaintedCanvas, { isDarkRoom: false });
+    }, 'Không throw unhandled exception khi gặp SecurityError tainted canvas');
+
+    assert.ok(drawImageCalled >= 1, 'drawImage được gọi');
+    assert.ok(warningLogged, 'Có ghi nhận warning khi canvas bị cross-origin tainted');
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+runTest('M2-CANVAS-VESSELMASK-1: processVesselOverlayCanvas hỗ trợ vesselMaskUrl phân đoạn sẵn', () => {
+  const mockMaskCanvas = {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      clearRect: () => {},
+      drawImage: () => {},
+      getImageData: () => ({ data: new Uint8ClampedArray(400 * 300 * 4) }),
+      putImageData: () => {},
+    }),
+  } as unknown as HTMLCanvasElement;
+
+  const mockImg = {
+    naturalWidth: 400,
+    naturalHeight: 300,
+  } as unknown as HTMLImageElement;
+
+  assert.doesNotThrow(() => {
+    processVesselOverlayCanvas(mockImg, mockMaskCanvas, {
+      isDarkRoom: false,
+      vesselMaskUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk',
+    });
+  });
+});
+
+runTest('M2-TOOLTIP-COORDS-1: Định vị tọa độ tổn thương vi mạch có thông tin tọa độ và độ tin cậy', () => {
+  const resultWithPin: AIRiskResult = {
+    ...sampleAnalysisResult,
+    annotatedMap: {
+      ...sampleAnalysisResult.annotatedMap,
+      detectedAnomalies: [
+        {
+          id: 'lesion-m2-1',
+          type: 'Microaneurysm',
+          coordinates: { x: 42.5, y: 58.2, width: 28, height: 28 },
+          confidence: 0.94,
+          description: 'Vi phình mạch khu trú nhánh cung thái dương dưới',
+          severity: 'Moderate',
+        },
+      ],
+    },
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(InteractiveCDSViewer, {
+      analysisResult: resultWithPin,
+    })
+  );
+
+  assert.ok(html.includes('42.5%') && html.includes('58.2%'), 'Tọa độ X và Y được căn chỉnh chuẩn');
+  assert.ok(html.includes('94%'), 'Hiển thị độ tin cậy 94%');
+  assert.ok(html.includes('Vi phình mạch khu trú nhánh cung thái dương dưới'), 'Có mô tả lâm sàng chi tiết');
 });
 
 console.log('\n=================================================================');

@@ -49,6 +49,9 @@ class BulkScreeningControllerTest {
   @Mock
   private BatchJobQueue jobQueue;
 
+  @Mock
+  private com.aura.billing.service.BillingService billingService;
+
   private BulkScreeningController controller;
 
   @BeforeEach
@@ -156,6 +159,70 @@ class BulkScreeningControllerTest {
       assertThatThrownBy(() -> controller.createBulkBatchJob(request))
           .isInstanceOf(RuntimeException.class)
           .hasMessageContaining("Lỗi đưa ảnh vào hàng đợi");
+    }
+
+    @Test
+    @DisplayName("Thất bại: Cơ sở y tế không đủ credit -> ném IllegalArgumentException với câu tiếng Việt chuẩn")
+    void createBulkBatchJob_whenInsufficientCredits_throwsException() {
+      BulkScreeningController ctrl = new BulkScreeningController(anonymizerService, jobQueue, billingService);
+      BulkImageItemUploadDto item1 = new BulkImageItemUploadDto("f1.png", "b64", "OD", "M1", "N1", 50, "M", 120, 80, 5.5);
+      BulkImageItemUploadDto item2 = new BulkImageItemUploadDto("f2.png", "b64", "OS", "M2", "N2", 52, "F", 130, 85, 6.0);
+      BulkUploadRequestDto request = new BulkUploadRequestDto("33333333-3333-3333-3333-333333333333", "Camp", List.of(item1, item2));
+
+      when(billingService.getRemainingCredits(any(java.util.UUID.class))).thenReturn(1);
+
+      assertThatThrownBy(() -> ctrl.createBulkBatchJob(request))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessage("Cơ sở y tế không đủ lượt quét khả dụng (Cần 2, hiện có 1). Vui lòng nạp thêm gói lượt khám.");
+
+      verify(jobQueue, never()).createBatchJob(anyString(), anyString(), anyInt());
+      verify(billingService, never()).deductCredits(any(), anyInt());
+    }
+
+    @Test
+    @DisplayName("Thất bại: Trừ credit thất bại (deductCredits trả về false) -> ném IllegalArgumentException")
+    void createBulkBatchJob_whenDeductFails_throwsException() {
+      BulkScreeningController ctrl = new BulkScreeningController(anonymizerService, jobQueue, billingService);
+      BulkImageItemUploadDto item = new BulkImageItemUploadDto("f1.png", "b64", "OD", "M1", "N1", 50, "M", 120, 80, 5.5);
+      BulkUploadRequestDto request = new BulkUploadRequestDto("33333333-3333-3333-3333-333333333333", "Camp", List.of(item));
+
+      when(billingService.getRemainingCredits(any(java.util.UUID.class))).thenReturn(5);
+      when(billingService.deductCredits(any(java.util.UUID.class), eq(1))).thenReturn(false);
+
+      assertThatThrownBy(() -> ctrl.createBulkBatchJob(request))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessage("Cơ sở y tế không đủ lượt quét khả dụng (Cần 1, hiện có 5). Vui lòng nạp thêm gói lượt khám.");
+
+      verify(jobQueue, never()).createBatchJob(anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("Thành công: Đủ credit -> khấu trừ credit và đưa ảnh vào hàng đợi")
+    void createBulkBatchJob_whenSufficientCredits_deductsAndQueues() {
+      BulkScreeningController ctrl = new BulkScreeningController(anonymizerService, jobQueue, billingService);
+      BulkImageItemUploadDto item = new BulkImageItemUploadDto("f1.png", "b64", "OD", "M1", "N1", 50, "M", 120, 80, 5.5);
+      BulkUploadRequestDto request = new BulkUploadRequestDto("33333333-3333-3333-3333-333333333333", "Camp", List.of(item));
+
+      when(billingService.getRemainingCredits(any(java.util.UUID.class))).thenReturn(10);
+      when(billingService.deductCredits(any(java.util.UUID.class), eq(1))).thenReturn(true);
+
+      PatientAnonymizedDto anonymized = new PatientAnonymizedDto(
+          "P-1", "D-1", 50, "M", 120, 80, 5.5, false, true, Instant.now()
+      );
+      when(anonymizerService.anonymizePatient(anyString(), anyString(), anyInt(), anyString(), anyInt(), anyInt(), anyDouble()))
+          .thenReturn(anonymized);
+      when(anonymizerService.stripDicomMetadataHeaders(anyString())).thenReturn("clean-b64");
+
+      BatchJobResponseDto batchResponse = new BatchJobResponseDto(
+          "BATCH-1", "33333333-3333-3333-3333-333333333333", 1, 0, 0, "QUEUED", Instant.now(), 60.0, List.of()
+      );
+      when(jobQueue.getBatchStatus(anyString())).thenReturn(batchResponse);
+
+      ApiResponse<BatchJobResponseDto> response = ctrl.createBulkBatchJob(request);
+
+      assertThat(response.success()).isTrue();
+      verify(billingService).deductCredits(any(java.util.UUID.class), eq(1));
+      verify(jobQueue).createBatchJob(anyString(), eq("33333333-3333-3333-3333-333333333333"), eq(1));
     }
   }
 

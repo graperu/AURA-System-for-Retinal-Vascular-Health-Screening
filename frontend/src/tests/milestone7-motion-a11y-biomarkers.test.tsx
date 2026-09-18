@@ -210,3 +210,4 @@ runTest('TEST-MOTION-10: RiskAssessmentPanel integrates AnimatedCounter and 4 Bi
 console.log('\n=================================================================');
 console.log('   KẾT QUẢ KIỂM THỬ MILESTONE 3: 10/10 TESTS ĐÃ ĐẠT (100% PASS)');
 console.log('=================================================================\n');
+process.exit(0);

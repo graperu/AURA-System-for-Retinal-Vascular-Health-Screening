@@ -160,15 +160,15 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
 
   const displayEye = selectedEye || (isVi ? 'Mắt Phải' : 'Right Eye');
   const [imageSrc, setImageSrc] = useState<string>(() => {
-    if (result.imageUrl && !result.imageUrl.startsWith('blob:')) {
-      return result.imageUrl;
+    if (result.imageUrl && result.imageUrl.trim().length > 0) {
+      return result.imageUrl.trim();
     }
     return '/assets/images/fundus_original.png';
   });
 
   useEffect(() => {
-    if (result.imageUrl && !result.imageUrl.startsWith('blob:')) {
-      setImageSrc(result.imageUrl);
+    if (result.imageUrl && result.imageUrl.trim().length > 0) {
+      setImageSrc(result.imageUrl.trim());
     } else {
       setImageSrc('/assets/images/fundus_original.png');
     }
@@ -386,7 +386,11 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                   src={rawImage}
                   alt={isVi ? 'Ảnh chụp võng mạc' : 'Retinal fundus image'}
                   className="max-h-[380px] w-auto object-contain rounded-lg select-none pointer-events-none"
-                  crossOrigin="anonymous"
+                  crossOrigin={
+                    rawImage.startsWith('data:') || rawImage.startsWith('blob:')
+                      ? undefined
+                      : 'anonymous'
+                  }
                   draggable={false}
                   style={{
                     filter: isRedFreeFilter ? 'url(#aura-red-free-filter) contrast(145%) brightness(95%)' : undefined,

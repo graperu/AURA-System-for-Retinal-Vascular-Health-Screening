@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { mapScreeningToAIRiskResult } from '../services/screeningMapper.ts';
+import { mapScreeningToAIRiskResult, normalizeImageDataUrl } from '../services/screeningMapper.ts';
 import type { AIRiskResult } from '../types/cds.ts';
 import type { CreateScreeningPayload } from '../services/api.ts';
 import { getAnalysisStatusMessage } from '../hooks/useAnalysisProgress.ts';
@@ -307,6 +307,76 @@ runTest('AI-FLOW.10: useAnalysisProgress derived status thuần khiết, tính t
   assert.strictEqual(getAnalysisStatusMessage(94), 'Trích xuất bản đồ Grad-CAM & tổng hợp nguy cơ lâm sàng...');
   assert.strictEqual(getAnalysisStatusMessage(95), 'Hoàn tất phân tích! Đang chuyển sang bảng kết quả lâm sàng...');
   assert.strictEqual(getAnalysisStatusMessage(100), 'Hoàn tất phân tích! Đang chuyển sang bảng kết quả lâm sàng...');
+});
+
+// -----------------------------------------------------------------------------
+// PHẦN 5: KIỂM THỬ NẠP ẢNH AI, GRAD-CAM & PHÂN ĐOẠN MẠCH MÁU (MILESTONE 2)
+// -----------------------------------------------------------------------------
+console.log('--- 5. Kiểm thử Nạp ảnh AI, Grad-CAM & Phân đoạn Mạch máu (Milestone 2) ---');
+
+runTest('AI-FLOW.11: mapScreeningToAIRiskResult chuẩn hóa raw Base64 thành data URI cho imageUrl, heatmapBase64 và vesselMaskUrl', () => {
+  const rawBase64Image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk';
+  const rawBase64Heatmap = 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mNk';
+  const rawBase64Vessel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR42mNk';
+
+  const rawScreening = {
+    id: 'screening-m2-test-01',
+    imageUrl: rawBase64Image,
+    heatmapBase64: rawBase64Heatmap,
+    vesselMaskUrl: rawBase64Vessel,
+    riskScore: 78,
+    cardiovascularRiskScore: 75,
+    diabeticRetinopathyRiskScore: 80,
+    status: 'COMPLETED',
+  };
+
+  const mapped = mapScreeningToAIRiskResult(rawScreening, '/assets/images/fundus_original.png');
+
+  assert.strictEqual(mapped.imageUrl, `data:image/png;base64,${rawBase64Image}`, 'imageUrl được chuẩn hóa scheme Base64');
+  assert.strictEqual(mapped.annotatedMap?.heatmapUrl, `data:image/png;base64,${rawBase64Heatmap}`, 'heatmapUrl được chuẩn hóa scheme Base64');
+  assert.strictEqual(mapped.annotatedMap?.vesselMaskUrl, `data:image/png;base64,${rawBase64Vessel}`, 'vesselMaskUrl được chuẩn hóa scheme Base64');
+});
+
+runTest('AI-FLOW.12: mapScreeningToAIRiskResult bảo toàn blob: URL khi phân tích ca khám vừa tải lên từ trình duyệt', () => {
+  const blobUrl = 'blob:http://localhost:5173/fe9b47e2-10cf-46d5-a3d8-57e930fca567';
+  const screeningWithBlob = {
+    id: 'screening-m2-blob',
+    imageUrl: blobUrl,
+    riskScore: 45,
+    cardiovascularRiskScore: 40,
+    diabeticRetinopathyRiskScore: 50,
+    status: 'COMPLETED',
+  };
+
+  const mapped = mapScreeningToAIRiskResult(screeningWithBlob, '/assets/images/fundus_original.png');
+  assert.strictEqual(mapped.imageUrl, blobUrl, 'Giữ nguyên blob: URL hợp lệ, không bị ghi đè thành demo');
+});
+
+runTest('AI-FLOW.13: On-demand hydration an toàn: mapScreeningToAIRiskResult xử lý an toàn cả khi thiếu hoặc có heatmapBase64', () => {
+  // 1. Lightweight summary không có heatmapBase64
+  const summaryScreening = {
+    id: 'screening-summary',
+    imageUrl: '/uploads/fundus_summary.png',
+    heatmapBase64: null,
+    vesselMaskUrl: null,
+    riskScore: 60,
+  };
+  const summaryMapped = mapScreeningToAIRiskResult(summaryScreening, '/assets/images/fundus_original.png');
+  assert.strictEqual(summaryMapped.annotatedMap?.heatmapUrl, undefined, 'Summary nhẹ nhàng không có heatmapUrl');
+
+  // 2. Full detail có heatmapBase64
+  const fullScreening = {
+    ...summaryScreening,
+    heatmapBase64: 'data:image/png;base64,fullGradCamPayload',
+    vesselMaskUrl: '/uploads/vessel_mask.png',
+    detectedAnomalies: [
+      { id: 'anom-1', type: 'Hemorrhage', coordinates: { x: 30, y: 40 } },
+    ],
+  };
+  const fullMapped = mapScreeningToAIRiskResult(fullScreening, '/assets/images/fundus_original.png');
+  assert.strictEqual(fullMapped.annotatedMap?.heatmapUrl, 'data:image/png;base64,fullGradCamPayload', 'Full detail nạp trọn vẹn heatmap');
+  assert.strictEqual(fullMapped.annotatedMap?.vesselMaskUrl, '/uploads/vessel_mask.png', 'Full detail nạp trọn vẹn vessel mask');
+  assert.strictEqual(fullMapped.annotatedMap?.detectedAnomalies?.length, 1, 'Full detail nạp trọn vẹn anomalies');
 });
 
 console.log('\n=================================================================');

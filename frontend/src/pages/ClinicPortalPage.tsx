@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
 import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
 import { ClinicCreditPackageSection } from '../components/ClinicCreditPackageSection';
 import { ClinicBatchJob } from '../types/cds';
-import { clinicApi, notificationApi } from '../services/api';
-import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard, Eye, FileSpreadsheet, ArrowRight, Stethoscope, Bell, UploadCloud } from 'lucide-react';
+import { clinicApi, notificationApi, billingApi } from '../services/api';
+import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard, Eye, FileSpreadsheet, ArrowRight, Stethoscope, Bell, UploadCloud, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -1070,6 +1070,155 @@ const ClinicResultsSection: React.FC<{
   );
 };
 
+export interface ClinicCreditSummaryWidgetProps {
+  remainingCredits: number;
+  usedBatchCredits: number;
+  totalPurchasedCredits: number;
+  onRecharge?: () => void;
+  isVi: boolean;
+}
+
+export const ClinicCreditSummaryWidget: React.FC<ClinicCreditSummaryWidgetProps> = ({
+  remainingCredits,
+  usedBatchCredits,
+  totalPurchasedCredits,
+  onRecharge,
+  isVi,
+}) => {
+  const isLowBalance = remainingCredits < 50;
+  const total = Math.max(1, totalPurchasedCredits);
+  const usedPercent = Math.min(100, Math.max(0, Math.round((usedBatchCredits / total) * 100)));
+  const remainingPercent = Math.min(100, Math.max(0, 100 - usedPercent));
+
+  return (
+    <Card className="border-clinical-border bg-white shadow-xs overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 py-3.5 px-6 bg-slate-50/50">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+            <CreditCard className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-sm font-bold text-slate-900">
+              {isVi ? 'Tài Nguyên Gói Khám & Hạn Mức Sàng Lọc' : 'Credit Resources & Screening Quotas'}
+            </CardTitle>
+            <p className="text-xs text-slate-500">
+              {isVi ? 'Hạn mức phân tích ảnh vi mạch võng mạc AI tự động' : 'Automated retinal microvascular AI screening allocation'}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant={isLowBalance ? 'danger' : 'primary'}
+          size="sm"
+          onClick={onRecharge}
+          className="flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+        >
+          <CreditCard className="h-3.5 w-3.5" />
+          {isVi ? 'Nạp thêm lượt quét' : 'Recharge Scans'}
+        </Button>
+      </CardHeader>
+
+      <CardContent className="p-6 space-y-4">
+        {/* Low balance alert (< 50) in amber/rose style */}
+        {isLowBalance && (
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
+              <div className="text-xs">
+                <span className="font-bold">
+                  {isVi ? 'Cảnh báo hạn mức thấp: ' : 'Low Quota Warning: '}
+                </span>
+                {isVi
+                  ? `Cơ sở y tế còn dưới 50 lượt quét khả dụng (Hiện có: ${remainingCredits.toLocaleString('vi-VN')} lượt). Vui lòng nạp thêm gói lượt khám để không gián đoạn chiến dịch sàng lọc hàng loạt.`
+                  : `Facility has less than 50 remaining screening scans (Currently: ${remainingCredits.toLocaleString()} scans). Please recharge to prevent batch interruption.`}
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onRecharge}
+              className="text-xs shrink-0 border-rose-300 text-rose-700 hover:bg-rose-100"
+            >
+              {isVi ? 'Nạp thêm lượt quét' : 'Recharge Now'}
+            </Button>
+          </div>
+        )}
+
+        {/* 3 Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+            <div className="text-xs font-medium text-slate-500">
+              {isVi ? 'Tổng lượt đã mua' : 'Total Purchased Quota'}
+            </div>
+            <div className="text-2xl font-black font-mono-data text-slate-900 mt-1">
+              {totalPurchasedCredits.toLocaleString('vi-VN')} <span className="text-xs font-normal text-slate-500">{isVi ? 'lượt' : 'scans'}</span>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {isVi ? 'Hạn mức gói dịch vụ đăng ký' : 'Allocated service packages'}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+            <div className="text-xs font-medium text-slate-500">
+              {isVi ? 'Số lượt đã dùng cho các chiến dịch batch' : 'Used for Batch Campaigns'}
+            </div>
+            <div className="text-2xl font-black font-mono-data text-blue-600 mt-1">
+              {usedBatchCredits.toLocaleString('vi-VN')} <span className="text-xs font-normal text-slate-500">{isVi ? 'lượt' : 'scans'}</span>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {isVi ? 'Đã phân tích sàng lọc AI' : 'Processed by AI pipeline'}
+            </div>
+          </div>
+
+          <div className={`p-4 rounded-xl border ${isLowBalance ? 'bg-rose-50/60 border-rose-200' : 'bg-slate-50 border-slate-100'}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500">
+                {isVi ? 'Số lượt khả dụng còn lại' : 'Remaining Available Quota'}
+              </span>
+              {isLowBalance && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
+                  {isVi ? '< 50 lượt' : '< 50 scans'}
+                </span>
+              )}
+            </div>
+            <div className={`text-2xl font-black font-mono-data mt-1 ${isLowBalance ? 'text-rose-600' : 'text-emerald-600'}`}>
+              {remainingCredits.toLocaleString('vi-VN')} <span className="text-xs font-normal text-slate-500">{isVi ? 'lượt' : 'scans'}</span>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {isVi ? 'Sẵn sàng nạp vào hàng đợi' : 'Ready for bulk screening'}
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Quota Progress Bar */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex justify-between text-xs text-slate-600 font-medium">
+            <span>
+              {isVi ? 'Tiến độ tiêu thụ hạn mức' : 'Quota Consumption Progress'}
+            </span>
+            <span>
+              {isVi
+                ? `Đã dùng: ${usedPercent}% • Khả dụng: ${remainingPercent}%`
+                : `Used: ${usedPercent}% • Available: ${remainingPercent}%`}
+            </span>
+          </div>
+          <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex border border-slate-200/60">
+            <div
+              className="bg-blue-600 h-full transition-all duration-500 ease-out"
+              style={{ width: `${usedPercent}%` }}
+              title={isVi ? `Đã dùng ${usedPercent}%` : `Used ${usedPercent}%`}
+            />
+            <div
+              className={`h-full transition-all duration-500 ease-out ${isLowBalance ? 'bg-rose-400' : 'bg-emerald-500'}`}
+              style={{ width: `${remainingPercent}%` }}
+              title={isVi ? `Còn lại ${remainingPercent}%` : `Remaining ${remainingPercent}%`}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 export interface ClinicPortalPageProps {
   activeView?: string;
   onNavigate?: (section: string) => void;
@@ -1087,6 +1236,22 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
 
   const [batchJob, setBatchJob] = useState<ClinicBatchJob>(() => loadBatchJobForClinic(currentUser?.id, clinicName));
   const [selectedScanDetail, setSelectedScanDetail] = useState<any | null>(null);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+
+  const fetchCredits = useCallback(async () => {
+    try {
+      const res = await billingApi.mySubscriptions();
+      if (res && res.success && Array.isArray(res.data)) {
+        setSubscriptions(res.data);
+      }
+    } catch (e) {
+      console.warn('Could not fetch clinic subscriptions:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCredits();
+  }, [fetchCredits]);
 
   useEffect(() => {
     try {
@@ -1109,6 +1274,7 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
       if (currentUser?.id) {
         setBatchJob(loadBatchJobForClinic(currentUser.id, clinicName));
       }
+      fetchCredits();
     },
     { pollIntervalMs: 12000, syncOnFocus: true }
   );
@@ -1125,6 +1291,27 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
     }
   };
 
+  const usedBatchCredits = Number(batchJob?.processedCount || 0);
+
+  const remainingCredits = useMemo(() => {
+    if (subscriptions.length > 0) {
+      return subscriptions.reduce((sum, item) => {
+        if (item.status === 'ACTIVE') {
+          return sum + Number(item.remainingCredits || 0);
+        }
+        return sum;
+      }, 0);
+    }
+    return Math.max(0, 4000 - usedBatchCredits);
+  }, [subscriptions, usedBatchCredits]);
+
+  const totalPurchasedCredits = useMemo(() => {
+    if (subscriptions.length > 0) {
+      return Math.max(remainingCredits + usedBatchCredits, 4000);
+    }
+    return 4000;
+  }, [subscriptions, remainingCredits, usedBatchCredits]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -1135,6 +1322,14 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
             {clinicName}
           </span>
         }
+      />
+
+      <ClinicCreditSummaryWidget
+        remainingCredits={remainingCredits}
+        usedBatchCredits={usedBatchCredits}
+        totalPurchasedCredits={totalPurchasedCredits}
+        onRecharge={() => onNavigate?.('billing')}
+        isVi={isVi}
       />
 
       <AnimatePresence mode="wait">
@@ -1180,7 +1375,7 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
 
           {activeView === 'doctors-manage' && <ClinicDoctorsSection />}
 
-          {activeView === 'credit-package' && (
+          {(activeView === 'credit-package' || activeView === 'billing') && (
             <ClinicCreditPackageSection
               batchJob={batchJob}
               onRefreshBatch={() => {

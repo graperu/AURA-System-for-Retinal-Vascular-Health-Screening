@@ -35,6 +35,7 @@ public class BulkProcessingWorker implements CommandLineRunner {
     private final BulkScreeningItemRepository itemRepository;
     private final BulkScreeningBatchRepository batchRepository;
     private final RealtimeEventPublisher realtimeEventPublisher;
+    private final com.aura.billing.service.BillingService billingService;
     private final ExecutorService executorService = Executors.newFixedThreadPool(4);
 
     @Autowired
@@ -43,12 +44,23 @@ public class BulkProcessingWorker implements CommandLineRunner {
             AiServiceClient aiServiceClient,
             BulkScreeningItemRepository itemRepository,
             BulkScreeningBatchRepository batchRepository,
-            @Autowired(required = false) RealtimeEventPublisher realtimeEventPublisher) {
+            @Autowired(required = false) RealtimeEventPublisher realtimeEventPublisher,
+            @Autowired(required = false) com.aura.billing.service.BillingService billingService) {
         this.jobQueue = jobQueue;
         this.aiServiceClient = aiServiceClient;
         this.itemRepository = itemRepository;
         this.batchRepository = batchRepository;
         this.realtimeEventPublisher = realtimeEventPublisher;
+        this.billingService = billingService;
+    }
+
+    public BulkProcessingWorker(
+            BatchJobQueue jobQueue,
+            AiServiceClient aiServiceClient,
+            BulkScreeningItemRepository itemRepository,
+            BulkScreeningBatchRepository batchRepository,
+            RealtimeEventPublisher realtimeEventPublisher) {
+        this(jobQueue, aiServiceClient, itemRepository, batchRepository, realtimeEventPublisher, null);
     }
 
     public BulkProcessingWorker(
@@ -56,11 +68,20 @@ public class BulkProcessingWorker implements CommandLineRunner {
             AiServiceClient aiServiceClient,
             BulkScreeningItemRepository itemRepository,
             BulkScreeningBatchRepository batchRepository) {
-        this(jobQueue, aiServiceClient, itemRepository, batchRepository, null);
+        this(jobQueue, aiServiceClient, itemRepository, batchRepository, null, null);
+    }
+
+    public BulkProcessingWorker(
+            BatchJobQueue jobQueue,
+            AiServiceClient aiServiceClient,
+            BulkScreeningItemRepository itemRepository,
+            BulkScreeningBatchRepository batchRepository,
+            com.aura.billing.service.BillingService billingService) {
+        this(jobQueue, aiServiceClient, itemRepository, batchRepository, null, billingService);
     }
 
     public BulkProcessingWorker(BatchJobQueue jobQueue, AiServiceClient aiServiceClient) {
-        this(jobQueue, aiServiceClient, null, null, null);
+        this(jobQueue, aiServiceClient, null, null, null, null);
     }
 
     @Override
@@ -179,6 +200,16 @@ public class BulkProcessingWorker implements CommandLineRunner {
                 return;
             }
             BulkScreeningBatch batch = batchOpt.get();
+
+            java.util.UUID clinicId = batch.getClinicId();
+            if (billingService != null && clinicId != null) {
+                try {
+                    billingService.refundCredit(clinicId, 1);
+                    log.info("[Bulk Worker] Đã hoàn trả 1 lượt khám cho cơ sở y tế {} do ca {} gặp sự cố.", clinicId, task.itemId());
+                } catch (Exception ex) {
+                    log.error("[Bulk Worker] Lỗi hoàn trả credit cho cơ sở y tế {}: {}", clinicId, ex.getMessage());
+                }
+            }
 
             Optional<BulkScreeningItem> itemOpt = itemRepository.findByBatchIdAndItemCode(batch.getId(), task.itemId());
             if (itemOpt.isPresent()) {

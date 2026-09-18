@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 // Components under test
 import { ClinicDashboardView } from '../features/clinic/ClinicDashboardView';
-import { ClinicPortalPage } from '../pages/ClinicPortalPage';
+import { ClinicPortalPage, ClinicCreditSummaryWidget } from '../pages/ClinicPortalPage';
 import { AdminAuditLogsPage } from '../pages/AdminAuditLogsPage';
 import { LanguageProvider } from '../context/LanguageContext';
 import { ClinicBatchJob } from '../types/cds';
@@ -282,6 +282,158 @@ test('CLINIC-PAGE-4: ClinicDashboardView batch overview renders drill-down links
 
   assert.ok(html.includes('Xem từng kết quả scan riêng lẻ') || html.includes('View individual scan results'), 'Renders drill-down link in batch card');
   assert.ok(html.includes('Xem ca') || html.includes('View'), 'Renders View case action in high risk queue');
+});
+
+test('CLINIC-PAGE-5: ClinicPortalPage renders Credit Resource Summary Widget with 3 key metrics and quota progress bar', () => {
+  const html = renderToStaticMarkup(
+    <LanguageProvider>
+      <ClinicPortalPage activeView="dashboard" />
+    </LanguageProvider>
+  );
+
+  assert.ok(
+    html.includes('Tài Nguyên Gói Khám') ||
+    html.includes('Credit Resources'),
+    'Renders Credit Resource Summary Widget title'
+  );
+  assert.ok(
+    html.includes('Tổng lượt đã mua') || html.includes('Total Purchased Quota'),
+    'Renders metric 1: Tổng lượt đã mua'
+  );
+  assert.ok(
+    html.includes('Số lượt đã dùng cho các chiến dịch batch') || html.includes('Used for Batch Campaigns'),
+    'Renders metric 2: Số lượt đã dùng cho các chiến dịch batch'
+  );
+  assert.ok(
+    html.includes('Số lượt khả dụng còn lại') || html.includes('Remaining Available Quota'),
+    'Renders metric 3: Số lượt khả dụng còn lại'
+  );
+  assert.ok(
+    html.includes('Nạp thêm lượt quét') || html.includes('Recharge Scans'),
+    'Renders recharge CTA button'
+  );
+  assert.ok(
+    html.includes('Tiến độ tiêu thụ hạn mức') || html.includes('Quota Consumption Progress'),
+    'Renders visual quota progress bar'
+  );
+});
+
+test('CLINIC-PAGE-6: ClinicPortalPage renders ClinicCreditPackageSection when activeView === billing', () => {
+  const html = renderToStaticMarkup(
+    <LanguageProvider>
+      <ClinicPortalPage activeView="billing" />
+    </LanguageProvider>
+  );
+
+  assert.ok(
+    html.includes('clinic.creditPackage') ||
+    html.includes('Gói Khám') ||
+    html.includes('500') ||
+    html.includes('Credit'),
+    'Renders ClinicCreditPackageSection when activeView is billing'
+  );
+});
+
+test('CLINIC-PAGE-7: ClinicCreditSummaryWidget triggers amber/rose alert when remainingCredits < 50', () => {
+  let rechargeClicked = false;
+  const html = renderToStaticMarkup(
+    <ClinicCreditSummaryWidget
+      remainingCredits={28}
+      usedBatchCredits={3972}
+      totalPurchasedCredits={4000}
+      isVi={true}
+      onRecharge={() => {
+        rechargeClicked = true;
+      }}
+    />
+  );
+
+  // Must display warning header and message
+  assert.ok(html.includes('Cảnh báo hạn mức thấp:'), 'Displays low quota warning label in Vietnamese');
+  assert.ok(html.includes('Cơ sở y tế còn dưới 50 lượt quét khả dụng'), 'Displays detailed warning message');
+  assert.ok(html.includes('28 lượt'), 'Displays current remaining scan count 28');
+  assert.ok(html.includes('&lt; 50 lượt') || html.includes('< 50 lượt'), 'Displays < 50 lượt badge');
+  assert.ok(html.includes('bg-rose-50'), 'Applies rose/amber warning background');
+  assert.ok(html.includes('text-rose-600'), 'Highlights remaining count in rose/alert color');
+});
+
+test('CLINIC-PAGE-8: ClinicCreditSummaryWidget does NOT trigger alert when remainingCredits >= 50', () => {
+  const html = renderToStaticMarkup(
+    <ClinicCreditSummaryWidget
+      remainingCredits={1500}
+      usedBatchCredits={2500}
+      totalPurchasedCredits={4000}
+      isVi={true}
+    />
+  );
+
+  assert.ok(!html.includes('Cảnh báo hạn mức thấp:'), 'Does NOT display low quota warning when balance >= 50');
+  assert.ok(!html.includes('&lt; 50 lượt') && !html.includes('< 50 lượt'), 'Does NOT display < 50 badge when balance >= 50');
+  assert.ok(html.includes('text-emerald-600'), 'Uses emerald color for healthy credit balance');
+  assert.ok(html.includes('1.500'), 'Renders formatted remaining credit count');
+});
+
+test('CLINIC-PAGE-9: ClinicCreditSummaryWidget handles 0 credits and empty subscription state safely', () => {
+  const html = renderToStaticMarkup(
+    <ClinicCreditSummaryWidget
+      remainingCredits={0}
+      usedBatchCredits={0}
+      totalPurchasedCredits={0}
+      isVi={true}
+    />
+  );
+
+  assert.ok(!html.includes('NaN'), 'Does NOT produce NaN in progress or metrics');
+  assert.ok(html.includes('0 lượt'), 'Renders 0 lượt safely');
+  assert.ok(html.includes('Cảnh báo hạn mức thấp:'), 'Correctly triggers low balance warning for 0 credits');
+  assert.ok(html.includes('&lt; 50 lượt') || html.includes('< 50 lượt'), 'Displays < 50 badge for 0 credits');
+});
+
+test('CLINIC-PAGE-10: ClinicCreditSummaryWidget renders English labels when isVi is false', () => {
+  const html = renderToStaticMarkup(
+    <ClinicCreditSummaryWidget
+      remainingCredits={35}
+      usedBatchCredits={965}
+      totalPurchasedCredits={1000}
+      isVi={false}
+    />
+  );
+
+  assert.ok(html.includes('Credit Resources &amp; Screening Quotas') || html.includes('Credit Resources & Screening Quotas'), 'Renders English title');
+  assert.ok(html.includes('Total Purchased Quota'), 'Renders English Total Purchased Quota');
+  assert.ok(html.includes('Used for Batch Campaigns'), 'Renders English Used for Batch Campaigns');
+  assert.ok(html.includes('Remaining Available Quota'), 'Renders English Remaining Available Quota');
+  assert.ok(html.includes('Low Quota Warning:'), 'Renders English low quota warning label');
+  assert.ok(html.includes('Facility has less than 50 remaining screening scans'), 'Renders English warning description');
+  assert.ok(html.includes('&lt; 50 scans') || html.includes('< 50 scans'), 'Renders English < 50 scans badge');
+  assert.ok(html.includes('Recharge Scans') || html.includes('Recharge Now'), 'Renders English recharge button');
+});
+
+test('CLINIC-PAGE-11: ClinicCreditSummaryWidget onRecharge callback and navigation integration', () => {
+  let navigatedSection = '';
+  const element = (
+    <ClinicCreditSummaryWidget
+      remainingCredits={10}
+      usedBatchCredits={3990}
+      totalPurchasedCredits={4000}
+      isVi={true}
+      onRecharge={() => {
+        navigatedSection = 'billing';
+      }}
+    />
+  );
+
+  // Verify onRecharge callback fires
+  element.props.onRecharge();
+  assert.strictEqual(navigatedSection, 'billing', 'onRecharge callback routes to billing section');
+
+  // Verify rendering ClinicPortalPage with activeView="billing" renders the package section
+  const htmlBilling = renderToStaticMarkup(
+    <LanguageProvider>
+      <ClinicPortalPage activeView="billing" />
+    </LanguageProvider>
+  );
+  assert.ok(htmlBilling.includes('Gói Khám') || htmlBilling.includes('500') || htmlBilling.includes('Credit'), 'Navigates cleanly to ClinicCreditPackageSection');
 });
 
 // ==========================================

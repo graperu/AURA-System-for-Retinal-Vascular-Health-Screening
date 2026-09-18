@@ -91,15 +91,15 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   };
 
   return (
-    <Card padding="md" className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-clinical-border pb-3">
+    <Card padding="md" className="h-full flex flex-col justify-between space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-clinical-border pb-2.5">
         <div className="flex items-center gap-2">
-          <FileSignature className="w-5 h-5 text-brand-600" />
+          <FileSignature className="w-5 h-5 text-brand-600 shrink-0" />
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-clinical-text">
+            <h3 className="text-sm font-bold text-clinical-text">
               {t('doctor.validationBar.title', 'Thẩm Định Lâm Sàng & Phê Duyệt Kết Quả Sàng Lọc')}
             </h3>
-            <p className="text-xs text-clinical-text-muted">
+            <p className="text-[11px] text-clinical-text-muted">
               {t('doctor.validationBar.subtitle', 'Bác sĩ xác nhận độ chính xác của AI hoặc điều chỉnh mức độ rủi ro theo chuyên môn.')}
             </p>
           </div>
@@ -111,7 +111,8 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
             variant="outline"
             size="sm"
             onClick={onOpenReportModal}
-            icon={<Printer className="w-4 h-4" />}
+            icon={<Printer className="w-3.5 h-3.5" />}
+            className="text-xs shrink-0"
           >
             {t('doctor.validationBar.printReport', 'In Phiếu Kết Quả')}
           </Button>
@@ -119,14 +120,14 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       </div>
 
       {saveSuccess && (
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2 animate-in fade-in">
+        <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{successMessage || t('doctor.validationBar.savedSuccess', 'Đã lưu kết luận lâm sàng và đồng bộ báo cáo sàng lọc thành công!')}</span>
         </div>
       )}
 
       {overrideError && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-2 animate-in fade-in">
+        <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-2 animate-in fade-in">
           <span>{overrideError}</span>
           <button
             type="button"
@@ -139,14 +140,14 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       )}
 
       {/* Action Controls */}
-      <div className="grid grid-cols-1 gap-4">
-        {/* Left: Decision & Risk Override */}
+      <div className="flex-1 flex flex-col justify-between space-y-3">
+        {/* Upper: Decision, Override & ICD-10 */}
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-clinical-text mb-1.5">
+            <label className="block text-xs font-semibold text-clinical-text mb-1">
               {t('doctor.validationBar.decisionLabel', 'Quyết định thẩm định chuyên môn:')}
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               {[
                 { id: 'APPROVED', label: t('doctor.validationBar.decisions.approve', 'Chấp thuận AI') },
                 { id: 'MODIFIED', label: t('doctor.validationBar.decisions.modify', 'Hiệu chỉnh nguy cơ') },
@@ -159,7 +160,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
                     setDecision(opt.id as any);
                     if (opt.id !== 'MODIFIED') setOverrideError(null);
                   }}
-                  className={`py-2 px-2.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                  className={`py-1.5 px-2 text-xs font-semibold rounded-lg border transition-colors cursor-pointer text-center ${
                     decision === opt.id
                       ? opt.id === 'APPROVED'
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
@@ -176,12 +177,12 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
           </div>
 
           {decision === 'MODIFIED' && (
-            <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3 text-xs">
+            <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200 space-y-2.5 text-xs">
               <div>
                 <span className="font-semibold text-amber-950 block mb-1">
                   {t('doctor.validationBar.adjustedCardio', 'Mức nguy cơ Tim mạch:')}
                 </span>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-4 gap-1">
                   {([
                     { id: 'Low', label: isVi ? 'Thấp' : 'Low' },
                     { id: 'Moderate', label: isVi ? 'Trung bình' : 'Moderate' },
@@ -192,7 +193,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
                       key={lvl.id}
                       type="button"
                       onClick={() => setAdjustedCardioRisk(lvl.id)}
-                      className={`py-1 rounded font-bold text-[11px] border transition-colors cursor-pointer ${
+                      className={`py-0.5 rounded font-bold text-[10.5px] border transition-colors cursor-pointer ${
                         adjustedCardioRisk === lvl.id
                           ? 'bg-amber-600 text-white border-amber-600'
                           : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50'
@@ -208,7 +209,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
                 <span className="font-semibold text-amber-950 block mb-1">
                   {t('doctor.validationBar.adjustedDR', 'Mức nguy cơ Võng mạc ĐTĐ:')}
                 </span>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-4 gap-1">
                   {([
                     { id: 'Low', label: isVi ? 'Thấp' : 'Low' },
                     { id: 'Moderate', label: isVi ? 'Trung bình' : 'Moderate' },
@@ -219,7 +220,7 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
                       key={lvl.id}
                       type="button"
                       onClick={() => setAdjustedDrRisk(lvl.id)}
-                      className={`py-1 rounded font-bold text-[11px] border transition-colors cursor-pointer ${
+                      className={`py-0.5 rounded font-bold text-[10.5px] border transition-colors cursor-pointer ${
                         adjustedDrRisk === lvl.id
                           ? 'bg-amber-600 text-white border-amber-600'
                           : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50'
@@ -247,54 +248,138 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
                       ? 'Nhập căn cứ lâm sàng khi điều chỉnh phân tầng nguy cơ của AI (ví dụ: tiền sử bệnh nhân, triệu chứng kèm theo, biến chứng đáy mắt...)'
                       : 'Enter clinical rationale for altering AI risk classification...'
                   }
-                  className="w-full text-xs p-2.5 rounded-lg border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full text-xs p-2 rounded-lg border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
             </div>
           )}
 
+          {/* ICD-10 Selection with 1-Click Quick Chips (Requirement R3) */}
           <div>
-            <label className="block text-xs font-semibold text-clinical-text mb-1">
-              {t('doctor.validationBar.icd10Label', 'Mã bệnh danh ICD-10 (phân tách dấu phẩy):')}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-clinical-text">
+                {t('doctor.validationBar.icd10Label', 'Mã bệnh danh ICD-10 (phân tách dấu phẩy):')}
+              </label>
+              <span className="text-[10px] text-slate-500">
+                {isVi ? 'Chọn nhanh 1-chạm:' : 'Quick Select:'}
+              </span>
+            </div>
+
+            {/* 1-Click ICD-10 Quick Chips */}
+            <div className="flex items-center gap-1 flex-wrap mb-1.5">
+              {[
+                { code: 'H35.0', desc: isVi ? 'Biến đổi mạch võng mạc & tăng HA' : 'Retinal vasculopathy' },
+                { code: 'E11.3', desc: isVi ? 'Bệnh võng mạc đái tháo đường' : 'Diabetic retinopathy' },
+                { code: 'I10', desc: isVi ? 'Tăng huyết áp vô căn' : 'Essential hypertension' },
+                { code: 'H40.0', desc: isVi ? 'Nghi ngờ Glaucoma' : 'Glaucoma suspect' },
+                { code: 'I67.8', desc: isVi ? 'Bệnh mạch máu não / Nguy cơ đột quỵ' : 'Cerebrovascular risk' },
+              ].map((chip) => {
+                const currentCodes = icd10Input.split(',').map((c) => c.trim()).filter(Boolean);
+                const isSelected = currentCodes.includes(chip.code);
+                return (
+                  <button
+                    key={chip.code}
+                    type="button"
+                    onClick={() => {
+                      let nextCodes: string[];
+                      if (isSelected) {
+                        nextCodes = currentCodes.filter((c) => c !== chip.code);
+                      } else {
+                        nextCodes = [...currentCodes, chip.code];
+                      }
+                      setIcd10Input(nextCodes.join(', '));
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-mono font-semibold border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#3478F6] text-white border-[#3478F6] shadow-2xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                    title={`${chip.code}: ${chip.desc}`}
+                  >
+                    {chip.code}
+                  </button>
+                );
+              })}
+            </div>
+
             <input
               type="text"
               value={icd10Input}
               onChange={(e) => setIcd10Input(e.target.value)}
               placeholder="H35.0, I10, E11.9..."
-              className="w-full h-9 px-3 text-xs rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono-data"
+              className="w-full h-8 px-2.5 text-xs rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono-data"
             />
           </div>
         </div>
 
-        {/* Right: Notes & Recommendations */}
-        <div className="space-y-3 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-semibold text-clinical-text mb-1">
-                {t('doctor.validationBar.notesLabel', 'Ghi chú chẩn đoán lâm sàng:')}
-              </label>
-              <textarea
-                rows={3}
-                value={doctorNotes}
-                onChange={(e) => setDoctorNotes(e.target.value)}
-                placeholder={isVi ? "Nhập chẩn đoán chuyên môn, hướng dẫn điều trị bổ sung..." : "Enter clinical findings, supplementary treatment guidelines..."}
-                className="w-full text-xs p-3 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
+        {/* Lower: Notes & Recommendations with Quick Templates */}
+        <div className="space-y-2.5">
+          <div>
+            <label className="block text-xs font-semibold text-clinical-text mb-1">
+              {t('doctor.validationBar.notesLabel', 'Ghi chú chẩn đoán lâm sàng:')}
+            </label>
+            <textarea
+              rows={2}
+              value={doctorNotes}
+              onChange={(e) => setDoctorNotes(e.target.value)}
+              placeholder={isVi ? "Nhập chẩn đoán chuyên môn, hướng dẫn điều trị bổ sung..." : "Enter clinical findings, supplementary treatment guidelines..."}
+              className="w-full text-xs p-2 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-clinical-text mb-1">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-clinical-text">
                 {isVi ? 'Khuyến nghị y khoa & Kế hoạch theo dõi:' : 'Recommendations & Follow-up:'}
               </label>
-              <textarea
-                rows={2}
-                value={recommendations}
-                onChange={(e) => setRecommendations(e.target.value)}
-                placeholder={isVi ? "Ví dụ: Tái khám chuyên khoa sau 3 tháng, kiểm soát huyết áp < 130/80..." : "e.g., Follow up in 3 months, monitor BP < 130/80..."}
-                className="w-full text-xs p-2.5 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
+              <span className="text-[10px] text-slate-500">
+                {isVi ? 'Mẫu 1-chạm:' : 'Templates:'}
+              </span>
             </div>
+
+            {/* 1-Click Quick Clinical Conclusion Templates */}
+            <div className="flex items-center gap-1 flex-wrap mb-1.5">
+              {[
+                {
+                  label: isVi ? 'Theo dõi 6 tháng, kiểm soát HA & HbA1c' : '6M Follow-up (BP & HbA1c)',
+                  text: isVi
+                    ? 'Theo dõi 6 tháng, kiểm soát HA & HbA1c.'
+                    : 'Follow up in 6 months, control BP and HbA1c.',
+                },
+                {
+                  label: isVi ? 'Chuyển chuyên khoa Đáy mắt can thiệp Laser' : 'Refer Fundus Specialist (Laser)',
+                  text: isVi
+                    ? 'Chuyển chuyên khoa Đáy mắt can thiệp Laser.'
+                    : 'Refer to fundus retina specialist for laser intervention.',
+                },
+                {
+                  label: isVi ? 'Tối ưu hóa phác đồ hạ áp & lipid máu' : 'Optimize BP & Lipid',
+                  text: isVi
+                    ? 'Tối ưu hóa phác đồ hạ áp & lipid máu.'
+                    : 'Optimize antihypertensive and lipid-lowering regimen.',
+                },
+              ].map((tmpl, idx) => (
+                <button
+                  key={`quick-tmpl-${idx}`}
+                  type="button"
+                  onClick={() => {
+                    setRecommendations((prev) => (prev && prev.trim().length > 0 ? `${prev.trim()}\n${tmpl.text}` : tmpl.text));
+                  }}
+                  className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-slate-50 hover:bg-[#EEF5FF] text-slate-700 hover:text-[#3478F6] border border-slate-200 hover:border-[#C7D7FE] transition-colors cursor-pointer text-left truncate max-w-full"
+                  title={tmpl.text}
+                >
+                  + {tmpl.label}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              rows={2}
+              value={recommendations}
+              onChange={(e) => setRecommendations(e.target.value)}
+              placeholder={isVi ? "Ví dụ: Tái khám chuyên khoa sau 3 tháng, kiểm soát huyết áp < 130/80..." : "e.g., Follow up in 3 months, monitor BP < 130/80..."}
+              className="w-full text-xs p-2 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#EAECF0]">

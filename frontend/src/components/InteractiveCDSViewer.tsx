@@ -19,6 +19,7 @@ import {
   BrainCircuit,
   Activity,
   ShieldCheck,
+  Ruler,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
@@ -147,6 +148,28 @@ export const processVesselOverlayCanvas = (
   const ctx = targetCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
 
+  // Support pre-segmented vesselMaskUrl if available
+  if (options.vesselMaskUrl && options.vesselMaskUrl.trim().length > 0) {
+    const ImageCtor = typeof Image !== 'undefined' ? Image : (globalThis as any)?.Image;
+    if (ImageCtor) {
+      const maskImg = new ImageCtor();
+      maskImg.crossOrigin =
+        options.vesselMaskUrl.startsWith('data:') || options.vesselMaskUrl.startsWith('blob:')
+          ? undefined
+          : 'anonymous';
+      maskImg.onload = () => {
+        try {
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(maskImg, 0, 0, w, h);
+        } catch (err) {
+          console.warn('[InteractiveCDSViewer] Failed to render vesselMaskUrl onto canvas:', err);
+        }
+      };
+      maskImg.src = options.vesselMaskUrl;
+    }
+    return;
+  }
+
   try {
     ctx.drawImage(sourceImg, 0, 0, w, h);
     const imgData = ctx.getImageData(0, 0, w, h);
@@ -180,8 +203,21 @@ export const processVesselOverlayCanvas = (
       }
     }
     ctx.putImageData(imgData, 0, 0);
-  } catch {
-    // Ignore cross-origin error in test
+  } catch (err: any) {
+    if (err?.name === 'SecurityError' || (err instanceof Error && err.message.includes('tainted'))) {
+      console.warn(
+        '[InteractiveCDSViewer] Canvas tainted by cross-origin fundus image. Fallback to clean layer without pixel manipulation.',
+        err
+      );
+      try {
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(sourceImg, 0, 0, w, h);
+      } catch {
+        // Safe no-op
+      }
+    } else {
+      console.warn('[InteractiveCDSViewer] processVesselOverlayCanvas error:', err);
+    }
   }
 };
 
@@ -307,10 +343,16 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   const vesselCanvasRef = useRef<HTMLCanvasElement>(null);
   const dynamicHeatmapCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Microvascular Caliper Ruler State (Requirement R3)
+  const [isRulerActive, setIsRulerActive] = useState<boolean>(false);
+  const [rulerStart, setRulerStart] = useState<{ xPct: number; yPct: number; rawX: number; rawY: number } | null>(null);
+  const [rulerEnd, setRulerEnd] = useState<{ xPct: number; yPct: number; rawX: number; rawY: number } | null>(null);
+  const [isMeasuring, setIsMeasuring] = useState<boolean>(false);
+
   const handleZoomChange = (updater: (prev: number) => number) => {
     setZoomLevel((prev) => {
       const next = updater(prev);
-      const clamped = Math.min(2.5, Math.max(0.8, Number(next.toFixed(1))));
+      const clamped = Math.min(5.0, Math.max(1.0, Number(next.toFixed(1))));
       if (clamped <= 1.0) {
         setPanOffset({ x: 0, y: 0 });
       }
@@ -322,6 +364,62 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
     setZoomLevel(1.0);
     setPanOffset({ x: 0, y: 0 });
   };
+
+  const clearRuler = () => {
+    setRulerStart(null);
+    setRulerEnd(null);
+    setIsMeasuring(false);
+  };
+
+  const handleRulerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isRulerActive) return;
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+    const xPct = Math.max(0, Math.min(100, (rawX / rect.width) * 100));
+    const yPct = Math.max(0, Math.min(100, (rawY / rect.height) * 100));
+
+    if (!isMeasuring) {
+      setRulerStart({ xPct, yPct, rawX, rawY });
+      setRulerEnd({ xPct, yPct, rawX, rawY });
+      setIsMeasuring(true);
+    } else {
+      setRulerEnd({ xPct, yPct, rawX, rawY });
+      setIsMeasuring(false);
+    }
+  };
+
+  const handleRulerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isRulerActive || !isMeasuring) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+    const xPct = Math.max(0, Math.min(100, (rawX / rect.width) * 100));
+    const yPct = Math.max(0, Math.min(100, (rawY / rect.height) * 100));
+    setRulerEnd({ xPct, yPct, rawX, rawY });
+  };
+
+  const handleRulerMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isRulerActive || !isMeasuring) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+    const dist = Math.hypot(rawX - (rulerStart?.rawX ?? rawX), rawY - (rulerStart?.rawY ?? rawY));
+    if (dist > 5) {
+      const xPct = Math.max(0, Math.min(100, (rawX / rect.width) * 100));
+      const yPct = Math.max(0, Math.min(100, (rawY / rect.height) * 100));
+      setRulerEnd({ xPct, yPct, rawX, rawY });
+      setIsMeasuring(false);
+    }
+  };
+
+  // Pixel distance, physical micrometers (~1.5 µm/px based on ~1500 µm disc diameter), and DD fraction
+  const rulerDistPx = rulerStart && rulerEnd
+    ? Math.round(Math.hypot(rulerEnd.rawX - rulerStart.rawX, rulerEnd.rawY - rulerStart.rawY))
+    : 0;
+  const rulerDistMicrons = Math.round(rulerDistPx * 1.5);
+  const rulerFractionDD = (rulerDistMicrons / 1500).toFixed(2);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -344,7 +442,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   };
 
   const startDrag = (clientX: number, clientY: number) => {
-    if (zoomLevel <= 1.0) return;
+    if (isRulerActive || zoomLevel <= 1.0) return;
     setIsDragging(true);
     isMovedRef.current = false;
     dragStartRef.current = { x: clientX, y: clientY };
@@ -352,14 +450,14 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   };
 
   const updateDrag = (clientX: number, clientY: number) => {
-    if (!isDragging || zoomLevel <= 1.0) return;
+    if (!isDragging || zoomLevel <= 1.0 || isRulerActive) return;
     const deltaX = clientX - dragStartRef.current.x;
     const deltaY = clientY - dragStartRef.current.y;
     if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
       isMovedRef.current = true;
     }
-    const maxPanX = Math.max(120, (zoomLevel - 1) * 350);
-    const maxPanY = Math.max(120, (zoomLevel - 1) * 280);
+    const maxPanX = Math.max(120, (zoomLevel - 1) * 450);
+    const maxPanY = Math.max(120, (zoomLevel - 1) * 350);
     const nextX = Math.max(-maxPanX, Math.min(maxPanX, startPanRef.current.x + deltaX));
     const nextY = Math.max(-maxPanY, Math.min(maxPanY, startPanRef.current.y + deltaY));
     setPanOffset({ x: nextX, y: nextY });
@@ -410,27 +508,41 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
 
   const anomalies = analysisResult.annotatedMap?.detectedAnomalies || [];
   const [imageSrc, setImageSrc] = useState<string>(() => {
-    if (analysisResult.imageUrl && !analysisResult.imageUrl.startsWith('blob:')) {
-      return analysisResult.imageUrl;
+    if (analysisResult.imageUrl && analysisResult.imageUrl.trim().length > 0) {
+      return analysisResult.imageUrl.trim();
     }
     return '/assets/images/fundus_original.png';
   });
 
   useEffect(() => {
-    if (analysisResult.imageUrl && !analysisResult.imageUrl.startsWith('blob:')) {
-      setImageSrc(analysisResult.imageUrl);
+    if (analysisResult.imageUrl && analysisResult.imageUrl.trim().length > 0) {
+      setImageSrc(analysisResult.imageUrl.trim());
     } else {
       setImageSrc('/assets/images/fundus_original.png');
     }
   }, [analysisResult.imageUrl]);
 
   const rawImage = imageSrc;
-  const heatmapImg = analysisResult.annotatedMap?.heatmapUrl || '';
+  const rawHeatmap = analysisResult.annotatedMap?.heatmapUrl || '';
+  const heatmapImg = React.useMemo(() => {
+    if (!rawHeatmap || !rawHeatmap.trim()) return '';
+    const trimmed = rawHeatmap.trim();
+    if (
+      trimmed.startsWith('data:image/') ||
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('/') ||
+      trimmed.startsWith('blob:')
+    ) {
+      return trimmed;
+    }
+    return `data:image/png;base64,${trimmed}`;
+  }, [rawHeatmap]);
 
   const hasRealHeatmap = Boolean(
-    analysisResult.annotatedMap?.heatmapUrl &&
-      analysisResult.annotatedMap.heatmapUrl.trim().length > 0 &&
-      analysisResult.annotatedMap.heatmapUrl !== '/assets/images/fundus_heatmap.png'
+    heatmapImg &&
+      heatmapImg.trim().length > 0 &&
+      heatmapImg !== '/assets/images/fundus_heatmap.png'
   );
 
   const riskScore = analysisResult.overallVascularRiskScore ?? analysisResult.riskScore ?? 0;
@@ -701,6 +813,36 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               <span>{isRedFreeFilter ? (isVi ? 'Red-Free: BẬT' : 'Red-Free: ON') : (isVi ? 'Bộ lọc Red-Free' : 'Red-Free Filter')}</span>
             </button>
 
+            {/* Microvascular Caliper Ruler Button (Requirement R3) */}
+            <button
+              type="button"
+              data-testid="cds-ruler-toggle-btn"
+              onClick={() => {
+                const next = !isRulerActive;
+                setIsRulerActive(next);
+                if (!next) clearRuler();
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                isRulerActive
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+              title={isVi ? 'Thước đo vi mạch võng mạc (µm / DD)' : 'Retinal Microvascular Caliper (µm / DD)'}
+            >
+              <Ruler className={`w-3.5 h-3.5 ${isRulerActive ? 'text-amber-200' : 'text-amber-500'}`} />
+              <span>{isRulerActive ? (isVi ? 'Thước đo: BẬT' : 'Ruler: ON') : (isVi ? 'Thước đo vi mạch' : 'Ruler')}</span>
+            </button>
+            {isRulerActive && rulerDistPx > 0 && (
+              <button
+                type="button"
+                onClick={clearRuler}
+                className="px-2 py-1 text-[11px] rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+                title={isVi ? 'Xóa kết quả đo' : 'Clear measurement'}
+              >
+                {isVi ? 'Đặt lại thước' : 'Reset'}
+              </button>
+            )}
+
             {/* Fullscreen Toggle */}
             <button
               type="button"
@@ -809,13 +951,15 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
             {/* Màn hình Ảnh Gốc */}
           {(activeViewMode === 'SPLIT' || activeViewMode === 'ORIGINAL') && (
             <div
-              onMouseDown={handleMouseDown}
+              onMouseDown={isRulerActive ? handleRulerMouseDown : handleMouseDown}
+              onMouseMove={isRulerActive ? handleRulerMouseMove : undefined}
+              onMouseUp={isRulerActive ? handleRulerMouseUp : undefined}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] select-none ${
+              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[600px] 2xl:min-h-[650px] select-none ${
                 isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
-              } ${zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
+              } ${isRulerActive ? 'cursor-crosshair' : zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
             >
               <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 pointer-events-none">
                 {t('cdsViewer.rawFundus', isVi ? 'Ảnh chụp đáy mắt gốc' : 'True Color Fundus Scan')}
@@ -829,11 +973,16 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                   transition: isDragging ? 'none' : 'transform 150ms ease-out',
                 }}
               >
-                <div className="relative inline-flex items-center justify-center max-h-[340px] max-w-full pointer-events-none">
+                <div className="relative inline-flex items-center justify-center max-h-[560px] 2xl:max-h-[610px] max-w-full pointer-events-none">
                   <img
                     src={rawImage}
                     alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                    className="max-h-[340px] w-auto max-w-full object-contain rounded-lg shadow-md block select-none pointer-events-none"
+                    className="max-h-[560px] 2xl:max-h-[610px] w-auto max-w-full object-contain rounded-lg shadow-md block select-none pointer-events-none"
+                    crossOrigin={
+                      rawImage.startsWith('data:') || rawImage.startsWith('blob:')
+                        ? undefined
+                        : 'anonymous'
+                    }
                     draggable={false}
                     style={{
                       filter: isRedFreeFilter ? 'url(#aura-red-free-filter) contrast(145%) brightness(95%)' : undefined,
@@ -842,19 +991,65 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Caliper Measurement Overlay (Requirement R3) */}
+              {rulerStart && rulerEnd && rulerDistPx > 0 && (
+                <>
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-25 overflow-visible">
+                    <line
+                      x1={`${rulerStart.xPct}%`}
+                      y1={`${rulerStart.yPct}%`}
+                      x2={`${rulerEnd.xPct}%`}
+                      y2={`${rulerEnd.yPct}%`}
+                      stroke="#F59E0B"
+                      strokeWidth="2.5"
+                      strokeDasharray="4 2"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx={`${rulerStart.xPct}%`}
+                      cy={`${rulerStart.yPct}%`}
+                      r="4.5"
+                      fill="#F59E0B"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                    />
+                    <circle
+                      cx={`${rulerEnd.xPct}%`}
+                      cy={`${rulerEnd.yPct}%`}
+                      r="4.5"
+                      fill="#F59E0B"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                  <div
+                    className="absolute z-30 pointer-events-none bg-slate-950/90 text-amber-300 border border-amber-500/60 text-[11px] font-mono px-2 py-0.5 rounded-md shadow-lg transform -translate-x-1/2 -translate-y-full whitespace-nowrap flex items-center gap-1.5"
+                    style={{
+                      left: `${(rulerStart.xPct + rulerEnd.xPct) / 2}%`,
+                      top: `${Math.max(15, Math.min(rulerStart.yPct, rulerEnd.yPct) - 2)}%`,
+                    }}
+                  >
+                    <Ruler className="w-3 h-3 text-amber-400 shrink-0" />
+                    <span>{rulerDistPx} px • {rulerDistMicrons} µm ({rulerFractionDD} DD)</span>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {/* Màn hình Bản Đồ AI (Overlay / Grad-CAM) */}
           {(activeViewMode === 'SPLIT' || activeViewMode === 'OVERLAY') && (
             <div
-              onMouseDown={handleMouseDown}
+              onMouseDown={isRulerActive ? handleRulerMouseDown : handleMouseDown}
+              onMouseMove={isRulerActive ? handleRulerMouseMove : undefined}
+              onMouseUp={isRulerActive ? handleRulerMouseUp : undefined}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[360px] select-none ${
+              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[600px] 2xl:min-h-[650px] select-none ${
                 isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
-              } ${zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
+              } ${isRulerActive ? 'cursor-crosshair' : zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
             >
               <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5 pointer-events-none">
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
@@ -871,14 +1066,18 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                   transition: isDragging ? 'none' : 'transform 150ms ease-out',
                 }}
               >
-                <div className="relative inline-flex items-center justify-center max-h-[340px] max-w-full">
+                <div className="relative inline-flex items-center justify-center max-h-[560px] 2xl:max-h-[610px] max-w-full">
                   {/* Layer 0: Ảnh nền */}
                   <img
                     ref={rawImageRef}
                     src={rawImage}
                     alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                    className="max-h-[340px] w-auto max-w-full object-contain rounded-lg block select-none pointer-events-none"
-                    crossOrigin="anonymous"
+                    className="max-h-[560px] 2xl:max-h-[610px] w-auto max-w-full object-contain rounded-lg block select-none pointer-events-none"
+                    crossOrigin={
+                      rawImage.startsWith('data:') || rawImage.startsWith('blob:')
+                        ? undefined
+                        : 'anonymous'
+                    }
                     draggable={false}
                     style={{
                       filter: isRedFreeFilter ? 'url(#aura-red-free-filter) contrast(145%) brightness(95%)' : undefined,
@@ -983,13 +1182,20 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                           </button>
 
                           {/* Tooltip Hover phân tích bệnh học */}
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center pointer-events-none z-30 min-w-[140px]">
+                          <div
+                            className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 ${
+                              isSelected ? 'flex' : 'hidden group-hover:flex'
+                            } flex-col items-center pointer-events-none z-30 min-w-[140px]`}
+                          >
                             <div className="bg-slate-900/95 text-white text-[10px] rounded-lg px-2.5 py-1.5 shadow-xl border border-slate-700 whitespace-nowrap text-center">
                               <div className="font-bold text-amber-300">{anomalyDisplayName}</div>
                               <div className="text-slate-300 text-[9px] mt-0.5">
                                 {t('anomalies.confidence', 'Độ tin cậy')}: {(anomaly.confidence * 100).toFixed(0)}%
                               </div>
                               <div className="text-slate-400 text-[9px] max-w-[160px] truncate">{anomaly.description}</div>
+                              <div className="text-amber-400/90 text-[8px] mt-0.5 font-mono">
+                                ({anomaly.coordinates.x.toFixed(1)}%, {anomaly.coordinates.y.toFixed(1)}%)
+                              </div>
                             </div>
                             <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-slate-700 rotate-45 -mt-1" />
                           </div>
@@ -998,6 +1204,50 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                     })}
                 </div>
               </div>
+
+              {/* Caliper Measurement Overlay (Requirement R3) */}
+              {rulerStart && rulerEnd && rulerDistPx > 0 && (
+                <>
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-25 overflow-visible">
+                    <line
+                      x1={`${rulerStart.xPct}%`}
+                      y1={`${rulerStart.yPct}%`}
+                      x2={`${rulerEnd.xPct}%`}
+                      y2={`${rulerEnd.yPct}%`}
+                      stroke="#F59E0B"
+                      strokeWidth="2.5"
+                      strokeDasharray="4 2"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx={`${rulerStart.xPct}%`}
+                      cy={`${rulerStart.yPct}%`}
+                      r="4.5"
+                      fill="#F59E0B"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                    />
+                    <circle
+                      cx={`${rulerEnd.xPct}%`}
+                      cy={`${rulerEnd.yPct}%`}
+                      r="4.5"
+                      fill="#F59E0B"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                  <div
+                    className="absolute z-30 pointer-events-none bg-slate-950/90 text-amber-300 border border-amber-500/60 text-[11px] font-mono px-2 py-0.5 rounded-md shadow-lg transform -translate-x-1/2 -translate-y-full whitespace-nowrap flex items-center gap-1.5"
+                    style={{
+                      left: `${(rulerStart.xPct + rulerEnd.xPct) / 2}%`,
+                      top: `${Math.max(15, Math.min(rulerStart.yPct, rulerEnd.yPct) - 2)}%`,
+                    }}
+                  >
+                    <Ruler className="w-3 h-3 text-amber-400 shrink-0" />
+                    <span>{rulerDistPx} px • {rulerDistMicrons} µm ({rulerFractionDD} DD)</span>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

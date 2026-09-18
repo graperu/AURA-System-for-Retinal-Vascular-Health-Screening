@@ -2,9 +2,11 @@ package com.aura.bulk.worker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -49,6 +51,9 @@ class BulkProcessingWorkerTest {
 
   @Mock
   private BulkScreeningBatchRepository batchRepository;
+
+  @Mock
+  private com.aura.billing.service.BillingService billingService;
 
   private BulkProcessingWorker worker;
 
@@ -172,6 +177,153 @@ class BulkProcessingWorkerTest {
     verify(batchRepository).save(batch);
     assertThat(batch.getFailedCount()).isEqualTo(1);
     assertThat(batch.getStatus()).isEqualTo("COMPLETED");
+  }
+
+  @Test
+  @DisplayName("processQueueLoop khi AI thất bại -> tự động hoàn trả 1 credit cho clinic qua billingService.refundCredit")
+  void processQueueLoop_failurePath_autoRefundsCredit() throws Exception {
+    BulkProcessingWorker workerWithBilling = new BulkProcessingWorker(
+        jobQueue, aiServiceClient, itemRepository, batchRepository, billingService
+    );
+
+    PatientAnonymizedDto patient = new PatientAnonymizedDto(
+        "ps-err", "MRN-ERR", 60, "Female", 140, 90, 7.0, true, false, Instant.now()
+    );
+    BatchItemTask task = new BatchItemTask("batch-refund", "item-refund", "scan.png", "OD", patient, "base64");
+
+    when(jobQueue.dequeue()).thenReturn(task).thenThrow(new InterruptedException("Stop"));
+    when(aiServiceClient.executeFundusAnalysis(any(), any(), any()))
+        .thenThrow(new RuntimeException("Inference failure"));
+
+    UUID clinicId = UUID.randomUUID();
+    UUID batchUuid = UUID.randomUUID();
+    BulkScreeningBatch batch = new BulkScreeningBatch("batch-refund", clinicId, 1);
+    ReflectionTestUtils.setField(batch, "id", batchUuid);
+
+    BulkScreeningItem item = new BulkScreeningItem(batchUuid, "item-refund", "scan.png", "OD", "ps-err");
+
+    when(batchRepository.findByBatchCode("batch-refund")).thenReturn(Optional.of(batch));
+    when(itemRepository.findByBatchIdAndItemCode(batchUuid, "item-refund")).thenReturn(Optional.of(item));
+
+    invokeProcessQueueLoop(workerWithBilling);
+
+    verify(billingService).refundCredit(eq(clinicId), eq(1));
+  }
+
+  @Test
+  @DisplayName("Adversarial: khi refundCredit ném ngoại lệ -> bắt an toàn, vẫn lưu item FAILED và cập nhật batch mà không crash worker thread")
+  void processQueueLoop_failurePath_whenRefundCreditThrowsException_stillSyncsFailureGracefully() throws Exception {
+    BulkProcessingWorker workerWithBilling = new BulkProcessingWorker(
+        jobQueue, aiServiceClient, itemRepository, batchRepository, billingService
+    );
+
+    PatientAnonymizedDto patient = new PatientAnonymizedDto(
+        "ps-ex", "MRN-EX", 60, "Female", 140, 90, 7.0, true, false, Instant.now()
+    );
+    BatchItemTask task = new BatchItemTask("batch-ex", "item-ex", "scan.png", "OD", patient, "base64");
+
+    when(jobQueue.dequeue()).thenReturn(task).thenThrow(new InterruptedException("Stop"));
+    when(aiServiceClient.executeFundusAnalysis(any(), any(), any()))
+        .thenThrow(new RuntimeException("Inference failure"));
+
+    UUID clinicId = UUID.randomUUID();
+    UUID batchUuid = UUID.randomUUID();
+    BulkScreeningBatch batch = new BulkScreeningBatch("batch-ex", clinicId, 1);
+    ReflectionTestUtils.setField(batch, "id", batchUuid);
+
+    BulkScreeningItem item = new BulkScreeningItem(batchUuid, "item-ex", "scan.png", "OD", "ps-ex");
+
+    when(batchRepository.findByBatchCode("batch-ex")).thenReturn(Optional.of(batch));
+    when(itemRepository.findByBatchIdAndItemCode(batchUuid, "item-ex")).thenReturn(Optional.of(item));
+
+    // Simulate billing service failure
+    doThrow(new RuntimeException("Database timeout on refund transaction"))
+        .when(billingService).refundCredit(eq(clinicId), eq(1));
+
+    invokeProcessQueueLoop(workerWithBilling);
+
+    // Verify refund was attempted
+    verify(billingService).refundCredit(eq(clinicId), eq(1));
+
+    // Verify item and batch status were still saved as FAILED despite billing error
+    verify(itemRepository).save(item);
+    assertThat(item.getStatus()).isEqualTo("FAILED");
+    assertThat(item.getErrorMessage()).contains("Inference failure");
+
+    verify(batchRepository).save(batch);
+    assertThat(batch.getFailedCount()).isEqualTo(1);
+    assertThat(batch.getStatus()).isEqualTo("COMPLETED");
+  }
+
+  @Test
+  @DisplayName("Adversarial: khi clinicId là null trong batch -> bỏ qua refundCredit một cách an toàn không ném NullPointerException")
+  void processQueueLoop_failurePath_whenClinicIdIsNull_doesNotCallRefundCredit() throws Exception {
+    BulkProcessingWorker workerWithBilling = new BulkProcessingWorker(
+        jobQueue, aiServiceClient, itemRepository, batchRepository, billingService
+    );
+
+    PatientAnonymizedDto patient = new PatientAnonymizedDto(
+        "ps-null-clinic", "MRN-NC", 50, "Male", 120, 80, 5.5, false, false, Instant.now()
+    );
+    BatchItemTask task = new BatchItemTask("batch-nc", "item-nc", "scan.png", "OD", patient, "base64");
+
+    when(jobQueue.dequeue()).thenReturn(task).thenThrow(new InterruptedException("Stop"));
+    when(aiServiceClient.executeFundusAnalysis(any(), any(), any()))
+        .thenThrow(new RuntimeException("Inference failure"));
+
+    UUID batchUuid = UUID.randomUUID();
+    BulkScreeningBatch batch = new BulkScreeningBatch("batch-nc", null, 1); // null clinicId
+    ReflectionTestUtils.setField(batch, "id", batchUuid);
+
+    BulkScreeningItem item = new BulkScreeningItem(batchUuid, "item-nc", "scan.png", "OD", "ps-null-clinic");
+
+    when(batchRepository.findByBatchCode("batch-nc")).thenReturn(Optional.of(batch));
+    when(itemRepository.findByBatchIdAndItemCode(batchUuid, "item-nc")).thenReturn(Optional.of(item));
+
+    invokeProcessQueueLoop(workerWithBilling);
+
+    // Verify refundCredit was NEVER called because clinicId is null
+    verify(billingService, never()).refundCredit(any(), anyInt());
+
+    verify(itemRepository).save(item);
+    assertThat(item.getStatus()).isEqualTo("FAILED");
+  }
+
+  @Test
+  @DisplayName("Adversarial: khi task xử lý thành công -> tuyệt đối không gọi refundCredit")
+  void processQueueLoop_successPath_doesNotTriggerRefundCredit() throws Exception {
+    BulkProcessingWorker workerWithBilling = new BulkProcessingWorker(
+        jobQueue, aiServiceClient, itemRepository, batchRepository, billingService
+    );
+
+    PatientAnonymizedDto patient = new PatientAnonymizedDto(
+        "ps-ok", "MRN-OK", 40, "Female", 115, 75, 5.0, false, false, Instant.now()
+    );
+    BatchItemTask task = new BatchItemTask("batch-ok", "item-ok", "scan.png", "OD", patient, "base64");
+
+    AiInferenceResultDto aiResult = new AiInferenceResultDto(
+        "analysis-ok", 150L, 20, 20, "Low", 30, "Low", 15.0, 0.65, 18.0, 1.1, 0.35, "heatmap", 0, List.of()
+    );
+
+    when(jobQueue.dequeue()).thenReturn(task).thenThrow(new InterruptedException("Stop"));
+    when(aiServiceClient.executeFundusAnalysis(any(), any(), any())).thenReturn(aiResult);
+
+    UUID clinicId = UUID.randomUUID();
+    UUID batchUuid = UUID.randomUUID();
+    BulkScreeningBatch batch = new BulkScreeningBatch("batch-ok", clinicId, 1);
+    ReflectionTestUtils.setField(batch, "id", batchUuid);
+
+    BulkScreeningItem item = new BulkScreeningItem(batchUuid, "item-ok", "scan.png", "OD", "ps-ok");
+
+    when(batchRepository.findByBatchCode("batch-ok")).thenReturn(Optional.of(batch));
+    when(itemRepository.findByBatchIdAndItemCode(batchUuid, "item-ok")).thenReturn(Optional.of(item));
+
+    invokeProcessQueueLoop(workerWithBilling);
+
+    // Verify refund was never triggered on success
+    verify(billingService, never()).refundCredit(any(), anyInt());
+    verify(itemRepository).save(item);
+    assertThat(item.getStatus()).isEqualTo("COMPLETED");
   }
 
   @Test

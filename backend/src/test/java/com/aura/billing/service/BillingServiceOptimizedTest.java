@@ -474,4 +474,131 @@ class BillingServiceOptimizedTest {
     assertThat(result.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
     verify(subscriptionRepository).save(any());
   }
+
+  @Test
+  @DisplayName("deductCredits: Trả về true khi ownerId null hoặc amount <= 0")
+  void testDeductCredits_nullOrNonPositive_returnsTrue() {
+    assertThat(billingService.deductCredits(null, 5)).isTrue();
+    assertThat(billingService.deductCredits(ownerId, 0)).isTrue();
+    assertThat(billingService.deductCredits(ownerId, -1)).isTrue();
+    verify(subscriptionRepository, never()).findByOwnerIdForUpdate(any());
+  }
+
+  @Test
+  @DisplayName("deductCredits: Trả về false khi tổng credit khả dụng nhỏ hơn số lượng yêu cầu")
+  void testDeductCredits_insufficientAvailableCredits_returnsFalse() {
+    Subscription sub = Subscription.builder()
+        .id(1L)
+        .owner(ownerUser)
+        .remainingCredits(3)
+        .expiresAt(LocalDateTime.now().plusDays(10))
+        .status(SubscriptionStatus.ACTIVE)
+        .build();
+
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of(sub));
+
+    boolean result = billingService.deductCredits(ownerId, 5);
+
+    assertThat(result).isFalse();
+    assertThat(sub.getRemainingCredits()).isEqualTo(3);
+    verify(subscriptionRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("deductCredits: Trừ tuần tự qua nhiều subscription hoạt động theo hạn dùng sớm nhất")
+  void testDeductCredits_sequentialDeductionAcrossActiveSubscriptions_success() {
+    Subscription subEarlier = Subscription.builder()
+        .id(1L)
+        .owner(ownerUser)
+        .remainingCredits(2)
+        .expiresAt(LocalDateTime.now().plusDays(5))
+        .status(SubscriptionStatus.ACTIVE)
+        .build();
+
+    Subscription subLater = Subscription.builder()
+        .id(2L)
+        .owner(ownerUser)
+        .remainingCredits(5)
+        .expiresAt(LocalDateTime.now().plusDays(20))
+        .status(SubscriptionStatus.ACTIVE)
+        .build();
+
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId))
+        .thenReturn(new java.util.ArrayList<>(List.of(subLater, subEarlier)));
+
+    boolean result = billingService.deductCredits(ownerId, 4);
+
+    assertThat(result).isTrue();
+    assertThat(subEarlier.getRemainingCredits()).isEqualTo(0);
+    assertThat(subLater.getRemainingCredits()).isEqualTo(3);
+    verify(subscriptionRepository).save(subEarlier);
+    verify(subscriptionRepository).save(subLater);
+  }
+
+  @Test
+  @DisplayName("deductCredits: Tự động hết hạn subscription quá hạn và không tính vào hạn mức")
+  void testDeductCredits_ignoresExpiredSubscriptions() {
+    Subscription subExpired = Subscription.builder()
+        .id(1L)
+        .owner(ownerUser)
+        .remainingCredits(10)
+        .expiresAt(LocalDateTime.now().minusDays(1))
+        .status(SubscriptionStatus.ACTIVE)
+        .build();
+
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of(subExpired));
+
+    boolean result = billingService.deductCredits(ownerId, 2);
+
+    assertThat(result).isFalse();
+    assertThat(subExpired.getStatus()).isEqualTo(SubscriptionStatus.EXPIRED);
+    verify(subscriptionRepository).save(subExpired);
+  }
+
+  @Test
+  @DisplayName("deductCredit: Ủy quyền chính xác sang deductCredits(ownerId, 1)")
+  void testDeductCredit_delegatesToDeductCredits() {
+    Subscription sub = Subscription.builder()
+        .id(1L)
+        .owner(ownerUser)
+        .remainingCredits(3)
+        .expiresAt(LocalDateTime.now().plusDays(10))
+        .status(SubscriptionStatus.ACTIVE)
+        .build();
+
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of(sub));
+
+    boolean result = billingService.deductCredit(ownerId);
+
+    assertThat(result).isTrue();
+    assertThat(sub.getRemainingCredits()).isEqualTo(2);
+    verify(subscriptionRepository).save(sub);
+  }
+
+  @Test
+  @DisplayName("refundCredit: Cộng hoàn trả đúng số lượt vào gói hoạt động có hạn dùng xa nhất")
+  void testRefundCredit_addsCreditsToLatestActiveSubscription() {
+    Subscription sub1 = Subscription.builder()
+        .id(1L)
+        .owner(ownerUser)
+        .remainingCredits(2)
+        .expiresAt(LocalDateTime.now().plusDays(5))
+        .status(SubscriptionStatus.ACTIVE)
+        .build();
+
+    Subscription sub2 = Subscription.builder()
+        .id(2L)
+        .owner(ownerUser)
+        .remainingCredits(5)
+        .expiresAt(LocalDateTime.now().plusDays(30))
+        .status(SubscriptionStatus.ACTIVE)
+        .build();
+
+    when(subscriptionRepository.findByOwnerIdForUpdate(ownerId)).thenReturn(List.of(sub1, sub2));
+
+    billingService.refundCredit(ownerId, 2);
+
+    assertThat(sub2.getRemainingCredits()).isEqualTo(7);
+    verify(subscriptionRepository).save(sub2);
+  }
 }

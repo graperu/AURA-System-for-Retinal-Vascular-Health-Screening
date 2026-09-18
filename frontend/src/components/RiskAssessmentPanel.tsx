@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AIRiskResult } from '../types/cds';
-import { Heart, Activity, BrainCircuit, Eye } from 'lucide-react';
+import { Heart, Activity, BrainCircuit, Eye, Target, CheckCircle2, FileText, Sparkles } from 'lucide-react';
 import { Card } from './ui/Card';
 import { RiskBadge } from './ui/RiskBadge';
 import { MedicalDisclaimer } from './ui/MedicalDisclaimer';
@@ -8,8 +8,10 @@ import { useLanguage } from '../context/LanguageContext';
 import { AnimatedCounter } from './common/AnimatedCounter';
 import { BiomarkerGaugeBar } from './common/BiomarkerGaugeBar';
 
-interface RiskAssessmentPanelProps {
+export interface RiskAssessmentPanelProps {
   result: AIRiskResult;
+  className?: string;
+  defaultTab?: 'risks' | 'biomarkers' | 'lesions';
 }
 
 const formatHypertensionStage = (stage?: string | null, isVi = true): string => {
@@ -38,8 +40,13 @@ const formatEtdrsGrade = (grade?: string | null, isVi = true): string => {
   return grade;
 };
 
-export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result }) => {
+export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
+  result,
+  className = '',
+  defaultTab = 'risks',
+}) => {
   const { isVi } = useLanguage();
+  const [activeTab, setActiveTab] = useState<'risks' | 'biomarkers' | 'lesions'>(defaultTab);
 
   const getGaugeColor = (score: number) => {
     if (score < 30) return '#16A34A';
@@ -52,11 +59,12 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
   const vesselDensity = Number(result?.annotatedMap?.vesselDensityPercentage) || 0;
   const tortuosity = Number(result?.annotatedMap?.tortuosityIndex) || 0;
   const vcdr = Number(result?.annotatedMap?.opticCupToDiscRatio) || 0;
+  const detectedAnomalies = result?.annotatedMap?.detectedAnomalies || [];
 
   return (
-    <Card padding="md" className="space-y-6">
-      {/* Title */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-clinical-border pb-4">
+    <Card padding="md" className={`space-y-4 ${className}`}>
+      {/* Title & Overall Risk Score */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-clinical-border pb-3">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-clinical-text flex items-center gap-2">
             <Activity className="w-5 h-5 text-brand-600" />
@@ -70,7 +78,7 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
               : 'Quantitative medical risk based on retinal microvascular morphology combined with AI algorithms.'}
           </p>
         </div>
-        <div className="bg-slate-50 px-4 py-2 rounded-xl border border-clinical-border text-right font-mono-data">
+        <div className="bg-slate-50 px-3.5 py-1.5 rounded-xl border border-clinical-border text-right font-mono-data">
           <span className="text-[11px] text-clinical-text-muted block font-sans">
             {isVi ? 'Tổng Điểm Nguy Cơ:' : 'Overall Risk Score:'}
           </span>
@@ -83,106 +91,143 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
         </div>
       </div>
 
-      {/* 3 Core Risk Pillar Cards: Tim Mạch, Tiểu Đường, Đột Quỵ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Pillar 1: Nguy Cơ Tim Mạch */}
-        <div className="p-4 rounded-xl border border-clinical-border bg-slate-50/70 space-y-3 shadow-2xs hover:bg-slate-50 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
-              <Heart className="w-4 h-4 text-red-600" />
-              {isVi ? 'Nguy Cơ Tim Mạch' : 'Cardiovascular Risk'}
-            </span>
-            <RiskBadge level={result.cardiovascularRisk?.level} size="sm" />
+      {/* 3 Compact Clinical Tabs Navigation */}
+      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setActiveTab('risks')}
+          className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            activeTab === 'risks'
+              ? 'bg-[#3478F6] text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <Heart className="w-3.5 h-3.5" />
+          <span>{isVi ? '1. Nguy Cơ Toàn Diện & Phân Loại Bệnh Học' : '1. Clinical Risks & Staging'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('biomarkers')}
+          className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            activeTab === 'biomarkers'
+              ? 'bg-[#3478F6] text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>{isVi ? '2. Chỉ Số Sinh Học Vi Mạch (Biomarkers Gauge)' : '2. Biomarkers Gauge'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('lesions')}
+          className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            activeTab === 'lesions'
+              ? 'bg-[#3478F6] text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <Target className="w-3.5 h-3.5" />
+          <span>{isVi ? '3. Chi Tiết Tổn Thương Vi Mạch & XAI' : '3. Lesions & XAI'}</span>
+        </button>
+      </div>
+
+      {/* Tab 1: Nguy Cơ Toàn Diện & Phân Loại Bệnh Học */}
+      <div className={activeTab === 'risks' ? 'block space-y-3' : 'hidden'}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Pillar 1: Nguy Cơ Tim Mạch */}
+          <div className="p-3.5 rounded-xl border border-clinical-border bg-slate-50/70 space-y-2.5 shadow-2xs hover:bg-slate-50 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
+                <Heart className="w-4 h-4 text-red-600" />
+                {isVi ? 'Nguy Cơ Tim Mạch' : 'Cardiovascular Risk'}
+              </span>
+              <RiskBadge level={result.cardiovascularRisk?.level} size="sm" />
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono-data text-clinical-text">
+                {result.cardiovascularRisk?.score ?? 0}%
+              </span>
+              <span className="text-[11px] text-clinical-text-muted">
+                {formatHypertensionStage(result.cardiovascularRisk?.hypertensionStage, isVi)}
+              </span>
+            </div>
+
+            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+              <div
+                className="h-full transition-all duration-500 rounded-full"
+                style={{
+                  width: `${Math.min(100, result.cardiovascularRisk?.score ?? 0)}%`,
+                  backgroundColor: getGaugeColor(result.cardiovascularRisk?.score ?? 0),
+                }}
+              />
+            </div>
           </div>
 
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono-data text-clinical-text">
-              {result.cardiovascularRisk?.score ?? 0}%
-            </span>
-            <span className="text-[11px] text-clinical-text-muted">
-              {formatHypertensionStage(result.cardiovascularRisk?.hypertensionStage, isVi)}
-            </span>
+          {/* Pillar 2: Nguy Cơ Đột Quỵ */}
+          <div className="p-3.5 rounded-xl border border-clinical-border bg-slate-50/70 space-y-2.5 shadow-2xs hover:bg-slate-50 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
+                <BrainCircuit className="w-4 h-4 text-brand-600" />
+                {isVi ? 'Nguy Cơ Đột Quỵ' : 'Stroke Risk'}
+              </span>
+              <RiskBadge level={result.cardiovascularRisk?.level} size="sm" />
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono-data text-clinical-text">
+                {result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0}%
+              </span>
+              <span className="text-[11px] text-clinical-text-muted">
+                {isVi ? 'Ước tính nguy cơ 3 năm' : '3-year estimate'}
+              </span>
+            </div>
+
+            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+              <div
+                className="h-full transition-all duration-500 rounded-full"
+                style={{
+                  width: `${Math.min(100, result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0)}%`,
+                  backgroundColor: getGaugeColor(result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0),
+                }}
+              />
+            </div>
           </div>
 
-          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-            <div
-              className="h-full transition-all duration-500 rounded-full"
-              style={{
-                width: `${Math.min(100, result.cardiovascularRisk?.score ?? 0)}%`,
-                backgroundColor: getGaugeColor(result.cardiovascularRisk?.score ?? 0),
-              }}
-            />
-          </div>
-        </div>
+          {/* Pillar 3: Bệnh Võng Mạc ĐTĐ */}
+          <div className="p-3.5 rounded-xl border border-clinical-border bg-slate-50/70 space-y-2.5 shadow-2xs hover:bg-slate-50 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
+                <Eye className="w-4 h-4 text-teal-600" />
+                {isVi ? 'Bệnh Võng Mạc ĐTĐ' : 'Diabetic Retinopathy'}
+              </span>
+              <RiskBadge level={result.diabeticRetinopathyRisk?.level} size="sm" />
+            </div>
 
-        {/* Pillar 2: Nguy Cơ Đột Quỵ */}
-        <div className="p-4 rounded-xl border border-clinical-border bg-slate-50/70 space-y-3 shadow-2xs hover:bg-slate-50 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
-              <BrainCircuit className="w-4 h-4 text-brand-600" />
-              {isVi ? 'Nguy Cơ Đột Quỵ' : 'Stroke Risk'}
-            </span>
-            <RiskBadge level={result.cardiovascularRisk?.level} size="sm" />
-          </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono-data text-clinical-text">
+                {result.diabeticRetinopathyRisk?.score ?? 0}%
+              </span>
+              <span className="text-[11px] text-clinical-text-muted">
+                {formatEtdrsGrade(result.diabeticRetinopathyRisk?.etdrsGrade, isVi)}
+              </span>
+            </div>
 
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono-data text-clinical-text">
-              {result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0}%
-            </span>
-            <span className="text-[11px] text-clinical-text-muted">
-              {isVi ? 'Ước tính nguy cơ 3 năm' : '3-year estimate'}
-            </span>
-          </div>
-
-          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-            <div
-              className="h-full transition-all duration-500 rounded-full"
-              style={{
-                width: `${Math.min(100, result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0)}%`,
-                backgroundColor: getGaugeColor(result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0),
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Pillar 3: Nguy Cơ Bệnh Võng Mạc ĐTĐ */}
-        <div className="p-4 rounded-xl border border-clinical-border bg-slate-50/70 space-y-3 shadow-2xs hover:bg-slate-50 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
-              <Eye className="w-4 h-4 text-teal-600" />
-              {isVi ? 'Bệnh Võng Mạc ĐTĐ' : 'Diabetic Retinopathy'}
-            </span>
-            <RiskBadge level={result.diabeticRetinopathyRisk?.level} size="sm" />
-          </div>
-
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono-data text-clinical-text">
-              {result.diabeticRetinopathyRisk?.score ?? 0}%
-            </span>
-            <span className="text-[11px] text-clinical-text-muted">
-              {formatEtdrsGrade(result.diabeticRetinopathyRisk?.etdrsGrade, isVi)}
-            </span>
-          </div>
-
-          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-            <div
-              className="h-full transition-all duration-500 rounded-full"
-              style={{
-                width: `${Math.min(100, result.diabeticRetinopathyRisk?.score ?? 0)}%`,
-                backgroundColor: getGaugeColor(result.diabeticRetinopathyRisk?.score ?? 0),
-              }}
-            />
+            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+              <div
+                className="h-full transition-all duration-500 rounded-full"
+                style={{
+                  width: `${Math.min(100, result.diabeticRetinopathyRisk?.score ?? 0)}%`,
+                  backgroundColor: getGaugeColor(result.diabeticRetinopathyRisk?.score ?? 0),
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Retinal Biomarkers Data Grid */}
-      <div className="space-y-3 pt-2">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-clinical-text-muted">
-          {isVi
-            ? 'Thông Số Sinh Học Vi Mạch Võng Mạc'
-            : 'Retinal Microvascular Biomarkers'}
-        </h3>
+      {/* Tab 2: Chỉ Số Sinh Học Vi Mạch (Biomarkers Gauge) (CRITICAL SSR REQUIREMENT) */}
+      <div className={activeTab === 'biomarkers' ? 'block space-y-3' : 'hidden'}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Biomarker 1: Tỷ lệ A/V */}
           <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
@@ -282,6 +327,59 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({ result
             <span className="text-[10px] text-slate-400 block font-mono-data">
               {isVi ? 'Chuẩn: < 0.50' : 'Ref: < 0.50'}
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab 3: Chi Tiết Tổn Thương Vi Mạch & XAI */}
+      <div className={activeTab === 'lesions' ? 'block space-y-3' : 'hidden'}>
+        {detectedAnomalies && detectedAnomalies.length > 0 ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {detectedAnomalies.map((anom, idx) => (
+                <div
+                  key={anom.id || `anom-${idx}`}
+                  className="p-2.5 rounded-xl border border-slate-200 bg-white shadow-2xs space-y-1 text-xs"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-bold text-slate-800 truncate flex items-center gap-1">
+                      <Target className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>{anom.type}</span>
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                      {(anom.confidence * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    Tọa độ: X: {anom.coordinates?.x?.toFixed(1)}%, Y: {anom.coordinates?.y?.toFixed(1)}%
+                  </div>
+                  {anom.description && (
+                    <p className="text-[11px] text-slate-600 line-clamp-2">{anom.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{isVi ? 'Không phát hiện tổn thương vi mạch khu trú đơn độc.' : 'No focal microvascular lesions detected.'}</span>
+          </div>
+        )}
+
+        {/* Recommendations & XAI Explainability Rationale */}
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
+          <div className="font-bold text-slate-800 flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-[#3478F6]" />
+            <span>{isVi ? 'Khuyến nghị lâm sàng & Giải trình XAI:' : 'Clinical Recommendations & XAI Rationale:'}</span>
+          </div>
+          <p className="text-slate-600 leading-relaxed text-[11.5px]">
+            {result.recommendations || (isVi
+              ? 'Tái khám định kỳ sau 6 tháng, kiểm soát tốt chỉ số huyết áp tâm thu < 130 mmHg và đường huyết đói HbA1c < 7.0%.'
+              : 'Follow up in 6 months, maintain systolic BP < 130 mmHg and HbA1c < 7.0%.')}
+          </p>
+          <div className="text-[10px] text-slate-400 font-mono-data pt-1 border-t border-slate-200/80">
+            {result.modelVersion || 'Gemini 3.8 Flash High / AURA-Core v2.4'} • {result.confidenceCalibration?.calibrationMethod || 'Platt Calibrated'}
           </div>
         </div>
       </div>

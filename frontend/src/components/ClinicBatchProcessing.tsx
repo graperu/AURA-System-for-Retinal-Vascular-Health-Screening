@@ -524,14 +524,17 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
           .uploadBatch({
             campaignName: payload.campaignName,
             clinicId: payload.clinicId,
-            images: payload.items.map((it) => ({
+            imageItems: payload.items.map((it) => ({
               fileName: it.fileName,
+              base64ImageContent: it.base64ImageContent || it.previewUrl || '',
               eyePosition: it.eyePosition,
-              imageContent: it.base64ImageContent || it.previewUrl,
-              mrn: it.rawMrn,
-              patientName: it.rawPatientName,
-              patientAge: it.patientAge,
-              patientGender: it.patientGender,
+              rawMrn: it.rawMrn,
+              rawPatientName: it.rawPatientName,
+              patientAge: it.patientAge || 50,
+              patientGender: it.patientGender || 'M',
+              systolicBp: it.systolicBp || 120,
+              diastolicBp: it.diastolicBp || 80,
+              hbA1c: it.hbA1c || 5.6,
             })),
           })
           .catch((err) => {

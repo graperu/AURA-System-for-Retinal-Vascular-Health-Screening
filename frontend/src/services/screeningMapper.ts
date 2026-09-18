@@ -118,6 +118,27 @@ export const parseAnomaliesSafely = (raw: any): VesselAnomalyRegion[] => {
 };
 
 /**
+ * Chuẩn hóa chuỗi URL ảnh hoặc Base64 sang định dạng data URI hoàn chỉnh.
+ * Giữ nguyên các URL blob:, http:, https:, đường dẫn tương đối /uploads/, hoặc data:image/.
+ * Nếu là chuỗi Base64 thô (raw Base64) không có scheme, tự động gắn prefix data:image/png;base64,.
+ */
+export const normalizeImageDataUrl = (raw?: string | null): string | undefined => {
+  if (!raw || typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  if (
+    trimmed.startsWith('data:image/') ||
+    trimmed.startsWith('blob:') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/')
+  ) {
+    return trimmed;
+  }
+  return `data:image/png;base64,${trimmed}`;
+};
+
+/**
  * Chuyển đổi bản ghi Screening thật từ backend (Spring Boot + AURA AI Core thật)
  * sang định dạng AIRiskResult mà RiskAssessmentPanel / InteractiveCDSViewer /
  * MedicalReportModal đang dùng để hiển thị (FR-3, FR-4, FR-5, FR-6, FR-7).
@@ -142,9 +163,16 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
 
   const parsedIcd10 = parseIcd10Codes(screening.icd10Codes);
 
+  const rawImageUrl = screening.imageUrl || screening.image || screening.fundusImageUrl;
+  const resolvedImageUrl = normalizeImageDataUrl(rawImageUrl) || fallbackImageUrl;
+  const rawHeatmap = screening.heatmapBase64 || screening.annotatedMap?.heatmapUrl;
+  const resolvedHeatmap = normalizeImageDataUrl(rawHeatmap);
+  const rawVesselMask = screening.vesselMaskUrl || screening.annotatedMap?.vesselMaskUrl;
+  const resolvedVesselMask = normalizeImageDataUrl(rawVesselMask);
+
   return {
     analysisId: screening.id,
-    imageUrl: screening.imageUrl || fallbackImageUrl,
+    imageUrl: resolvedImageUrl,
     status: screening.status || 'COMPLETED',
     executionTimeMs: screening.executionTimeMs ?? 0,
     overallVascularRiskScore: overallScore,
@@ -220,8 +248,8 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
       };
     })(),
     annotatedMap: {
-      heatmapUrl: screening.heatmapBase64 || screening.annotatedMap?.heatmapUrl || undefined,
-      vesselMaskUrl: screening.vesselMaskUrl || screening.annotatedMap?.vesselMaskUrl || undefined,
+      heatmapUrl: resolvedHeatmap,
+      vesselMaskUrl: resolvedVesselMask,
       arteryVeinRatio: screening.avRatio ?? screening.annotatedMap?.arteryVeinRatio ?? 0,
       vesselDensityPercentage: screening.vesselDensityPercent ?? screening.annotatedMap?.vesselDensityPercentage ?? 0,
       tortuosityIndex: screening.tortuosityIndex ?? screening.annotatedMap?.tortuosityIndex ?? 0,
