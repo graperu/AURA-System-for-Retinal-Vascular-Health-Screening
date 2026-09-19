@@ -112,11 +112,13 @@ public class PatientProfile {
     if (updatedAt == null) {
       updatedAt = now;
     }
+    syncPhoneHash();
   }
 
   @PreUpdate
   void onUpdate() {
     updatedAt = Instant.now();
+    syncPhoneHash();
   }
 
   public UUID getId() {
@@ -304,8 +306,6 @@ public class PatientProfile {
     return updatedAt;
   }
 
-  @PrePersist
-  @PreUpdate
   public void syncPhoneHash() {
     if (this.phone != null && !this.phone.isBlank()) {
       this.phoneHash = com.aura.common.crypto.BlindIndexUtil.computePhoneHash(this.phone);
