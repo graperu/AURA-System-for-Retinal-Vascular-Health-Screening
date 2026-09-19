@@ -11,6 +11,7 @@ import {
   Bell,
   CreditCard,
   BarChart3,
+  MessageSquare,
 } from 'lucide-react';
 import { UserSession } from '../../types/auth';
 import { useLanguage } from '../../context/LanguageContext';
@@ -36,6 +37,7 @@ export interface TopbarProps {
   onNavigate?: (section: string) => void;
   onSearch?: (query: string) => void;
   onlineStatus?: OnlinePresenceStatus;
+  unreadChatCount?: number;
   className?: string;
 }
 
@@ -54,15 +56,18 @@ export const Topbar: React.FC<TopbarProps> = ({
   onNavigate,
   onSearch,
   onlineStatus: propOnlineStatus,
+  unreadChatCount = 0,
   className = '',
 }) => {
   const { t, language, setLanguage, isVi } = useLanguage();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
-  const [unreadCount, setUnreadCount] = useState<number>(
-    MOCK_NOTIFICATIONS.filter((n) => !n.read && !n.isRead).length
-  );
+  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
+    return getAccessToken() ? [] : MOCK_NOTIFICATIONS;
+  });
+  const [unreadCount, setUnreadCount] = useState<number>(() => {
+    return getAccessToken() ? 0 : MOCK_NOTIFICATIONS.filter((n) => !n.read && !n.isRead).length;
+  });
   const [activeToast, setActiveToast] = useState<any | null>(null);
   const [internalOnlineStatus, setInternalOnlineStatus] = useState<OnlinePresenceStatus>(() => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -109,7 +114,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         notificationApi.getNotifications(),
         notificationApi.getUnreadCount(),
       ]);
-      if (resList.success && Array.isArray(resList.data) && resList.data.length > 0) {
+      if (resList.success && Array.isArray(resList.data)) {
         const mapped: NotificationItem[] = resList.data.map((item: any) => ({
           id: String(item.id || item._id || Math.random()),
           type: item.type || 'SYSTEM',
@@ -532,6 +537,26 @@ export const Topbar: React.FC<TopbarProps> = ({
           onNotificationClick={handleNotificationClick}
           onOpenDrawer={() => setIsDrawerOpen(true)}
         />
+
+        {/* Real-time Consultation Chat Icon with Unread Count Badge (R5, AC-5) */}
+        <button
+          type="button"
+          onClick={() => onNavigate?.('consultation')}
+          title={isVi ? 'Kênh tin nhắn tư vấn' : 'Consultation messages'}
+          aria-label={isVi ? 'Tin nhắn tư vấn' : 'Consultation messages'}
+          data-testid="topbar-chat-btn"
+          className="relative rounded-xl p-2 text-[#667085] hover:bg-[#F8F9FA] hover:text-[#111827] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3478F6] cursor-pointer"
+        >
+          <MessageSquare className="h-5 w-5" />
+          {typeof unreadChatCount === 'number' && unreadChatCount > 0 && (
+            <span
+              data-testid="topbar-chat-badge"
+              className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white shadow-xs font-mono-data animate-pulse"
+            >
+              {unreadChatCount > 99 ? '99+' : unreadChatCount}
+            </span>
+          )}
+        </button>
 
         {/* Notification Drawer (Full category view) */}
         <NotificationCenterDrawer

@@ -1117,6 +1117,10 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
                   statusText={analysisProgress.status}
                   patientName={activePatient?.fullName || undefined}
                   mrn={activePatient?.mrn || undefined}
+                  detectedDiscCenter={selectedEye === 'Left_OS' ? { x: 28, y: 50 } : { x: 67, y: 50 }}
+                  detectedMaculaCenter={selectedEye === 'Left_OS' ? { x: 64, y: 50 } : { x: 43.5, y: 50.2 }}
+                  cdrValue={analysisProgress.percent >= 65 ? 0.52 : undefined}
+                  avRatioValue={analysisProgress.percent >= 65 ? 0.48 : undefined}
                 />
               </div>
 

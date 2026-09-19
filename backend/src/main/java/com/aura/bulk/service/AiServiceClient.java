@@ -69,6 +69,17 @@ public class AiServiceClient {
             heatmap = null;
         }
 
+        List<?> anomaliesList = (List<?>) aiResult.get("detectedAnomalies");
+        int anomaliesCount = anomaliesList != null ? anomaliesList.size() : 0;
+        String anomaliesJson = "[]";
+        if (anomaliesList != null && !anomaliesList.isEmpty()) {
+            try {
+                anomaliesJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(anomaliesList);
+            } catch (Exception e) {
+                log.warn("[AI Client] Failed to serialize detected anomalies: {}", e.getMessage());
+            }
+        }
+
         return new AiInferenceResultDto(
                 UUID.randomUUID().toString(),
                 System.currentTimeMillis() - startTime,
@@ -83,8 +94,9 @@ public class AiServiceClient {
                 tortuosity,
                 cdr,
                 heatmap,
-                0,
-                List.of("Phân tích tự động từ Cloud AI Gemini 3.8 Flash High")
+                anomaliesCount,
+                List.of("Phân tích tự động từ Cloud AI Gemini 3.8 Flash High"),
+                anomaliesJson
         );
     }
 }

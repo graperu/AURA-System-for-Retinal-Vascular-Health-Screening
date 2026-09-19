@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Users,
   Clock,
@@ -26,9 +26,11 @@ import { DoctorPatientSummary } from '../../pages/CDSDashboardPage';
 import { PatientProfile } from '../../types/cds';
 import { MedicalProfileModal } from '../../components/MedicalProfileModal';
 import { realtimeBus } from '../../services/realtimeService';
+import { screeningApi } from '../../services/api';
 
 export interface DoctorDashboardViewProps {
   assignedPatients: DoctorPatientSummary[];
+  screenings?: any[];
   onSelectPatientForCDS: (patientId: string, screeningId?: string, directPatient?: any) => void;
   onNavigate?: (section: string) => void;
   doctorName?: string;
@@ -40,6 +42,7 @@ export interface DoctorDashboardViewProps {
 
 export const DoctorDashboardView: React.FC<DoctorDashboardViewProps> = ({
   assignedPatients = [],
+  screenings: propScreenings,
   onSelectPatientForCDS,
   onNavigate,
   doctorName = 'Bác sĩ chuyên khoa',
@@ -57,16 +60,48 @@ export const DoctorDashboardView: React.FC<DoctorDashboardViewProps> = ({
   // Live state for instant Zero-F5 real-time update when patient uploads new scan (<5s SLA)
   const [livePatients, setLivePatients] = useState<DoctorPatientSummary[]>(assignedPatients);
 
+  // Real screenings state fetched from database
+  const [screenings, setScreenings] = useState<any[]>(propScreenings || []);
+  const [loadingScreenings, setLoadingScreenings] = useState<boolean>(!propScreenings);
+
+  const loadScreenings = useCallback(async () => {
+    setLoadingScreenings(true);
+    try {
+      const res = await screeningApi.getAll({ size: 100 });
+      const list = Array.isArray(res?.data)
+        ? res.data
+        : (res?.data as any)?.items || (res?.data as any)?.content || [];
+      if (res && res.success && Array.isArray(list)) {
+        setScreenings(list);
+      }
+    } catch (err) {
+      console.warn('[DoctorDashboardView] Could not load real screenings:', err);
+    } finally {
+      setLoadingScreenings(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (propScreenings) {
+      setScreenings(propScreenings);
+    } else {
+      void loadScreenings();
+    }
+  }, [propScreenings, loadScreenings]);
+
   useEffect(() => {
     setLivePatients(assignedPatients);
   }, [assignedPatients]);
 
   useEffect(() => {
     const unsub = realtimeBus.subscribe(
-      ['screening:created', 'screening:completed', 'screening:new', 'SCAN_UPLOADED'],
+      ['screening:created', 'screening:completed', 'screening:new', 'SCAN_UPLOADED', 'DOCTOR_REVIEW'],
       (event) => {
         if (onRefresh) {
           onRefresh();
+        }
+        if (!propScreenings) {
+          void loadScreenings();
         }
         const data = event?.data;
         if (data && (data.patientId || data.mrn)) {
@@ -108,7 +143,7 @@ export const DoctorDashboardView: React.FC<DoctorDashboardViewProps> = ({
       }
     );
     return unsub;
-  }, [onRefresh, isVi]);
+  }, [onRefresh, isVi, propScreenings, loadScreenings]);
 
   const handleViewPatientProfile = (patientSummary: DoctorPatientSummary) => {
     if (onSelectPatient) {
@@ -163,7 +198,87 @@ export const DoctorDashboardView: React.FC<DoctorDashboardViewProps> = ({
     });
   }, [livePatients]);
 
-  const reviewedCount = Math.max(0, totalAssigned - pendingReviews.length);
+  const reviewedCount = useMemo(() => {
+    if (screenings.length > 0) {
+      return screenings.filter(
+        (s) => s.status === 'REVIEWED' || s.reviewDecision != null || s.digitalSignature != null
+      ).length;
+    }
+    return Math.max(0, totalAssigned - pendingReviews.length);
+  }, [screenings, totalAssigned, pendingReviews.length]);
+
+  // Real 7-day activity trajectory data computed from database screenings or live assigned patients
+  const weeklyActivityData = useMemo(() => {
+    const dayNamesVi = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    const dayNamesEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    const days = dayNamesVi.map((nameVi, index) => ({
+      day: isVi ? nameVi : dayNamesEn[index],
+      dayIndex: index,
+      total: 0,
+      high: 0,
+      mod: 0,
+      low: 0,
+    }));
+
+    if (screenings.length > 0) {
+      screenings.forEach((s) => {
+        const dateStr = s.createdAt || s.updatedAt || s.date;
+        if (!dateStr) return;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return;
+        const jsDay = d.getDay();
+        const isoIndex = (jsDay + 6) % 7;
+
+        const lvl = (s.riskLevel || s.aiRiskLevel || s.doctorRiskLevel || '').toUpperCase();
+        const score = Number(s.riskScore || s.overallVascularRiskScore || 0);
+        const isHigh = lvl === 'HIGH' || lvl === 'CRITICAL' || lvl === 'SEVERE' || score >= 70;
+        const isMod = lvl === 'MODERATE' || lvl === 'MEDIUM' || (score >= 40 && score < 70);
+
+        days[isoIndex].total += 1;
+        if (isHigh) {
+          days[isoIndex].high += 1;
+        } else if (isMod) {
+          days[isoIndex].mod += 1;
+        } else {
+          days[isoIndex].low += 1;
+        }
+      });
+    } else if (livePatients.length > 0) {
+      livePatients.forEach((p) => {
+        const dateStr = p.lastScreeningAt || p.assignedAt;
+        if (!dateStr) return;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return;
+        const jsDay = d.getDay();
+        const isoIndex = (jsDay + 6) % 7;
+
+        const lvl = (p.latestRiskLevel || '').toUpperCase();
+        const isHigh = lvl === 'HIGH' || lvl === 'CRITICAL' || lvl === 'SEVERE';
+        const isMod = lvl === 'MODERATE' || lvl === 'MEDIUM';
+
+        days[isoIndex].total += 1;
+        if (isHigh) {
+          days[isoIndex].high += 1;
+        } else if (isMod) {
+          days[isoIndex].mod += 1;
+        } else {
+          days[isoIndex].low += 1;
+        }
+      });
+    }
+
+    return days;
+  }, [screenings, livePatients, isVi]);
+
+  const maxBarTotal = Math.max(5, ...weeklyActivityData.map((d) => d.total));
+  const yAxisMax = Math.ceil(maxBarTotal / 5) * 5;
+  const yAxisTicks = [
+    yAxisMax,
+    Math.round((yAxisMax * 2) / 3),
+    Math.round(yAxisMax / 3),
+    0,
+  ];
 
   // Filtered queue
   const displayQueue = useMemo(() => {
@@ -404,50 +519,54 @@ export const DoctorDashboardView: React.FC<DoctorDashboardViewProps> = ({
                   <line x1="30" y1="155" x2="520" y2="155" stroke="#EAECF0" />
 
                   {/* Y-axis scale */}
-                  <text x="24" y="24" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">30</text>
-                  <text x="24" y="69" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">20</text>
-                  <text x="24" y="114" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">10</text>
+                  <text x="24" y="24" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">{yAxisTicks[0]}</text>
+                  <text x="24" y="69" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">{yAxisTicks[1]}</text>
+                  <text x="24" y="114" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">{yAxisTicks[2]}</text>
                   <text x="24" y="159" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">0</text>
 
-                  {/* 7 Days Data Columns */}
+                  {/* 7 Days Real Data Columns */}
                   {(() => {
-                    const days = [
-                      { day: isVi ? 'T2' : 'Mon', total: 12, high: 2, mod: 6, low: 4 },
-                      { day: isVi ? 'T3' : 'Tue', total: 18, high: 4, mod: 8, low: 6 },
-                      { day: isVi ? 'T4' : 'Wed', total: 15, high: 3, mod: 7, low: 5 },
-                      { day: isVi ? 'T5' : 'Thu', total: 24, high: 5, mod: 11, low: 8 },
-                      { day: isVi ? 'T6' : 'Fri', total: 21, high: 4, mod: 9, low: 8 },
-                      { day: isVi ? 'T7' : 'Sat', total: 16, high: 2, mod: 6, low: 8 },
-                      { day: isVi ? 'CN' : 'Sun', total: Math.max(5, totalAssigned), high: highRiskPatients.length, mod: moderateRiskPatients.length, low: Math.max(2, totalAssigned - highRiskPatients.length - moderateRiskPatients.length) },
-                    ];
-
                     const startX = 60;
                     const stepX = 70;
 
-                    return days.map((d, i) => {
+                    return weeklyActivityData.map((d, i) => {
                       const x = startX + i * stepX;
-                      const h = (d.total / 30) * 135;
+                      const h = d.total > 0 ? Math.max(6, (d.total / yAxisMax) * 135) : 0;
                       const y = 155 - h;
+                      const highH = d.high > 0 ? Math.max(4, (d.high / yAxisMax) * 135) : 0;
 
                       return (
                         <g key={d.day} className="transition-all hover:opacity-85 cursor-pointer">
                           {/* Background Bar */}
-                          <rect
-                            x={x - 14}
-                            y={y}
-                            width={28}
-                            height={h}
-                            rx={6}
-                            fill="#3478F6"
-                            opacity={0.88}
-                          />
+                          {d.total > 0 && (
+                            <rect
+                              x={x - 14}
+                              y={y}
+                              width={28}
+                              height={h}
+                              rx={6}
+                              fill="#3478F6"
+                              opacity={0.88}
+                            />
+                          )}
+                          {/* Subtle baseline marker when 0 */}
+                          {d.total === 0 && (
+                            <rect
+                              x={x - 8}
+                              y={153}
+                              width={16}
+                              height={3}
+                              rx={1.5}
+                              fill="#EAECF0"
+                            />
+                          )}
                           {/* High risk top highlight */}
                           {d.high > 0 && (
                             <rect
                               x={x - 14}
                               y={y}
                               width={28}
-                              height={Math.max(4, (d.high / 30) * 135)}
+                              height={highH}
                               rx={4}
                               fill="#EF4444"
                             />
@@ -462,9 +581,9 @@ export const DoctorDashboardView: React.FC<DoctorDashboardViewProps> = ({
                           </text>
                           <text
                             x={x}
-                            y={y - 6}
+                            y={d.total > 0 ? y - 6 : 148}
                             textAnchor="middle"
-                            className="text-[10px] fill-[#3478F6] font-mono-data font-bold"
+                            className={`text-[10px] font-mono-data ${d.total > 0 ? 'fill-[#3478F6] font-bold' : 'fill-[#98A2B3]'}`}
                           >
                             {d.total}
                           </text>
@@ -655,33 +774,45 @@ export const DoctorDashboardView: React.FC<DoctorDashboardViewProps> = ({
             }
           >
             <div className="space-y-3">
-              {assignedPatients.slice(0, 3).map((p, idx) => (
-                <div
-                  key={`apt-${p.patientId}-${idx}`}
-                  className="p-3 rounded-xl bg-[#F8F9FA] border border-[#EAECF0] flex items-center justify-between gap-3"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] flex items-center justify-center shrink-0 font-bold">
-                      <CalendarCheck className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-slate-900 truncate">
-                        {p.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}
-                      </h4>
-                      <p className="text-[11px] text-slate-500">
-                        {idx === 0 ? (isVi ? 'Hôm nay' : 'Today') : idx === 1 ? (isVi ? 'Ngày mai' : 'Tomorrow') : (isVi ? 'Thứ Năm' : 'Thursday')} • {9 + idx * 2}:30
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('consultation')}
-                    className="px-2.5 py-1 text-xs font-bold text-[#3478F6] bg-white hover:bg-[#EEF5FF] border border-[#EAECF0] rounded-lg transition-all cursor-pointer shrink-0"
-                  >
-                    {isVi ? 'Tư vấn' : 'Chat'}
-                  </button>
+              {assignedPatients.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400 space-y-1">
+                  <CalendarCheck className="w-6 h-6 text-slate-300 mx-auto" />
+                  <p className="font-semibold text-slate-500">
+                    {isVi ? 'Chưa có lịch hẹn tư vấn' : 'No upcoming consultations'}
+                  </p>
+                  <p>{isVi ? 'Bệnh nhân được phân công sẽ xuất hiện tại đây' : 'Assigned patients will appear here'}</p>
                 </div>
-              ))}
+              ) : (
+                assignedPatients.slice(0, 3).map((p, idx) => (
+                  <div
+                    key={`apt-${p.patientId}-${idx}`}
+                    className="p-3 rounded-xl bg-[#F8F9FA] border border-[#EAECF0] flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] flex items-center justify-center shrink-0 font-bold">
+                        <CalendarCheck className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-slate-900 truncate">
+                          {p.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          {p.lastScreeningAt
+                            ? (isVi ? `Ca khám: ${new Date(p.lastScreeningAt).toLocaleDateString('vi-VN')}` : `Exam: ${new Date(p.lastScreeningAt).toLocaleDateString('en-US')}`)
+                            : (isVi ? 'Chờ tư vấn trực tuyến' : 'Pending consultation')}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('consultation')}
+                      className="px-2.5 py-1 text-xs font-bold text-[#3478F6] bg-white hover:bg-[#EEF5FF] border border-[#EAECF0] rounded-lg transition-all cursor-pointer shrink-0"
+                    >
+                      {isVi ? 'Tư vấn' : 'Chat'}
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </SectionCard>
         </div>

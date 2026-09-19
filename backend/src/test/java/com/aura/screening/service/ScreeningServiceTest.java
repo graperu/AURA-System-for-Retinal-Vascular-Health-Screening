@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,6 +20,7 @@ import com.aura.screening.entity.ScreeningStatus;
 import com.aura.screening.repository.ScreeningRepository;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.RestClient;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import com.aura.auth.security.AuraUserPrincipal;
+import com.aura.billing.exception.PaymentFailedException;
+import com.aura.billing.service.BillingService;
+import com.aura.doctor.entity.AssignmentStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class ScreeningServiceTest {
@@ -42,12 +55,20 @@ class ScreeningServiceTest {
   @Mock
   private GeminiRetinalAiService geminiAiService;
 
+  @Mock
+  private BillingService billingService;
+
   private ScreeningService screeningService;
 
   @BeforeEach
   void setUp() {
     RestClient.Builder builder = RestClient.builder();
     screeningService = new ScreeningService(screeningRepository, assignmentRepository, userNotificationService, geminiAiService, builder);
+  }
+
+  @AfterEach
+  void tearDown() {
+    SecurityContextHolder.clearContext();
   }
 
   @Test
@@ -335,5 +356,130 @@ class ScreeningServiceTest {
     com.aura.screening.dto.ScreeningResponse response = com.aura.screening.dto.ScreeningResponse.fromEntity(saved);
     assertNotNull(response.vesselMaskUrl());
     assertEquals(maskUrl, response.vesselMaskUrl());
+  }
+
+  @Test
+  @DisplayName("R1: Phòng khám tạo ca khám lẻ có đủ credits -> khấu trừ 1 lượt từ gói cước phòng khám")
+  void createScreening_asClinic_whenHasCredits_shouldDeductClinicCredit() {
+    UUID clinicId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(
+        clinicId, "clinic@aura.test", "secret", true, List.of("ROLE_CLINIC")
+    );
+    SecurityContextHolder.getContext().setAuthentication(
+        new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities())
+    );
+    ReflectionTestUtils.setField(screeningService, "billingService", billingService);
+
+    when(billingService.getRemainingCredits(clinicId)).thenReturn(10);
+    when(billingService.deductCredits(clinicId, 1)).thenReturn(true);
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    java.util.Map<String, Object> aiMap = new java.util.HashMap<>();
+    aiMap.put("overallVascularRiskScore", 40);
+    aiMap.put("confidence", 0.9);
+    when(geminiAiService.analyzeRetinalVascular(any(), any())).thenReturn(aiMap);
+
+    com.aura.screening.dto.CreateScreeningRequest req = new com.aura.screening.dto.CreateScreeningRequest(
+        "https://cdn.aura.test/fundus.png"
+    );
+
+    Screening saved = screeningService.createScreening(clinicId, req);
+
+    assertNotNull(saved);
+    assertEquals(clinicId, saved.getClinicId());
+    verify(billingService).deductCredits(clinicId, 1);
+  }
+
+  @Test
+  @DisplayName("R1: Phòng khám hết lượt quét khả dụng (remainingCredits < 1) -> ném PaymentFailedException")
+  void createScreening_asClinic_whenZeroCredits_shouldThrowPaymentFailedException() {
+    UUID clinicId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(
+        clinicId, "clinic@aura.test", "secret", true, List.of("ROLE_CLINIC")
+    );
+    SecurityContextHolder.getContext().setAuthentication(
+        new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities())
+    );
+    ReflectionTestUtils.setField(screeningService, "billingService", billingService);
+
+    when(billingService.getRemainingCredits(clinicId)).thenReturn(0);
+
+    com.aura.screening.dto.CreateScreeningRequest req = new com.aura.screening.dto.CreateScreeningRequest(
+        "https://cdn.aura.test/fundus.png"
+    );
+
+    assertThrows(PaymentFailedException.class, () -> screeningService.createScreening(clinicId, req));
+    verify(billingService, never()).deductCredits(any(), anyInt());
+  }
+
+  @Test
+  @DisplayName("R1: Phòng khám bị trừ 1 credit nhưng AI gặp lỗi FAILED -> tự động hoàn trả 1 credit cho phòng khám")
+  void createScreening_asClinic_whenAiFails_shouldRefundClinicCredit() {
+    UUID clinicId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(
+        clinicId, "clinic@aura.test", "secret", true, List.of("ROLE_CLINIC")
+    );
+    SecurityContextHolder.getContext().setAuthentication(
+        new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities())
+    );
+    ReflectionTestUtils.setField(screeningService, "billingService", billingService);
+
+    when(billingService.getRemainingCredits(clinicId)).thenReturn(5);
+    when(billingService.deductCredits(clinicId, 1)).thenReturn(true);
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    // AI trả về rỗng -> gây lỗi FAILED
+    when(geminiAiService.analyzeRetinalVascular(any(), any())).thenReturn(java.util.Map.of());
+
+    com.aura.screening.dto.CreateScreeningRequest req = new com.aura.screening.dto.CreateScreeningRequest(
+        "https://cdn.aura.test/fundus.png"
+    );
+
+    Screening saved = screeningService.createScreening(clinicId, req);
+
+    assertEquals(ScreeningStatus.FAILED, saved.getStatus());
+    verify(billingService).deductCredits(clinicId, 1);
+    verify(billingService).refundCredit(clinicId, 1);
+  }
+
+  @Test
+  @DisplayName("R7: Bác sĩ chưa có bệnh nhân được phân công -> getScreeningsForDoctor vẫn trả về ca khám có screening.doctorId == doctorId")
+  void getScreeningsForDoctor_whenNoAssignments_shouldQueryByDoctorIdDirectly() {
+    UUID doctorId = UUID.randomUUID();
+    when(assignmentRepository.findPatientIdsByDoctorIdAndStatus(doctorId, AssignmentStatus.ACTIVE))
+        .thenReturn(List.of());
+
+    Pageable pageable = PageRequest.of(0, 10);
+    Screening s = new Screening(UUID.randomUUID(), "https://cdn.aura.test/fundus.png");
+    s.setDoctorId(doctorId);
+    when(screeningRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId, pageable))
+        .thenReturn(new PageImpl<>(List.of(s)));
+
+    Page<Screening> result = screeningService.getScreeningsForDoctor(doctorId, pageable);
+
+    assertNotNull(result);
+    assertEquals(1, result.getTotalElements());
+    verify(screeningRepository).findByDoctorIdOrderByCreatedAtDesc(doctorId, pageable);
+  }
+
+  @Test
+  @DisplayName("R7: Bác sĩ có bệnh nhân được phân công -> getScreeningsForDoctor truy vấn kết hợp doctorId và patientIds")
+  void getScreeningsForDoctor_whenAssignmentsExist_shouldQueryDoctorIdOrPatientIds() {
+    UUID doctorId = UUID.randomUUID();
+    UUID assignedPatientId = UUID.randomUUID();
+    when(assignmentRepository.findPatientIdsByDoctorIdAndStatus(doctorId, AssignmentStatus.ACTIVE))
+        .thenReturn(List.of(assignedPatientId));
+
+    Pageable pageable = PageRequest.of(0, 10);
+    when(screeningRepository.findByDoctorIdOrPatientIdInOrderByCreatedAtDesc(
+        eq(doctorId), eq(List.of(assignedPatientId)), eq(pageable)
+    )).thenReturn(Page.empty(pageable));
+
+    Page<Screening> result = screeningService.getScreeningsForDoctor(doctorId, pageable);
+
+    assertNotNull(result);
+    verify(screeningRepository).findByDoctorIdOrPatientIdInOrderByCreatedAtDesc(
+        eq(doctorId), eq(List.of(assignedPatientId)), eq(pageable)
+    );
   }
 }

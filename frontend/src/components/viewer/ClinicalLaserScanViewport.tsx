@@ -16,6 +16,10 @@ export interface ClinicalLaserScanViewportProps {
   patientName?: string | null;
   mrn?: string | null;
   className?: string;
+  detectedDiscCenter?: { x: number; y: number };
+  detectedMaculaCenter?: { x: number; y: number };
+  cdrValue?: number;
+  avRatioValue?: number;
 }
 
 interface StepOpticalConfig {
@@ -88,6 +92,10 @@ export const ClinicalLaserScanViewport: React.FC<ClinicalLaserScanViewportProps>
   patientName,
   mrn,
   className = '',
+  detectedDiscCenter,
+  detectedMaculaCenter,
+  cdrValue,
+  avRatioValue,
 }) => {
   const { language } = useLanguage();
   const isVi = language === 'vi';
@@ -101,12 +109,18 @@ export const ClinicalLaserScanViewport: React.FC<ClinicalLaserScanViewportProps>
   const eyeLabel = isOS ? 'OS (Mắt Trái)' : 'OD (Mắt Phải)';
   const eyeShortLabel = isOS ? 'OS' : 'OD';
 
-  // OD: Optic Disc at nasal side (left of image x~28%), Macula at temporal side (right of image x~64%)
-  // OS: Optic Disc at nasal side (right of image x~72%), Macula at temporal side (left of image x~36%)
-  const opticDiscX = isOS ? 72 : 28;
-  const opticDiscY = 50;
-  const maculaX = isOS ? 36 : 64;
-  const maculaY = 52;
+  // OD (Mắt Phải): Gai thị ở phía mũi (bên phải ảnh x~72%), Hoàng điểm/FAZ ở phía thái dương (bên trái ảnh x~36%)
+  // OS (Mắt Trái): Gai thị ở phía mũi (bên trái ảnh x~28%), Hoàng điểm/FAZ ở phía thái dương (bên phải ảnh x~64%)
+  const defaultDiscX = isOS ? 28 : 72;
+  const defaultDiscY = 50;
+  const defaultMaculaX = isOS ? 64 : 36;
+  const defaultMaculaY = 52;
+
+  // Seamless snap / tracking when detected coordinates are available
+  const opticDiscX = detectedDiscCenter?.x !== undefined ? detectedDiscCenter.x : defaultDiscX;
+  const opticDiscY = detectedDiscCenter?.y !== undefined ? detectedDiscCenter.y : defaultDiscY;
+  const maculaX = detectedMaculaCenter?.x !== undefined ? detectedMaculaCenter.x : defaultMaculaX;
+  const maculaY = detectedMaculaCenter?.y !== undefined ? detectedMaculaCenter.y : defaultMaculaY;
 
   // Derive active stage index from prop or progress percent
   const resolvedStepIndex = useMemo(() => {
@@ -199,7 +213,7 @@ export const ClinicalLaserScanViewport: React.FC<ClinicalLaserScanViewportProps>
             />
           </div>
           <span
-            className="mt-1 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-wider font-semibold border backdrop-blur-xs shadow-xs"
+            className="mt-1 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-wider font-semibold border backdrop-blur-xs shadow-xs whitespace-nowrap"
             style={{
               backgroundColor: 'rgba(15, 23, 42, 0.85)',
               borderColor: currentStage.beamColor,
@@ -207,6 +221,7 @@ export const ClinicalLaserScanViewport: React.FC<ClinicalLaserScanViewportProps>
             }}
           >
             {isOS ? 'DISC (OS)' : 'DISC (OD)'}
+            {cdrValue ? ` • CDR ${cdrValue.toFixed(2)}` : (resolvedStepIndex >= 2 ? ' • AI LOCK' : '')}
           </span>
         </div>
 
@@ -228,7 +243,7 @@ export const ClinicalLaserScanViewport: React.FC<ClinicalLaserScanViewportProps>
             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: currentStage.beamColor }} />
           </div>
           <span
-            className="mt-1 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-wider font-semibold border backdrop-blur-xs shadow-xs"
+            className="mt-1 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-wider font-semibold border backdrop-blur-xs shadow-xs whitespace-nowrap"
             style={{
               backgroundColor: 'rgba(15, 23, 42, 0.85)',
               borderColor: currentStage.beamColor,
@@ -236,6 +251,7 @@ export const ClinicalLaserScanViewport: React.FC<ClinicalLaserScanViewportProps>
             }}
           >
             FAZ
+            {resolvedStepIndex >= 2 ? (isVi ? ' • HOÀNG ĐIỂM' : ' • FOVEA') : ''}
           </span>
         </div>
 

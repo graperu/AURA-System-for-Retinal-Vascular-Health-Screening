@@ -372,31 +372,83 @@ public class BulkProcessingWorker implements CommandLineRunner {
                     ? String.join("; ", result.xaiRationales())
                     : item.getFindings();
             screening.setFindings(findings);
-            screening.setAiModelVersion("Gemini 3.7 Flash High / AURA-Core v2.4");
+            screening.setAiModelVersion("Gemini 3.8 Flash High / AURA-Core v2.4");
             screening.setRecommendations("CRITICAL".equals(levelStr) || "HIGH".equals(levelStr)
                     ? "Cần hội chẩn chuyên khoa mắt và kiểm soát huyết áp chặt chẽ."
                     : "Tái khám định kỳ theo khuyến cáo lâm sàng.");
-            screening.setDetectedAnomalies("[]");
+            screening.setDetectedAnomalies(result.detectedAnomaliesJson() != null && !result.detectedAnomaliesJson().isBlank()
+                    ? result.detectedAnomaliesJson()
+                    : "[]");
 
             Screening savedScreening = screeningRepository.save(screening);
             log.info("[Bulk Worker Java] DAT-02: Created Screening record {} for Bulk Item {} (Patient: {})",
                     savedScreening.getId(), item.getItemCode(), patientId);
 
-            // Cập nhật worklist profile của bệnh nhân
-            if (patientProfileRepository != null && item.getRawMrn() != null) {
-                patientProfileRepository.findByMrn(item.getRawMrn()).ifPresent(p -> {
-                    p.setLastExamDate(LocalDate.now().toString());
-                    p.setRiskScore(overallScore);
-                    p.setRiskLevel(levelStr);
-                    p.setReviewStatus("PENDING_REVIEW");
-                    p.setFindingsSummary(findings);
-                    patientProfileRepository.save(p);
-                });
+            // R7: 1. Ensure Doctor-Patient Assignment exists in database
+            if (assignmentRepository != null && doctorId != null && patientId != null && !patientId.equals(batch.getClinicId())) {
+                try {
+                    var existingAssignments = assignmentRepository.findByPatientIdAndStatus(patientId, com.aura.doctor.entity.AssignmentStatus.ACTIVE);
+                    boolean assignedToThisDoctor = existingAssignments != null && existingAssignments.stream()
+                        .anyMatch(a -> a.getDoctor() != null && doctorId.equals(a.getDoctor().getId()));
+                    if (!assignedToThisDoctor) {
+                        Optional<User> docOpt = userRepository != null ? userRepository.findById(doctorId) : Optional.empty();
+                        Optional<User> patOpt = userRepository != null ? userRepository.findById(patientId) : Optional.empty();
+                        if (docOpt.isPresent() && patOpt.isPresent()) {
+                            com.aura.doctor.entity.DoctorPatientAssignment newAssignment =
+                                new com.aura.doctor.entity.DoctorPatientAssignment(
+                                    docOpt.get(), patOpt.get(), com.aura.doctor.entity.AssignmentStatus.ACTIVE, batch.getClinicId()
+                                );
+                            assignmentRepository.save(newAssignment);
+                            log.info("[Bulk Worker] R7: Assigned patient {} to Doctor {} for clinic batch {}",
+                                patientId, doctorId, batch.getBatchCode());
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("[Bulk Worker] R7: DoctorPatientAssignment upsert warning: {}", ex.getMessage());
+                }
             }
 
+            // R7: 2. Ensure PatientProfile exists and is linked to Doctor Worklist
+            if (patientProfileRepository != null && item.getRawMrn() != null) {
+                try {
+                    Optional<User> docOpt = (doctorId != null && userRepository != null) ? userRepository.findById(doctorId) : Optional.empty();
+                    String doctorFullName = docOpt.map(User::getFullName).orElse("BS. Chuyên khoa AURA");
+
+                    var profOpt = patientProfileRepository.findByMrn(item.getRawMrn());
+                    PatientProfile profile;
+                    if (profOpt.isPresent()) {
+                        profile = profOpt.get();
+                    } else {
+                        profile = new PatientProfile();
+                        profile.setUserId(patientId);
+                        profile.setMrn(item.getRawMrn());
+                        profile.setFullName(item.getPatientName() != null ? item.getPatientName() : "Bệnh nhân " + item.getRawMrn());
+                        profile.setAge(item.getPatientAge() != null ? item.getPatientAge() : 50);
+                        profile.setGender(item.getPatientGender() != null ? item.getPatientGender() : "Khác");
+                        profile.setSystolicBp(item.getSystolicBp() != null ? item.getSystolicBp() : 120);
+                        profile.setDiastolicBp(item.getDiastolicBp() != null ? item.getDiastolicBp() : 80);
+                        profile.setHba1c(item.getHba1c() != null ? item.getHba1c().doubleValue() : 5.7);
+                    }
+                    profile.setAssignedDoctor(doctorFullName);
+                    profile.setLastExamDate(LocalDate.now().toString());
+                    profile.setRiskScore(overallScore);
+                    profile.setRiskLevel(levelStr);
+                    profile.setReviewStatus("PENDING_REVIEW");
+                    profile.setFindingsSummary(findings);
+                    patientProfileRepository.save(profile);
+                    log.info("[Bulk Worker] R7: Synced PatientProfile for MRN {} with Doctor {}", item.getRawMrn(), doctorFullName);
+                } catch (Exception ex) {
+                    log.warn("[Bulk Worker] R7: PatientProfile sync warning: {}", ex.getMessage());
+                }
+            }
+
+            // R7: 3. STOMP Realtime event dispatch
             if (realtimeEventPublisher != null) {
                 realtimeEventPublisher.publishScreeningCreated(savedScreening);
                 realtimeEventPublisher.publishScreeningCompleted(savedScreening);
+                if (doctorId != null) {
+                    realtimeEventPublisher.publish("/topic/doctor." + doctorId, "SCREENING_CREATED", savedScreening);
+                }
             }
         } catch (Exception ex) {
             log.error("[Bulk Worker Java] DAT-02: Error persisting Screening record for item {}: {}",

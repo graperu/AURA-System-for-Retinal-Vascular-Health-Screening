@@ -31,7 +31,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
   private static final Logger log = LoggerFactory.getLogger(WebSocketConfig.class);
 
-  @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}")
+  @Value("${aura.cors.allowed-origins:${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}}")
   private String[] allowedOrigins;
 
   @Autowired(required = false)

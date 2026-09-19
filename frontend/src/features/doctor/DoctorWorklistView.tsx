@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Trash2,
   AlertTriangle,
+  MessageSquare,
 } from 'lucide-react';
 import { PatientProfile } from '../../types/cds';
 import { DataTable, Column } from '../../components/ui/DataTable';
@@ -29,6 +30,7 @@ export interface DoctorWorklistViewProps {
   loading?: boolean;
   onRefresh?: () => void;
   onSelectPatient: (patient: PatientProfile) => void;
+  onStartConsultation?: (patient: PatientProfile) => void;
   onNewPatientClick?: () => void;
   onDeletePatient?: (patient: PatientProfile) => Promise<boolean | void> | void;
   onBatchDeletePatients?: (patientIds: string[]) => Promise<boolean | void> | void;
@@ -39,6 +41,7 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
   loading = false,
   onRefresh,
   onSelectPatient,
+  onStartConsultation,
   onNewPatientClick,
   onDeletePatient,
   onBatchDeletePatients,
@@ -363,6 +366,18 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
           >
             {t('doctor.worklist.openCds', 'Mở CDS')}
           </Button>
+          {onStartConsultation && (
+            <button
+              type="button"
+              data-testid={`worklist-consultation-btn-${row.id || (row as any).patientId}`}
+              onClick={() => onStartConsultation(row)}
+              className="px-2.5 py-1.5 text-xs font-bold text-[#3478F6] bg-[#EEF5FF] hover:bg-[#D0DDFE] border border-[#C7D7FE] rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+              title={isVi ? 'Vào phòng tư vấn' : 'Enter Consultation'}
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-[#3478F6]" />
+              <span className="hidden sm:inline">{isVi ? 'Vào phòng tư vấn' : 'Consultation'}</span>
+            </button>
+          )}
           {(onDeletePatient || onBatchDeletePatients) && (
             <button
               type="button"

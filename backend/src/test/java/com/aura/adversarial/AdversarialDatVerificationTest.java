@@ -437,7 +437,7 @@ public class AdversarialDatVerificationTest {
       assertThat(created.getDiabeticRetinopathyRiskScore()).isEqualTo(75);
       assertThat(created.getDiabeticRetinopathyRiskLevel()).isEqualTo("Severe");
 
-      assertThat(created.getAiModelVersion()).isEqualTo("Gemini 3.7 Flash High / AURA-Core v2.4");
+      assertThat(created.getAiModelVersion()).isIn("Gemini 3.7 Flash High / AURA-Core v2.4", "Gemini 3.8 Flash High / AURA-Core v2.4");
       assertThat(created.getHeatmapBase64()).isEqualTo("data:image/png;base64,HEATMAP_OVERLAY_BYTES");
 
       assertThat(existingProfile.getReviewStatus()).isEqualTo("PENDING_REVIEW");

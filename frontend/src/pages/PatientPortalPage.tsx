@@ -17,7 +17,7 @@ import {
   FundusAnalysisRequest,
   PatientProfile,
 } from "../types/cds";
-import { screeningApi, chatApi, billingApi, patientApi, notificationApi } from "../services/api";
+import { screeningApi, chatApi, billingApi, patientApi, notificationApi, appointmentApi } from "../services/api";
 import { stompClient } from "../services/websocketService";
 import { mapScreeningToAIRiskResult, parseIcd10Codes } from "../services/screeningMapper";
 import { useLanguage } from "../context/LanguageContext";
@@ -71,9 +71,24 @@ interface PatientPortalPageProps {
 
 export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   user,
-  activeView = "dashboard",
+  activeView: rawActiveView = "dashboard",
   onNavigate = () => undefined,
 }) => {
+  const KNOWN_VIEWS = [
+    'dashboard',
+    'upload-scan',
+    'screening-result',
+    'cds-viewer',
+    'appointment',
+    'appointments',
+    'medical-profile',
+    'scan-history',
+    'consultation',
+    'consultation-chat',
+    'billing',
+    'notifications',
+  ];
+  const activeView = KNOWN_VIEWS.includes(rawActiveView) ? rawActiveView : 'dashboard';
   const { t, isVi } = useLanguage();
   const { updateUser } = useAuth();
   const prefersReducedMotion = useAuraReducedMotion();
@@ -98,9 +113,24 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [isProfileLoading, setIsProfileLoading] = useState<boolean>(true);
   const [isProfileError, setIsProfileError] = useState<boolean>(false);
 
-  const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(
-    null,
-  );
+  const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(() => {
+    try {
+      const cached = sessionStorage.getItem("aura_patient_analysis_result");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (analysisResult) {
+        sessionStorage.setItem("aura_patient_analysis_result", JSON.stringify(analysisResult));
+      }
+    } catch (e) {
+      console.warn("Could not cache analysis result to sessionStorage:", e);
+    }
+  }, [analysisResult]);
   const {
     isAnalyzing,
     analysisProgress,
@@ -124,11 +154,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [upcomingAppointment, setUpcomingAppointment] = useState<{
+    id?: string;
     doctorName: string;
     doctorId?: string;
     date: string;
     time: string;
     reason?: string;
+    status?: string;
   } | null>(() => {
     try {
       const saved = localStorage.getItem("aura_patient_upcoming_appointment");
@@ -138,6 +170,49 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     }
   });
 
+  const fetchUpcomingAppointment = async () => {
+    try {
+      const res = await appointmentApi.getUpcoming();
+      if (res && res.success && res.data) {
+        const apt = res.data;
+        const details = {
+          id: apt.id,
+          doctorName: apt.doctorName || (isVi ? "BS. Chuyên Khoa Võng Mạc" : "Retina Specialist"),
+          doctorId: apt.doctorId,
+          date: apt.appointmentDate,
+          time: apt.timeSlot,
+          reason: apt.reason || (isVi ? "Tầm soát định kỳ vi mạch võng mạc" : "Retinal screening"),
+          status: apt.status,
+        };
+        setUpcomingAppointment(details);
+        try {
+          localStorage.setItem("aura_patient_upcoming_appointment", JSON.stringify(details));
+        } catch {}
+      } else if (res && res.success && !res.data) {
+        setUpcomingAppointment(null);
+        try {
+          localStorage.removeItem("aura_patient_upcoming_appointment");
+        } catch {}
+      }
+    } catch (e) {
+      console.warn("Could not fetch upcoming appointment:", e);
+    }
+  };
+
+  const handleCancelAppointment = async () => {
+    if (upcomingAppointment?.id) {
+      try {
+        await appointmentApi.updateStatus(upcomingAppointment.id, 'CANCELLED', 'Bệnh nhân chủ động hủy');
+      } catch (e) {
+        console.warn("Could not cancel appointment on server:", e);
+      }
+    }
+    setUpcomingAppointment(null);
+    try {
+      localStorage.removeItem("aura_patient_upcoming_appointment");
+    } catch {}
+  };
+
   const handleAppointmentSuccess = async (details: {
     doctorName: string;
     doctorId: string;
@@ -145,12 +220,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     time: string;
     reason: string;
   }) => {
-    setUpcomingAppointment(details);
-    try {
-      localStorage.setItem("aura_patient_upcoming_appointment", JSON.stringify(details));
-    } catch (e) {
-      console.warn("Could not save appointment:", e);
-    }
+    await fetchUpcomingAppointment();
     await fetchProfileData();
     if (details.doctorName) {
       setPatient((prev) => ({ ...prev, assignedDoctor: details.doctorName }));
@@ -290,9 +360,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   };
 
   // Load real history from PostgreSQL (FR-6)
-  const loadScreeningHistory = async () => {
+  const loadScreeningHistory = async (isSilent = false, overwriteResult = true) => {
     try {
-      setIsHistoryLoading(true);
+      if (!isSilent) setIsHistoryLoading(true);
       const res = await screeningApi.getAll();
       const rawList: any[] = Array.isArray(res?.data)
         ? res.data
@@ -329,21 +399,39 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         });
         setScanHistory(mapped);
 
-        // Tự động load kết quả sàng lọc mới nhất lên Viewer
-        const latest = rawList[0];
-        if (latest && latest.status !== "FAILED") {
-          setAnalysisResult(mapScreeningToAIRiskResult(latest, latest.imageUrl));
-        } else if (!latest) {
-          setAnalysisResult(null);
+        // Tự động load kết quả sàng lọc mới nhất lên Viewer (chỉ khi overwriteResult = true)
+        if (overwriteResult) {
+          const latest = rawList[0];
+          if (latest && latest.status !== "FAILED") {
+            // Nạp chi tiết đầy đủ (ảnh Base64 thực tế & heatmap) nếu danh sách tóm tắt thiếu
+            if (latest.id && (!latest.heatmapBase64 || !latest.imageUrl || latest.imageUrl.startsWith('/api/'))) {
+              try {
+                const fullRes = await screeningApi.getById(String(latest.id));
+                if (fullRes && fullRes.success && fullRes.data) {
+                  setAnalysisResult(mapScreeningToAIRiskResult(fullRes.data, fullRes.data.imageUrl || latest.imageUrl));
+                } else {
+                  setAnalysisResult(mapScreeningToAIRiskResult(latest, latest.imageUrl));
+                }
+              } catch {
+                setAnalysisResult(mapScreeningToAIRiskResult(latest, latest.imageUrl));
+              }
+            } else {
+              setAnalysisResult(mapScreeningToAIRiskResult(latest, latest.imageUrl));
+            }
+          } else if (!latest) {
+            setAnalysisResult(null);
+          }
         }
       } else {
         setScanHistory([]);
-        setAnalysisResult(null);
+        if (overwriteResult) {
+          setAnalysisResult(null);
+        }
       }
     } catch (e) {
       console.warn("Could not fetch screenings from DB:", e);
     } finally {
-      setIsHistoryLoading(false);
+      if (!isSilent) setIsHistoryLoading(false);
     }
   };
 
@@ -435,6 +523,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       await Promise.allSettled([
         loadScreeningHistory(),
         fetchProfileData(),
+        fetchUpcomingAppointment(),
         billingApi.mySubscriptions().then((subscriptions) => {
           if (subscriptions.success && Array.isArray(subscriptions.data)) {
             setUserCredits(
@@ -470,15 +559,21 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       'credit:change',
       'profile:update',
       'doctor:assignment',
+      'appointment:created',
+      'appointment:updated',
+      'APPOINTMENT_CREATED',
+      'APPOINTMENT_UPDATED',
     ],
     async (event?: RealtimeEvent) => {
       const type = event?.type || '';
-      if (type.startsWith('billing') || type.startsWith('credit')) {
+      if (type.toLowerCase().includes('appointment')) {
+        await fetchUpcomingAppointment();
+      } else if (type.startsWith('billing') || type.startsWith('credit')) {
         await loadBillingData();
       } else if (type.startsWith('profile') || type.startsWith('doctor:assignment')) {
         await fetchProfileData();
       } else {
-        await loadScreeningHistory();
+        await loadScreeningHistory(true, false);
         // Instant state update for active screening result on doctor review (<5s SLA, Zero-F5)
         if (type === 'doctor:reviewed' || type === 'RESULT_REVIEWED' || type === 'screening:reviewed') {
           const eventData = event?.data;
@@ -498,10 +593,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         }
       }
     },
-    { pollIntervalMs: 12000, syncOnFocus: true }
+    { pollIntervalMs: 60000, syncOnFocus: false }
   );
 
-  // Real-time synchronization for Patient consultation view via WebSocket STOMP (FR-10, FR-20)
+  // Real-time synchronization for Patient consultation view via WebSocket STOMP (FR-10, FR-20, R3/AC-3)
   useEffect(() => {
     if (!user?.id) return;
 
@@ -509,6 +604,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     const chatTopic = `/topic/chat.${user.id}`;
     const screeningTopic = `/topic/screening.${user.id}`;
     const notifTopic = `/topic/notifications.${user.id}`;
+    const apptTopic = `/topic/appointments.${user.id}`;
 
     const handleIncomingChatMessage = (msg: any) => {
       if (!msg || !msg.messageText) return;
@@ -549,6 +645,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     const unsubNotif = stompClient.subscribe(notifTopic, (payload) => {
       realtimeBus.handleIncomingPayload(payload, 'websocket');
     });
+    const unsubAppt = stompClient.subscribe(apptTopic, (_payload) => {
+      fetchUpcomingAppointment();
+    });
 
     if (activeView === "consultation" && assignedDoctorId) {
       chatApi.markAsRead(assignedDoctorId).catch(() => {});
@@ -558,6 +657,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       unsubChat();
       unsubScreening();
       unsubNotif();
+      unsubAppt();
     };
   }, [user?.id, assignedDoctorId, activeView, isVi]);
 
@@ -617,8 +717,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         setUserCredits((prev) => Math.max(0, prev - 1));
         loadBillingData();
 
-        // Cập nhật lịch sử khám trực tiếp từ PostgreSQL (FR-6)
-        await loadScreeningHistory();
+        // Cập nhật lịch sử khám trực tiếp từ PostgreSQL (FR-6) nhưng bảo toàn analysisResult vừa tải lên
+        await loadScreeningHistory(true, false);
 
         // Broadcast to all active portals (Doctor Worklist, Clinic, CDS) in real time
         realtimeBus.emit('screening:new', result);
@@ -963,14 +1063,30 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             <div className="bg-white p-6 rounded-2xl border border-teal-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
-                    {isVi ? "Cuộc hẹn sắp tới (Đã xác nhận)" : "Upcoming Confirmed Appointment"}
+                  <span className={`w-2.5 h-2.5 rounded-full ${upcomingAppointment.status === 'CONFIRMED' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                  <span className={`text-xs font-bold uppercase tracking-wider ${upcomingAppointment.status === 'CONFIRMED' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {upcomingAppointment.status === 'CONFIRMED'
+                      ? (isVi ? "Cuộc hẹn sắp tới (Đã xác nhận)" : "Upcoming Confirmed Appointment")
+                      : (isVi ? "Cuộc hẹn khám sắp tới" : "Upcoming Appointment")}
                   </span>
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-xs border border-emerald-200">
-                  {isVi ? "Đã lên lịch" : "Scheduled"}
-                </span>
+                {upcomingAppointment.status === 'CONFIRMED' ? (
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-xs border border-emerald-200">
+                    {isVi ? "Đã xác nhận" : "Confirmed"}
+                  </span>
+                ) : upcomingAppointment.status === 'COMPLETED' ? (
+                  <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold text-xs border border-blue-200">
+                    {isVi ? "Đã hoàn thành" : "Completed"}
+                  </span>
+                ) : upcomingAppointment.status === 'CANCELLED' ? (
+                  <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-semibold text-xs border border-rose-200">
+                    {isVi ? "Đã hủy" : "Cancelled"}
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold text-xs border border-amber-200">
+                    {isVi ? "Chờ bác sĩ duyệt" : "Pending Confirmation"}
+                  </span>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
@@ -1003,10 +1119,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
-                  onClick={() => {
-                    setUpcomingAppointment(null);
-                    localStorage.removeItem("aura_patient_upcoming_appointment");
-                  }}
+                  onClick={handleCancelAppointment}
                   className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-all cursor-pointer"
                 >
                   {isVi ? "Hủy Lịch Hẹn" : "Cancel"}

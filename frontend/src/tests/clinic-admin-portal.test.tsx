@@ -248,40 +248,64 @@ test('CLINIC-PAGE-1: ClinicPortalPage renders ClinicDashboardView when activeVie
   assert.ok(html.includes('Biểu Đồ Hoạt Động Sàng Lọc') || html.includes('Screening Activity Trend'), 'Renders Screening Activity Chart');
 });
 
-test('CLINIC-PAGE-2: ClinicPortalPage renders ClinicPatientListSection when activeView === patient-list', () => {
-  const html = renderToStaticMarkup(
+test('CLINIC-PAGE-2: ClinicPortalPage renders ClinicPatientListSection with clean empty state and real table', () => {
+  // 1. Clean medical empty state when facility has no patients
+  const emptyHtml = renderToStaticMarkup(
     <LanguageProvider>
       <ClinicPortalPage activeView="patient-list" />
     </LanguageProvider>
   );
+  assert.ok(emptyHtml.includes('Danh Sách Bệnh Nhân Cơ Sở') || emptyHtml.includes('Clinic Patient Directory'), 'Renders patient directory section');
+  assert.ok(emptyHtml.includes('Chưa có hồ sơ bệnh nhân') || emptyHtml.includes('No patients registered in facility'), 'Renders clean medical empty state when no patients exist');
 
-  assert.ok(html.includes('Danh Sách Bệnh Nhân Cơ Sở') || html.includes('Clinic Patient Directory'), 'Renders patient directory section');
-  assert.ok(html.includes('Mã Bệnh Nhân') || html.includes('Patient MRN'), 'Renders Patient MRN table column');
-  assert.ok(html.includes('Thông Số Sinh Hiệu') || html.includes('Clinical Vitals'), 'Renders Vitals table column');
+  // 2. Directory table rendering when batch patients exist
+  const populatedHtml = renderToStaticMarkup(
+    <LanguageProvider>
+      <ClinicPortalPage activeView="patient-list" initialBatchJob={mockBatchJob} />
+    </LanguageProvider>
+  );
+  assert.ok(populatedHtml.includes('Mã Bệnh Nhân') || populatedHtml.includes('Patient MRN'), 'Renders Patient MRN table column');
+  assert.ok(populatedHtml.includes('Thông Số Sinh Hiệu') || populatedHtml.includes('Clinical Vitals'), 'Renders Vitals table column');
 });
 
-test('CLINIC-PAGE-3: ClinicPortalPage renders ClinicResultsSection when activeView === scan-history', () => {
-  const html = renderToStaticMarkup(
+test('CLINIC-PAGE-3: ClinicPortalPage renders ClinicResultsSection with clean empty state and real results table', () => {
+  // 1. Clean medical empty state when facility has no screenings
+  const emptyHtml = renderToStaticMarkup(
     <LanguageProvider>
       <ClinicPortalPage activeView="scan-history" />
     </LanguageProvider>
   );
+  assert.ok(emptyHtml.includes('Kết Quả Sàng Lọc Sức Khỏe Vi Mạch') || emptyHtml.includes('Screening Results & History'), 'Renders results & history section');
+  assert.ok(emptyHtml.includes('Chưa có ca sàng lọc') || emptyHtml.includes('No screening records found'), 'Renders clean medical empty state when no screenings exist');
 
-  assert.ok(html.includes('Kết Quả Sàng Lọc Sức Khỏe Vi Mạch') || html.includes('Screening Results & History'), 'Renders results & history section');
-  assert.ok(html.includes('Mã Ca') && (html.includes('Tệp Ảnh') || html.includes('Tệp ảnh')), 'Renders Case ID column');
-  assert.ok(html.includes('Tỷ Lệ A/V') || html.includes('A/V Ratio'), 'Renders A/V Ratio column');
-  assert.ok(html.includes('Chi tiết') || html.includes('Details'), 'Renders drill-down details button on each row');
+  // 2. Results table rendering when batch screenings exist
+  const populatedHtml = renderToStaticMarkup(
+    <LanguageProvider>
+      <ClinicPortalPage activeView="scan-history" initialBatchJob={mockBatchJob} />
+    </LanguageProvider>
+  );
+  assert.ok(populatedHtml.includes('Mã Ca') && (populatedHtml.includes('Tệp Ảnh') || populatedHtml.includes('Tệp ảnh')), 'Renders Case ID column');
+  assert.ok(populatedHtml.includes('Tỷ Lệ A/V') || populatedHtml.includes('A/V Ratio'), 'Renders A/V Ratio column');
+  assert.ok(populatedHtml.includes('Chi tiết') || populatedHtml.includes('Details'), 'Renders drill-down details button on each row');
 });
 
 test('CLINIC-PAGE-4: ClinicDashboardView batch overview renders drill-down links to individual scan results', () => {
-  const html = renderToStaticMarkup(
+  // 1. Clean empty state when no high-risk cases exist
+  const emptyHtml = renderToStaticMarkup(
     <LanguageProvider>
       <ClinicPortalPage activeView="dashboard" />
     </LanguageProvider>
   );
+  assert.ok(emptyHtml.includes('Xem từng kết quả scan riêng lẻ') || emptyHtml.includes('View individual scan results'), 'Renders drill-down link in batch card');
+  assert.ok(emptyHtml.includes('Không có ca bệnh nguy cơ cao') || emptyHtml.includes('No high-risk priority cases pending'), 'Renders clean empty state for high-risk cases');
 
-  assert.ok(html.includes('Xem từng kết quả scan riêng lẻ') || html.includes('View individual scan results'), 'Renders drill-down link in batch card');
-  assert.ok(html.includes('Xem ca') || html.includes('View'), 'Renders View case action in high risk queue');
+  // 2. Populated batch overview renders high-risk queue actions
+  const populatedHtml = renderToStaticMarkup(
+    <LanguageProvider>
+      <ClinicPortalPage activeView="dashboard" initialBatchJob={mockBatchJob} />
+    </LanguageProvider>
+  );
+  assert.ok(populatedHtml.includes('Xem ca') || populatedHtml.includes('View'), 'Renders View case action in high risk queue');
 });
 
 test('CLINIC-PAGE-5: ClinicPortalPage renders Credit Resource Summary Widget with 3 key metrics and quota progress bar', () => {

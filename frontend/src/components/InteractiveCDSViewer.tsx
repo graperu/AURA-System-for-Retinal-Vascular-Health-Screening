@@ -31,6 +31,8 @@ import { LesionRipplePulse } from './viewer/LesionRipplePulse';
 interface InteractiveCDSViewerProps {
   analysisResult: AIRiskResult;
   selectedEye?: string;
+  isMaximized?: boolean;
+  onToggleMaximize?: () => void;
 }
 
 /**
@@ -319,8 +321,35 @@ export const renderAnatomicalHeatmap = (
 export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   analysisResult,
   selectedEye = 'OD',
+  isMaximized,
+  onToggleMaximize,
 }) => {
   const { t, isVi } = useLanguage();
+  const [localMaximized, setLocalMaximized] = useState<boolean>(false);
+  const isEffectiveMaximized = isMaximized !== undefined ? isMaximized : localMaximized;
+
+  const handleToggleMaximize = () => {
+    if (onToggleMaximize) {
+      onToggleMaximize();
+    } else {
+      setLocalMaximized((prev) => !prev);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isEffectiveMaximized) {
+        if (onToggleMaximize) {
+          onToggleMaximize();
+        } else {
+          setLocalMaximized(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEffectiveMaximized, onToggleMaximize]);
+
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.65);
   const [isDarkRoom, setIsDarkRoom] = useState<boolean>(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
@@ -590,12 +619,19 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   }, [rawImage]);
 
   return (
-    <div ref={viewerContainerRef}>
+    <div
+      ref={viewerContainerRef}
+      data-testid="interactive-cds-viewer"
+      data-maximized={isEffectiveMaximized ? 'true' : 'false'}
+      className={isEffectiveMaximized ? 'cds-viewer-maximized w-full' : ''}
+    >
       <Card
         padding="md"
         className={`space-y-4 transition-colors duration-200 ${
           isDarkRoom ? 'bg-darkroom-card border-darkroom-border text-darkroom-text' : 'bg-white'
-        } ${isFullscreen ? 'fixed inset-0 z-50 rounded-none overflow-y-auto' : ''}`}
+        } ${isFullscreen ? 'fixed inset-0 z-50 rounded-none overflow-y-auto' : ''} ${
+          isEffectiveMaximized ? 'ring-2 ring-[#3478F6]/20 shadow-md' : ''
+        }`}
       >
         {/* Bộ lọc quang học Red-Free */}
         <svg className="absolute w-0 h-0 pointer-events-none opacity-0" aria-hidden="true" focusable="false">
@@ -843,10 +879,42 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               </button>
             )}
 
+            {/* Maximize Canvas / Full-Width Inspection Mode Toggle (R4, AC-4) */}
+            <button
+              type="button"
+              onClick={handleToggleMaximize}
+              data-testid="cds-maximize-canvas-btn"
+              className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                isEffectiveMaximized
+                  ? 'bg-[#3478F6] text-white border-[#2563EB] shadow-xs'
+                  : isDarkRoom
+                  ? 'bg-darkroom-surface border-darkroom-border text-slate-200 hover:bg-slate-800'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
+              title={
+                isEffectiveMaximized
+                  ? (isVi ? 'Thu nhỏ khung nhìn (Esc)' : 'Exit Maximize Canvas (Esc)')
+                  : (isVi ? 'Phóng to toàn khung vi mạch' : 'Maximize Canvas')
+              }
+              aria-label={
+                isEffectiveMaximized
+                  ? (isVi ? 'Thu nhỏ khung nhìn' : 'Normal View')
+                  : (isVi ? 'Phóng to toàn khung' : 'Maximize Canvas')
+              }
+            >
+              {isEffectiveMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              <span className="hidden md:inline font-bold">
+                {isEffectiveMaximized
+                  ? (isVi ? 'Thu Nhỏ' : 'Normal')
+                  : (isVi ? 'Toàn Khung' : 'Maximize Canvas')}
+              </span>
+            </button>
+
             {/* Fullscreen Toggle */}
             <button
               type="button"
               onClick={toggleFullscreen}
+              data-testid="cds-fullscreen-btn"
               className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
               title={isFullscreen ? (isVi ? 'Thoát toàn màn hình' : 'Exit Fullscreen') : (isVi ? 'Toàn màn hình' : 'Fullscreen')}
             >
@@ -957,7 +1025,9 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[600px] 2xl:min-h-[650px] select-none ${
+              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center ${
+                isEffectiveMaximized ? 'min-h-[720px] 2xl:min-h-[820px]' : 'min-h-[600px] 2xl:min-h-[650px]'
+              } select-none ${
                 isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
               } ${isRulerActive ? 'cursor-crosshair' : zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
             >
@@ -973,11 +1043,11 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                   transition: isDragging ? 'none' : 'transform 150ms ease-out',
                 }}
               >
-                <div className="relative inline-flex items-center justify-center max-h-[560px] 2xl:max-h-[610px] max-w-full pointer-events-none">
+                <div className={`relative inline-flex items-center justify-center ${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[560px] 2xl:max-h-[610px]'} max-w-full pointer-events-none`}>
                   <img
                     src={rawImage}
                     alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                    className="max-h-[560px] 2xl:max-h-[610px] w-auto max-w-full object-contain rounded-lg shadow-md block select-none pointer-events-none"
+                    className={`${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[560px] 2xl:max-h-[610px]'} w-auto max-w-full object-contain rounded-lg shadow-md block select-none pointer-events-none`}
                     crossOrigin={
                       rawImage.startsWith('data:') || rawImage.startsWith('blob:')
                         ? undefined
@@ -1047,7 +1117,9 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center min-h-[600px] 2xl:min-h-[650px] select-none ${
+              className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center ${
+                isEffectiveMaximized ? 'min-h-[720px] 2xl:min-h-[820px]' : 'min-h-[600px] 2xl:min-h-[650px]'
+              } select-none ${
                 isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
               } ${isRulerActive ? 'cursor-crosshair' : zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
             >
@@ -1066,13 +1138,13 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                   transition: isDragging ? 'none' : 'transform 150ms ease-out',
                 }}
               >
-                <div className="relative inline-flex items-center justify-center max-h-[560px] 2xl:max-h-[610px] max-w-full">
+                <div className={`relative inline-flex items-center justify-center ${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[560px] 2xl:max-h-[610px]'} max-w-full`}>
                   {/* Layer 0: Ảnh nền */}
                   <img
                     ref={rawImageRef}
                     src={rawImage}
                     alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                    className="max-h-[560px] 2xl:max-h-[610px] w-auto max-w-full object-contain rounded-lg block select-none pointer-events-none"
+                    className={`${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[560px] 2xl:max-h-[610px]'} w-auto max-w-full object-contain rounded-lg block select-none pointer-events-none`}
                     crossOrigin={
                       rawImage.startsWith('data:') || rawImage.startsWith('blob:')
                         ? undefined

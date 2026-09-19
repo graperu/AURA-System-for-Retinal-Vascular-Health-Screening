@@ -392,13 +392,13 @@ runChallengerTest('TEST-CHALLENGER-11: ClinicalLaserScanViewport handles out-of-
   );
   assert.ok(htmlStepHigh.includes('BƯỚC 5/5') || htmlStepHigh.includes('STEP 5/5'), 'Out of bounds stepIndex resolves safely');
 
-  // Eye Laterality checks: OD (Optic disc nasal left x~28) vs OS (Optic disc nasal right x~72)
+  // Eye Laterality checks: OD (Optic disc nasal right x~72) vs OS (Optic disc nasal left x~28)
   const htmlOd = renderToStaticMarkup(
     React.createElement(LanguageProvider, null,
       React.createElement(ClinicalLaserScanViewport, { selectedEye: 'Right_OD' })
     )
   );
-  assert.ok(htmlOd.includes('left:28%') || htmlOd.includes('left: 28%'), 'OD positions Optic Disc at nasal 28%');
+  assert.ok(htmlOd.includes('left:72%') || htmlOd.includes('left: 72%'), 'OD positions Optic Disc at nasal 72%');
   assert.ok(htmlOd.includes('DISC (OD)'), 'OD label matches');
 
   const htmlOs = renderToStaticMarkup(
@@ -406,7 +406,7 @@ runChallengerTest('TEST-CHALLENGER-11: ClinicalLaserScanViewport handles out-of-
       React.createElement(ClinicalLaserScanViewport, { selectedEye: 'Left_OS' })
     )
   );
-  assert.ok(htmlOs.includes('left:72%') || htmlOs.includes('left: 72%'), 'OS positions Optic Disc at nasal 72%');
+  assert.ok(htmlOs.includes('left:28%') || htmlOs.includes('left: 28%'), 'OS positions Optic Disc at nasal 28%');
   assert.ok(htmlOs.includes('DISC (OS)'), 'OS label matches');
 
   // Empty image feed

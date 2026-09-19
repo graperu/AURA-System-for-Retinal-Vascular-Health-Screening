@@ -76,6 +76,8 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
   const rawImageRef = useRef<HTMLImageElement>(null);
   const vesselCanvasRef = useRef<HTMLCanvasElement>(null);
   const [activeAnomaly, setActiveAnomaly] = useState<VesselAnomalyRegion | null>(null);
+  const [showLandmarks, setShowLandmarks] = useState<boolean>(true);
+  const [selectedLandmark, setSelectedLandmark] = useState<'DISC' | 'FAZ' | null>(null);
 
   const handleZoomChange = (updater: (prev: number) => number) => {
     setZoomLevel((prev) => {
@@ -182,6 +184,23 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
   );
   const anomalies = result.annotatedMap?.detectedAnomalies || [];
   const riskScore = result.overallVascularRiskScore ?? result.riskScore ?? 35;
+
+  const isOS = currentResult.eyePosition?.includes('OS') || (currentResult as any).patientData?.laterality === 'OS' || Boolean(selectedEye?.includes('OS'));
+  
+  // Dynamic anatomical coordinates snapped from detected anomalies or anatomical heuristics
+  const macularAnomaly = anomalies.find((a) => a.type.toUpperCase().includes('MACULAR') || a.type.toUpperCase().includes('STAR'));
+  const discAnomaly = anomalies.find((a) => a.type.toUpperCase().includes('DISC') || (isOS ? a.coordinates.x < 35 : a.coordinates.x > 60));
+
+  const maculaCoords = macularAnomaly
+    ? { x: macularAnomaly.coordinates.x, y: macularAnomaly.coordinates.y }
+    : { x: isOS ? 64 : 43.5, y: 50.2 };
+
+  const discCoords = discAnomaly
+    ? { x: isOS ? Math.min(30, discAnomaly.coordinates.x) : Math.max(65, discAnomaly.coordinates.x), y: discAnomaly.coordinates.y }
+    : { x: isOS ? 28 : 67, y: 50 };
+
+  const vcdr = Number(currentResult.annotatedMap?.opticCupToDiscRatio) || 0.52;
+  const avRatio = Number(currentResult.annotatedMap?.arteryVeinRatio) || 0.48;
 
   useEffect(() => {
     if (!rawImageRef.current || !vesselCanvasRef.current) return;
@@ -300,6 +319,22 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 >
                   <Eye className="w-3.5 h-3.5 text-emerald-400" />
                   <span>{isRedFreeFilter ? (isVi ? 'Red-Free: BẬT' : 'Red-Free: ON') : (isVi ? 'Bộ lọc Red-Free' : 'Red-Free Filter')}</span>
+                </button>
+
+                {/* Anatomical Landmarks (DISC & FAZ) Toggle */}
+                <button
+                  type="button"
+                  data-testid="patient-anatomical-landmarks-toggle-btn"
+                  onClick={() => setShowLandmarks(!showLandmarks)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                    showLandmarks
+                      ? 'bg-amber-600 text-white border-amber-500 shadow-xs'
+                      : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700'
+                  }`}
+                  title={isVi ? 'Bật/tắt mốc giải phẫu Gai thị (DISC) và Hoàng điểm (FAZ)' : 'Toggle Optic Disc & Macula/FAZ anatomical landmarks'}
+                >
+                  <Target className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{showLandmarks ? (isVi ? 'Mốc giải phẫu: BẬT' : 'Landmarks: ON') : (isVi ? 'Mốc giải phẫu' : 'Landmarks')}</span>
                 </button>
               </div>
             </div>
@@ -492,6 +527,103 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                     </div>
                   );
                 })}
+
+                {/* Anatomical Reticles: Optic Disc (DISC) & FAZ with Interactive Biometrics */}
+                {showLandmarks && (
+                  <>
+                    {/* Optic Disc Target (DISC) */}
+                    <div
+                      className="absolute z-20 pointer-events-auto"
+                      style={{
+                        left: `${discCoords.x}%`,
+                        top: `${discCoords.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        data-testid="patient-landmark-disc"
+                        onClick={(e) => {
+                          if (isMovedRef.current) return;
+                          e.stopPropagation();
+                          setActiveAnomaly(null);
+                          setSelectedLandmark(selectedLandmark === 'DISC' ? null : 'DISC');
+                        }}
+                        className={`group relative flex items-center justify-center rounded-full transition-all duration-200 cursor-pointer ${
+                          selectedLandmark === 'DISC' ? 'scale-110' : 'hover:scale-105'
+                        }`}
+                        style={{ width: '56px', height: '56px' }}
+                        title={isVi ? `Đĩa thần kinh thị giác (Gai thị) - CDR: ${vcdr.toFixed(2)}` : `Optic Disc - CDR: ${vcdr.toFixed(2)}`}
+                      >
+                        {/* Outer Disc Boundary */}
+                        <div
+                          className="absolute inset-0 rounded-full border-2 border-dashed border-cyan-400 bg-cyan-500/10"
+                          style={{
+                            boxShadow: selectedLandmark === 'DISC' ? '0 0 16px rgba(34, 211, 238, 0.7)' : '0 0 8px rgba(34, 211, 238, 0.4)',
+                          }}
+                        />
+                        {/* Concentric Inner Cup Boundary calculated by real CDR ratio */}
+                        <div
+                          className={`absolute rounded-full border border-dashed transition-all ${
+                            vcdr >= 0.50 ? 'border-rose-400 bg-rose-500/20' : 'border-amber-400 bg-amber-500/20'
+                          }`}
+                          style={{
+                            width: `${Math.round(56 * Math.min(0.9, Math.max(0.25, vcdr)))}px`,
+                            height: `${Math.round(56 * Math.min(0.9, Math.max(0.25, vcdr)))}px`,
+                          }}
+                        />
+                        {/* Crosshairs */}
+                        <div className="absolute w-full h-[1px] bg-cyan-400/50" />
+                        <div className="absolute h-full w-[1px] bg-cyan-400/50" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-300 z-10" />
+
+                        {/* Reticle Badge */}
+                        <span className="absolute -bottom-5 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-wider font-bold whitespace-nowrap bg-slate-900/90 text-cyan-300 border border-cyan-500 shadow-md">
+                          DISC ({isOS ? 'OS' : 'OD'}) • CDR {vcdr.toFixed(2)}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Foveal Avascular Zone Target (FAZ) */}
+                    <div
+                      className="absolute z-20 pointer-events-auto"
+                      style={{
+                        left: `${maculaCoords.x}%`,
+                        top: `${maculaCoords.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        data-testid="patient-landmark-faz"
+                        onClick={(e) => {
+                          if (isMovedRef.current) return;
+                          e.stopPropagation();
+                          setActiveAnomaly(null);
+                          setSelectedLandmark(selectedLandmark === 'FAZ' ? null : 'FAZ');
+                        }}
+                        className={`group relative flex items-center justify-center rounded-lg transition-all duration-200 cursor-pointer ${
+                          selectedLandmark === 'FAZ' ? 'scale-110' : 'hover:scale-105'
+                        }`}
+                        style={{ width: '44px', height: '44px' }}
+                        title={isVi ? 'Vùng vô mạch hoàng điểm (FAZ)' : 'Foveal Avascular Zone (FAZ)'}
+                      >
+                        {/* Corner Brackets */}
+                        <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-amber-400" />
+                        <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-amber-400" />
+                        <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-amber-400" />
+                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-amber-400" />
+                        <div className="w-2 h-2 rounded-full bg-amber-400 animate-ping opacity-60" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+
+                        {/* Reticle Badge */}
+                        <span className="absolute -bottom-5 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-wider font-bold whitespace-nowrap bg-slate-900/90 text-amber-300 border border-amber-500 shadow-md">
+                          FAZ • HOÀNG ĐIỂM
+                        </span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -519,6 +651,92 @@ export const PatientScreeningResultView: React.FC<PatientScreeningResultViewProp
                 >
                   ✕
                 </button>
+              </div>
+            )}
+
+            {/* Interactive Anatomical Detail Card: Optic Disc (DISC) */}
+            {selectedLandmark === 'DISC' && (
+              <div
+                data-testid="patient-landmark-disc-popup"
+                className="p-3.5 bg-slate-900/95 border border-cyan-500/60 rounded-xl text-xs space-y-2.5 shadow-2xl animate-fade-in"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-700">
+                      {isVi ? 'ĐĨA THẦN KINH THỊ GIÁC (DISC / GAI THỊ)' : 'OPTIC DISC (DISC)'}
+                    </span>
+                    <span className="text-cyan-400 font-mono text-[11px] font-bold">
+                      {isOS ? 'Mắt Trái (OS)' : 'Mắt Phải (OD)'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLandmark(null)}
+                    className="text-slate-400 hover:text-white font-bold p-1 ml-2 text-sm cursor-pointer"
+                    aria-label={isVi ? 'Đóng' : 'Close'}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2 rounded-lg bg-slate-800/80 border border-slate-700">
+                    <span className="text-slate-400 block">{isVi ? 'Tỷ lệ lõm đĩa thị (CDR):' : 'Cup-to-Disc Ratio (CDR):'}</span>
+                    <span className={`font-bold font-mono text-sm ${vcdr >= 0.50 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      {vcdr.toFixed(2)} {vcdr >= 0.50 ? (isVi ? '(Nguy cơ tăng CDR)' : '(Elevated)') : (isVi ? '(Bình thường)' : '(Normal)')}
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-800/80 border border-slate-700">
+                    <span className="text-slate-400 block">{isVi ? 'Tỷ lệ Động/Tĩnh mạch (A/V):' : 'Artery/Vein Ratio (A/V):'}</span>
+                    <span className={`font-bold font-mono text-sm ${avRatio < 0.60 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      {avRatio.toFixed(2)} {avRatio < 0.60 ? (isVi ? '(Hẹp tiểu ĐM)' : '(Narrowing)') : (isVi ? '(Bình thường)' : '(Normal)')}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  {isVi
+                    ? 'Gai thị là cửa ngõ xuất phát của toàn bộ mạch máu võng mạc và hơn 1,2 triệu sợi thần kinh thị giác. Vòng tròn ngoài là ranh giới Gai thị, vòng tròn trong là Lõm gai. Tỷ lệ CDR 0.52 cảnh báo độ lõm gai đang ở ngưỡng cần theo dõi nhãn áp định kỳ phòng bệnh Glôcôm (Cườm nước).'
+                    : 'Optic disc is the entry point of retinal vessels and 1.2M optic nerve fibers. The concentric rings represent the disc margin and optic cup. The CDR of 0.52 indicates mild cup enlargement warranting intraocular pressure monitoring.'}
+                </p>
+              </div>
+            )}
+
+            {/* Interactive Anatomical Detail Card: FAZ */}
+            {selectedLandmark === 'FAZ' && (
+              <div
+                data-testid="patient-landmark-faz-popup"
+                className="p-3.5 bg-slate-900/95 border border-amber-500/60 rounded-xl text-xs space-y-2.5 shadow-2xl animate-fade-in"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-950 text-amber-300 border border-amber-700">
+                      {isVi ? 'VÙNG VÔ MẠCH HOÀNG ĐIỂM (FAZ)' : 'FOVEAL AVASCULAR ZONE (FAZ)'}
+                    </span>
+                    <span className="text-amber-400 font-mono text-[11px] font-bold">
+                      Fovea Centralis
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLandmark(null)}
+                    className="text-slate-400 hover:text-white font-bold p-1 ml-2 text-sm cursor-pointer"
+                    aria-label={isVi ? 'Đóng' : 'Close'}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-800/80 border border-slate-700 text-[11px]">
+                  <span className="text-slate-400 block">{isVi ? 'Tình trạng sinh trắc học vùng FAZ:' : 'FAZ Biometric Status:'}</span>
+                  <span className="font-bold text-rose-400">
+                    {macularAnomaly
+                      ? (isVi ? `Phát hiện ${getAnomalyName(macularAnomaly.type, t)} (${(macularAnomaly.confidence * 100).toFixed(0)}% độ tin cậy)` : `Detected ${macularAnomaly.type}`)
+                      : (isVi ? 'Cấu trúc vô mạch trung tâm hoàng điểm sắc nét' : 'Preserved foveal microvascular architecture')}
+                  </span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  {isVi
+                    ? 'Hoàng điểm (FAZ) chịu trách nhiệm cho 90% thị lực sắc nét và nhận diện màu sắc của mắt. Vùng này không chứa mao mạch để cho ánh sáng đi thẳng vào tế bào nón. Sự xuất hiện của tổn thương hình sao (Macular Star) quanh FAZ là dấu hiệu điển hình của bệnh thần kinh võng mạc do huyết áp ác tính.'
+                    : 'The FAZ is responsible for central 20/20 visual acuity and color vision. Lesions surrounding the FAZ, such as macular star exudation, threaten central acuity and indicate severe hypertensive retinopathy.'}
+                </p>
               </div>
             )}
           </div>

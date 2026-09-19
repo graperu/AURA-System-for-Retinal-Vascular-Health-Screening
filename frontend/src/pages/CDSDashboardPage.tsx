@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PatientProfile, FundusAnalysisRequest, AIRiskResult, DoctorFeedback } from '../types/cds';
 import { PatientUploader } from '../components/PatientUploader';
 import { InteractiveCDSViewer } from '../components/InteractiveCDSViewer';
@@ -31,8 +31,13 @@ import {
   UploadCloud,
   CalendarCheck,
   Bell,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
-import { doctorApi, screeningApi, notificationApi } from '../services/api';
+import { doctorApi, screeningApi, notificationApi, appointmentApi, Appointment } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
 import { useAnalysisProgress } from '../hooks/useAnalysisProgress';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -67,32 +72,81 @@ export interface DoctorPatientSummary {
   assignmentStatus: string;
 }
 
-interface CDSDashboardPageProps {
+export interface CDSDashboardPageProps {
   activeSection?: string;
   onNavigate?: (section: string) => void;
   initialPatient?: PatientProfile | null;
   initialLoading?: boolean;
+  initialAnalysisResult?: AIRiskResult | null;
+  initialMaximized?: boolean;
+  initialQueueCollapsed?: boolean;
+  initialPatients?: DoctorPatientSummary[];
+  initialSelectedPatientId?: string | null;
+  patientId?: string | null;
 }
 
 export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
-  activeSection = 'cds-viewer',
+  activeSection: rawActiveSection = 'cds-viewer',
   onNavigate,
   initialPatient = null,
   initialLoading,
+  initialAnalysisResult = null,
+  initialMaximized = false,
+  initialQueueCollapsed = false,
+  initialPatients,
+  initialSelectedPatientId = null,
+  patientId = null,
 }) => {
+  const KNOWN_DOCTOR_SECTIONS = [
+    'dashboard',
+    'patient-list',
+    'risk-analytics',
+    'reports',
+    'consultation',
+    'medical-profile',
+    'appointment',
+    'appointments',
+    'notifications',
+    'cds-viewer',
+  ];
+  const activeSection = KNOWN_DOCTOR_SECTIONS.includes(rawActiveSection) ? rawActiveSection : 'dashboard';
   const { user: currentUser } = useAuth();
   const { t, isVi } = useLanguage();
   const prefersReducedMotion = useAuraReducedMotion();
   const doctorDisplayName = currentUser?.name || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist');
 
-  const [assignedPatients, setAssignedPatients] = useState<DoctorPatientSummary[]>([]);
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(initialPatient?.id || initialPatient?.userId || null);
+  const [assignedPatients, setAssignedPatients] = useState<DoctorPatientSummary[]>(initialPatients || []);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(() => {
+    if (patientId) return patientId;
+    if (initialSelectedPatientId) return initialSelectedPatientId;
+    if (initialPatient?.id || initialPatient?.userId) return initialPatient.id || initialPatient.userId || null;
+    try {
+      return sessionStorage.getItem('aura_doctor_selected_patient_id') || null;
+    } catch {
+      return null;
+    }
+  });
   const [activePatient, setActivePatient] = useState<PatientProfile | null>(initialPatient);
-  const [isLoadingPatients, setIsLoadingPatients] = useState<boolean>(initialLoading ?? (initialPatient ? false : true));
+  const [isLoadingPatients, setIsLoadingPatients] = useState<boolean>(initialLoading ?? (initialPatient || initialPatients ? false : true));
   const [patientsError, setPatientsError] = useState<string | null>(null);
 
-  // Medical analysis is empty until a successful backend response is received.
-  const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(null);
+  useEffect(() => {
+    const incomingId = patientId || initialSelectedPatientId;
+    if (incomingId) {
+      setSelectedPatientId(incomingId);
+    }
+  }, [patientId, initialSelectedPatientId]);
+
+  useEffect(() => {
+    try {
+      if (selectedPatientId) {
+        sessionStorage.setItem('aura_doctor_selected_patient_id', selectedPatientId);
+      }
+    } catch {}
+  }, [selectedPatientId]);
+
+  // Medical analysis is empty until a successful backend response is received or hydrated via initialAnalysisResult.
+  const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(initialAnalysisResult);
   const [isScreeningLoading, setIsScreeningLoading] = useState<boolean>(false);
   const {
     isAnalyzing,
@@ -113,17 +167,54 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
   const [feedbackSuccessMsg, setFeedbackSuccessMsg] = useState<string>('');
   const [feedbackErrorToast, setFeedbackErrorToast] = useState(false);
   const [feedbackErrorMsg, setFeedbackErrorMsg] = useState<string>('');
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState<boolean>(false);
+  const [appointmentActionLoading, setAppointmentActionLoading] = useState<string | null>(null);
+  const [appointmentSuccessMsg, setAppointmentSuccessMsg] = useState<string | null>(null);
+
+  // Maximize Canvas & Collapsible Patient Queue States (R4, AC-4)
+  const [isMaximizedCanvas, setIsMaximizedCanvas] = useState<boolean>(initialMaximized);
+  const [isPatientQueueCollapsed, setIsPatientQueueCollapsed] = useState<boolean>(initialQueueCollapsed);
+  const [patientSearchQuery, setPatientSearchQuery] = useState<string>('');
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMaximizedCanvas) {
+        setIsMaximizedCanvas(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMaximizedCanvas]);
+
+  const filteredAssignedPatients = assignedPatients.filter((p) => {
+    if (!patientSearchQuery.trim()) return true;
+    const q = patientSearchQuery.toLowerCase();
+    return (
+      (p.fullName && p.fullName.toLowerCase().includes(q)) ||
+      (p.mrn && p.mrn.toLowerCase().includes(q)) ||
+      (p.phoneNumber && p.phoneNumber.toLowerCase().includes(q))
+    );
+  });
+
+  const selectedPatientIdRef = useRef<string | null>(selectedPatientId);
+  selectedPatientIdRef.current = selectedPatientId;
+  const activePatientRef = useRef<PatientProfile | null>(activePatient);
+  activePatientRef.current = activePatient;
 
   const loadPatientDetails = useCallback(
     async (
       patientId: string,
       summaryFallback?: DoctorPatientSummary | PatientProfile | any,
-      specificScreeningId?: string
+      specificScreeningId?: string,
+      isSilent: boolean = false
     ) => {
-      setAnalysisResult(null);
-      setIsScreeningLoading(true);
-      setAnalysisErrorMsg(null);
-      setIsNewScanOpen(false);
+      if (!isSilent) {
+        setAnalysisResult(null);
+        setIsScreeningLoading(true);
+        setAnalysisErrorMsg(null);
+        setIsNewScanOpen(false);
+      }
 
       // 1. Gán ngay thông tin bệnh nhân fallback vào activePatient để giao diện phản hồi tức thì
       if (summaryFallback) {
@@ -226,80 +317,157 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
               const directRes = await screeningApi.getById(specificScreeningId);
               if (directRes && directRes.success && directRes.data) {
                 setAnalysisResult(mapScreeningToAIRiskResult(directRes.data, directRes.data.imageUrl));
-              } else {
+              } else if (!isSilent) {
                 setAnalysisResult(null);
               }
             } catch {
-              setAnalysisResult(null);
+              if (!isSilent) {
+                setAnalysisResult(null);
+              }
             }
-          } else {
+          } else if (!isSilent) {
             setAnalysisResult(null);
           }
-        } else {
+        } else if (!isSilent) {
           setAnalysisResult(null);
         }
       } catch (err) {
         console.warn('Error in loadPatientDetails flow:', err);
-        setAnalysisResult(null);
+        if (!isSilent) {
+          setAnalysisResult(null);
+        }
       } finally {
-        setIsScreeningLoading(false);
+        if (!isSilent) {
+          setIsScreeningLoading(false);
+        }
       }
     },
     [doctorDisplayName]
   );
 
-  const fetchAssignedPatients = useCallback(async () => {
-    setIsLoadingPatients(true);
-    setPatientsError(null);
-    try {
-      const res = await doctorApi.getAssignedPatients();
-      let patientList: any[] = [];
-      if (res.success && res.data) {
-        if (Array.isArray(res.data)) {
-          patientList = res.data;
-        } else if (Array.isArray((res.data as any).items)) {
-          patientList = (res.data as any).items;
-        } else if (Array.isArray((res.data as any).content)) {
-          patientList = (res.data as any).content;
+  const fetchAssignedPatients = useCallback(
+    async (isSilent: boolean = false) => {
+      if (!isSilent) {
+        setIsLoadingPatients(true);
+        setPatientsError(null);
+      }
+      try {
+        const res = await doctorApi.getAssignedPatients();
+        let patientList: any[] = [];
+        if (res.success && res.data) {
+          if (Array.isArray(res.data)) {
+            patientList = res.data;
+          } else if (Array.isArray((res.data as any).items)) {
+            patientList = (res.data as any).items;
+          } else if (Array.isArray((res.data as any).content)) {
+            patientList = (res.data as any).content;
+          }
+        }
+
+        if (res.success) {
+          setAssignedPatients(patientList);
+          if (patientList.length > 0) {
+            const currentSelected = selectedPatientIdRef.current;
+            const matched = currentSelected
+              ? patientList.find(
+                  (p) => String(p.patientId || p.userId || p.id) === String(currentSelected)
+                )
+              : null;
+
+            if (matched) {
+              if (!activePatientRef.current) {
+                await loadPatientDetails(currentSelected!, matched, undefined, isSilent);
+              }
+            } else {
+              // Only select first patient if no patient is currently selected or existing patient not found
+              const first = patientList[0];
+              const pid = first.patientId || first.userId || first.id;
+              setSelectedPatientId(pid);
+              await loadPatientDetails(pid, first, undefined, isSilent);
+            }
+          } else {
+            setSelectedPatientId(null);
+            setActivePatient(null);
+            setAnalysisResult(null);
+          }
+        } else if (!isSilent) {
+          setPatientsError(
+            res.message ||
+              (isVi
+                ? 'Không thể tải danh sách bệnh nhân được phân công.'
+                : 'Failed to load assigned patient list.')
+          );
+        }
+      } catch (err) {
+        if (!isSilent) {
+          setPatientsError(
+            err instanceof Error
+              ? err.message
+              : (isVi ? 'Lỗi kết nối máy chủ phân công.' : 'Assignment server connection error.')
+          );
+        }
+      } finally {
+        if (!isSilent) {
+          setIsLoadingPatients(false);
         }
       }
+    },
+    [loadPatientDetails, isVi]
+  );
 
-      if (res.success) {
-        setAssignedPatients(patientList);
-        if (patientList.length > 0) {
-          const first = patientList[0];
-          const pid = first.patientId || first.userId || first.id;
-          setSelectedPatientId(pid);
-          await loadPatientDetails(pid, first);
-        } else {
-          setSelectedPatientId(null);
-          setActivePatient(null);
-          setAnalysisResult(null);
-        }
-      } else {
-        setPatientsError(
-          res.message ||
-            (isVi
-              ? 'Không thể tải danh sách bệnh nhân được phân công.'
-              : 'Failed to load assigned patient list.')
-        );
+  const fetchAppointments = useCallback(async () => {
+    try {
+      setIsLoadingAppointments(true);
+      const res = await appointmentApi.getAll({ role: 'DOCTOR' });
+      if (res && res.success && Array.isArray(res.data)) {
+        setAppointments(res.data);
       }
     } catch (err) {
-      setPatientsError(
-        err instanceof Error
-          ? err.message
-          : (isVi ? 'Lỗi kết nối máy chủ phân công.' : 'Assignment server connection error.')
-      );
+      console.warn('Error loading doctor appointments:', err);
     } finally {
-      setIsLoadingPatients(false);
+      setIsLoadingAppointments(false);
     }
-  }, [loadPatientDetails, isVi]);
+  }, []);
+
+  const handleUpdateAppointmentStatus = async (
+    appointmentId: string,
+    status: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED',
+    notes?: string
+  ) => {
+    try {
+      setAppointmentActionLoading(appointmentId);
+      const res = await appointmentApi.updateStatus(appointmentId, status, notes);
+      if (res && res.success) {
+        setAppointments((prev) =>
+          prev.map((a) => (a.id === appointmentId ? { ...a, status, notes: notes || a.notes } : a))
+        );
+        const msg =
+          status === 'CONFIRMED'
+            ? (isVi ? 'Đã xác nhận lịch hẹn' : 'Appointment confirmed')
+            : status === 'COMPLETED'
+            ? (isVi ? 'Đã hoàn thành khám' : 'Examination completed')
+            : (isVi ? 'Đã hủy lịch hẹn' : 'Appointment cancelled');
+        setAppointmentSuccessMsg(msg);
+        setTimeout(() => setAppointmentSuccessMsg(null), 3000);
+      }
+    } catch (err) {
+      console.error('Lỗi khi cập nhật trạng thái lịch hẹn:', err);
+    } finally {
+      setAppointmentActionLoading(null);
+    }
+  };
+
+  const handleStartConsultationWithPatient = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    onNavigate?.('consultation');
+  };
 
   useEffect(() => {
     fetchAssignedPatients();
-  }, [fetchAssignedPatients]);
+    fetchAppointments();
+  }, [fetchAssignedPatients, fetchAppointments]);
 
-  // Universal Real-time State Synchronization for Doctor Portal (FR-15, FR-20, FR-21, Flow 1)
+  // Universal Real-time State Synchronization for Doctor Portal (FR-15, FR-20, FR-21, Flow 1, R3/AC-3)
   useRealtimeSync(
     [
       'screening:created',
@@ -313,27 +481,43 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       'profile:update',
       'batch:created',
       'batch:update',
+      'appointment:created',
+      'appointment:updated',
+      'APPOINTMENT_CREATED',
+      'APPOINTMENT_UPDATED',
     ],
-    async () => {
-      await fetchAssignedPatients();
-      if (selectedPatientId) {
-        await loadPatientDetails(selectedPatientId, activePatient);
+    async (event?: any) => {
+      const eventType = event?.type || '';
+      if (eventType.toLowerCase().includes('appointment')) {
+        await fetchAppointments();
+      } else {
+        // Silent background revalidation on real-time STOMP/Bus events (Zero-F5, Zero-Flicker)
+        await fetchAssignedPatients(true);
+        const currentPid = selectedPatientIdRef.current;
+        if (currentPid) {
+          await loadPatientDetails(currentPid, activePatientRef.current, undefined, true);
+        }
       }
     },
-    { pollIntervalMs: 12000, syncOnFocus: true }
+    { pollIntervalMs: 60000, syncOnFocus: false }
   );
 
-  // STOMP WebSocket push subscription for doctor notifications & worklist updates
+  // STOMP WebSocket push subscription for doctor notifications & worklist updates (R3/AC-3)
   useEffect(() => {
     if (!currentUser?.id) return;
     stompClient.connect();
     const unsubNotif = stompClient.subscribe(`/topic/notifications.${currentUser.id}`, (payload: any) => {
       realtimeBus.handleIncomingPayload(payload, 'websocket');
     });
+    const doctorApptTopic = `/topic/appointments.${currentUser.id}`;
+    const unsubAppt = stompClient.subscribe(doctorApptTopic, (_payload: any) => {
+      fetchAppointments();
+    });
     return () => {
       unsubNotif();
+      unsubAppt();
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, fetchAppointments]);
 
   const handleSelectPatientForCDS = useCallback(
     async (
@@ -521,6 +705,12 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
               onNavigate?.('cds-viewer');
             }
           }}
+          onStartConsultation={(patient) => {
+            const pid = patient.userId || patient.id;
+            if (pid) {
+              handleStartConsultationWithPatient(pid);
+            }
+          }}
           onNavigate={onNavigate}
         />
       </motion.div>
@@ -581,6 +771,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         <DoctorConsultationView
           assignedPatients={assignedPatients}
           initialSelectedPatientId={selectedPatientId}
+          patientId={selectedPatientId}
           currentUserId={currentUser?.id}
           doctorName={doctorDisplayName}
           onSelectPatientForCDS={(patientId, pt) => {
@@ -693,59 +884,176 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                   {isVi ? 'Lịch Hẹn Khám & Tư Vấn Chuyên Khoa' : 'Specialist Consultations & Appointments'}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  {isVi ? 'Danh sách bệnh nhân đã đặt lịch trao đổi chuyên môn' : 'Scheduled teleconsultations with assigned patients'}
+                  {isVi ? 'Danh sách bệnh nhân đã đặt lịch hẹn từ Cổng Bệnh nhân (PostgreSQL)' : 'Scheduled appointments from Patient Portal (PostgreSQL)'}
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => onNavigate?.('consultation')}
-              className="px-4 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <MessageSquare className="w-4 h-4" />
-              {isVi ? 'Mở phòng tư vấn' : 'Open Consultation Room'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchAppointments}
+                disabled={isLoadingAppointments}
+                className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingAppointments ? 'animate-spin' : ''}`} />
+                {isVi ? 'Làm mới' : 'Refresh'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate?.('consultation')}
+                className="px-4 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors cursor-pointer flex items-center gap-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                {isVi ? 'Mở phòng tư vấn' : 'Open Consultation Room'}
+              </button>
+            </div>
           </div>
 
-          <div className="divide-y divide-slate-100">
-            {assignedPatients.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 text-sm">
-                {isVi ? 'Chưa có lịch hẹn khám nào được lên lịch.' : 'No scheduled consultations found.'}
+          {appointmentSuccessMsg && (
+            <div role="status" className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 shadow-xs">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span className="font-semibold">{appointmentSuccessMsg}</span>
+            </div>
+          )}
+
+          {isLoadingAppointments ? (
+            <div className="py-12 text-center space-y-2">
+              <Loader2 className="w-6 h-6 text-blue-600 animate-spin mx-auto" />
+              <p className="text-xs text-slate-500">{isVi ? 'Đang tải danh sách lịch hẹn...' : 'Loading appointments...'}</p>
+            </div>
+          ) : appointments.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                <CalendarCheck className="w-6 h-6" />
               </div>
-            ) : (
-              assignedPatients.map((patient, idx) => (
-                <div key={patient.patientId || patient.id || idx} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
-                      {patient.fullName ? patient.fullName.charAt(0) : 'P'}
+              <h3 className="text-sm font-bold text-slate-800 mb-1">
+                {isVi ? 'Chưa có lịch hẹn khám nào được lên lịch' : 'No scheduled appointments'}
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                {isVi
+                  ? 'Các cuộc hẹn do bệnh nhân đặt qua Cổng Bệnh nhân sẽ hiển thị tại đây để Bác sĩ xác nhận và tiến hành tư vấn.'
+                  : 'Appointments booked by patients will appear here for specialist confirmation.'}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {appointments.map((apt) => {
+                const isActionLoading = appointmentActionLoading === apt.id;
+                return (
+                  <div key={apt.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
+                        {apt.patientName ? apt.patientName.charAt(0) : 'P'}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-bold text-slate-900">{apt.patientName || (isVi ? 'Bệnh nhân' : 'Patient')}</h4>
+                          {apt.status === 'CONFIRMED' ? (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-semibold text-[11px] border border-emerald-200">
+                              {isVi ? 'Đã xác nhận' : 'Confirmed'}
+                            </span>
+                          ) : apt.status === 'COMPLETED' ? (
+                            <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold text-[11px] border border-blue-200">
+                              {isVi ? 'Hoàn thành khám' : 'Completed'}
+                            </span>
+                          ) : apt.status === 'CANCELLED' ? (
+                            <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-semibold text-[11px] border border-rose-200">
+                              {isVi ? 'Đã hủy' : 'Cancelled'}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-semibold text-[11px] border border-amber-200">
+                              {isVi ? 'Chờ duyệt' : 'Pending'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                          <span className="font-mono-data font-semibold text-slate-700">
+                            📅 {apt.appointmentDate} • ⏰ {apt.timeSlot}
+                          </span>
+                          {apt.patientMrn && <span>• MRN: {apt.patientMrn}</span>}
+                        </p>
+                        {apt.reason && (
+                          <p className="text-xs text-slate-600">
+                            <span className="text-slate-400">{isVi ? 'Lý do: ' : 'Reason: '}</span>
+                            {apt.reason}
+                          </p>
+                        )}
+                        {apt.notes && (
+                          <p className="text-xs text-slate-500 italic">
+                            <span className="text-slate-400">{isVi ? 'Ghi chú: ' : 'Notes: '}</span>
+                            {apt.notes}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900">{patient.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}</h4>
-                      <p className="text-xs text-slate-500">
-                        MRN: {patient.mrn || 'AUR-9842'} • {idx === 0 ? (isVi ? 'Hôm nay' : 'Today') : (isVi ? 'Ngày mai' : 'Tomorrow')} • {9 + (idx % 6)}:00
-                      </p>
+
+                    <div className="flex items-center gap-2 flex-wrap self-end md:self-center">
+                      {apt.status === 'PENDING' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateAppointmentStatus(apt.id, 'CONFIRMED')}
+                            disabled={isActionLoading}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                          >
+                            {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                            {isVi ? 'Xác nhận lịch hẹn' : 'Confirm'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateAppointmentStatus(apt.id, 'CANCELLED')}
+                            disabled={isActionLoading}
+                            className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {isVi ? 'Hủy lịch hẹn' : 'Cancel'}
+                          </button>
+                        </>
+                      )}
+
+                      {apt.status === 'CONFIRMED' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateAppointmentStatus(apt.id, 'COMPLETED')}
+                            disabled={isActionLoading}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                          >
+                            {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                            {isVi ? 'Hoàn thành khám' : 'Complete'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateAppointmentStatus(apt.id, 'CANCELLED')}
+                            disabled={isActionLoading}
+                            className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {isVi ? 'Hủy lịch hẹn' : 'Cancel'}
+                          </button>
+                        </>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleStartConsultationWithPatient(apt.patientId)}
+                        className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        {isVi ? 'Vào phòng tư vấn' : 'Consultation'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSelectPatientForCDS(apt.patientId)}
+                        className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        {isVi ? 'Bàn chẩn đoán CDS' : 'CDS Workspace'}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onNavigate?.('consultation')}
-                      className="px-3.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg cursor-pointer"
-                    >
-                      {isVi ? 'Vào phòng tư vấn' : 'Start Consultation'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectPatientForCDS(patient.patientId, undefined, patient)}
-                      className="px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
-                    >
-                      {isVi ? 'Bàn chẩn đoán CDS' : 'CDS Workspace'}
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </motion.div>
     );
@@ -841,7 +1149,14 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => onNavigate?.('consultation')}
+                onClick={() => {
+                  const targetPid = selectedPatientId || activePatient?.userId || activePatient?.id;
+                  if (targetPid) {
+                    handleStartConsultationWithPatient(targetPid);
+                  } else {
+                    onNavigate?.('consultation');
+                  }
+                }}
                 className="px-3.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg cursor-pointer shrink-0"
               >
                 {isVi ? 'Trả lời' : 'Reply'}
@@ -891,7 +1206,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
               <span>{t('doctor.cds.viewPatientList', 'Xem Danh Sách Bệnh Nhân')}</span>
             </button>
             <button
-              onClick={fetchAssignedPatients}
+              onClick={() => { void fetchAssignedPatients(false); }}
               className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
@@ -1021,11 +1336,21 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
             <span>{isNewScanOpen ? (isVi ? 'Đóng Tải Ảnh' : 'Close Upload') : (isVi ? 'Tải Ảnh Mới' : 'New Scan')}</span>
           </button>
           <button
-            onClick={() => setIsChatModalOpen(true)}
-            className="px-2.5 py-1 bg-[#F5F6F8] hover:bg-[#EAECF0] text-slate-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-[#EAECF0]"
+            type="button"
+            onClick={() => {
+              const pid = selectedPatientId || activePatient.userId || activePatient.id;
+              if (pid) {
+                handleStartConsultationWithPatient(pid);
+              } else {
+                onNavigate?.('consultation');
+              }
+            }}
+            data-testid="cds-telemedicine-btn"
+            className="px-2.5 py-1 bg-[#EEF5FF] hover:bg-[#D0DDFE] text-[#3478F6] font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-[#C7D7FE]"
+            title={isVi ? 'Vào phòng tư vấn với bệnh nhân' : 'Enter Consultation'}
           >
             <MessageSquare className="w-3.5 h-3.5 text-[#3478F6]" />
-            <span>{isVi ? 'Nhắn Tin' : 'Message'}</span>
+            <span>{isVi ? 'Vào phòng tư vấn' : 'Consultation'}</span>
           </button>
           <button
             onClick={() => setIsReportModalOpen(true)}
@@ -1035,6 +1360,20 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
             <Printer className="w-3.5 h-3.5" />
             <span>{isVi ? 'In Phiếu' : 'Report'}</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setIsMaximizedCanvas(!isMaximizedCanvas)}
+            data-testid="cds-header-maximize-btn"
+            className={`px-2.5 py-1 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer border ${
+              isMaximizedCanvas
+                ? 'bg-[#3478F6] text-white border-[#2563EB] shadow-xs'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-[#EAECF0]'
+            }`}
+            title={isMaximizedCanvas ? (isVi ? 'Thu nhỏ khung nhìn (Esc)' : 'Restore Normal View (Esc)') : (isVi ? 'Phóng to toàn khung vi mạch' : 'Maximize Canvas')}
+          >
+            {isMaximizedCanvas ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            <span>{isMaximizedCanvas ? (isVi ? 'Thu Nhỏ' : 'Restore') : (isVi ? 'Toàn Khung' : 'Maximize')}</span>
+          </button>
         </div>
       </div>
 
@@ -1043,76 +1382,158 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         {/* ===================================================================
             CỘT TRÁI (260-300px, 280px): DANH SÁCH BỆNH NHÂN (PATIENT QUEUE)
         =================================================================== */}
-        <div className="w-full xl:w-[260px] 2xl:w-[280px] shrink-0 h-full flex flex-col">
-          <div className="bg-white rounded-2xl border border-[#EAECF0] p-3 shadow-xs space-y-2.5 h-full flex flex-col">
-            <div className="flex items-center justify-between shrink-0">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-[#3478F6]" />
-                {isVi ? 'Danh Sách Bệnh Nhân' : 'Patient Queue'}
-              </span>
-              <span className="text-[11px] font-mono-data font-bold text-[#3478F6] bg-[#EEF5FF] px-2 py-0.5 rounded-full border border-[#C7D7FE]">
-                {assignedPatients.length}
-              </span>
-            </div>
+        {!isMaximizedCanvas && (
+          <div
+            data-testid="cds-patient-queue-container"
+            className={`shrink-0 h-full flex flex-col transition-all duration-300 ease-in-out ${
+              isPatientQueueCollapsed
+                ? 'w-full xl:w-[64px] 2xl:w-[72px]'
+                : 'w-full xl:w-[260px] 2xl:w-[280px]'
+            }`}
+          >
+            <div className="bg-white rounded-2xl border border-[#EAECF0] p-3 shadow-xs space-y-2.5 h-full flex flex-col">
+              {isPatientQueueCollapsed ? (
+                <div className="flex flex-col items-center gap-3 h-full">
+                  <button
+                    type="button"
+                    onClick={() => setIsPatientQueueCollapsed(false)}
+                    data-testid="cds-toggle-patient-queue-btn"
+                    title={isVi ? 'Mở rộng danh sách bệnh nhân' : 'Expand patient queue'}
+                    aria-label={isVi ? 'Mở rộng danh sách bệnh nhân' : 'Expand patient queue'}
+                    className="p-2 rounded-xl bg-[#EEF5FF] hover:bg-[#D0DDFE] text-[#3478F6] transition-colors cursor-pointer border border-[#C7D7FE]"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <span className="text-[10px] font-mono-data font-bold text-[#3478F6] bg-[#EEF5FF] px-1.5 py-0.5 rounded-full border border-[#C7D7FE]">
+                    {assignedPatients.length}
+                  </span>
+                  <div className="space-y-2 flex-1 overflow-y-auto w-full flex flex-col items-center pt-1">
+                    {assignedPatients.map((p) => {
+                      const isSelected =
+                        String(p.patientId) === String(activePatient.id) ||
+                        String(p.patientId) === String(activePatient.userId) ||
+                        String(p.mrn) === String(activePatient.mrn);
 
-            {/* Patient Cards List */}
-            <div className="space-y-2 flex-1 overflow-y-auto pr-1">
-              {assignedPatients.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400">
-                  {isVi ? 'Chưa có bệnh nhân nào' : 'No patients found'}
-                </div>
-              ) : (
-                assignedPatients.map((p) => {
-                  const isSelected =
-                    String(p.patientId) === String(activePatient.id) ||
-                    String(p.patientId) === String(activePatient.userId) ||
-                    String(p.mrn) === String(activePatient.mrn);
-
-                  return (
-                    <motion.div
-                      key={p.patientId}
-                      whileHover={{ x: 3 }}
-                      whileTap={{ scale: 0.985 }}
-                      transition={{ duration: 0.12 }}
-                      onClick={() => handleSelectPatientForCDS(p.patientId, undefined, p)}
-                      className={`p-3 rounded-xl border transition-colors cursor-pointer space-y-1.5 ${
-                        isSelected
-                          ? 'border-[#3478F6] bg-[#EEF5FF]/40 shadow-xs ring-1 ring-[#3478F6]'
-                          : 'border-[#EAECF0] bg-white hover:border-[#D0D5DD] hover:bg-[#F9FAFB]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <h4 className="text-xs font-bold text-slate-900 truncate">
-                          {p.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}
-                        </h4>
-                        <span className="text-[10px] font-mono-data font-bold text-[#3478F6] bg-[#EEF5FF] px-1.5 py-0.5 rounded border border-[#C7D7FE]">
-                          {p.mrn || 'N/A'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[11px] text-slate-500">
-                        <span>
-                          {p.age ? `${p.age}t` : ''} • {p.gender === 'Female' ? 'Nữ' : 'Nam'}
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                            p.latestRiskLevel === 'HIGH' || p.latestRiskLevel === 'CRITICAL'
-                              ? 'bg-[#FEF3F2] text-[#EF4444] border border-[#FEE4E2]'
-                              : p.latestRiskLevel === 'MODERATE'
-                              ? 'bg-[#FFFAEB] text-[#F59E0B] border border-[#FEF0C7]'
-                              : 'bg-[#ECFDF3] text-[#22C55E] border border-[#D1FADF]'
+                      return (
+                        <button
+                          key={p.patientId}
+                          type="button"
+                          onClick={() => handleSelectPatientForCDS(p.patientId, undefined, p)}
+                          title={`${p.fullName || 'Patient'} (${p.mrn || 'N/A'}) - ${p.latestRiskLevel || 'Chờ khám'}`}
+                          data-testid={`cds-mini-patient-${p.patientId}`}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold transition-all cursor-pointer relative ${
+                            isSelected
+                              ? 'bg-[#3478F6] text-white ring-2 ring-[#3478F6]/30 shadow-xs'
+                              : 'bg-[#F5F6F8] text-slate-700 hover:bg-[#EAECF0] border border-[#EAECF0]'
                           }`}
                         >
-                          {p.latestRiskLevel || 'Chờ khám'}
-                        </span>
+                          {(p.fullName || 'P').charAt(0).toUpperCase()}
+                          {p.latestRiskLevel === 'CRITICAL' || p.latestRiskLevel === 'HIGH' ? (
+                            <span className="w-2 h-2 rounded-full bg-red-500 absolute -top-0.5 -right-0.5 ring-1 ring-white" />
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between shrink-0">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-[#3478F6]" />
+                      {isVi ? 'Danh Sách Bệnh Nhân' : 'Patient Queue'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-mono-data font-bold text-[#3478F6] bg-[#EEF5FF] px-2 py-0.5 rounded-full border border-[#C7D7FE]">
+                        {filteredAssignedPatients.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsPatientQueueCollapsed(true)}
+                        data-testid="cds-toggle-patient-queue-btn"
+                        title={isVi ? 'Thu gọn danh sách bệnh nhân' : 'Collapse patient queue'}
+                        aria-label={isVi ? 'Thu gọn danh sách bệnh nhân' : 'Collapse patient queue'}
+                        className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search Input for Patient Queue */}
+                  <div className="relative shrink-0">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={patientSearchQuery}
+                      onChange={(e) => setPatientSearchQuery(e.target.value)}
+                      placeholder={isVi ? 'Tìm tên, MRN...' : 'Search MRN, name...'}
+                      data-testid="cds-patient-search-input"
+                      className="w-full pl-8 pr-2.5 py-1.5 bg-[#F5F6F8] border border-[#EAECF0] rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#3478F6]"
+                    />
+                  </div>
+
+                  {/* Patient Cards List */}
+                  <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+                    {filteredAssignedPatients.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-400">
+                        {isVi ? 'Chưa có bệnh nhân nào' : 'No patients found'}
                       </div>
-                    </motion.div>
-                  );
-                })
+                    ) : (
+                      filteredAssignedPatients.map((p) => {
+                        const isSelected =
+                          String(p.patientId) === String(activePatient.id) ||
+                          String(p.patientId) === String(activePatient.userId) ||
+                          String(p.mrn) === String(activePatient.mrn);
+
+                        return (
+                          <motion.div
+                            key={p.patientId}
+                            whileHover={{ x: 3 }}
+                            whileTap={{ scale: 0.985 }}
+                            transition={{ duration: 0.12 }}
+                            onClick={() => handleSelectPatientForCDS(p.patientId, undefined, p)}
+                            className={`p-3 rounded-xl border transition-colors cursor-pointer space-y-1.5 ${
+                              isSelected
+                                ? 'border-[#3478F6] bg-[#EEF5FF]/40 shadow-xs ring-1 ring-[#3478F6]'
+                                : 'border-[#EAECF0] bg-white hover:border-[#D0D5DD] hover:bg-[#F9FAFB]'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <h4 className="text-xs font-bold text-slate-900 truncate">
+                                {p.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}
+                              </h4>
+                              <span className="text-[10px] font-mono-data font-bold text-[#3478F6] bg-[#EEF5FF] px-1.5 py-0.5 rounded border border-[#C7D7FE]">
+                                {p.mrn || 'N/A'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-[11px] text-slate-500">
+                              <span>
+                                {p.age ? `${p.age}t` : ''} • {p.gender === 'Female' ? 'Nữ' : 'Nam'}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                  p.latestRiskLevel === 'HIGH' || p.latestRiskLevel === 'CRITICAL'
+                                    ? 'bg-[#FEF3F2] text-[#EF4444] border border-[#FEE4E2]'
+                                    : p.latestRiskLevel === 'MODERATE'
+                                    ? 'bg-[#FFFAEB] text-[#F59E0B] border border-[#FEF0C7]'
+                                    : 'bg-[#ECFDF3] text-[#22C55E] border border-[#D1FADF]'
+                                }`}
+                              >
+                                {p.latestRiskLevel || 'Chờ khám'}
+                              </span>
+                            </div>
+                          </motion.div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
-        </div>
+        )}
 
         {/* ===================================================================
             CỘT GIỮA (FLEX-GROW): TRÌNH XEM ẢNH & KẾT QUẢ AI (CDS VIEWER)
@@ -1172,6 +1593,32 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
 
               {analysisResult ? (
                 <div className="space-y-4">
+                  {/* Full-width notification banner when canvas is maximized */}
+                  {isMaximizedCanvas && (
+                    <div
+                      data-testid="cds-maximize-banner"
+                      className="bg-[#EEF5FF] border border-[#C7D7FE] text-[#3478F6] px-4 py-2.5 rounded-xl flex items-center justify-between shadow-xs transition-all"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Maximize2 className="w-4 h-4 text-[#3478F6] shrink-0" />
+                        <span className="text-xs font-semibold">
+                          {isVi
+                            ? 'Chế độ xem toàn chiều rộng (Full-Width Inspection Mode) đang bật — Bấm Esc hoặc Khôi phục để quay lại bố cục 3 cột.'
+                            : 'Full-Width Inspection Mode active — Press Esc or Restore to return to 3-column cockpit.'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsMaximizedCanvas(false)}
+                        data-testid="cds-restore-canvas-btn"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#F8FAFC] text-[#3478F6] border border-[#C7D7FE] rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <Minimize2 className="w-3.5 h-3.5" />
+                        {isVi ? 'Khôi phục (Esc)' : 'Restore (Esc)'}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Interactive Fundus & Grad-CAM Heatmap Viewer */}
                   <InteractiveCDSViewer
                     analysisResult={analysisResult}
@@ -1180,10 +1627,14 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                         ? (isVi ? 'Mắt Trái (OS)' : 'Left Eye (OS)')
                         : (isVi ? 'Mắt Phải (OD)' : 'Right Eye (OD)')
                     }
+                    isMaximized={isMaximizedCanvas}
+                    onToggleMaximize={() => setIsMaximizedCanvas(!isMaximizedCanvas)}
                   />
 
-                  {/* Full-Width Biomarkers & Risk Assessment */}
-                  <RiskAssessmentPanel result={analysisResult} />
+                  {/* Full-Width Biomarkers & Risk Assessment (condensed, default to biomarkers tab, hidden when maximized) */}
+                  {!isMaximizedCanvas && (
+                    <RiskAssessmentPanel result={analysisResult} defaultTab="biomarkers" />
+                  )}
                 </div>
               ) : !isNewScanOpen ? (
                 <div className="bg-white border border-[#EAECF0] rounded-2xl p-6 shadow-xs space-y-4 text-center">
@@ -1225,28 +1676,31 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         {/* ===================================================================
             CỘT PHẢI (320-360px, 340px): ĐÁNH GIÁ & KÝ DUYỆT BÁC SĨ (DOCTOR ASSESSMENT)
         =================================================================== */}
-        <div className="w-full xl:w-[320px] 2xl:w-[340px] shrink-0 h-full flex flex-col">
-          {analysisResult ? (
-            <div className="h-full">
-              <ClinicalValidationBar
-                analysisId={analysisResult.analysisId}
-                onSaveFeedback={handleSaveFeedback}
-              />
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-[#EAECF0] p-5 text-center text-xs text-slate-400 space-y-2 h-full flex flex-col items-center justify-center">
-              <ShieldCheck className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="font-semibold text-slate-600">
-                {isVi ? 'Bảng Đánh Giá Lâm Sàng' : 'Clinical Assessment'}
-              </p>
-              <p>
-                {isVi
-                  ? 'Bảng ký duyệt và nhận định chuyên môn sẽ kích hoạt ngay khi có ảnh và kết quả AI.'
-                  : 'Physician sign-off panel will activate once screening results are present.'}
-              </p>
-            </div>
-          )}
-        </div>
+        {!isMaximizedCanvas && (
+          <div className="w-full xl:w-[320px] 2xl:w-[340px] shrink-0 h-full flex flex-col">
+            {analysisResult ? (
+              <div className="h-full">
+                <ClinicalValidationBar
+                  key={analysisResult.analysisId}
+                  analysisId={analysisResult.analysisId}
+                  onSaveFeedback={handleSaveFeedback}
+                />
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-[#EAECF0] p-5 text-center text-xs text-slate-400 space-y-2 h-full flex flex-col items-center justify-center">
+                <ShieldCheck className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="font-semibold text-slate-600">
+                  {isVi ? 'Bảng Đánh Giá Lâm Sàng' : 'Clinical Assessment'}
+                </p>
+                <p>
+                  {isVi
+                    ? 'Bảng ký duyệt và nhận định chuyên môn sẽ kích hoạt ngay khi có ảnh và kết quả AI.'
+                    : 'Physician sign-off panel will activate once screening results are present.'}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modals */}

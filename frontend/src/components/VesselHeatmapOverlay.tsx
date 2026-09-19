@@ -141,73 +141,13 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
     return raw;
   }, [drStatus]);
 
-  // Cung cấp danh sách tổn thương thực tế hoặc fallback chuẩn lâm sàng nếu rỗng
+  // Cung cấp danh sách tổn thương thực tế từ kết quả phân tích AI (không tạo tổn thương giả trên mắt bình thường)
   const displayAnomalies: VesselAnomalyRegion[] = useMemo(() => {
     if (anomalies && anomalies.length > 0) {
       return anomalies;
     }
-    // Dữ liệu giải phẫu mẫu định vị chính xác theo mắt OD / OS
-    if (isOS) {
-      return [
-        {
-          id: 'ma-os-1',
-          type: 'Microaneurysm',
-          coordinates: { x: 38, y: 44, width: 28, height: 28 },
-          confidence: 0.94,
-          description: isVi
-            ? 'Vi phình mạch tiểu động mạch thái dương trên (Superior temporal arteriole)'
-            : 'Microaneurysm on superior temporal arteriole',
-        },
-        {
-          id: 'bleed-os-1',
-          type: 'Hemorrhage',
-          coordinates: { x: 42, y: 62, width: 34, height: 34 },
-          confidence: 0.89,
-          description: isVi
-            ? 'Xuất huyết võng mạc cung thái dương dưới (Retinal micro-bleed)'
-            : 'Deep retinal micro-hemorrhage near inferior arcade',
-        },
-        {
-          id: 'exudate-os-1',
-          type: 'Hard_Exudate',
-          coordinates: { x: 32, y: 52, width: 30, height: 30 },
-          confidence: 0.92,
-          description: isVi
-            ? 'Xuất tiết lipid quanh hoàng điểm (Hard exudates)'
-            : 'Perimacular circinate lipid exudates',
-        },
-      ];
-    }
-    return [
-      {
-        id: 'ma-od-1',
-        type: 'Microaneurysm',
-        coordinates: { x: 60, y: 46, width: 28, height: 28 },
-        confidence: 0.95,
-        description: isVi
-          ? 'Vi phình mạch tiểu động mạch thái dương trên (Superior temporal arteriole)'
-          : 'Microaneurysm on superior temporal arteriole',
-      },
-      {
-        id: 'bleed-od-1',
-        type: 'Hemorrhage',
-        coordinates: { x: 64, y: 64, width: 34, height: 34 },
-        confidence: 0.91,
-        description: isVi
-          ? 'Xuất huyết vi mạch hình chấm cung thái dương dưới (Deep dot hemorrhage)'
-          : 'Retinal micro-bleed near inferior temporal arcade',
-      },
-      {
-        id: 'exudate-od-1',
-        type: 'Hard_Exudate',
-        coordinates: { x: 68, y: 52, width: 30, height: 30 },
-        confidence: 0.88,
-        description: isVi
-          ? 'Xuất tiết lipid cứng quanh hoàng điểm (Hard exudates)'
-          : 'Circinate lipid hard exudate cluster',
-      },
-    ];
-  }, [anomalies, isOS, isVi]);
+    return [];
+  }, [anomalies]);
 
   // Điều khiển Zoom
   const handleZoom = (delta: number) => {
@@ -288,11 +228,11 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
   }, [displayAnomalies]);
 
   // Tọa độ giải phẫu Gai thị và Hoàng điểm (theo % chiều rộng / chiều cao ảnh)
-  // OD: Gai thị phía mũi (bên trái ~28%), Hoàng điểm phía thái dương (bên phải ~64%)
-  // OS: Gai thị phía mũi (bên phải ~72%), Hoàng điểm phía thái dương (bên trái ~36%)
-  const opticDiscX = isOS ? 72 : 28;
+  // OD (Mắt Phải): Gai thị phía mũi (bên phải ~72%), Hoàng điểm phía thái dương (bên trái ~36%)
+  // OS (Mắt Trái): Gai thị phía mũi (bên trái ~28%), Hoàng điểm phía thái dương (bên phải ~64%)
+  const opticDiscX = isOS ? 28 : 72;
   const opticDiscY = 50;
-  const maculaX = isOS ? 36 : 64;
+  const maculaX = isOS ? 64 : 36;
   const maculaY = 52;
 
   return (
@@ -536,8 +476,8 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
 
                 {/* CÁC NHÁNH ĐỘNG MẠCH & TĨNH MẠCH CHÍNH TỎA TỪ GAI THỊ TỚI HOÀNG ĐIỂM */}
                 {/* 1. Cung mạch thái dương trên (Superior Temporal Arcade) - Ôm vòm phía trên hoàng điểm */}
-                {isOS ? (
-                  // Cung thái dương cho MẮT TRÁI (OS): Gai thị ở x=72, uốn sang trái ôm x=36
+                {!isOS ? (
+                  // Cung thái dương cho MẮT PHẢI (OD): Gai thị ở x=72, uốn sang trái ôm x=36
                   <g filter="url(#aura-vessel-neon-glow)">
                     {/* Tĩnh mạch lớn thái dương trên */}
                     <path
@@ -667,7 +607,7 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                     <path d="M 32 68 C 26 74, 20 78, 12 82" fill="none" stroke="#00FF66" strokeWidth="0.5" className="vessel-path-draw" pathLength={100} />
                   </g>
                 ) : (
-                  // Cung thái dương cho MẮT PHẢI (OD): Gai thị ở x=28, uốn sang phải ôm x=64
+                  // Cung thái dương cho MẮT TRÁI (OS): Gai thị ở x=28, uốn sang phải ôm x=64
                   <g filter="url(#aura-vessel-neon-glow)">
                     {/* Tĩnh mạch lớn thái dương trên */}
                     <path

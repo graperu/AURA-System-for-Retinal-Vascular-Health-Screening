@@ -29,9 +29,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const toSession = (user: BackendUser, token: string): UserSession => {
-  const roleName = user.roles[0] || 'USER';
-  const roleMap: Record<string, UserRole> = { USER: 'patient', PATIENT: 'patient', DOCTOR: 'doctor', CLINIC: 'clinic', ADMIN: 'admin' };
-  const role = roleMap[roleName] || 'patient';
+  const rawRole = (user.roles && user.roles[0]) ? String(user.roles[0]).toUpperCase().replace('ROLE_', '') : 'USER';
+  const roleMap: Record<string, UserRole> = {
+    USER: 'patient',
+    PATIENT: 'patient',
+    DOCTOR: 'doctor',
+    CLINIC: 'clinic',
+    ADMIN: 'admin',
+  };
+  const role = roleMap[rawRole] || 'patient';
   const titles: Record<UserRole, string> = { patient: 'Người dùng AURA', doctor: 'Bác sĩ', clinic: 'Phòng khám', admin: 'Quản trị viên' };
   let cleanName = user.fullName || user.email;
   if (cleanName && cleanName.includes('?')) {

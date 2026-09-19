@@ -17,6 +17,7 @@ public interface ScreeningRepository extends JpaRepository<Screening, UUID> {
 
   List<Screening> findByDoctorIdOrderByCreatedAtDesc(UUID doctorId);
   Page<Screening> findByDoctorIdOrderByCreatedAtDesc(UUID doctorId, Pageable pageable);
+  Page<Screening> findByDoctorIdOrPatientIdInOrderByCreatedAtDesc(UUID doctorId, java.util.Collection<UUID> patientIds, Pageable pageable);
 
   List<Screening> findByStatusOrderByCreatedAtDesc(ScreeningStatus status);
   Page<Screening> findByStatusOrderByCreatedAtDesc(ScreeningStatus status, Pageable pageable);

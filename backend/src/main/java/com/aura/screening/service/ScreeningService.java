@@ -203,28 +203,51 @@ public class ScreeningService {
     if (request.vesselDensity() != null)
       screening.setVesselDensity(request.vesselDensity());
 
-    // Gán clinicId từ request
-    if (request.clinicId() != null) {
-      screening.setClinicId(request.clinicId());
+    // Gán clinicId từ request hoặc xác định từ tài khoản phòng khám đăng nhập
+    UUID effectiveClinicId = request.clinicId();
+    com.aura.auth.security.AuraUserPrincipal principal = getCallerPrincipal();
+    boolean callerIsClinic = isCallerClinic();
+    if (effectiveClinicId == null && callerIsClinic && principal != null) {
+      effectiveClinicId = principal.id();
+      screening.setClinicId(effectiveClinicId);
+    } else if (effectiveClinicId != null) {
+      screening.setClinicId(effectiveClinicId);
     }
 
     if (doctorId != null) {
       screening.setDoctorId(doctorId);
     }
 
-    // FR-11, FR-12: Kiểm tra hạn mức và trừ lượt khám đối với bệnh nhân cá nhân tự
-    // thực hiện sàng lọc
-    boolean creditDeducted = false;
-    if (!isCallerClinicalStaff() && billingService != null && request.clinicId() == null) {
-      boolean deducted = billingService.deductCredit(patientId);
-      if (!deducted) {
-        int remaining = billingService.getRemainingCredits(patientId);
-        if (remaining <= 0) {
+    // FR-11, FR-12 & R1: Kiểm tra hạn mức và trừ lượt khám (Phòng khám hoặc Bệnh nhân)
+    boolean patientCreditDeducted = false;
+    boolean clinicCreditDeducted = false;
+
+    if (billingService != null) {
+      if (effectiveClinicId != null && (callerIsClinic || request.clinicId() != null)) {
+        // R1: Trừ lượt khám của phòng khám
+        int remaining = billingService.getRemainingCredits(effectiveClinicId);
+        if (remaining < 1) {
           throw new com.aura.billing.exception.PaymentFailedException(
-              "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
+              String.format("Cơ sở y tế không đủ lượt quét khả dụng (Hiện có %d). Vui lòng nạp thêm gói lượt khám.", remaining));
         }
-      } else {
-        creditDeducted = true;
+        boolean deducted = billingService.deductCredits(effectiveClinicId, 1);
+        if (!deducted) {
+          throw new com.aura.billing.exception.PaymentFailedException(
+              "Cơ sở y tế không đủ lượt quét khả dụng. Vui lòng nạp thêm gói dịch vụ để tiếp tục.");
+        }
+        clinicCreditDeducted = true;
+      } else if (!isCallerClinicalStaff() && request.clinicId() == null) {
+        // Trừ lượt khám của bệnh nhân cá nhân
+        boolean deducted = billingService.deductCredit(patientId);
+        if (!deducted) {
+          int remaining = billingService.getRemainingCredits(patientId);
+          if (remaining <= 0) {
+            throw new com.aura.billing.exception.PaymentFailedException(
+                "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
+          }
+        } else {
+          patientCreditDeducted = true;
+        }
       }
     }
 
@@ -253,9 +276,13 @@ public class ScreeningService {
     // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, eye, request.imageUrl());
 
-    // BE-BILL-4: Tự động hoàn trả lượt khám nếu AI phân tích thất bại
-    if (screening.getStatus() == ScreeningStatus.FAILED && creditDeducted && billingService != null) {
-      billingService.refundCredit(patientId, 1);
+    // BE-BILL-4 & R1: Tự động hoàn trả lượt khám nếu AI phân tích thất bại
+    if (screening.getStatus() == ScreeningStatus.FAILED && billingService != null) {
+      if (clinicCreditDeducted && effectiveClinicId != null) {
+        billingService.refundCredit(effectiveClinicId, 1);
+      } else if (patientCreditDeducted) {
+        billingService.refundCredit(patientId, 1);
+      }
     }
 
     Screening saved = saveScreeningRecord(screening);
@@ -270,17 +297,42 @@ public class ScreeningService {
     screening.setScanType("Fundus");
     screening.setDetectedAnomalies("[]");
 
-    boolean creditDeducted = false;
-    if (!isCallerClinicalStaff() && billingService != null && screening.getClinicId() == null) {
-      boolean deducted = billingService.deductCredit(patientId);
-      if (!deducted) {
-        int remaining = billingService.getRemainingCredits(patientId);
-        if (remaining <= 0) {
+    // Gán clinicId từ tài khoản phòng khám đăng nhập nếu có
+    UUID effectiveClinicId = screening.getClinicId();
+    com.aura.auth.security.AuraUserPrincipal principal = getCallerPrincipal();
+    boolean callerIsClinic = isCallerClinic();
+    if (effectiveClinicId == null && callerIsClinic && principal != null) {
+      effectiveClinicId = principal.id();
+      screening.setClinicId(effectiveClinicId);
+    }
+
+    boolean patientCreditDeducted = false;
+    boolean clinicCreditDeducted = false;
+
+    if (billingService != null) {
+      if (effectiveClinicId != null && callerIsClinic) {
+        int remaining = billingService.getRemainingCredits(effectiveClinicId);
+        if (remaining < 1) {
           throw new com.aura.billing.exception.PaymentFailedException(
-              "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
+              String.format("Cơ sở y tế không đủ lượt quét khả dụng (Hiện có %d). Vui lòng nạp thêm gói lượt khám.", remaining));
         }
-      } else {
-        creditDeducted = true;
+        boolean deducted = billingService.deductCredits(effectiveClinicId, 1);
+        if (!deducted) {
+          throw new com.aura.billing.exception.PaymentFailedException(
+              "Cơ sở y tế không đủ lượt quét khả dụng. Vui lòng nạp thêm gói dịch vụ để tiếp tục.");
+        }
+        clinicCreditDeducted = true;
+      } else if (!isCallerClinicalStaff() && screening.getClinicId() == null) {
+        boolean deducted = billingService.deductCredit(patientId);
+        if (!deducted) {
+          int remaining = billingService.getRemainingCredits(patientId);
+          if (remaining <= 0) {
+            throw new com.aura.billing.exception.PaymentFailedException(
+                "Tài khoản của bạn đã hết lượt khám sàng lọc AI. Vui lòng nạp thêm gói dịch vụ bằng cách quét mã QR chuyển khoản để tiếp tục.");
+          }
+        } else {
+          patientCreditDeducted = true;
+        }
       }
     }
 
@@ -307,9 +359,13 @@ public class ScreeningService {
     // Gọi AI ngoại vi ngoài transaction để không block Connection Pool của database
     executeAiAnalysisAndPopulate(screening, "OD", imageUrl);
 
-    // BE-BILL-4: Tự động hoàn trả lượt khám nếu AI phân tích thất bại
-    if (screening.getStatus() == ScreeningStatus.FAILED && creditDeducted && billingService != null) {
-      billingService.refundCredit(patientId, 1);
+    // BE-BILL-4 & R1: Tự động hoàn trả lượt khám nếu AI phân tích thất bại
+    if (screening.getStatus() == ScreeningStatus.FAILED && billingService != null) {
+      if (clinicCreditDeducted && effectiveClinicId != null) {
+        billingService.refundCredit(effectiveClinicId, 1);
+      } else if (patientCreditDeducted) {
+        billingService.refundCredit(patientId, 1);
+      }
     }
 
     Screening saved = saveScreeningRecord(screening);
@@ -332,6 +388,30 @@ public class ScreeningService {
     } catch (Exception ignored) {
     }
     return false;
+  }
+
+  private boolean isCallerClinic() {
+    try {
+      var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+      if (auth != null && auth.getPrincipal() instanceof com.aura.auth.security.AuraUserPrincipal principal) {
+        if (principal.roles() != null) {
+          return principal.roles().stream().anyMatch(r -> r.toUpperCase().contains("CLINIC"));
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return false;
+  }
+
+  private com.aura.auth.security.AuraUserPrincipal getCallerPrincipal() {
+    try {
+      var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+      if (auth != null && auth.getPrincipal() instanceof com.aura.auth.security.AuraUserPrincipal principal) {
+        return principal;
+      }
+    } catch (Exception ignored) {
+    }
+    return null;
   }
 
   private void resolveAndAssignDoctorAndClinic(Screening screening, UUID patientId) {
@@ -965,7 +1045,12 @@ public class ScreeningService {
     }
 
     if (assignedPatientIds.isEmpty()) {
-      return Page.empty(pageable);
+      return doctorId != null
+          ? screeningRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId, pageable)
+          : Page.empty(pageable);
+    }
+    if (doctorId != null) {
+      return screeningRepository.findByDoctorIdOrPatientIdInOrderByCreatedAtDesc(doctorId, assignedPatientIds, pageable);
     }
     return screeningRepository.findByPatientIdInOrderByCreatedAtDesc(assignedPatientIds, pageable);
   }

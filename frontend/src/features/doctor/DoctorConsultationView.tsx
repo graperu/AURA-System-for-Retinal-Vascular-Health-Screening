@@ -24,28 +24,31 @@ interface ChatMessage {
   timestamp: string;
 }
 
-interface DoctorConsultationViewProps {
+export interface DoctorConsultationViewProps {
   assignedPatients: DoctorPatientSummary[];
   initialSelectedPatientId?: string | null;
+  patientId?: string | null;
   currentUserId?: string;
   doctorName?: string;
   onSelectPatientForCDS: (patientId: string, directPatient?: DoctorPatientSummary | any) => void;
 }
 
 export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
-  assignedPatients,
+  assignedPatients = [],
   initialSelectedPatientId,
+  patientId,
   currentUserId,
   doctorName,
-  onSelectPatientForCDS,
+  onSelectPatientForCDS = () => {},
 }) => {
   const { user } = useAuth();
   const { t, isVi } = useLanguage();
   const currentDoctorName = doctorName || user?.name || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist');
+  const effectivePatientId = patientId || initialSelectedPatientId;
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
-    initialSelectedPatientId || (assignedPatients.length > 0 ? (assignedPatients[0].patientId || (assignedPatients[0] as any).userId || (assignedPatients[0] as any).id) : null)
+    effectivePatientId || (assignedPatients.length > 0 ? (assignedPatients[0].patientId || (assignedPatients[0] as any).userId || (assignedPatients[0] as any).id) : null)
   );
-  const prevInitialPatientIdRef = useRef(initialSelectedPatientId);
+  const prevInitialPatientIdRef = useRef(effectivePatientId);
   const [searchPatient, setSearchPatient] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
@@ -56,39 +59,50 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
   // Tìm bệnh nhân đang được chọn
   const activePatient = useMemo(() => {
     if (!selectedPatientId) return assignedPatients[0] || null;
-    return (
-      assignedPatients.find(
-        (p) =>
-          String(p.patientId) === String(selectedPatientId) ||
-          String((p as any).id) === String(selectedPatientId) ||
-          String((p as any).userId) === String(selectedPatientId)
-      ) ||
-      assignedPatients[0] ||
-      null
+    const found = assignedPatients.find(
+      (p) =>
+        String(p.patientId) === String(selectedPatientId) ||
+        String((p as any).id) === String(selectedPatientId) ||
+        String((p as any).userId) === String(selectedPatientId)
     );
-  }, [assignedPatients, selectedPatientId]);
+    if (found) return found;
+    return {
+      patientId: selectedPatientId,
+      id: selectedPatientId,
+      mrn: selectedPatientId,
+      fullName: isVi ? `Bệnh nhân (${selectedPatientId})` : `Patient (${selectedPatientId})`,
+      screeningCount: 0,
+      assignedAt: new Date().toISOString(),
+      assignmentStatus: 'ASSIGNED',
+    } as DoctorPatientSummary;
+  }, [assignedPatients, selectedPatientId, isVi]);
 
-  // Cập nhật selectedPatientId khi initialSelectedPatientId từ component cha thay đổi hoặc khi danh sách nạp lần đầu
+  // Cập nhật selectedPatientId khi initialSelectedPatientId/patientId từ component cha thay đổi hoặc khi danh sách nạp lần đầu
   useEffect(() => {
-    if (initialSelectedPatientId && initialSelectedPatientId !== prevInitialPatientIdRef.current) {
-      setSelectedPatientId(initialSelectedPatientId);
-      prevInitialPatientIdRef.current = initialSelectedPatientId;
+    const targetId = patientId || initialSelectedPatientId;
+    if (targetId && targetId !== prevInitialPatientIdRef.current) {
+      setSelectedPatientId(targetId);
+      prevInitialPatientIdRef.current = targetId;
     } else if (!selectedPatientId && assignedPatients.length > 0) {
       setSelectedPatientId(assignedPatients[0].patientId);
     }
-  }, [initialSelectedPatientId, assignedPatients, selectedPatientId]);
+  }, [patientId, initialSelectedPatientId, assignedPatients, selectedPatientId]);
 
   // Danh sách bệnh nhân sau khi lọc theo từ khóa tìm kiếm
   const filteredPatients = useMemo(() => {
-    if (!searchPatient.trim()) return assignedPatients;
+    let baseList = assignedPatients;
+    if (activePatient && !assignedPatients.some((p) => String(p.patientId) === String(activePatient.patientId) || String((p as any).id) === String(activePatient.patientId))) {
+      baseList = [activePatient, ...assignedPatients];
+    }
+    if (!searchPatient.trim()) return baseList;
     const q = searchPatient.toLowerCase();
-    return assignedPatients.filter(
+    return baseList.filter(
       (p) =>
         (p.fullName || '').toLowerCase().includes(q) ||
         (p.mrn || '').toLowerCase().includes(q) ||
         (p.phoneNumber || '').includes(q)
     );
-  }, [assignedPatients, searchPatient]);
+  }, [assignedPatients, activePatient, searchPatient]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

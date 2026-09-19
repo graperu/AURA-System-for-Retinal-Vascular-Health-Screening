@@ -18,7 +18,7 @@ import {
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { ClinicalSelect, ClinicalSelectOption } from '../../components/ui/ClinicalSelect';
-import { patientApi, DoctorOptionDto, RegisterExaminationPayload } from '../../services/api';
+import { patientApi, appointmentApi, DoctorOptionDto, RegisterExaminationPayload } from '../../services/api';
 import { PatientProfile } from '../../types/cds';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -87,12 +87,14 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setCurrentStep(1);
       setErrorMessage(null);
       setIsSuccess(false);
+      setToastMessage(null);
       loadDoctors();
     }
   }, [isOpen]);
@@ -161,64 +163,77 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     setSubmitting(true);
     setErrorMessage(null);
 
+    // Validation
+    let effectiveDoctorId = selectedDoctorId;
+    if (!effectiveDoctorId && doctors.length > 0) {
+      effectiveDoctorId = doctors[0].id;
+    }
+
+    if (!effectiveDoctorId) {
+      setErrorMessage(isVi ? 'Vui lòng chọn bác sĩ phụ trách khám.' : 'Please select an attending specialist.');
+      setSubmitting(false);
+      return;
+    }
+
+    if (!selectedDate) {
+      setErrorMessage(isVi ? 'Vui lòng chọn ngày khám.' : 'Please select an appointment date.');
+      setSubmitting(false);
+      return;
+    }
+
+    if (!selectedTimeSlot) {
+      setErrorMessage(isVi ? 'Vui lòng chọn khung giờ khám.' : 'Please select an appointment time slot.');
+      setSubmitting(false);
+      return;
+    }
+
     const docName =
       selectedDoctor?.fullName ||
+      doctors.find((d) => d.id === effectiveDoctorId)?.fullName ||
       (selectedDoctorId === 'doc_1' ? 'BS. CKII Nguyễn Thị Thanh' : '') ||
       (selectedDoctorId === 'doc_2' ? 'ThS. BS Trần Đình Trọng' : '') ||
       (selectedDoctorId === 'doc_3' ? 'TS. BS Lê Hoàng Mai' : '') ||
       (isVi ? 'BS. CKII Nguyễn Thị Thanh' : 'Dr. Nguyen Thi Thanh');
 
-    const payload: RegisterExaminationPayload = {
-      doctorId: selectedDoctorId || null,
-      examinationReason: reason,
-      eyePosition: 'OU',
-      systolicBp: patient.systolicBp || 120,
-      diastolicBp: patient.diastolicBp || 80,
-      hba1c: patient.hba1c || 5.7,
-      hasDiabetes: patient.hasDiabetes ?? false,
-      hasHypertension: patient.hasHypertension ?? false,
-      historyOfSmoking: patient.historyOfSmoking ?? false,
-      symptomsNotes: `[Lịch hẹn khám: ${selectedDate} lúc ${selectedTimeSlot}] ${symptomsNotes}`.trim(),
+    const appointmentData = {
+      doctorId: effectiveDoctorId,
+      appointmentDate: selectedDate,
+      timeSlot: selectedTimeSlot,
+      reason: reason || (isVi ? 'Tầm soát định kỳ vi mạch võng mạc & nguy cơ tim mạch' : 'Periodic retinal microvascular & cardiovascular screening'),
+      notes: symptomsNotes?.trim() || undefined,
     };
 
     try {
-      const res = await patientApi.registerExamination(payload);
+      const res = await appointmentApi.create(appointmentData);
       if (res && res.success) {
         setIsSuccess(true);
+        setToastMessage(isVi ? 'Đặt lịch hẹn khám thành công!' : 'Appointment booked successfully!');
+        
+        const apt = res.data;
         onSuccess({
-          doctorName: docName,
-          doctorId: selectedDoctorId,
-          date: selectedDate,
-          time: selectedTimeSlot,
-          reason,
+          doctorName: apt?.doctorName || docName,
+          doctorId: apt?.doctorId || effectiveDoctorId,
+          date: apt?.appointmentDate || selectedDate,
+          time: apt?.timeSlot || selectedTimeSlot,
+          reason: apt?.reason || reason,
         });
 
         setTimeout(() => {
           setIsSuccess(false);
+          setToastMessage(null);
           onClose();
           setSubmitting(false);
         }, 1200);
         return;
+      } else {
+        setErrorMessage(res?.message || (isVi ? 'Không thể đặt lịch khám. Vui lòng thử lại.' : 'Failed to book appointment.'));
+        setSubmitting(false);
       }
     } catch (err: any) {
-      console.warn('Lưu lịch hẹn qua API gặp lỗi, chuyển sang cơ chế dự phòng:', err);
-    }
-
-    // Cơ chế dự phòng đảm bảo người dùng luôn đặt lịch thành công
-    setIsSuccess(true);
-    onSuccess({
-      doctorName: docName,
-      doctorId: selectedDoctorId || 'DOC-01',
-      date: selectedDate,
-      time: selectedTimeSlot,
-      reason,
-    });
-
-    setTimeout(() => {
-      setIsSuccess(false);
-      onClose();
+      console.error('Lưu lịch hẹn qua API gặp lỗi:', err);
+      setErrorMessage(err?.message || (isVi ? 'Lỗi kết nối máy chủ khi đặt lịch khám.' : 'Server connection error during appointment booking.'));
       setSubmitting(false);
-    }, 1200);
+    }
   };
 
   return (
@@ -288,6 +303,13 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
             </span>
           </div>
         </div>
+
+        {toastMessage && (
+          <div role="status" className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 shadow-xs">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span className="font-semibold">{toastMessage}</span>
+          </div>
+        )}
 
         {errorMessage && (
           <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">

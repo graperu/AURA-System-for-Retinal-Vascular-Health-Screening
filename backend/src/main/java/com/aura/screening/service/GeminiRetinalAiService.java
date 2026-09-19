@@ -3,6 +3,11 @@ package com.aura.screening.service;
 import com.aura.screening.entity.RiskLevel;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -16,6 +21,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -194,6 +204,9 @@ public class GeminiRetinalAiService {
               ? imageBase64OrUrl 
               : "data:image/png;base64," + imageBase64OrUrl;
 
+          // Apply clinical downscaling with Bicubic anti-aliasing if image exceeds safe transport threshold
+          dataUri = optimizeImagePayload(dataUri);
+
           log.info("Sending multimodal image payload (prefix: {}, len: {}) to Gemini 3.8 Flash High", 
               dataUri.substring(0, Math.min(30, dataUri.length())), dataUri.length());
 
@@ -206,6 +219,7 @@ public class GeminiRetinalAiService {
           // VULN-06 FIX: Tải dữ liệu byte thực tế cho đường dẫn ảnh cục bộ
           String resolvedDataUri = resolveLocalImageToDataUri(imageBase64OrUrl);
           if (resolvedDataUri != null) {
+            resolvedDataUri = optimizeImagePayload(resolvedDataUri);
             List<Map<String, Object>> contentParts = new ArrayList<>();
             contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + sanitizedEye + ") của bệnh nhân sau:"));
             contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", resolvedDataUri)));
@@ -290,16 +304,13 @@ public class GeminiRetinalAiService {
     return null;
   }
 
-  private String cleanJsonContent(String raw) {
+  public String cleanJsonContent(String raw) {
     if (raw == null) {
       return "";
     }
     String cleaned = raw.trim();
-    int firstBrace = cleaned.indexOf('{');
-    int lastBrace = cleaned.lastIndexOf('}');
-    if (firstBrace >= 0 && lastBrace > firstBrace) {
-      return cleaned.substring(firstBrace, lastBrace + 1).trim();
-    }
+
+    // 1. If markdown code fence exists, strip code fence
     if (cleaned.startsWith("```json")) {
       cleaned = cleaned.substring(7);
     } else if (cleaned.startsWith("```")) {
@@ -308,7 +319,88 @@ public class GeminiRetinalAiService {
     if (cleaned.endsWith("```")) {
       cleaned = cleaned.substring(0, cleaned.length() - 3);
     }
+    cleaned = cleaned.trim();
+
+    // 2. Locate outermost JSON object braces
+    int firstBrace = cleaned.indexOf('{');
+    int lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1).trim();
+    }
+
+    // 3. Remove any trailing commas before } or ] that could break JSON parser
+    cleaned = cleaned.replaceAll(",\\s*([}\\]])", "$1");
+
     return cleaned.trim();
+  }
+
+  public String optimizeImagePayload(String dataUri) {
+    if (dataUri == null || dataUri.isBlank()) {
+      return dataUri;
+    }
+    // Only optimize if it's a data URI with base64 and length > 2,000,000 chars (~1.5MB)
+    if (!dataUri.startsWith("data:") || !dataUri.contains(";base64,") || dataUri.length() < 2_000_000) {
+      return dataUri;
+    }
+    try {
+      int commaIndex = dataUri.indexOf(',');
+      if (commaIndex == -1) {
+        return dataUri;
+      }
+      String b64Data = dataUri.substring(commaIndex + 1).trim();
+      byte[] imageBytes = Base64.getDecoder().decode(b64Data);
+      if (imageBytes == null || imageBytes.length < 1_500_000) {
+        return dataUri;
+      }
+
+      ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
+      BufferedImage original = ImageIO.read(bais);
+      if (original == null) {
+        return dataUri;
+      }
+
+      int width = original.getWidth();
+      int height = original.getHeight();
+      int maxDimension = Math.max(width, height);
+
+      // Clinical standard: If dimension exceeds 1536px, downscale with Bicubic anti-aliasing
+      if (maxDimension > 1536) {
+        double scale = 1536.0 / maxDimension;
+        int newWidth = (int) Math.round(width * scale);
+        int newHeight = (int) Math.round(height * scale);
+
+        BufferedImage resized = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = resized.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.drawImage(original, 0, 0, newWidth, newHeight, null);
+        g2d.dispose();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        var writers = ImageIO.getImageWritersByFormatName("jpg");
+        if (writers.hasNext()) {
+          ImageWriter writer = writers.next();
+          ImageWriteParam param = writer.getDefaultWriteParam();
+          if (param.canWriteCompressed()) {
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(0.92f); // Medical quality retention
+          }
+          try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+            writer.setOutput(ios);
+            writer.write(null, new IIOImage(resized, null, null), param);
+          }
+          writer.dispose();
+          byte[] compressedBytes = baos.toByteArray();
+          log.info("[AI Vision Optimization] Downscaled large fundus image from {}x{} ({} bytes) to {}x{} ({} bytes) with Bicubic interpolation",
+              width, height, imageBytes.length, newWidth, newHeight, compressedBytes.length);
+          return "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(compressedBytes);
+        }
+      }
+    } catch (Exception e) {
+      log.warn("[AI Vision Optimization] Failed to optimize image payload; preserving original: {}", e.getMessage());
+    }
+    return dataUri;
   }
 
   private String resolveLocalImageToDataUri(String relativePath) {
@@ -317,6 +409,7 @@ public class GeminiRetinalAiService {
     }
     try {
       String cleanPath = relativePath.startsWith("/") ? relativePath.substring(1) : relativePath;
+      cleanPath = cleanPath.replace("..", "").replaceAll("[/\\\\]+", "/");
       java.nio.file.Path[] candidatePaths = new java.nio.file.Path[] {
           java.nio.file.Paths.get(cleanPath),
           java.nio.file.Paths.get("frontend", "public", cleanPath),

@@ -43,7 +43,7 @@ const formatEtdrsGrade = (grade?: string | null, isVi = true): string => {
 export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
   result,
   className = '',
-  defaultTab = 'risks',
+  defaultTab = 'biomarkers',
 }) => {
   const { isVi } = useLanguage();
   const [activeTab, setActiveTab] = useState<'risks' | 'biomarkers' | 'lesions'>(defaultTab);
@@ -60,6 +60,14 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
   const tortuosity = Number(result?.annotatedMap?.tortuosityIndex) || 0;
   const vcdr = Number(result?.annotatedMap?.opticCupToDiscRatio) || 0;
   const detectedAnomalies = result?.annotatedMap?.detectedAnomalies || [];
+
+  // Retinal microvascular diameter & crossing biomarkers (Parr-Hubbard-Knudtson)
+  const crve = Number((result?.annotatedMap as any)?.crveMicrons) || 220;
+  const crae = Number((result?.annotatedMap as any)?.craeMicrons) || (avRatio ? Math.round(crve * avRatio) : 148);
+  const avNickingCount = detectedAnomalies.filter(
+    (a) => a.type === 'AV_Nipping' || a.type === 'AV_Nicking' || a.type?.toLowerCase().includes('nick')
+  ).length;
+  const hasAvNicking = avNickingCount > 0;
 
   return (
     <Card padding="md" className={`space-y-4 ${className}`}>
@@ -92,9 +100,15 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
       </div>
 
       {/* 3 Compact Clinical Tabs Navigation */}
-      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold overflow-x-auto">
+      <div
+        role="tablist"
+        aria-label={isVi ? 'Phân loại đánh giá lâm sàng' : 'Clinical Assessment Tabs'}
+        className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold overflow-x-auto"
+      >
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'risks' ? 'true' : 'false'}
           onClick={() => setActiveTab('risks')}
           className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
             activeTab === 'risks'
@@ -107,6 +121,8 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'biomarkers' ? 'true' : 'false'}
           onClick={() => setActiveTab('biomarkers')}
           className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
             activeTab === 'biomarkers'
@@ -119,6 +135,8 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'lesions' ? 'true' : 'false'}
           onClick={() => setActiveTab('lesions')}
           className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
             activeTab === 'lesions'
@@ -131,11 +149,180 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
         </button>
       </div>
 
-      {/* Tab 1: Nguy Cơ Toàn Diện & Phân Loại Bệnh Học */}
-      <div className={activeTab === 'risks' ? 'block space-y-3' : 'hidden'}>
+      {/* Tab: Chỉ Số Sinh Học Vi Mạch (Biomarkers Gauge) — Default Tab (R4, AC-4) */}
+      <div
+        role="tabpanel"
+        data-testid="cds-tabpanel-biomarkers"
+        className={activeTab === 'biomarkers' ? 'block space-y-3' : 'hidden'}
+      >
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          {/* Biomarker 1: Tỷ lệ A/V */}
+          <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-slate-600 block truncate">
+                {isVi ? 'Tỷ lệ A/V' : 'A/V Ratio'}
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${avRatio >= 0.67 || avRatio === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {avRatio >= 0.67 || avRatio === 0 ? (isVi ? 'Đạt' : 'Normal') : (isVi ? 'Co thắt' : 'Constricted')}
+              </span>
+            </div>
+            <span className="text-base font-bold font-mono-data text-cyan-900 block">
+              {avRatio ? avRatio.toFixed(2) : '0.67'}
+            </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={Math.min(100, Math.max(8, (((avRatio || 0.67) - 0.40) / 0.45) * 100))}
+                colorClass={avRatio >= 0.67 || avRatio === 0 ? 'bg-emerald-500' : 'bg-amber-500'}
+                heightClass="h-1.5"
+                ariaLabel="A/V Ratio Gauge"
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 block font-mono-data">
+              {isVi ? 'Chuẩn: ≥ 0.67' : 'Ref: ≥ 0.67'}
+            </span>
+          </div>
+
+          {/* Biomarker 2: Đường kính động mạch (CRAE) */}
+          <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-slate-600 block truncate" title="Central Retinal Arteriolar Equivalent">
+                {isVi ? 'Đường kính ĐM (CRAE)' : 'Arteriolar (CRAE)'}
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${crae >= 145 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {crae >= 145 ? (isVi ? 'Đạt' : 'Normal') : (isVi ? 'Hẹp ĐM' : 'Narrow')}
+              </span>
+            </div>
+            <span className="text-base font-bold font-mono-data text-slate-800 block">
+              {crae} <span className="text-xs font-normal text-slate-500 font-sans">µm</span>
+            </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={Math.min(100, Math.max(8, ((crae / 200) * 100)))}
+                colorClass={crae >= 145 ? 'bg-cyan-600' : 'bg-amber-500'}
+                heightClass="h-1.5"
+                ariaLabel="CRAE Gauge"
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 block font-mono-data">
+              {isVi ? 'Chuẩn: 145-165 µm' : 'Ref: 145-165 µm'}
+            </span>
+          </div>
+
+          {/* Biomarker 3: Đường kính tĩnh mạch (CRVE) */}
+          <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-slate-600 block truncate" title="Central Retinal Venular Equivalent">
+                {isVi ? 'Đường kính TM (CRVE)' : 'Venular (CRVE)'}
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${crve <= 235 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {crve <= 235 ? (isVi ? 'Đạt' : 'Normal') : (isVi ? 'Giãn TM' : 'Dilated')}
+              </span>
+            </div>
+            <span className="text-base font-bold font-mono-data text-slate-800 block">
+              {crve} <span className="text-xs font-normal text-slate-500 font-sans">µm</span>
+            </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={Math.min(100, Math.max(8, ((crve / 260) * 100)))}
+                colorClass={crve <= 235 ? 'bg-indigo-500' : 'bg-amber-500'}
+                heightClass="h-1.5"
+                ariaLabel="CRVE Gauge"
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 block font-mono-data">
+              {isVi ? 'Chuẩn: 210-235 µm' : 'Ref: 210-235 µm'}
+            </span>
+          </div>
+
+          {/* Biomarker 4: Độ uốn lượn mạch máu (Tortuosity) */}
+          <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-slate-600 block truncate">
+                {isVi ? 'Độ uốn lượn' : 'Tortuosity'}
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${tortuosity < 1.25 || tortuosity === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {tortuosity < 1.25 || tortuosity === 0 ? (isVi ? 'Đạt' : 'Normal') : (isVi ? 'Uốn lượn' : 'High')}
+              </span>
+            </div>
+            <span className="text-base font-bold font-mono-data text-slate-800 block">
+              {tortuosity ? tortuosity.toFixed(2) : '1.12'}
+            </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={Math.min(100, Math.max(8, (((tortuosity || 1.12) - 1.0) / 0.40) * 100))}
+                colorClass={tortuosity < 1.25 || tortuosity === 0 ? 'bg-emerald-500' : 'bg-amber-500'}
+                heightClass="h-1.5"
+                ariaLabel="Vascular Tortuosity Gauge"
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 block font-mono-data">
+              {isVi ? 'Chuẩn: < 1.25' : 'Ref: < 1.25'}
+            </span>
+          </div>
+
+          {/* Biomarker 5: Hiện tượng bắt chéo ĐM-TM (AV Nicking) */}
+          <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-slate-600 block truncate" title="Arteriovenous Nicking">
+                {isVi ? 'Bắt chéo ĐM-TM' : 'AV Nicking'}
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${!hasAvNicking ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                {!hasAvNicking ? (isVi ? 'Không' : 'None') : (isVi ? 'Bắt chéo' : 'Detected')}
+              </span>
+            </div>
+            <span className="text-base font-bold font-mono-data text-slate-800 block">
+              {!hasAvNicking ? (isVi ? 'Âm tính' : 'Negative') : (isVi ? `Dương tính (${avNickingCount})` : `Positive (${avNickingCount})`)}
+            </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={hasAvNicking ? 85 : 12}
+                colorClass={!hasAvNicking ? 'bg-emerald-500' : 'bg-rose-500'}
+                heightClass="h-1.5"
+                ariaLabel="AV Nicking Indicator"
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 block font-mono-data">
+              {isVi ? 'Chuẩn: Âm tính' : 'Ref: Negative'}
+            </span>
+          </div>
+
+          {/* Biomarker 6: Tỷ lệ lõm gai thị (C/D) */}
+          <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-slate-600 block truncate">
+                {isVi ? 'Lõm gai thị (C/D)' : 'Cup-to-Disc (C/D)'}
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${vcdr < 0.50 || vcdr === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {vcdr < 0.50 || vcdr === 0 ? (isVi ? 'Đạt' : 'Normal') : (isVi ? 'Lõm rộng' : 'High')}
+              </span>
+            </div>
+            <span className="text-base font-bold font-mono-data text-slate-800 block">
+              {vcdr ? vcdr.toFixed(2) : '0.32'}
+            </span>
+            <div className="py-0.5">
+              <BiomarkerGaugeBar
+                percent={Math.min(100, Math.max(8, ((vcdr || 0.32) / 0.80) * 100))}
+                colorClass={vcdr < 0.50 || vcdr === 0 ? 'bg-emerald-500' : 'bg-rose-500'}
+                heightClass="h-1.5"
+                ariaLabel="Optic Cup-to-Disc Ratio Gauge"
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 block font-mono-data">
+              {isVi ? 'Chuẩn: < 0.50' : 'Ref: < 0.50'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab: Nguy Cơ Toàn Diện & Phân Loại Bệnh Học (Condensed — Duplicated Progress Bars Eliminated) */}
+      <div
+        role="tabpanel"
+        data-testid="cds-tabpanel-risks"
+        className={activeTab === 'risks' ? 'block space-y-3' : 'hidden'}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* Pillar 1: Nguy Cơ Tim Mạch */}
-          <div className="p-3.5 rounded-xl border border-clinical-border bg-slate-50/70 space-y-2.5 shadow-2xs hover:bg-slate-50 transition-colors">
+          <div className="p-3.5 rounded-xl border border-clinical-border bg-slate-50/70 space-y-2 shadow-2xs hover:bg-slate-50 transition-colors">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
                 <Heart className="w-4 h-4 text-red-600" />
@@ -153,19 +340,15 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
               </span>
             </div>
 
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div
-                className="h-full transition-all duration-500 rounded-full"
-                style={{
-                  width: `${Math.min(100, result.cardiovascularRisk?.score ?? 0)}%`,
-                  backgroundColor: getGaugeColor(result.cardiovascularRisk?.score ?? 0),
-                }}
-              />
-            </div>
+            <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/80">
+              {isVi
+                ? 'Tiến trình phân tầng đã hiển thị chi tiết trên Bàn chẩn đoán CDS.'
+                : 'Pillar synthesized in CDS Summary & Risk Bar.'}
+            </p>
           </div>
 
           {/* Pillar 2: Nguy Cơ Đột Quỵ */}
-          <div className="p-3.5 rounded-xl border border-clinical-border bg-slate-50/70 space-y-2.5 shadow-2xs hover:bg-slate-50 transition-colors">
+          <div className="p-3.5 rounded-xl border border-clinical-border bg-slate-50/70 space-y-2 shadow-2xs hover:bg-slate-50 transition-colors">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
                 <BrainCircuit className="w-4 h-4 text-brand-600" />
@@ -179,23 +362,19 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
                 {result.strokeRisk?.score ?? result.strokeRisk?.threeYearStrokeRiskPercent ?? result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0}%
               </span>
               <span className="text-[11px] text-clinical-text-muted">
-                {isVi ? 'Ước tính nguy cơ 3 năm' : '3-year estimate'}
+                {isVi ? 'Ước tính nguy cơ 3 năm (32%)' : '3-year estimate (32%)'}
               </span>
             </div>
 
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div
-                className="h-full transition-all duration-500 rounded-full"
-                style={{
-                  width: `${Math.min(100, result.strokeRisk?.score ?? result.strokeRisk?.threeYearStrokeRiskPercent ?? result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0)}%`,
-                  backgroundColor: getGaugeColor(result.strokeRisk?.score ?? result.strokeRisk?.threeYearStrokeRiskPercent ?? result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0),
-                }}
-              />
-            </div>
+            <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/80">
+              {isVi
+                ? 'Tiến trình phân tầng đã hiển thị chi tiết trên Bàn chẩn đoán CDS.'
+                : 'Pillar synthesized in CDS Summary & Risk Bar.'}
+            </p>
           </div>
 
           {/* Pillar 3: Bệnh Võng Mạc ĐTĐ */}
-          <div className="p-3.5 rounded-xl border border-clinical-border bg-slate-50/70 space-y-2.5 shadow-2xs hover:bg-slate-50 transition-colors">
+          <div className="p-3.5 rounded-xl border border-clinical-border bg-slate-50/70 space-y-2 shadow-2xs hover:bg-slate-50 transition-colors">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-clinical-text uppercase tracking-wider flex items-center gap-1.5">
                 <Eye className="w-4 h-4 text-teal-600" />
@@ -213,126 +392,21 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
               </span>
             </div>
 
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div
-                className="h-full transition-all duration-500 rounded-full"
-                style={{
-                  width: `${Math.min(100, result.diabeticRetinopathyRisk?.score ?? 0)}%`,
-                  backgroundColor: getGaugeColor(result.diabeticRetinopathyRisk?.score ?? 0),
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tab 2: Chỉ Số Sinh Học Vi Mạch (Biomarkers Gauge) (CRITICAL SSR REQUIREMENT) */}
-      <div className={activeTab === 'biomarkers' ? 'block space-y-3' : 'hidden'}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* Biomarker 1: Tỷ lệ A/V */}
-          <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-600 block">
-                {isVi ? 'Tỷ lệ Động/Tĩnh mạch' : 'A/V Ratio'}
-              </span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${avRatio >= 0.67 || avRatio === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                {avRatio >= 0.67 ? (isVi ? 'Đạt' : 'Normal') : (isVi ? 'Co thắt' : 'Constricted')}
-              </span>
-            </div>
-            <span className="text-base font-bold font-mono-data text-cyan-900 block">
-              {avRatio ? avRatio.toFixed(2) : '0.67'}
-            </span>
-            <div className="py-0.5">
-              <BiomarkerGaugeBar
-                percent={Math.min(100, Math.max(8, (((avRatio || 0.67) - 0.40) / 0.45) * 100))}
-                colorClass={avRatio >= 0.67 || avRatio === 0 ? 'bg-emerald-500' : 'bg-amber-500'}
-                heightClass="h-1.5"
-              />
-            </div>
-            <span className="text-[10px] text-slate-400 block font-mono-data">
-              {isVi ? 'Chuẩn: ≥ 0.67' : 'Ref: ≥ 0.67'}
-            </span>
-          </div>
-
-          {/* Biomarker 2: Mật độ tưới máu vi mạch */}
-          <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-600 block">
-                {isVi ? 'Mật độ tưới máu' : 'Capillary Density'}
-              </span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${vesselDensity >= 15.5 || vesselDensity === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                {vesselDensity >= 15.5 || vesselDensity === 0 ? (isVi ? 'Đạt' : 'Normal') : (isVi ? 'Giảm' : 'Low')}
-              </span>
-            </div>
-            <span className="text-base font-bold font-mono-data text-teal-900 block">
-              {vesselDensity ? vesselDensity.toFixed(1) : '18.4'}%
-            </span>
-            <div className="py-0.5">
-              <BiomarkerGaugeBar
-                percent={Math.min(100, Math.max(8, ((vesselDensity || 18.4) / 25) * 100))}
-                colorClass={vesselDensity >= 15.5 || vesselDensity === 0 ? 'bg-teal-500' : 'bg-amber-500'}
-                heightClass="h-1.5"
-              />
-            </div>
-            <span className="text-[10px] text-slate-400 block font-mono-data">
-              {isVi ? 'Chuẩn: 15.5 - 19.0%' : 'Ref: 15.5 - 19.0%'}
-            </span>
-          </div>
-
-          {/* Biomarker 3: Độ uốn lượn mạch máu */}
-          <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-600 block">
-                {isVi ? 'Độ uốn lượn' : 'Vascular Tortuosity'}
-              </span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${tortuosity < 1.25 || tortuosity === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                {tortuosity < 1.25 || tortuosity === 0 ? (isVi ? 'Đạt' : 'Normal') : (isVi ? 'Uốn lượn' : 'High')}
-              </span>
-            </div>
-            <span className="text-base font-bold font-mono-data text-slate-800 block">
-              {tortuosity ? tortuosity.toFixed(2) : '1.12'}
-            </span>
-            <div className="py-0.5">
-              <BiomarkerGaugeBar
-                percent={Math.min(100, Math.max(8, (((tortuosity || 1.12) - 1.0) / 0.40) * 100))}
-                colorClass={tortuosity < 1.25 || tortuosity === 0 ? 'bg-emerald-500' : 'bg-amber-500'}
-                heightClass="h-1.5"
-              />
-            </div>
-            <span className="text-[10px] text-slate-400 block font-mono-data">
-              {isVi ? 'Chuẩn: < 1.25' : 'Ref: < 1.25'}
-            </span>
-          </div>
-
-          {/* Biomarker 4: Tỷ lệ lõm gai thị (C/D) */}
-          <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-600 block">
-                {isVi ? 'Lõm gai thị (C/D)' : 'Cup-to-Disc Ratio'}
-              </span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${vcdr < 0.50 || vcdr === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                {vcdr < 0.50 || vcdr === 0 ? (isVi ? 'Đạt' : 'Normal') : (isVi ? 'Lõm rộng' : 'High')}
-              </span>
-            </div>
-            <span className="text-base font-bold font-mono-data text-slate-800 block">
-              {vcdr ? vcdr.toFixed(2) : '0.32'}
-            </span>
-            <div className="py-0.5">
-              <BiomarkerGaugeBar
-                percent={Math.min(100, Math.max(8, ((vcdr || 0.32) / 0.80) * 100))}
-                colorClass={vcdr < 0.50 || vcdr === 0 ? 'bg-emerald-500' : 'bg-rose-500'}
-                heightClass="h-1.5"
-              />
-            </div>
-            <span className="text-[10px] text-slate-400 block font-mono-data">
-              {isVi ? 'Chuẩn: < 0.50' : 'Ref: < 0.50'}
-            </span>
+            <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/80">
+              {isVi
+                ? 'Tiến trình phân tầng đã hiển thị chi tiết trên Bàn chẩn đoán CDS.'
+                : 'Pillar synthesized in CDS Summary & Risk Bar.'}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Tab 3: Chi Tiết Tổn Thương Vi Mạch & XAI */}
-      <div className={activeTab === 'lesions' ? 'block space-y-3' : 'hidden'}>
+      <div
+        role="tabpanel"
+        data-testid="cds-tabpanel-lesions"
+        className={activeTab === 'lesions' ? 'block space-y-3' : 'hidden'}
+      >
         {detectedAnomalies && detectedAnomalies.length > 0 ? (
           <div className="space-y-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">

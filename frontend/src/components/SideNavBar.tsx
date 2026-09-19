@@ -18,6 +18,7 @@ import {
   LogOut,
   X,
   LucideIcon,
+  UserCheck,
 } from 'lucide-react';
 import { UserRole } from '../types/cds';
 import { useLanguage } from '../context/LanguageContext';
@@ -276,9 +277,19 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
                 icon: Users,
               },
               {
+                id: 'assignments',
+                label: isVi ? 'Phân công bệnh nhân' : 'Patient Assignments',
+                icon: UserCheck,
+              },
+              {
                 id: 'clinic-approvals',
                 label: t('navigation.clinicApprovals', isVi ? 'Bác sĩ & Phòng khám' : 'Doctors & Clinics'),
                 icon: UserCog,
+              },
+              {
+                id: 'packages',
+                label: isVi ? 'Gói dịch vụ' : 'Service Packages',
+                icon: CreditCard,
               },
               {
                 id: 'screenings',
@@ -387,6 +398,8 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
                   return (
                     <button
                       key={item.id}
+                      data-section={item.id}
+                      data-testid={`sidenav-item-${item.id}`}
                       type="button"
                       onClick={() => handleItemClick(item.id)}
                       className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-150 ${

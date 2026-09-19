@@ -417,7 +417,8 @@ export const adminUserApi = {
     let url = `/api/v1/admin/users?page=${page}&size=${size}`;
     if (q) url += `&q=${encodeURIComponent(q)}`;
     if (role && role !== "ALL") {
-      const cleanRole = role.replace(/^ROLE_/, "").toUpperCase();
+      let cleanRole = role.replace(/^ROLE_/, "").toUpperCase();
+      if (cleanRole === "PATIENT") cleanRole = "USER";
       url += `&role=${cleanRole}`;
     }
     return apiFetch<any>(url, { method: "GET" });
@@ -461,7 +462,8 @@ export const adminRoleApi = {
   getRoles: () => apiFetch<any[]>("/api/v1/admin/roles", { method: "GET" }),
 
   updateRole: (roleName: string, description: string) => {
-    const cleanRole = roleName.replace(/^ROLE_/, "").toUpperCase();
+    let cleanRole = roleName.replace(/^ROLE_/, "").toUpperCase();
+    if (cleanRole === "PATIENT") cleanRole = "USER";
     return apiFetch<any>(`/api/v1/admin/roles/${cleanRole}`, {
       method: "PUT",
       body: JSON.stringify({ description }),
@@ -472,7 +474,8 @@ export const adminRoleApi = {
     roleName: string,
     permissions: Array<{ id?: string; code?: string; enabled: boolean }>,
   ) => {
-    const cleanRole = roleName.replace(/^ROLE_/, "").toUpperCase();
+    let cleanRole = roleName.replace(/^ROLE_/, "").toUpperCase();
+    if (cleanRole === "PATIENT") cleanRole = "USER";
     return apiFetch<any>(`/api/v1/admin/roles/${cleanRole}/permissions`, {
       method: "PUT",
       body: JSON.stringify({ permissions }),
@@ -894,6 +897,67 @@ export const adminServicePackageApi = {
     apiFetch<any>(`/api/v1/admin/packages/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ active }),
+    }),
+};
+
+// ============================================================================
+// APPOINTMENTS API (R3, AC-3)
+// ============================================================================
+export interface Appointment {
+  id: string;
+  patientId: string;
+  patientName?: string;
+  patientEmail?: string;
+  patientMrn?: string;
+  patientPhone?: string;
+  doctorId?: string;
+  doctorName?: string;
+  clinicId?: string;
+  appointmentDate: string; // YYYY-MM-DD
+  timeSlot: string;       // HH:mm
+  status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+  reason?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const appointmentApi = {
+  create: (data: {
+    doctorId?: string;
+    appointmentDate: string;
+    timeSlot: string;
+    reason?: string;
+    notes?: string;
+  }) =>
+    apiFetch<Appointment>('/api/v1/appointments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getAll: (params?: { role?: string; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.role) query.append('role', params.role);
+    if (params?.status) query.append('status', params.status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return apiFetch<Appointment[]>(`/api/v1/appointments${qs}`, {
+      method: 'GET',
+    });
+  },
+
+  getUpcoming: () =>
+    apiFetch<Appointment>('/api/v1/appointments/upcoming', {
+      method: 'GET',
+    }),
+
+  updateStatus: (
+    id: string,
+    status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | string,
+    notes?: string
+  ) =>
+    apiFetch<Appointment>(`/api/v1/appointments/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, notes }),
     }),
 };
 

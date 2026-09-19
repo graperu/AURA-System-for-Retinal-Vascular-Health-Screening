@@ -184,6 +184,17 @@ export const normalizeImageDataUrl = (raw?: string | null): string | undefined =
     trimmed.startsWith('https://') ||
     trimmed.startsWith('/')
   ) {
+    if (trimmed.startsWith('/api/v1/screenings/') && trimmed.includes('/image') && !trimmed.includes('token=')) {
+      try {
+        const token = typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null;
+        if (token) {
+          const sep = trimmed.includes('?') ? '&' : '?';
+          return `${trimmed}${sep}token=${encodeURIComponent(token)}`;
+        }
+      } catch {
+        // Fallback silently
+      }
+    }
     return trimmed;
   }
   return `data:image/png;base64,${trimmed}`;

@@ -484,101 +484,114 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
       }
     });
 
-    const generatedBatchId = `BATCH-${Date.now()}`;
-    const newJob: ClinicBatchJob = {
-      batchId: generatedBatchId,
-      clinicId: payload.clinicId,
-      clinicName: payload.campaignName || 'Phòng khám chuyên khoa',
-      totalImages: payload.items.length,
-      processedCount: 0,
-      failedCount: 0,
-      status: 'IN_PROGRESS',
-      createdAt: new Date().toISOString(),
-      estimatedTimeRemainingSec: Math.round(payload.items.length * 0.8),
-      items: payload.items.map((img, idx) => ({
-        id: `ITEM-${idx + 1}`,
-        fileName: img.fileName,
-        eye: (img.eyePosition === 'OS' ? 'OS' : 'OD') as 'OD' | 'OS',
-        mrn: img.rawMrn || `MRN-${1000 + idx}`,
-        patientName: img.rawPatientName || `Bệnh nhân ${img.rawMrn || idx + 1}`,
-        pseudonymId: `ANO-${1000 + idx}`,
-        patientAge: img.patientAge || 55,
-        patientGender: img.patientGender || 'Male',
-        systolicBp: img.systolicBp || 125,
-        diastolicBp: img.diastolicBp || 80,
-        hbA1c: img.hbA1c || 5.6,
-        status: 'PENDING',
-        thumbnailUrl: img.previewUrl || img.base64ImageContent || '/assets/images/fundus_original.png',
-        createdAt: Date.now() + idx,
-      })),
-    };
-
-    setCurrentJob(newJob);
-    if (onUpdateBatch) onUpdateBatch(newJob);
-    setIsUploadModalOpen(false);
-
-    // 1. Invoke backend batch API if available
+    // 1. Invoke backend batch API and AWAIT response
     try {
-      if (bulkScreeningApi?.uploadBatch) {
-        bulkScreeningApi
-          .uploadBatch({
-            campaignName: payload.campaignName,
-            clinicId: payload.clinicId,
-            imageItems: payload.items.map((it) => ({
-              fileName: it.fileName,
-              base64ImageContent: it.base64ImageContent || it.previewUrl || '',
-              eyePosition: it.eyePosition,
-              rawMrn: it.rawMrn,
-              rawPatientName: it.rawPatientName,
-              patientAge: it.patientAge || 50,
-              patientGender: it.patientGender || 'M',
-              systolicBp: it.systolicBp || 120,
-              diastolicBp: it.diastolicBp || 80,
-              hbA1c: it.hbA1c || 5.6,
-            })),
-          })
-          .catch((err) => {
-            console.warn('Backend bulkScreeningApi.uploadBatch notice:', err);
-          });
+      const res = await bulkScreeningApi.uploadBatch({
+        campaignName: payload.campaignName,
+        clinicId: payload.clinicId,
+        imageItems: payload.items.map((it) => ({
+          fileName: it.fileName,
+          base64ImageContent: it.base64ImageContent || it.previewUrl || '',
+          eyePosition: it.eyePosition,
+          rawMrn: it.rawMrn,
+          rawPatientName: it.rawPatientName,
+          patientAge: it.patientAge || 50,
+          patientGender: it.patientGender || 'M',
+          systolicBp: it.systolicBp || 120,
+          diastolicBp: it.diastolicBp || 80,
+          hbA1c: it.hbA1c || 5.6,
+        })),
+      });
+
+      if (!res || !res.success) {
+        const errMsg =
+          res?.message ||
+          (isVi
+            ? 'Cơ sở y tế không đủ lượt quét khả dụng hoặc xảy ra lỗi kết nối. Vui lòng nạp thêm gói lượt khám.'
+            : 'Facility has insufficient screening credits or network error. Please recharge quota.');
+        setFeedbackMsg(errMsg);
+        // Do NOT close modal, do NOT set fake job in state/localStorage, throw error to BatchUploadModal
+        throw new Error(errMsg);
       }
-    } catch (apiErr) {
-      console.warn('Error invoking uploadBatch:', apiErr);
+
+      const realBatchId = res.data?.batchId || res.data?.jobId || res.data?.id || `BATCH-${Date.now()}`;
+
+      const newJob: ClinicBatchJob = {
+        batchId: realBatchId,
+        clinicId: payload.clinicId,
+        clinicName: payload.campaignName || (isVi ? 'Phòng khám chuyên khoa' : 'Specialist Clinic'),
+        totalImages: payload.items.length,
+        processedCount: res.data?.processedCount || 0,
+        failedCount: res.data?.failedCount || 0,
+        status: res.data?.status || 'IN_PROGRESS',
+        createdAt: res.data?.createdAt ? new Date(res.data.createdAt).toISOString() : new Date().toISOString(),
+        estimatedTimeRemainingSec: Math.round(payload.items.length * 0.8),
+        items: payload.items.map((img, idx) => ({
+          id: `ITEM-${realBatchId}-${idx + 1}`,
+          fileName: img.fileName,
+          eye: (img.eyePosition === 'OS' ? 'OS' : 'OD') as 'OD' | 'OS',
+          mrn: img.rawMrn || `MRN-${1000 + idx}`,
+          patientName: img.rawPatientName || `Bệnh nhân ${img.rawMrn || idx + 1}`,
+          pseudonymId: `ANO-${1000 + idx}`,
+          patientAge: img.patientAge || 55,
+          patientGender: img.patientGender || 'Male',
+          systolicBp: img.systolicBp || 125,
+          diastolicBp: img.diastolicBp || 80,
+          hbA1c: img.hbA1c || 5.6,
+          status: 'PENDING',
+          thumbnailUrl: img.previewUrl || img.base64ImageContent || '/assets/images/fundus_original.png',
+          createdAt: Date.now() + idx,
+        })),
+      };
+
+      setCurrentJob(newJob);
+      if (onUpdateBatch) onUpdateBatch(newJob);
+      setIsUploadModalOpen(false);
+
+      // 2. Dispatch real-time events across portals (Flow 3: Clinic -> Admin Audit & Doctor Worklist)
+      realtimeBus.emit('batch:created', {
+        batchId: realBatchId,
+        clinicId: payload.clinicId,
+        campaignName: payload.campaignName,
+        totalImages: payload.items.length,
+        status: 'QUEUED',
+        submittedAt: Date.now(),
+      });
+      realtimeBus.emit('batch:submitted', {
+        batchId: realBatchId,
+        clinicId: payload.clinicId,
+        totalImages: payload.items.length,
+      });
+      realtimeBus.emit('audit:new', {
+        action: 'BATCH_SCREENING_SUBMITTED',
+        category: 'BATCH',
+        details: `Đợt khám ${realBatchId} (${payload.items.length} ảnh) đã tải lên`,
+        timestamp: Date.now(),
+        batchId: realBatchId,
+        clinicId: payload.clinicId,
+      });
+      eventBus.publish('BATCH_STATUS_CHANGED', {
+        batchId: realBatchId,
+        status: 'QUEUED',
+        processedCount: 0,
+        totalImages: payload.items.length,
+      });
+
+      setFeedbackMsg(
+        isVi
+          ? `Đã khởi tạo đợt khám ${realBatchId} (${payload.items.length} ảnh) và chuyển vào hàng đợi xử lý AI.`
+          : `Initialized batch ${realBatchId} (${payload.items.length} scans) and queued for AI analysis.`
+      );
+    } catch (err: any) {
+      console.error('Lỗi khi tải lên đợt khám:', err);
+      const errMsg =
+        err?.message ||
+        (isVi
+          ? 'Cơ sở y tế không đủ lượt quét khả dụng hoặc xảy ra lỗi kết nối. Vui lòng nạp thêm gói lượt khám.'
+          : 'Insufficient credits or connection error. Please recharge.');
+      setFeedbackMsg(errMsg);
+      throw err;
     }
-
-    // 2. Dispatch real-time events across portals (Flow 3: Clinic -> Admin Audit & Doctor Worklist)
-    realtimeBus.emit('batch:created', {
-      batchId: generatedBatchId,
-      clinicId: payload.clinicId,
-      campaignName: payload.campaignName,
-      totalImages: payload.items.length,
-      status: 'QUEUED',
-      submittedAt: Date.now(),
-    });
-    realtimeBus.emit('batch:submitted', {
-      batchId: generatedBatchId,
-      clinicId: payload.clinicId,
-      totalImages: payload.items.length,
-    });
-    realtimeBus.emit('audit:new', {
-      action: 'BATCH_SCREENING_SUBMITTED',
-      category: 'BATCH',
-      details: `Đợt khám ${generatedBatchId} (${payload.items.length} ảnh) đã tải lên`,
-      timestamp: Date.now(),
-      batchId: generatedBatchId,
-      clinicId: payload.clinicId,
-    });
-    eventBus.publish('BATCH_STATUS_CHANGED', {
-      batchId: generatedBatchId,
-      status: 'QUEUED',
-      processedCount: 0,
-      totalImages: payload.items.length,
-    });
-
-    setFeedbackMsg(
-      isVi
-        ? `Đã khởi tạo đợt khám ${generatedBatchId} (${payload.items.length} ảnh) và chuyển vào hàng đợi xử lý AI.`
-        : `Initialized batch ${generatedBatchId} (${payload.items.length} scans) and queued for AI analysis.`
-    );
   };
 
   // KPI calculations

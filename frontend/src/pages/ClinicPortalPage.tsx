@@ -3,8 +3,8 @@ import { ClinicBatchProcessing } from '../components/ClinicBatchProcessing';
 import { ClinicCampaignAnalytics } from '../components/ClinicCampaignAnalytics';
 import { ClinicCreditPackageSection } from '../components/ClinicCreditPackageSection';
 import { ClinicBatchJob } from '../types/cds';
-import { clinicApi, notificationApi, billingApi } from '../services/api';
-import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard, Eye, FileSpreadsheet, ArrowRight, Stethoscope, Bell, UploadCloud, AlertTriangle } from 'lucide-react';
+import { clinicApi, notificationApi, billingApi, doctorApi, screeningApi } from '../services/api';
+import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard, Eye, FileSpreadsheet, ArrowRight, Stethoscope, Bell, UploadCloud, AlertTriangle, Users } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -563,104 +563,97 @@ const ClinicDoctorsSection: React.FC = () => {
 // ==========================================
 // CLINIC PATIENT LIST SUB-VIEW
 // ==========================================
-const ClinicPatientListSection: React.FC<{
-  batchJob: ClinicBatchJob;
+interface ClinicPatientListSectionProps {
+  batchJob?: ClinicBatchJob;
   onNavigate?: (section: string) => void;
-}> = ({ batchJob, onNavigate }) => {
+}
+
+const ClinicPatientListSection: React.FC<ClinicPatientListSectionProps> = ({
+  batchJob,
+  onNavigate,
+}) => {
   const { isVi } = useLanguage();
   const [search, setSearch] = useState('');
   const [filterRisk, setFilterRisk] = useState<'ALL' | 'HIGH' | 'MODERATE' | 'LOW'>('ALL');
+  const [apiPatients, setApiPatients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const rawItems = batchJob?.items || [];
-  const patients = useMemo(() => {
-    if (rawItems.length > 0) {
-      const map = new Map<string, any>();
-      rawItems.forEach((it) => {
-        const id = it.mrn || it.pseudonymId || it.id;
-        if (!map.has(id)) {
-          map.set(id, {
-            id,
-            mrn: it.mrn || it.pseudonymId || id,
-            fullName: it.patientName || `Bệnh nhân ${id}`,
-            age: it.patientAge || 58,
-            gender: it.patientGender || 'M',
-            latestRiskLevel: it.riskLevel || 'LOW',
-            latestRiskScore: it.riskScore || 25,
-            vitals: it.systolicBp ? `${it.systolicBp}/${it.diastolicBp} mmHg` : '120/80 mmHg',
-            screeningCount: 1,
-            lastScreeningDate: it.createdAt ? new Date(it.createdAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US') : '18/09/2026',
-          });
-        } else {
-          const prev = map.get(id);
-          prev.screeningCount += 1;
+  useEffect(() => {
+    let isMounted = true;
+    const loadPatients = async () => {
+      setLoading(true);
+      try {
+        const res = await doctorApi.getPatients({ size: 100 });
+        if (isMounted && res && res.success && res.data) {
+          const list = Array.isArray(res.data)
+            ? res.data
+            : Array.isArray(res.data.items)
+            ? res.data.items
+            : Array.isArray(res.data.content)
+            ? res.data.content
+            : [];
+          setApiPatients(list);
         }
-      });
-      return Array.from(map.values());
-    }
+      } catch (err) {
+        console.warn('Could not load clinic patients from API:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    loadPatients();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-    return [
-      {
-        id: 'P-101',
-        mrn: 'MRN-78214',
-        fullName: 'Trần Thị Mai',
-        age: 62,
-        gender: 'F',
-        latestRiskLevel: 'HIGH',
-        latestRiskScore: 84,
-        vitals: '155/95 mmHg',
-        screeningCount: 3,
-        lastScreeningDate: '18/09/2026',
-      },
-      {
-        id: 'P-102',
-        mrn: 'MRN-99104',
-        fullName: 'Lê Văn Hoàng',
-        age: 68,
-        gender: 'M',
-        latestRiskLevel: 'CRITICAL',
-        latestRiskScore: 91,
-        vitals: '168/102 mmHg',
-        screeningCount: 4,
-        lastScreeningDate: '18/09/2026',
-      },
-      {
-        id: 'P-103',
-        mrn: 'MRN-43091',
-        fullName: 'Phạm Đức Dũng',
-        age: 59,
-        gender: 'M',
-        latestRiskLevel: 'HIGH',
-        latestRiskScore: 76,
-        vitals: '145/92 mmHg',
-        screeningCount: 2,
-        lastScreeningDate: '17/09/2026',
-      },
-      {
-        id: 'P-104',
-        mrn: 'MRN-33120',
-        fullName: 'Nguyễn Thị Hoa',
-        age: 47,
-        gender: 'F',
-        latestRiskLevel: 'MODERATE',
-        latestRiskScore: 52,
-        vitals: '135/85 mmHg',
-        screeningCount: 1,
-        lastScreeningDate: '16/09/2026',
-      },
-      {
-        id: 'P-105',
-        mrn: 'MRN-21098',
-        fullName: 'Võ Minh Quân',
-        age: 53,
-        gender: 'M',
-        latestRiskLevel: 'LOW',
-        latestRiskScore: 18,
-        vitals: '118/76 mmHg',
-        screeningCount: 2,
-        lastScreeningDate: '15/09/2026',
-      },
-    ];
-  }, [rawItems, isVi]);
+  const rawItems = useMemo(() => batchJob?.items || [], [batchJob?.items]);
+
+  const patients = useMemo(() => {
+    const map = new Map<string, any>();
+
+    // 1. Merge patients from backend API
+    apiPatients.forEach((p, idx) => {
+      const id = p.id || p.patientId || `PAT-${idx}`;
+      const mrn = p.mrn || p.rawMrn || `MRN-${id}`;
+      map.set(mrn, {
+        id,
+        mrn,
+        fullName: p.fullName || p.name || (isVi ? `Bệnh nhân ${mrn}` : `Patient ${mrn}`),
+        age: p.age || p.patientAge || 55,
+        gender: p.gender || p.patientGender || 'M',
+        latestRiskLevel: (p.latestRiskLevel || p.riskLevel || 'LOW').toUpperCase(),
+        latestRiskScore: p.latestRiskScore ?? p.riskScore ?? 0,
+        vitals: p.vitals || (p.systolicBp ? `${p.systolicBp}/${p.diastolicBp} mmHg` : '120/80 mmHg'),
+        screeningCount: p.screeningCount || (p.screenings?.length || 1),
+        lastScreeningDate: p.lastScreeningDate || (p.updatedAt ? new Date(p.updatedAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US') : (isVi ? 'Hôm nay' : 'Today')),
+      });
+    });
+
+    // 2. Merge patients from active batch items
+    rawItems.forEach((it) => {
+      const mrn = it.mrn || it.pseudonymId || `MRN-${it.id}`;
+      if (!map.has(mrn)) {
+        map.set(mrn, {
+          id: it.id,
+          mrn,
+          fullName: it.patientName || `Bệnh nhân ${mrn}`,
+          age: it.patientAge || 58,
+          gender: it.patientGender || 'M',
+          latestRiskLevel: (it.riskLevel || 'LOW').toUpperCase(),
+          latestRiskScore: it.riskScore || 25,
+          vitals: it.systolicBp ? `${it.systolicBp}/${it.diastolicBp} mmHg` : '120/80 mmHg',
+          screeningCount: 1,
+          lastScreeningDate: it.createdAt ? new Date(it.createdAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US') : (isVi ? 'Hôm nay' : 'Today'),
+        });
+      } else {
+        const prev = map.get(mrn);
+        prev.screeningCount += 1;
+      }
+    });
+
+    // Clean medical state: return real merged patients, NO hardcoded mock fallback!
+    return Array.from(map.values());
+  }, [apiPatients, rawItems, isVi]);
 
   const filtered = useMemo(() => {
     return patients.filter((p) => {
@@ -754,23 +747,28 @@ const ClinicPatientListSection: React.FC<{
   return (
     <SectionCard
       title={isVi ? 'Danh Sách Bệnh Nhân Cơ Sở' : 'Clinic Patient Directory'}
-      subtitle={isVi ? 'Quản lý danh sách bệnh nhân đã thực hiện tầm soát tại phòng khám' : 'Manage screened patients registered at this facility'}
+      subtitle={
+        isVi
+          ? 'Quản lý toàn bộ bệnh nhân tham gia các chiến dịch sàng lọc vi mạch tại phòng khám'
+          : 'Manage all patients enrolled in clinic microvascular screening campaigns'
+      }
       headerAction={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder={isVi ? 'Tìm tên hoặc mã MRN...' : 'Search name or MRN...'}
+              placeholder={isVi ? 'Tìm tên, mã MRN...' : 'Search name, MRN...'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 pr-3 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 w-48"
+              className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-clinical-border bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 w-48 transition-all"
             />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
           </div>
-          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl text-xs">
+
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
             <button
               onClick={() => setFilterRisk('ALL')}
-              className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${filterRisk === 'ALL' ? 'bg-white text-brand-700 shadow-xs' : 'text-slate-600'}`}
+              className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${filterRisk === 'ALL' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
             >
               {isVi ? 'Tất cả' : 'All'}
             </button>
@@ -790,12 +788,25 @@ const ClinicPatientListSection: React.FC<{
         </div>
       }
     >
-      <DataTable
-        columns={columns}
-        data={filtered}
-        keyExtractor={(r: any) => r.id}
-        emptyMessage={isVi ? 'Không tìm thấy bệnh nhân phù hợp.' : 'No matching patients found.'}
-      />
+      {filtered.length === 0 && !loading ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-clinical-border">
+          <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-slate-700">
+            {isVi ? 'Chưa có hồ sơ bệnh nhân nào tại cơ sở y tế' : 'No patients registered in facility'}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            {isVi ? 'Bệnh nhân sẽ tự động hiển thị sau khi hoàn tất tải lên đợt khám' : 'Patients will automatically appear after batch uploads'}
+          </p>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filtered}
+          loading={loading}
+          keyExtractor={(r: any) => r.id}
+          emptyMessage={isVi ? 'Không tìm thấy bệnh nhân phù hợp.' : 'No matching patients found.'}
+        />
+      )}
     </SectionCard>
   );
 };
@@ -803,90 +814,104 @@ const ClinicPatientListSection: React.FC<{
 // ==========================================
 // CLINIC RESULTS & HISTORY SUB-VIEW
 // ==========================================
-const ClinicResultsSection: React.FC<{
-  batchJob: ClinicBatchJob;
+interface ClinicResultsSectionProps {
+  batchJob?: ClinicBatchJob;
   onNavigate?: (section: string) => void;
   onSelectScan?: (scan: any) => void;
-}> = ({ batchJob, onNavigate, onSelectScan }) => {
+}
+
+const ClinicResultsSection: React.FC<ClinicResultsSectionProps> = ({
+  batchJob,
+  onNavigate,
+  onSelectScan,
+}) => {
   const { isVi } = useLanguage();
   const [search, setSearch] = useState('');
   const [localSelectedScan, setLocalSelectedScan] = useState<any | null>(null);
+  const [apiScreenings, setApiScreenings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const handleSelect = onSelectScan || setLocalSelectedScan;
 
-  const rawItems = batchJob?.items || [];
-  const results = useMemo(() => {
-    if (rawItems.length > 0) {
-      return rawItems.map((it, idx) => ({
-        id: it.id || `SCR-${idx}`,
-        fileName: it.fileName || `fundus_${it.eye.toLowerCase()}_${idx}.png`,
-        patientName: it.patientName || 'Bệnh nhân',
-        mrn: it.mrn || it.pseudonymId || `MRN-${idx}`,
-        eye: it.eye || 'OD',
-        riskLevel: it.riskLevel || 'LOW',
-        riskScore: it.riskScore || 20,
-        arteryVeinRatio: it.arteryVeinRatio || 0.65,
-        status: it.status || 'COMPLETED',
-        doctorReviewed: Boolean(it.status === 'DONE' || it.status === 'COMPLETED'),
-        date: it.createdAt ? new Date(it.createdAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US') : '18/09/2026',
-      }));
-    }
+  useEffect(() => {
+    let isMounted = true;
+    const loadScreenings = async () => {
+      setLoading(true);
+      try {
+        const res = await screeningApi.getAll({ size: 100 });
+        if (isMounted && res && res.success && res.data) {
+          const list = Array.isArray(res.data)
+            ? res.data
+            : Array.isArray(res.data.items)
+            ? res.data.items
+            : Array.isArray(res.data.content)
+            ? res.data.content
+            : [];
+          setApiScreenings(list);
+        }
+      } catch (err) {
+        console.warn('Could not load clinic screenings from API:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    loadScreenings();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-    return [
-      {
-        id: 'SCR-2026-0918-01',
-        fileName: 'fundus_od_mai_78214.png',
-        patientName: 'Trần Thị Mai',
-        mrn: 'MRN-78214',
-        eye: 'OD' as const,
-        riskLevel: 'HIGH',
-        riskScore: 84,
-        arteryVeinRatio: 0.52,
-        status: 'COMPLETED',
-        doctorReviewed: true,
-        date: '18/09/2026',
-      },
-      {
-        id: 'SCR-2026-0918-02',
-        fileName: 'fundus_os_hoang_99104.png',
-        patientName: 'Lê Văn Hoàng',
-        mrn: 'MRN-99104',
-        eye: 'OS' as const,
-        riskLevel: 'CRITICAL',
-        riskScore: 91,
-        arteryVeinRatio: 0.48,
-        status: 'COMPLETED',
-        doctorReviewed: true,
-        date: '18/09/2026',
-      },
-      {
-        id: 'SCR-2026-0917-03',
-        fileName: 'fundus_od_dung_43091.png',
-        patientName: 'Phạm Đức Dũng',
-        mrn: 'MRN-43091',
-        eye: 'OD' as const,
-        riskLevel: 'HIGH',
-        riskScore: 76,
-        arteryVeinRatio: 0.55,
-        status: 'COMPLETED',
-        doctorReviewed: true,
-        date: '17/09/2026',
-      },
-      {
-        id: 'SCR-2026-0916-04',
-        fileName: 'fundus_os_hoa_33120.png',
-        patientName: 'Nguyễn Thị Hoa',
-        mrn: 'MRN-33120',
-        eye: 'OS' as const,
-        riskLevel: 'MODERATE',
-        riskScore: 52,
-        arteryVeinRatio: 0.62,
-        status: 'COMPLETED',
-        doctorReviewed: false,
-        date: '16/09/2026',
-      },
-    ];
-  }, [rawItems, isVi]);
+  const rawItems = useMemo(() => batchJob?.items || [], [batchJob?.items]);
+
+  const results = useMemo(() => {
+    const list: any[] = [];
+    const seenIds = new Set<string>();
+
+    // 1. Screenings from backend API
+    apiScreenings.forEach((s, idx) => {
+      const id = s.id ? String(s.id) : `SCR-${idx}`;
+      seenIds.add(id);
+      list.push({
+        id,
+        fileName: s.fileName || (s.imageUrl ? s.imageUrl.split('/').pop() : `fundus_${(s.eyePosition || 'OD').toLowerCase()}_${idx}.png`),
+        patientName: s.patientName || s.rawPatientName || (isVi ? `Bệnh nhân ${s.patientId ? String(s.patientId).substring(0, 6) : idx + 1}` : `Patient ${idx + 1}`),
+        mrn: s.mrn || s.rawMrn || (s.patientId ? `MRN-${String(s.patientId).substring(0, 8)}` : `MRN-${1000 + idx}`),
+        eye: ((s.eyePosition || 'OD').toUpperCase() === 'OS' ? 'OS' : 'OD') as 'OD' | 'OS',
+        riskLevel: (s.riskLevel || s.aiRiskLevel || 'LOW').toUpperCase(),
+        riskScore: s.riskScore ?? s.cardiovascularRiskScore ?? 20,
+        arteryVeinRatio: s.avRatio ?? s.arteryVeinRatio ?? 0.65,
+        status: s.status || 'COMPLETED',
+        doctorReviewed: Boolean(s.status === 'REVIEWED' || s.reviewDecision || s.doctorNotes),
+        date: s.createdAt ? new Date(s.createdAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US') : (isVi ? 'Hôm nay' : 'Today'),
+        originalItem: s,
+      });
+    });
+
+    // 2. Screenings from batchJob items
+    rawItems.forEach((it, idx) => {
+      const id = it.id || `BATCH-ITEM-${idx}`;
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        list.push({
+          id,
+          fileName: it.fileName || `fundus_${it.eye.toLowerCase()}_${idx}.png`,
+          patientName: it.patientName || (isVi ? 'Bệnh nhân' : 'Patient'),
+          mrn: it.mrn || it.pseudonymId || `MRN-${idx}`,
+          eye: it.eye || 'OD',
+          riskLevel: (it.riskLevel || 'LOW').toUpperCase(),
+          riskScore: it.riskScore || 20,
+          arteryVeinRatio: it.arteryVeinRatio || 0.65,
+          status: it.status || 'COMPLETED',
+          doctorReviewed: Boolean(it.status === 'DONE' || it.status === 'COMPLETED'),
+          date: it.createdAt ? new Date(it.createdAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US') : (isVi ? 'Hôm nay' : 'Today'),
+          originalItem: it,
+        });
+      }
+    });
+
+    // Clean medical state: return real merged screenings, NO hardcoded mock fallback!
+    return list;
+  }, [apiScreenings, rawItems, isVi]);
 
   const filtered = useMemo(() => {
     return results.filter(
@@ -909,63 +934,73 @@ const ClinicResultsSection: React.FC<{
       ),
     },
     {
-      key: 'patient',
+      key: 'patientName',
       header: isVi ? 'Bệnh Nhân' : 'Patient',
       render: (r: any) => (
         <div>
-          <span className="font-semibold text-xs text-slate-800 block">{r.patientName}</span>
-          <span className="font-mono-data text-[11px] text-brand-700">{r.mrn}</span>
+          <span className="font-semibold text-xs text-slate-900 block">{r.patientName}</span>
+          <span className="text-[11px] text-slate-400 font-mono-data">{r.mrn}</span>
         </div>
       ),
     },
     {
       key: 'eye',
-      header: isVi ? 'Mắt' : 'Eye',
+      header: isVi ? 'Mắt Khám' : 'Eye',
       align: 'center',
       render: (r: any) => (
-        <span className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-          {isVi ? (r.eye === 'OD' ? 'Mắt Phải' : 'Mắt Trái') : (r.eye === 'OD' ? 'Right Eye' : 'Left Eye')}
+        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700">
+          {r.eye === 'OD' ? 'Mắt Phải (OD)' : 'Mắt Trái (OS)'}
         </span>
       ),
     },
     {
-      key: 'riskScore',
-      header: isVi ? 'Điểm Nguy Cơ' : 'Risk Score',
+      key: 'risk',
+      header: isVi ? 'Nguy Cơ Mạch Máu' : 'Vascular Risk',
       render: (r: any) => (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <StatusBadge status={r.riskLevel} />
-          <span className="font-mono-data text-xs font-bold text-slate-800">{r.riskScore}%</span>
+          <span className="font-mono-data font-bold text-xs text-slate-700">{r.riskScore}%</span>
         </div>
       ),
     },
     {
-      key: 'avRatio',
+      key: 'arteryVeinRatio',
       header: isVi ? 'Tỷ Lệ A/V' : 'A/V Ratio',
       align: 'center',
       render: (r: any) => (
-        <span className="font-mono-data text-xs text-slate-700">{r.arteryVeinRatio.toFixed(2)}</span>
+        <span className="font-mono-data text-xs text-slate-700 font-semibold">
+          {typeof r.arteryVeinRatio === 'number' ? r.arteryVeinRatio.toFixed(2) : r.arteryVeinRatio}
+        </span>
       ),
     },
     {
-      key: 'doctorReview',
-      header: isVi ? 'Ký Duyệt BS' : 'MD Review',
+      key: 'status',
+      header: isVi ? 'Trạng Thái' : 'Status',
+      align: 'center',
       render: (r: any) => (
-        <StatusBadge
-          status={r.doctorReviewed ? 'COMPLETED' : 'PENDING'}
-          label={r.doctorReviewed ? (isVi ? 'Đã duyệt' : 'Reviewed') : (isVi ? 'Chờ duyệt' : 'Pending')}
-        />
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+            {r.status}
+          </span>
+          {r.doctorReviewed && (
+            <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
+              <ShieldCheck className="w-2.5 h-2.5" /> {isVi ? 'Đã duyệt' : 'Reviewed'}
+            </span>
+          )}
+        </div>
       ),
     },
     {
       key: 'date',
-      header: isVi ? 'Ngày Quét' : 'Date',
-      render: (r: any) => <span className="text-xs text-slate-500 font-sans">{r.date}</span>,
+      header: isVi ? 'Thời Gian' : 'Date',
+      render: (r: any) => (
+        <span className="text-xs text-slate-500 font-sans">{r.date}</span>
+      ),
     },
     {
       key: 'action',
       header: isVi ? 'Thao Tác' : 'Action',
       align: 'right',
-      className: 'text-right',
       render: (r: any) => (
         <Button
           variant="secondary"
@@ -985,27 +1020,55 @@ const ClinicResultsSection: React.FC<{
   return (
     <SectionCard
       title={isVi ? 'Kết Quả Sàng Lọc Sức Khỏe Vi Mạch' : 'Screening Results & History'}
-      subtitle={isVi ? 'Hồ sơ kết quả phân tích AI và đánh giá lâm sàng của các ca chụp' : 'AI analysis results and clinical sign-off records'}
+      subtitle={
+        isVi
+          ? 'Hồ sơ kết quả phân tích AI và đánh giá lâm sàng của các ca chụp'
+          : 'AI analysis results and clinical sign-off records'
+      }
       headerAction={
-        <div className="relative">
-          <input
-            type="text"
-            placeholder={isVi ? 'Tìm kiếm ca hoặc mã MRN...' : 'Search case or MRN...'}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-8 pl-8 pr-3 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 w-52"
-          />
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder={isVi ? 'Tìm kiếm ca hoặc mã MRN...' : 'Search case or MRN...'}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-clinical-border bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 w-56 transition-all"
+            />
+          </div>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onNavigate?.('bulk-batch')}
+          >
+            <Layers className="w-3.5 h-3.5 mr-1 text-brand-600" />
+            {isVi ? 'Lô quét mới' : 'New Batch'}
+          </Button>
         </div>
       }
     >
-      <DataTable
-        columns={columns}
-        data={filtered}
-        onRowClick={handleSelect}
-        keyExtractor={(r: any) => r.id}
-        emptyMessage={isVi ? 'Không có ca sàng lọc nào.' : 'No screening cases found.'}
-      />
+      {filtered.length === 0 && !loading ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-clinical-border">
+          <Activity className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-slate-700">
+            {isVi ? 'Chưa có ca sàng lọc nào trong cơ sở dữ liệu' : 'No screening records found'}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            {isVi ? 'Các ca sàng lọc sau khi phân tích sẽ được tổng hợp tự động tại đây' : 'Screening records will appear here once analyzed'}
+          </p>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filtered}
+          loading={loading}
+          onRowClick={handleSelect}
+          keyExtractor={(r: any) => r.id}
+          emptyMessage={isVi ? 'Không có ca sàng lọc nào.' : 'No screening cases found.'}
+        />
+      )}
 
       {/* Fallback Local Scan Detail Modal */}
       {localSelectedScan && !onSelectScan && (
@@ -1222,11 +1285,13 @@ export const ClinicCreditSummaryWidget: React.FC<ClinicCreditSummaryWidgetProps>
 export interface ClinicPortalPageProps {
   activeView?: string;
   onNavigate?: (section: string) => void;
+  initialBatchJob?: ClinicBatchJob;
 }
 
 export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
   activeView = 'bulk-batch',
   onNavigate,
+  initialBatchJob,
 }) => {
   const { t, isVi } = useLanguage();
   const { user: currentUser } = useAuth();
@@ -1234,7 +1299,9 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
   const clinicId = currentUser?.id || 'CLINIC';
   const clinicName = currentUser?.name || currentUser?.email || t('clinic.portal.defaultFacility');
 
-  const [batchJob, setBatchJob] = useState<ClinicBatchJob>(() => loadBatchJobForClinic(currentUser?.id, clinicName));
+  const [batchJob, setBatchJob] = useState<ClinicBatchJob>(
+    () => initialBatchJob || loadBatchJobForClinic(currentUser?.id, clinicName)
+  );
   const [selectedScanDetail, setSelectedScanDetail] = useState<any | null>(null);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
 
@@ -1260,12 +1327,17 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
       // Bỏ qua lỗi
     }
 
+    if (initialBatchJob) {
+      setBatchJob(initialBatchJob);
+      return;
+    }
+
     if (currentUser?.id) {
       setBatchJob(loadBatchJobForClinic(currentUser.id, clinicName));
     } else {
       setBatchJob(createEmptyBatchJob('CLINIC', t('clinic.portal.defaultFacility')));
     }
-  }, [currentUser?.id, clinicName, t]);
+  }, [currentUser?.id, clinicName, t, initialBatchJob]);
 
   // Universal Real-time Synchronization for Clinic Portal
   useRealtimeSync(
@@ -1276,7 +1348,7 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
       }
       fetchCredits();
     },
-    { pollIntervalMs: 12000, syncOnFocus: true }
+    { pollIntervalMs: 60000, syncOnFocus: false }
   );
 
   const handleUpdateBatchJob = (updated: ClinicBatchJob) => {
@@ -1302,14 +1374,22 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
         return sum;
       }, 0);
     }
-    return Math.max(0, 4000 - usedBatchCredits);
-  }, [subscriptions, usedBatchCredits]);
+    return 0;
+  }, [subscriptions]);
 
   const totalPurchasedCredits = useMemo(() => {
     if (subscriptions.length > 0) {
-      return Math.max(remainingCredits + usedBatchCredits, 4000);
+      const packageCreditsSum = subscriptions.reduce((sum, item) => {
+        const pkgCredits = item.packageCredits || item.totalCredits;
+        if (pkgCredits) return sum + Number(pkgCredits);
+        return sum;
+      }, 0);
+      if (packageCreditsSum > 0) {
+        return Math.max(packageCreditsSum, remainingCredits + usedBatchCredits);
+      }
+      return remainingCredits + usedBatchCredits;
     }
-    return 4000;
+    return 0;
   }, [subscriptions, remainingCredits, usedBatchCredits]);
 
   return (

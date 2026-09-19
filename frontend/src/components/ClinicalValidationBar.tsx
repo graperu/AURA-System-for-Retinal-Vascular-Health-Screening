@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -47,6 +47,23 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   const [saveError, setSaveError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
+
+  // Reset form fields when switching to a different screening analysis to prevent cross-patient data pollution
+  useEffect(() => {
+    setDecision('APPROVED');
+    setAdjustedCardioRisk('Moderate');
+    setAdjustedDrRisk('Low');
+    setDoctorNotes('');
+    setOverrideReason('');
+    setRecommendations('');
+    setOverrideError(null);
+    setIcd10Input('H35.0');
+    setSaveSuccess(false);
+    setSuccessMessage('');
+    setSaveError(false);
+    setErrorMessage('');
+    setSaving(false);
+  }, [analysisId]);
 
   const handleSave = async (isDraft: boolean = false) => {
     // R4 requirement: Override reason required if modifying AI finding

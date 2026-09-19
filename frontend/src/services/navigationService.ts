@@ -129,6 +129,9 @@ export function parseSectionFromUrl(url: string): string {
     if (['patient', 'doctor', 'clinic', 'admin'].includes(segments[0])) {
       return segments[1] || 'dashboard';
     }
+    if (['login', 'register', 'verify-email', 'auth', 'oauth', 'reset-password'].includes(segments[0])) {
+      return 'dashboard';
+    }
     return segments[0] || 'dashboard';
   } catch {
     return 'dashboard';

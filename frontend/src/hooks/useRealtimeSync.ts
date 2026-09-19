@@ -19,7 +19,7 @@ export function useRealtimeSync(
   onSync: (event?: RealtimeEvent) => void | Promise<void>,
   options: RealtimeSyncOptions = {}
 ) {
-  const { pollIntervalMs = 15000, syncOnFocus = true, enabled = true } = options;
+  const { pollIntervalMs = 60000, syncOnFocus = false, enabled = true } = options;
 
   const onSyncRef = useRef(onSync);
   onSyncRef.current = onSync;

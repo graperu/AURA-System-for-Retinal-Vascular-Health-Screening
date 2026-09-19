@@ -18,6 +18,7 @@ import {
   LogOut,
   X,
   LucideIcon,
+  UserCheck,
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { UserRole } from '../../types/cds';
@@ -269,9 +270,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 icon: Users,
               },
               {
+                id: 'assignments',
+                label: isVi ? 'Phân công bệnh nhân' : 'Patient Assignments',
+                icon: UserCheck,
+              },
+              {
                 id: 'clinic-approvals',
                 label: t('navigation.clinicApprovals', isVi ? 'Bác sĩ & Phòng khám' : 'Doctors & Clinics'),
                 icon: UserCog,
+              },
+              {
+                id: 'packages',
+                label: isVi ? 'Gói dịch vụ' : 'Service Packages',
+                icon: CreditCard,
               },
               {
                 id: 'screenings',
@@ -386,6 +397,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   return (
                     <motion.button
                       key={item.id}
+                      data-section={item.id}
+                      data-testid={`sidebar-item-${item.id}`}
                       type="button"
                       whileHover={{ scale: 1.01, x: 2 }}
                       whileTap={{ scale: 0.98 }}

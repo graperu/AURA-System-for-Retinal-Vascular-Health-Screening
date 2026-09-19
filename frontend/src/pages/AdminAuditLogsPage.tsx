@@ -1541,7 +1541,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     async () => {
       await loadAuditData();
     },
-    { pollIntervalMs: 15000, syncOnFocus: true }
+    { pollIntervalMs: 60000, syncOnFocus: false }
   );
 
   const handleExportLogs = async () => {

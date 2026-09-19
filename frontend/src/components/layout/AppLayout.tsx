@@ -4,6 +4,7 @@ import { Topbar } from './Topbar';
 import { UserSession } from '../../types/auth';
 import { notificationApi } from '../../services/api';
 import { realtimeBus } from '../../services/realtimeService';
+import { stompClient } from '../../services/websocketService';
 import { AnimatePresence, motion } from 'framer-motion';
 import { pageTransitionVariants } from '../../utils/motion';
 import { useAuraReducedMotion } from '../../hooks/useAuraReducedMotion';
@@ -29,6 +30,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const prefersReducedMotion = useAuraReducedMotion();
 
   useEffect(() => {
@@ -41,6 +43,35 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         }
       })
       .catch(() => {});
+
+    // STOMP WebSocket Chat Subscription for current user (R5, AC-5)
+    let unsubStompChat: (() => void) | undefined;
+    let unsubStompMsg: (() => void) | undefined;
+    if (currentUser?.id) {
+      try {
+        stompClient.connect();
+        unsubStompChat = stompClient.subscribe(`/topic/chat.${currentUser.id}`, () => {
+          if (isMounted) setUnreadChatCount((prev) => prev + 1);
+        });
+        unsubStompMsg = stompClient.subscribe(`/topic/messages.${currentUser.id}`, () => {
+          if (isMounted) setUnreadChatCount((prev) => prev + 1);
+        });
+      } catch (err) {
+        console.warn('STOMP chat subscription error:', err);
+      }
+    }
+
+    const unsubChatBus = realtimeBus.subscribe(['chat:new', 'chat:message', 'MESSAGE_RECEIVED'], () => {
+      if (isMounted) setUnreadChatCount((prev) => prev + 1);
+    });
+    const unsubChatRead = realtimeBus.subscribe(['chat:read', 'CHAT_READ'], (event) => {
+      if (!isMounted) return;
+      if (typeof event?.data?.unreadCount === 'number') {
+        setUnreadChatCount(event.data.unreadCount);
+      } else {
+        setUnreadChatCount(0);
+      }
+    });
 
     const unsubNotif = realtimeBus.subscribe('NOTIFICATION_CREATED', () => {
       if (isMounted) setUnreadCount((prev) => prev + 1);
@@ -80,8 +111,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       unsubRead();
       unsubUnread();
       unsubCleared();
+      unsubChatBus();
+      unsubChatRead();
+      unsubStompChat?.();
+      unsubStompMsg?.();
     };
-  }, []);
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (activeSection === 'consultation' || activeSection === 'consultation-chat') {
+      setUnreadChatCount(0);
+    }
+  }, [activeSection]);
 
   return (
     <div className="min-h-screen bg-[#F5F6F8] font-sans text-[#111827] antialiased selection:bg-[#3478F6] selection:text-white">
@@ -93,6 +134,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         onLogout={onLogout}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
+        unreadChatCount={unreadChatCount}
         unreadNotificationCount={unreadCount}
       />
 
@@ -106,6 +148,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           onOpenMenu={() => setIsMobileMenuOpen(true)}
           onNavigate={onSelectSection}
           onSearch={onSearch}
+          unreadChatCount={unreadChatCount}
         />
 
         {/* Main Padded Canvas */}

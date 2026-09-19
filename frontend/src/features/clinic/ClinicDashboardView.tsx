@@ -61,9 +61,9 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
   const items = useMemo(() => batchJob?.items || [], [batchJob?.items]);
 
   const uniquePatientsCount = useMemo(() => {
-    if (items.length === 0) return 128; // Fallback baseline for clinical demonstration
+    if (items.length === 0) return 0;
     const unique = new Set(items.map((it) => it.mrn || it.patientName || it.id));
-    return Math.max(unique.size, 1);
+    return unique.size;
   }, [items]);
 
   const highRiskItems = useMemo(() => {
@@ -75,15 +75,11 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
   }, [items]);
 
   const highRiskCount = useMemo(() => {
-    if (items.length > 0) return highRiskItems.length;
-    return 14; // Baseline clinical demonstration
-  }, [items.length, highRiskItems.length]);
+    return highRiskItems.length;
+  }, [highRiskItems.length]);
 
   const screeningsToday = useMemo(() => {
-    if (batchJob?.processedCount && batchJob.processedCount > 0) {
-      return batchJob.processedCount;
-    }
-    return 42; // Baseline clinical demonstration
+    return batchJob?.processedCount || 0;
   }, [batchJob?.processedCount]);
 
   const processingQueueCount = useMemo(() => {
@@ -99,71 +95,11 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
   // 2. High-Risk Cases Queue for Immediate Attention
   const displayHighRiskQueue = useMemo(() => {
     let list = highRiskItems;
-    if (list.length === 0 && items.length === 0) {
-      // Seed clinical representative high risk cases if no active batch loaded
-      list = [
-        {
-          id: 'ITEM-HR-001',
-          patientName: 'Trần Thị Mai',
-          mrn: 'MRN-78214',
-          pseudonymId: 'ANON-78214',
-          eye: 'OD',
-          fileName: 'fundus_od_mai_78214.png',
-          status: 'DONE',
-          riskLevel: 'High',
-          riskScore: 84,
-          patientAge: 62,
-          patientGender: 'F',
-          systolicBp: 155,
-          diastolicBp: 95,
-          hbA1c: 8.2,
-          strokeRisk: 78,
-          rationales: ['Tỷ lệ A/V co hẹp nặng (0.52)', 'Dấu hiệu võng mạc ĐTĐ tiền tăng sinh'],
-        },
-        {
-          id: 'ITEM-HR-002',
-          patientName: 'Lê Văn Hoàng',
-          mrn: 'MRN-99104',
-          pseudonymId: 'ANON-99104',
-          eye: 'OS',
-          fileName: 'fundus_os_hoang_99104.png',
-          status: 'DONE',
-          riskLevel: 'Critical',
-          riskScore: 91,
-          patientAge: 68,
-          patientGender: 'M',
-          systolicBp: 168,
-          diastolicBp: 102,
-          hbA1c: 9.1,
-          strokeRisk: 86,
-          rationales: ['Xuất huyết vi thể lan tỏa', 'Phù gai thị vi mạch'],
-        },
-        {
-          id: 'ITEM-HR-003',
-          patientName: 'Phạm Đức Dũng',
-          mrn: 'MRN-43091',
-          pseudonymId: 'ANON-43091',
-          eye: 'OD',
-          fileName: 'fundus_od_dung_43091.png',
-          status: 'DONE',
-          riskLevel: 'High',
-          riskScore: 76,
-          patientAge: 59,
-          patientGender: 'M',
-          systolicBp: 145,
-          diastolicBp: 92,
-          hbA1c: 7.4,
-          strokeRisk: 71,
-          rationales: ['Xơ cứng động mạch võng mạc độ 2'],
-        },
-      ] as ClinicBatchJobItem[];
-    }
-
     if (selectedEyeFilter !== 'ALL') {
       list = list.filter((it) => it.eye === selectedEyeFilter);
     }
     return list;
-  }, [highRiskItems, items.length, selectedEyeFilter]);
+  }, [highRiskItems, selectedEyeFilter]);
 
   // 3. Historical Batches for Recent Batches Table
   const recentBatchesData = useMemo<RecentBatchRecord[]>(() => {
@@ -772,85 +708,97 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
               </div>
             }
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {displayHighRiskQueue.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 rounded-xl border border-rose-200/80 bg-rose-50/20 hover:bg-rose-50/40 transition-all flex flex-col justify-between space-y-3"
-                >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
+            {displayHighRiskQueue.length === 0 ? (
+              <div className="text-center py-10 bg-white rounded-2xl border border-clinical-border">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+                <p className="text-sm font-bold text-slate-800">
+                  {isVi ? 'Không có ca bệnh nguy cơ cao cần chú ý' : 'No high-risk priority cases pending'}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isVi ? 'Tất cả các ca khám đều trong giới hạn an toàn hoặc chưa có lô quét mới' : 'All cases within safe limits or no recent batch data'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {displayHighRiskQueue.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-xl border border-rose-200/80 bg-rose-50/20 hover:bg-rose-50/40 transition-all flex flex-col justify-between space-y-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onSelectBatchItem) onSelectBatchItem(item);
+                              else onNavigate?.('scan-history');
+                            }}
+                            className="font-mono-data font-bold text-xs text-slate-900 hover:text-brand-600 hover:underline cursor-pointer"
+                            title={isVi ? 'Xem chi tiết ca khám' : 'View scan details'}
+                          >
+                            {item.mrn || item.pseudonymId || item.id}
+                          </button>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white text-slate-700 border border-slate-200">
+                            {item.eye === 'OD' ? 'Mắt Phải (OD)' : 'Mắt Trái (OS)'}
+                          </span>
+                        </div>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                          {item.riskScore || 85}%
+                        </span>
+                      </div>
+
+                      <div className="mt-2">
                         <button
                           type="button"
                           onClick={() => {
                             if (onSelectBatchItem) onSelectBatchItem(item);
                             else onNavigate?.('scan-history');
                           }}
-                          className="font-mono-data font-bold text-xs text-slate-900 hover:text-brand-600 hover:underline cursor-pointer"
+                          className="text-left text-xs font-bold text-slate-900 hover:text-brand-600 hover:underline cursor-pointer block truncate"
                           title={isVi ? 'Xem chi tiết ca khám' : 'View scan details'}
                         >
-                          {item.mrn || item.pseudonymId || item.id}
+                          {item.patientName || 'Bệnh nhân ẩn danh'}
                         </button>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white text-slate-700 border border-slate-200">
-                          {item.eye === 'OD' ? 'Mắt Phải (OD)' : 'Mắt Trái (OS)'}
-                        </span>
+                        <p className="text-[11px] text-slate-500">
+                          {item.patientAge ? `${item.patientAge}T` : '62T'} • {item.patientGender === 'F' ? 'Nữ' : 'Nam'}
+                          {item.systolicBp ? ` • HA: ${item.systolicBp}/${item.diastolicBp}` : ''}
+                          {item.hbA1c ? ` • HbA1c: ${item.hbA1c}%` : ''}
+                        </p>
                       </div>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                        {item.riskScore || 85}%
-                      </span>
+
+                      {item.rationales && item.rationales.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {item.rationales.map((rat, rIdx) => (
+                            <div key={rIdx} className="text-[11px] text-rose-700 font-medium flex items-center gap-1">
+                              <span className="w-1 h-1 rounded-full bg-rose-500 shrink-0"></span>
+                              <span className="truncate">{rat}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    <div className="mt-2">
-                      <button
-                        type="button"
+                    <div className="pt-2 border-t border-rose-100 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 truncate max-w-[150px]">
+                        {item.fileName || 'Ảnh đáy mắt'}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => {
                           if (onSelectBatchItem) onSelectBatchItem(item);
-                          else onNavigate?.('scan-history');
+                          else onNavigate?.('bulk-batch');
                         }}
-                        className="text-left text-xs font-bold text-slate-900 hover:text-brand-600 hover:underline cursor-pointer block truncate"
-                        title={isVi ? 'Xem chi tiết ca khám' : 'View scan details'}
+                        icon={<Eye className="w-3.5 h-3.5" />}
                       >
-                        {item.patientName || 'Bệnh nhân ẩn danh'}
-                      </button>
-                      <p className="text-[11px] text-slate-500">
-                        {item.patientAge ? `${item.patientAge}T` : '62T'} • {item.patientGender === 'F' ? 'Nữ' : 'Nam'}
-                        {item.systolicBp ? ` • HA: ${item.systolicBp}/${item.diastolicBp}` : ''}
-                        {item.hbA1c ? ` • HbA1c: ${item.hbA1c}%` : ''}
-                      </p>
+                        {isVi ? 'Xem ca' : 'View'}
+                      </Button>
                     </div>
-
-                    {item.rationales && item.rationales.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {item.rationales.slice(0, 2).map((r, i) => (
-                          <div key={i} className="text-[11px] text-rose-700 flex items-start gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 mt-1" />
-                            <span className="line-clamp-1">{r}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
-
-                  <div className="pt-2 border-t border-rose-100 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400 truncate max-w-[150px]">
-                      {item.fileName || 'Ảnh đáy mắt'}
-                    </span>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        if (onSelectBatchItem) onSelectBatchItem(item);
-                        else onNavigate?.('bulk-batch');
-                      }}
-                      icon={<Eye className="w-3.5 h-3.5" />}
-                    >
-                      {isVi ? 'Xem ca' : 'View'}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </SectionCard>
         </div>
 

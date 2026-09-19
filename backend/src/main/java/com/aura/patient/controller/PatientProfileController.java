@@ -125,6 +125,24 @@ public class PatientProfileController {
     return ApiResponse.success("Đã xóa tệp xét nghiệm", null);
   }
 
+  @Audited(action = "PHI_LAB_DOWNLOAD", module = "PATIENT", resourceType = "LAB_DOCUMENT", description = "Bệnh nhân tải nội dung tệp xét nghiệm cá nhân")
+  @GetMapping("/lab-documents/{documentId}/content")
+  @PreAuthorize("hasRole('USER')")
+  public ResponseEntity<ByteArrayResource> downloadMyLabDocument(
+      @AuthenticationPrincipal AuraUserPrincipal principal,
+      @PathVariable UUID documentId) {
+    requirePrincipal(principal);
+    PatientLabDocument document = labDocumentService.getContent(principal.id(), documentId);
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(document.getContentType()))
+        .contentLength(document.getFileSize())
+        .header(HttpHeaders.CONTENT_DISPOSITION,
+            ContentDisposition.attachment()
+                .filename(document.getFileName(), StandardCharsets.UTF_8)
+                .build().toString())
+        .body(new ByteArrayResource(document.getContent()));
+  }
+
   @Audited(action = "PHI_LAB_READ", module = "PATIENT", resourceType = "LAB_DOCUMENT", description = "Xem tài liệu xét nghiệm của bệnh nhân")
   @GetMapping("/{patientId}/lab-documents")
   @PreAuthorize("@patientAccessService.canAccessPatient(principal, #patientId)")

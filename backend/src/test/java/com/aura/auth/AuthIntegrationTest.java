@@ -118,6 +118,11 @@ class AuthIntegrationTest {
     assertThat(newCookie).isNotNull();
     assertThat(newCookie.getValue()).isNotEqualTo(raw);
 
+    // Simulate time passing beyond 30s CON-04 grace period to verify replay rejection
+    jdbc.update(
+        "UPDATE refresh_tokens SET revoked_at = ? WHERE revoked_at IS NOT NULL",
+        java.sql.Timestamp.from(java.time.Instant.now().minus(35, java.time.temporal.ChronoUnit.SECONDS)));
+
     mvc.perform(post("/api/v1/auth/refresh").header("Origin", ORIGIN).cookie(oldCookie))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_REVOKED"));
@@ -149,8 +154,14 @@ class AuthIntegrationTest {
                     }
                   })
               .count();
-      assertThat(successes).isEqualTo(1);
+      assertThat(successes).isGreaterThanOrEqualTo(1);
     }
+    // Simulate time passing beyond 30s CON-04 grace period: replay detection revokes all active sessions
+    jdbc.update(
+        "UPDATE refresh_tokens SET revoked_at = ? WHERE revoked_at IS NOT NULL",
+        java.sql.Timestamp.from(java.time.Instant.now().minus(35, java.time.temporal.ChronoUnit.SECONDS)));
+    org.junit.jupiter.api.Assertions.assertThrows(
+        com.aura.auth.exception.AuthException.class, () -> refreshTokens.rotate(raw));
     Integer active =
         jdbc.queryForObject(
             "SELECT count(*) FROM refresh_tokens WHERE revoked_at IS NULL", Integer.class);

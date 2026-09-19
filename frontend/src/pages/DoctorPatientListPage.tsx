@@ -11,13 +11,15 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { realtimeBus } from '../services/realtimeService';
 import { AlertCircle, CheckCircle2, UserPlus } from 'lucide-react';
 
-interface DoctorPatientListPageProps {
+export interface DoctorPatientListPageProps {
   onSelectPatientForCDS?: (patient: PatientProfile) => void;
+  onStartConsultation?: (patient: PatientProfile) => void;
   onNavigate?: (section: string) => void;
 }
 
 export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
   onSelectPatientForCDS,
+  onStartConsultation,
   onNavigate,
 }) => {
   const { t, isVi } = useLanguage();
@@ -50,9 +52,9 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
     hasHypertension: false,
   });
 
-  const loadPatients = async () => {
+  const loadPatients = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const res = await doctorPatientApi.getPatients();
       if (res && res.success && res.data) {
         if (Array.isArray(res.data)) {
@@ -66,7 +68,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
     } catch (e) {
       console.error('Error loading patients for doctor:', e);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -85,9 +87,9 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
       'doctor:assignment',
     ],
     async () => {
-      await loadPatients();
+      await loadPatients(true);
     },
-    { pollIntervalMs: 12000, syncOnFocus: true }
+    { pollIntervalMs: 60000, syncOnFocus: false }
   );
 
   const handleOpenNewPatientModal = () => {
@@ -190,6 +192,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
           onSelectPatientForCDS?.(p);
           onNavigate?.('cds-viewer');
         }}
+        onStartConsultation={onStartConsultation}
         onNewPatientClick={handleOpenNewPatientModal}
         onDeletePatient={handleDeletePatient}
         onBatchDeletePatients={handleBatchDeletePatients}
