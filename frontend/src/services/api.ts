@@ -85,6 +85,12 @@ const request = async <T>(
   return { response, body };
 };
 
+const dispatchSessionExpired = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("aura:session_expired"));
+  }
+};
+
 const refreshAccessToken = async (): Promise<string | null> => {
   if (!refreshRequest) {
     refreshRequest = request<{ accessToken: string }>("/api/v1/auth/refresh", {
@@ -94,10 +100,14 @@ const refreshAccessToken = async (): Promise<string | null> => {
         const token =
           response.ok && body.success ? (body.data?.accessToken ?? null) : null;
         setAccessToken(token);
+        if (!token) {
+          dispatchSessionExpired();
+        }
         return token;
       })
       .catch(() => {
         setAccessToken(null);
+        dispatchSessionExpired();
         return null;
       })
       .finally(() => {
@@ -120,8 +130,14 @@ export async function apiFetch<T = any>(
         "/api/v1/auth/register",
         "/api/v1/auth/refresh",
       ].includes(endpoint);
-    if (canRefresh && (await refreshAccessToken()))
-      result = await request<T>(endpoint, options);
+    if (canRefresh) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        result = await request<T>(endpoint, options);
+      } else {
+        dispatchSessionExpired();
+      }
+    }
     return result.body;
   } catch (error) {
     return {

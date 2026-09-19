@@ -72,6 +72,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => { void fetchCurrentUser(); }, []);
 
+  // Gracefully handle token/session expiration without looping or spamming console
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setAccessToken(null);
+      setUser(null);
+      try {
+        stompClient.disconnect();
+      } catch {
+        // ignore
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('aura:session_expired', handleSessionExpired);
+      return () => window.removeEventListener('aura:session_expired', handleSessionExpired);
+    }
+  }, []);
+
   // Listen to role changes and profile updates across all connected tabs in real-time (Flow 5)
   useEffect(() => {
     const unsub = realtimeBus.subscribe(['user:role_changed', 'USER_ROLE_CHANGED', 'profile:update'], (event) => {

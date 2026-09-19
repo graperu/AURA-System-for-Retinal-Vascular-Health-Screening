@@ -23,9 +23,16 @@ export class StompChatClient {
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
         if (!this.isConnected && !this.manualDisconnect) {
-          this.retryCount = 0;
-          this.connect();
+          const token = typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null;
+          if (token) {
+            this.retryCount = 0;
+            this.connect();
+          }
         }
+      });
+
+      window.addEventListener('aura:session_expired', () => {
+        this.disconnect();
       });
     }
   }
@@ -56,7 +63,13 @@ export class StompChatClient {
         return;
       }
 
+      const isBrowser = typeof window !== 'undefined';
       const token = typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
+      // In browser, prevent unauthenticated WebSocket connection attempts
+      if (isBrowser && !token) {
+        return;
+      }
 
       this.ws = new WebSocket(this.url);
 
@@ -85,6 +98,11 @@ export class StompChatClient {
             this.subscriptions.forEach((_, topic) => {
               this.sendSubscribe(topic);
             });
+          } else if (text.startsWith('ERROR')) {
+            if (text.includes('AccessDenied') || text.includes('JWT') || text.includes('token')) {
+              this.disconnect();
+              return;
+            }
           } else if (text.startsWith('MESSAGE')) {
             // Parse STOMP MESSAGE frame (supporting both \r\n and \n)
             const normalizedText = text.replace(/\r\n/g, '\n');
@@ -136,7 +154,13 @@ export class StompChatClient {
 
         if (this.manualDisconnect) return;
 
+        const isBrowser = typeof window !== 'undefined';
         const currentToken = typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null;
+        if (isBrowser && !currentToken) {
+          this.retryCount = 0;
+          return;
+        }
+
         if (currentToken && this.retryCount < this.maxRetries) {
           // FE-06: Bổ sung randomized jitter (±20%) ngăn ngừa thundering herd reconnect storm
           const baseDelay = Math.min(30000, 1000 * Math.pow(1.5, this.retryCount));
