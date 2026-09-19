@@ -294,8 +294,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     try {
       setIsHistoryLoading(true);
       const res = await screeningApi.getAll();
-      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-        const mapped: PatientHistoryItem[] = res.data.map((item: any) => {
+      const rawList: any[] = Array.isArray(res?.data)
+        ? res.data
+        : (res?.data as any)?.items || (res?.data as any)?.content || [];
+      if (res && res.success && rawList.length > 0) {
+        const mapped: PatientHistoryItem[] = rawList.map((item: any) => {
           const cvdScore = item.cardiovascularRiskScore ?? 0;
           const drScore = item.diabeticRetinopathyRiskScore ?? 0;
           const score = Math.round(
@@ -327,7 +330,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         setScanHistory(mapped);
 
         // Tự động load kết quả sàng lọc mới nhất lên Viewer
-        const latest = res.data[0];
+        const latest = rawList[0];
         if (latest && latest.status !== "FAILED") {
           setAnalysisResult(mapScreeningToAIRiskResult(latest, latest.imageUrl));
         } else if (!latest) {

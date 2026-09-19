@@ -42,10 +42,29 @@ public class DoctorPatientAssignmentService {
     this.userRepository = userRepository;
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public List<DoctorPatientSummaryResponse> getAssignedPatients(UUID doctorId) {
-    List<DoctorPatientAssignment> assignments =
-        assignmentRepository.findByDoctorIdAndStatus(doctorId, AssignmentStatus.ACTIVE);
+    List<DoctorPatientAssignment> assignments = new ArrayList<>(
+        assignmentRepository.findByDoctorIdAndStatus(doctorId, AssignmentStatus.ACTIVE)
+    );
+
+    if (assignments.isEmpty() && userRepository != null && profileRepository != null) {
+      userRepository.findById(doctorId).ifPresent(doc -> {
+        if (doc.getFullName() != null && !doc.getFullName().isBlank()) {
+          var profiles = profileRepository.findByAssignedDoctorIgnoreCase(doc.getFullName());
+          for (var p : profiles) {
+            if (p.getUser() != null) {
+              DoctorPatientAssignment newA = assignmentRepository
+                  .findByDoctorIdAndPatientId(doctorId, p.getUser().getId())
+                  .orElseGet(() -> new DoctorPatientAssignment(doc, p.getUser(), AssignmentStatus.ACTIVE, doctorId));
+              newA.setStatus(AssignmentStatus.ACTIVE);
+              assignmentRepository.save(newA);
+              assignments.add(newA);
+            }
+          }
+        }
+      });
+    }
 
     List<DoctorPatientSummaryResponse> results = new ArrayList<>();
     for (DoctorPatientAssignment assignment : assignments) {

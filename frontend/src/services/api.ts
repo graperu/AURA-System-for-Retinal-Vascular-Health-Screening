@@ -182,10 +182,28 @@ export const screeningApi = {
     });
   },
 
-  getAll: () =>
-    apiFetch<any[]>("/api/v1/screenings", {
+  getAll: async (params?: { page?: number; size?: number; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.page !== undefined) query.set("page", String(params.page));
+    if (params?.size !== undefined) query.set("size", String(params.size));
+    if (params?.status) query.set("status", params.status);
+    const qs = query.toString() ? `?${query.toString()}` : "";
+    const res = await apiFetch<any>(`/api/v1/screenings${qs}`, {
       method: "GET",
-    }),
+    });
+    if (res && res.success && res.data) {
+      if (Array.isArray(res.data)) {
+        return res;
+      }
+      if (Array.isArray(res.data.items)) {
+        return { ...res, data: res.data.items, pageInfo: res.data };
+      }
+      if (Array.isArray(res.data.content)) {
+        return { ...res, data: res.data.content, pageInfo: res.data };
+      }
+    }
+    return res;
+  },
 
   getById: (id: string) =>
     apiFetch<any>(`/api/v1/screenings/${id}`, {

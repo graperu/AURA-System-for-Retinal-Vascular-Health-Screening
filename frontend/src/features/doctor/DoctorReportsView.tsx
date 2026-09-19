@@ -48,8 +48,11 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
     setLoading(true);
     try {
       const res = await screeningApi.getAll();
-      if (res.success && Array.isArray(res.data)) {
-        setScreenings(res.data);
+      const list = Array.isArray(res?.data)
+        ? res.data
+        : (res?.data as any)?.items || (res?.data as any)?.content || [];
+      if (res && res.success && list.length > 0) {
+        setScreenings(list);
       } else {
         setScreenings([]);
       }
