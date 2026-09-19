@@ -363,4 +363,55 @@ class ScreeningControllerTest {
     assertNotNull(detailRes2);
     assertEquals(screeningId, detailRes2.data().id());
   }
+
+  @Test
+  @DisplayName("DAT-04: fromEntitySummary omits raw Base64 and returns lightweight image endpoint")
+  void fromEntitySummary_withBase64_omitsRawPayload() {
+    UUID screeningId = UUID.randomUUID();
+    Screening s = new Screening(patientId, "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD...");
+    ReflectionTestUtils.setField(s, "id", screeningId);
+    s.setHeatmapBase64("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...");
+
+    ScreeningResponse summary = ScreeningResponse.fromEntitySummary(s);
+    assertNotNull(summary);
+    assertEquals("/api/v1/screenings/" + screeningId + "/image", summary.imageUrl());
+    org.junit.jupiter.api.Assertions.assertNull(summary.heatmapBase64());
+
+    // External URL should be preserved
+    Screening sExt = new Screening(patientId, "https://cdn.aura.health/scans/fundus123.jpg");
+    ReflectionTestUtils.setField(sExt, "id", screeningId);
+    ScreeningResponse summaryExt = ScreeningResponse.fromEntitySummary(sExt);
+    assertEquals("https://cdn.aura.health/scans/fundus123.jpg", summaryExt.imageUrl());
+  }
+
+  @Test
+  @DisplayName("DAT-04: getScreeningImage serves binary bytes with cache headers")
+  void getScreeningImage_servesBinaryBytes() {
+    UUID screeningId = UUID.randomUUID();
+    // 4-byte base64 png stub: "aGVsbG8="
+    Screening s = new Screening(patientId, "data:image/png;base64,aGVsbG8=");
+    ReflectionTestUtils.setField(s, "id", screeningId);
+    when(screeningService.getScreeningById(screeningId)).thenReturn(s);
+
+    org.springframework.http.ResponseEntity<?> response = controller.getScreeningImage(screeningId, patientPrincipal);
+    assertNotNull(response);
+    assertEquals(200, response.getStatusCode().value());
+    assertEquals("image/png", response.getHeaders().getContentType().toString());
+    assertNotNull(response.getHeaders().getCacheControl());
+    assertTrue(response.getBody() instanceof byte[]);
+  }
+
+  @Test
+  @DisplayName("DAT-04: getScreeningImage redirects external image URLs")
+  void getScreeningImage_redirectsExternalUrl() {
+    UUID screeningId = UUID.randomUUID();
+    Screening s = new Screening(patientId, "https://cdn.aura.health/scans/1.jpg");
+    ReflectionTestUtils.setField(s, "id", screeningId);
+    when(screeningService.getScreeningById(screeningId)).thenReturn(s);
+
+    org.springframework.http.ResponseEntity<?> response = controller.getScreeningImage(screeningId, patientPrincipal);
+    assertNotNull(response);
+    assertEquals(302, response.getStatusCode().value());
+    assertEquals("https://cdn.aura.health/scans/1.jpg", response.getHeaders().getLocation().toString());
+  }
 }

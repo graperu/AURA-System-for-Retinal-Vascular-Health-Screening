@@ -148,14 +148,32 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
   };
 
   const ai = item.aiResult;
-  const overallRisk = ai?.overallVascularRiskScore ?? item.riskScore ?? 45;
-  const cardioScore = ai?.cardiovascularRiskScore ?? Math.min(100, Math.round(overallRisk * 1.1));
-  const drScore = ai?.diabeticRetinopathyScore ?? Math.min(100, Math.round(overallRisk * 0.95));
-  const strokeRisk = ai?.threeYearStrokeRiskPercent ?? (overallRisk > 70 ? 18.5 : overallRisk > 45 ? 9.2 : 3.4);
-  const avRatio = ai?.arteryVeinRatio ?? (overallRisk < 40 ? 0.68 : 0.58);
-  const tortuosity = ai?.tortuosityIndex ?? (overallRisk < 40 ? 1.12 : 1.30);
-  const vesselDensity = ai?.vesselDensityPercentage ?? (overallRisk < 40 ? 17.2 : 14.8);
-  const opticCdr = ai?.opticCupToDiscRatio ?? 0.38;
+  const overallRisk = typeof ai?.overallVascularRiskScore === 'number'
+    ? ai.overallVascularRiskScore
+    : (typeof item.riskScore === 'number' ? item.riskScore : null);
+  const cardioScore = typeof ai?.cardiovascularRiskScore === 'number'
+    ? ai.cardiovascularRiskScore
+    : (overallRisk !== null ? Math.min(100, Math.round(overallRisk * 1.1)) : null);
+  const drScore = typeof ai?.diabeticRetinopathyScore === 'number'
+    ? ai.diabeticRetinopathyScore
+    : (overallRisk !== null ? Math.min(100, Math.round(overallRisk * 0.95)) : null);
+  const strokeRisk = typeof ai?.threeYearStrokeRiskPercent === 'number'
+    ? ai.threeYearStrokeRiskPercent
+    : (typeof (item as any).strokeRisk === 'number' ? (item as any).strokeRisk : null);
+
+  // MED-04 FIX: Extract genuine clinical biomarkers without pseudo-random hash or fake defaults
+  const avRatio = typeof ai?.arteryVeinRatio === 'number'
+    ? ai.arteryVeinRatio
+    : (typeof (item as any).arteryVeinRatio === 'number' ? (item as any).arteryVeinRatio : null);
+  const tortuosity = typeof ai?.tortuosityIndex === 'number'
+    ? ai.tortuosityIndex
+    : (typeof (item as any).tortuosityIndex === 'number' ? (item as any).tortuosityIndex : null);
+  const vesselDensity = typeof ai?.vesselDensityPercentage === 'number'
+    ? ai.vesselDensityPercentage
+    : (typeof (item as any).vesselDensity === 'number' ? (item as any).vesselDensity : null);
+  const opticCdr = typeof ai?.opticCupToDiscRatio === 'number'
+    ? ai.opticCupToDiscRatio
+    : null;
 
   const baseImage = item.thumbnailUrl || '/assets/images/fundus_original.png';
   const isOD = item.eye === 'OD';
@@ -205,14 +223,15 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
   }, [realHeatmapUrl]);
 
   const defaultRationales = useMemo(() => {
-    if (overallRisk < 40) {
+    const riskVal = overallRisk ?? 0;
+    if (riskVal < 40) {
       return [
         t('clinic.batchDetailModal.defaultRationale1'),
         t('clinic.batchDetailModal.defaultRationale2'),
         t('clinic.batchDetailModal.defaultRationale3'),
       ];
     }
-    if (overallRisk < 65) {
+    if (riskVal < 65) {
       return [
         t('clinic.batchDetailModal.defaultRationaleMod1'),
         t('clinic.batchDetailModal.defaultRationaleMod2'),
@@ -229,18 +248,24 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
     ? ai.xaiRationales
     : defaultRationales;
 
+  const riskVal = overallRisk ?? 0;
   const riskBadgeClass =
-    overallRisk >= 75
+    overallRisk === null
+      ? 'bg-slate-50 text-slate-600 border-slate-200'
+      : riskVal >= 75
       ? 'bg-red-50 text-red-700 border-red-200'
-      : overallRisk >= 50
+      : riskVal >= 50
       ? 'bg-amber-50 text-amber-700 border-amber-200'
       : 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
-  const riskTierLabel = overallRisk >= 75
-    ? (isVi ? 'Cao' : 'High')
-    : overallRisk >= 50
-    ? (isVi ? 'Trung Bình' : 'Moderate')
-    : (isVi ? 'Thấp' : 'Low');
+  const riskTierLabel =
+    overallRisk === null
+      ? (isVi ? 'Chưa đo' : 'Unmeasured')
+      : riskVal >= 75
+      ? (isVi ? 'Cao' : 'High')
+      : riskVal >= 50
+      ? (isVi ? 'Trung Bình' : 'Moderate')
+      : (isVi ? 'Thấp' : 'Low');
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -460,14 +485,23 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 </span>
               </div>
               <div className="my-1.5">
-                <span className="text-2xl font-extrabold font-mono-data">{overallRisk}%</span>
+                <span className="text-2xl font-extrabold font-mono-data">
+                  {overallRisk !== null ? `${overallRisk}%` : '--'}
+                </span>
               </div>
               <div className="w-full bg-slate-200/70 h-1.5 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
-                    width: `${overallRisk}%`,
-                    backgroundColor: overallRisk >= 70 ? '#ef4444' : overallRisk >= 40 ? '#f59e0b' : '#10b981',
+                    width: `${overallRisk ?? 0}%`,
+                    backgroundColor:
+                      overallRisk === null
+                        ? '#94a3b8'
+                        : overallRisk >= 70
+                        ? '#ef4444'
+                        : overallRisk >= 40
+                        ? '#f59e0b'
+                        : '#10b981',
                   }}
                 />
               </div>
@@ -479,11 +513,13 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" /> {t('clinic.batchDetailModal.cardiovascularRisk')}
               </span>
               <div className="my-1.5 flex items-baseline justify-between">
-                <span className="text-2xl font-extrabold font-mono-data text-slate-900">{cardioScore}%</span>
+                <span className="text-2xl font-extrabold font-mono-data text-slate-900">
+                  {cardioScore !== null ? `${cardioScore}%` : '--'}
+                </span>
                 <span className="text-[11px] font-medium text-slate-500">{t('clinic.batchDetailModal.score2Ai')}</span>
               </div>
               <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                <div className="h-full bg-rose-500 rounded-full" style={{ width: `${cardioScore}%` }} />
+                <div className="h-full bg-rose-500 rounded-full" style={{ width: `${cardioScore ?? 0}%` }} />
               </div>
             </div>
 
@@ -493,11 +529,13 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 <Activity className="w-3.5 h-3.5 text-amber-500 shrink-0" /> {t('clinic.batchDetailModal.drRisk')}
               </span>
               <div className="my-1.5 flex items-baseline justify-between">
-                <span className="text-2xl font-extrabold font-mono-data text-slate-900">{drScore}%</span>
+                <span className="text-2xl font-extrabold font-mono-data text-slate-900">
+                  {drScore !== null ? `${drScore}%` : '--'}
+                </span>
                 <span className="text-[11px] font-medium text-slate-500">{t('clinic.batchDetailModal.icdrGrade')}</span>
               </div>
               <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-500 rounded-full" style={{ width: `${drScore}%` }} />
+                <div className="h-full bg-amber-500 rounded-full" style={{ width: `${drScore ?? 0}%` }} />
               </div>
             </div>
 
@@ -507,11 +545,13 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 <AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /> {t('clinic.batchDetailModal.threeYearStroke')}
               </span>
               <div className="my-1.5 flex items-baseline justify-between">
-                <span className="text-2xl font-extrabold font-mono-data text-slate-900">{strokeRisk}%</span>
+                <span className="text-2xl font-extrabold font-mono-data text-slate-900">
+                  {strokeRisk !== null ? `${strokeRisk}%` : '--'}
+                </span>
                 <span className="text-[11px] font-medium text-slate-500">{t('clinic.batchDetailModal.strokeProjection')}</span>
               </div>
               <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                <div className="h-full bg-orange-500 rounded-full" style={{ width: `${Math.min(100, strokeRisk * 3)}%` }} />
+                <div className="h-full bg-orange-500 rounded-full" style={{ width: `${Math.min(100, (strokeRisk ?? 0) * 3)}%` }} />
               </div>
             </div>
           </div>
@@ -1034,23 +1074,39 @@ export const BatchItemDetailModal: React.FC<BatchItemDetailModalProps> = ({ item
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col justify-between shadow-2xs">
                     <span className="text-[10px] font-semibold text-slate-500 truncate">{t('clinic.batchDetailModal.avrLabel')}</span>
-                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">{avRatio}</span>
-                    <span className="text-[9px] text-amber-600 font-medium truncate">{t('clinic.batchDetailModal.avrNormal')}</span>
+                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">
+                      {avRatio !== null ? avRatio.toFixed(2) : '--'}
+                    </span>
+                    <span className={`text-[9px] font-medium truncate ${avRatio !== null ? (avRatio >= 0.67 ? 'text-emerald-600' : 'text-amber-600') : 'text-slate-400'}`}>
+                      {avRatio !== null ? (avRatio >= 0.67 ? t('clinic.batchDetailModal.avrNormal') : (isVi ? 'Co thắt tiểu động mạch' : 'Arteriolar narrowing')) : (isVi ? 'Chưa đo được' : 'Unmeasured')}
+                    </span>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col justify-between shadow-2xs">
                     <span className="text-[10px] font-semibold text-slate-500 truncate">{t('clinic.batchDetailModal.tortuosityLabel')}</span>
-                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">{tortuosity}</span>
-                    <span className="text-[9px] text-slate-500 font-medium truncate">{t('clinic.batchDetailModal.tortuosityDesc')}</span>
+                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">
+                      {tortuosity !== null ? tortuosity.toFixed(2) : '--'}
+                    </span>
+                    <span className="text-[9px] text-slate-500 font-medium truncate">
+                      {tortuosity !== null ? t('clinic.batchDetailModal.tortuosityDesc') : (isVi ? 'Chưa đo được' : 'Unmeasured')}
+                    </span>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col justify-between shadow-2xs">
                     <span className="text-[10px] font-semibold text-slate-500 truncate">{t('clinic.batchDetailModal.vesselDensityLabel')}</span>
-                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">{vesselDensity}%</span>
-                    <span className="text-[9px] text-slate-500 font-medium truncate">{t('clinic.batchDetailModal.vesselDensityDesc')}</span>
+                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">
+                      {vesselDensity !== null ? `${vesselDensity.toFixed(1)}%` : '--'}
+                    </span>
+                    <span className="text-[9px] text-slate-500 font-medium truncate">
+                      {vesselDensity !== null ? t('clinic.batchDetailModal.vesselDensityDesc') : (isVi ? 'Chưa đo được' : 'Unmeasured')}
+                    </span>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col justify-between shadow-2xs">
                     <span className="text-[10px] font-semibold text-slate-500 truncate">{t('clinic.batchDetailModal.cdrLabel')}</span>
-                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">{opticCdr}</span>
-                    <span className="text-[9px] text-emerald-600 font-medium truncate">{t('clinic.batchDetailModal.cdrNormal')}</span>
+                    <span className="text-lg font-bold font-mono-data text-slate-800 my-0.5">
+                      {opticCdr !== null ? opticCdr.toFixed(2) : '--'}
+                    </span>
+                    <span className={`text-[9px] font-medium truncate ${opticCdr !== null ? (opticCdr < 0.50 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-400'}`}>
+                      {opticCdr !== null ? (opticCdr < 0.50 ? t('clinic.batchDetailModal.cdrNormal') : (isVi ? 'Nghi ngờ glôcôm' : 'Suspect Glaucoma')) : (isVi ? 'Chưa đo được' : 'Unmeasured')}
+                    </span>
                   </div>
                 </div>
               </div>

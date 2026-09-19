@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -92,9 +93,9 @@ class PatientSpecificationTest {
 
     assertThat(result).isNotNull();
 
-    // Verify search patterns
-    verify(cb, times(4)).like(any(), eq("%nguyen%"));
-    verify(cb).or(any(), any(), any(), any());
+    // Verify search patterns (CON-01: 3 fields fullName, mrn, assignedDoctor; phone is not queried via LIKE)
+    verify(cb, times(3)).like(any(), eq("%nguyen%"));
+    verify(cb).or(any(Predicate[].class));
 
     // Verify riskLevel
     verify(cb).equal(any(), eq("HIGH"));
@@ -163,18 +164,36 @@ class PatientSpecificationTest {
   }
 
   @Test
-  @DisplayName("Verify search filter builds or predicate across fullName, mrn, phone, and assignedDoctor")
-  void filterPatients_verifiesSearchFieldPaths() {
+  @DisplayName("CON-01: Tìm kiếm với 'ENC' không truy vấn trường phone và không khớp toàn bộ bệnh nhân")
+  void filterPatients_whenSearchHasEnc_doesNotQueryCiphertextPhone() {
     Specification<PatientProfile> spec = PatientSpecification.filterPatients(
-        "  0912  ", null, null, null, null, null, null, null, null
+        "ENC", null, null, null, null, null, null, null, null
     );
 
     spec.toPredicate(root, query, cb);
 
     verify(root).get("fullName");
     verify(root).get("mrn");
-    verify(root).get("phone");
     verify(root).get("assignedDoctor");
-    verify(cb, times(4)).like(any(), eq("%0912%"));
+    verify(root, never()).get("phone");
+    verify(root, never()).get("phoneHash");
+    verify(cb, times(3)).like(any(), eq("%enc%"));
+  }
+
+  @Test
+  @DisplayName("CON-01: Tìm kiếm số điện thoại hợp lệ truy vấn phoneHash qua Blind Index")
+  void filterPatients_whenSearchIsPhoneNumber_queriesPhoneHash() {
+    Specification<PatientProfile> spec = PatientSpecification.filterPatients(
+        "0912345678", null, null, null, null, null, null, null, null
+    );
+
+    spec.toPredicate(root, query, cb);
+
+    verify(root).get("fullName");
+    verify(root).get("mrn");
+    verify(root).get("assignedDoctor");
+    verify(root, never()).get("phone");
+    verify(root).get("phoneHash");
+    verify(cb).equal(any(), eq(com.aura.common.crypto.BlindIndexUtil.computePhoneHash("0912345678")));
   }
 }

@@ -251,6 +251,13 @@ class ScreeningServiceFullCoverageTest {
             "riskScore", 35,
             "riskLevel", "LOW",
             "clinicalNote", "Không có xuất huyết"
+        ),
+        Map.of(
+            "category", "Stroke Risk",
+            "confidence", 0.78,
+            "riskScore", 75,
+            "riskLevel", "HIGH",
+            "clinicalNote", "Chỉ dấu vi mạch nguy cơ đột quỵ"
         )
     );
     aiMap.put("predictions", predictions);
@@ -511,5 +518,100 @@ class ScreeningServiceFullCoverageTest {
 
     String nullRec = (String) recMethod.invoke(screeningService, (RiskLevel) null);
     assertThat(nullRec).contains("Không thể sinh khuyến nghị");
+  }
+
+  @Test
+  @DisplayName("MED-03: Phân loại ETDRS theo Quy tắc 4-2-1 và tân mạch PDR")
+  void executeAiAnalysis_etdrsRule421_classifiesPDRAndSevereNPDR() {
+    UUID patientId = UUID.randomUUID();
+    Map<String, Object> aiMap = new HashMap<>();
+    aiMap.put("overallVascularRiskScore", 85);
+    aiMap.put("confidence", 0.95);
+
+    List<Map<String, Object>> anomalies = List.of(
+        Map.of("type", "Neovascularization", "confidence", 0.9, "coordinates", Map.of("x", 20, "y", 20, "width", 10, "height", 10)),
+        Map.of("type", "Hemorrhage", "confidence", 0.85, "coordinates", Map.of("x", 70, "y", 70, "width", 10, "height", 10))
+    );
+    aiMap.put("detectedAnomalies", anomalies);
+
+    when(geminiAiService.analyzeRetinalVascular(any(), any())).thenReturn(aiMap);
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    Screening saved = screeningService.createScreening(patientId, "https://cdn.aura.test/etdrs.png");
+    assertThat(saved.getEtdrsGrade()).contains("PDR");
+  }
+
+  @Test
+  @DisplayName("MED-05: Công thức Emergency Max-Rule: Cấp cứu võng mạc không bị pha loãng")
+  void executeAiAnalysis_emergencyMaxRule_whenDrCritical_doesNotDiluteOverallRisk() {
+    UUID patientId = UUID.randomUUID();
+    Map<String, Object> aiMap = new HashMap<>();
+    aiMap.put("overallVascularRiskScore", 45); // Điểm trung bình thông thường
+    aiMap.put("confidence", 0.92);
+
+    List<Map<String, Object>> predictions = List.of(
+        Map.of("category", "Cardiovascular Risk", "riskScore", 20, "riskLevel", "LOW"),
+        Map.of("category", "Diabetic Retinopathy", "riskScore", 92, "riskLevel", "CRITICAL")
+    );
+    aiMap.put("predictions", predictions);
+
+    when(geminiAiService.analyzeRetinalVascular(any(), any())).thenReturn(aiMap);
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    Screening saved = screeningService.createScreening(patientId, "https://cdn.aura.test/emergency.png");
+    // Vì DR là CRITICAL (92), Max-Rule phải đẩy overallVascularRiskScore lên 92 thay vì giữ 45
+    assertThat(saved.getRiskScore()).isEqualTo(92);
+    assertThat(saved.getCardiovascularRiskScore()).isEqualTo(20);
+    assertThat(saved.getDiabeticRetinopathyRiskScore()).isEqualTo(92);
+  }
+
+  @Test
+  @DisplayName("MED-05: Bác sĩ điều chỉnh DR lên CRITICAL thì Max-Rule cập nhật rủi ro tổng thành CRITICAL")
+  void addDoctorReview_appliesMaxRuleBetweenCardioAndDr() {
+    UUID screeningId = UUID.randomUUID();
+    Screening screening = new Screening(UUID.randomUUID(), "https://cdn.aura.test/eye.png");
+    ReflectionTestUtils.setField(screening, "id", screeningId);
+    screening.setRiskLevel(RiskLevel.LOW);
+    when(screeningRepository.findById(screeningId)).thenReturn(Optional.of(screening));
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    Screening reviewed = screeningService.addDoctorReview(
+        screeningId,
+        UUID.randomUUID(),
+        ReviewDecision.MODIFIED,
+        "Tổn thương võng mạc nghiêm trọng đe dọa thị lực",
+        RiskLevel.LOW, // adjustedCardioRisk
+        RiskLevel.CRITICAL, // adjustedDrRisk
+        List.of("H35.0")
+    );
+
+    // Max(LOW, CRITICAL) = CRITICAL
+    assertThat(reviewed.getRiskLevel()).isEqualTo(RiskLevel.CRITICAL);
+  }
+
+  @Test
+  @DisplayName("MED-06: Độc lập hóa nguy cơ đột quỵ từ dấu hiệu vi mạch khi không có dự đoán stroke từ AI")
+  void executeAiAnalysis_independentStrokeScore_calculatedFromMicrovascularSigns() {
+    UUID patientId = UUID.randomUUID();
+    Map<String, Object> aiMap = new HashMap<>();
+    aiMap.put("overallVascularRiskScore", 30);
+    aiMap.put("confidence", 0.90);
+
+    Map<String, Object> biomarkers = Map.of(
+        "avRatio", 0.52, // Hẹp động mạch nặng (<0.60 -> +35)
+        "tortuosityIndex", 1.35 // Tăng độ xoắn vặn (>1.30 -> +25)
+    );
+    aiMap.put("biomarkers", biomarkers);
+    aiMap.put("detectedAnomalies", List.of(
+        Map.of("type", "AV_Nipping", "confidence", 0.85, "coordinates", Map.of("x", 50, "y", 50, "width", 10, "height", 10)) // Bắt chéo Đ-TM (+20)
+    ));
+
+    when(geminiAiService.analyzeRetinalVascular(any(), any())).thenReturn(aiMap);
+    when(screeningRepository.save(any(Screening.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    Screening saved = screeningService.createScreening(patientId, "https://cdn.aura.test/stroke.png");
+    // 20 (base) + 35 (avRatio) + 25 (tortuosity) + 20 (AV_Nipping) = 100
+    assertThat(saved.getStrokeRiskScore()).isGreaterThanOrEqualTo(80);
+    assertThat(saved.getStrokeRiskLevel()).isEqualTo("CRITICAL");
   }
 }

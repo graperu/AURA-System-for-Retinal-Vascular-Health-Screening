@@ -140,6 +140,59 @@ class RefreshTokenServiceTest {
     }
 
     @Test
+    @DisplayName("CON-04: Token đã thu hồi trong vòng Grace Period (30s) cấp phát token mới thay vì xóa sạch phiên")
+    void rotate_RevokedTokenWithinGracePeriod_IssuesReplacementWithoutRevokingAllSessions() {
+      // Arrange
+      RefreshToken previousReplacement = new RefreshToken(
+          testUser, "replacement-hash", Instant.now().plus(7, ChronoUnit.DAYS)
+      );
+      RefreshToken rotatedToken = new RefreshToken(
+          testUser, "rotated-hash", Instant.now().plus(7, ChronoUnit.DAYS)
+      );
+      org.springframework.test.util.ReflectionTestUtils.setField(rotatedToken, "revokedAt", Instant.now().minusSeconds(5));
+      org.springframework.test.util.ReflectionTestUtils.setField(rotatedToken, "replacedBy", previousReplacement);
+
+      when(repository.findByTokenHashForUpdate(anyString())).thenReturn(Optional.of(rotatedToken));
+      when(properties.refreshTokenDays()).thenReturn(14L);
+      when(repository.save(any(RefreshToken.class))).thenAnswer(i -> i.getArgument(0));
+
+      // Act
+      var rotation = service.rotate("multi-tab-race-token");
+
+      // Assert
+      assertThat(rotation).isNotNull();
+      assertThat(rotation.user()).isEqualTo(testUser);
+      assertThat(rotation.issued().raw()).isNotBlank();
+      // Xác nhận KHÔNG gọi revokeAllActiveByUserId
+      verify(repository, never()).revokeAllActiveByUserId(eq(testUserId), any(Instant.class));
+      verify(repository).save(any(RefreshToken.class));
+    }
+
+    @Test
+    @DisplayName("CON-04: Token đã thu hồi quá Grace Period (60s) coi là Replay Attack và hủy sạch phiên")
+    void rotate_RevokedTokenOutsideGracePeriod_RevokesAllActiveTokensAndThrows() {
+      // Arrange
+      RefreshToken rotatedToken = new RefreshToken(
+          testUser, "stale-hash", Instant.now().plus(7, ChronoUnit.DAYS)
+      );
+      org.springframework.test.util.ReflectionTestUtils.setField(rotatedToken, "revokedAt", Instant.now().minusSeconds(60));
+      RefreshToken previousReplacement = new RefreshToken(
+          testUser, "replacement-hash", Instant.now().plus(7, ChronoUnit.DAYS)
+      );
+      org.springframework.test.util.ReflectionTestUtils.setField(rotatedToken, "replacedBy", previousReplacement);
+
+      when(repository.findByTokenHashForUpdate(anyString())).thenReturn(Optional.of(rotatedToken));
+
+      // Act & Assert
+      assertThatThrownBy(() -> service.rotate("stale-replayed-token"))
+          .isInstanceOfSatisfying(AuthException.class, e -> {
+            assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_TOKEN_REVOKED);
+          });
+
+      verify(repository).revokeAllActiveByUserId(eq(testUserId), any(Instant.class));
+    }
+
+    @Test
     @DisplayName("rotate expired token throws REFRESH_TOKEN_INVALID")
     void rotate_ExpiredToken_ThrowsInvalid() {
       // Arrange

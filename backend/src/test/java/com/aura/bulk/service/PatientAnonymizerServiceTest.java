@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.aura.bulk.dto.PatientAnonymizedDto;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.time.Instant;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -231,14 +234,19 @@ class PatientAnonymizerServiceTest {
 
     @Test
     @DisplayName("Real binary DICOM payload is detected, PHI tags stripped and extracted as PNG")
-    void stripDicom_RealBinaryDicom_StripsAndExtractsCleanImage() {
-      byte[] sampleDicom = new byte[256];
-      // Set DICOM magic "DICM" at offset 128
-      sampleDicom[128] = 'D';
-      sampleDicom[129] = 'I';
-      sampleDicom[130] = 'C';
-      sampleDicom[131] = 'M';
+    void stripDicom_RealBinaryDicom_StripsAndExtractsCleanImage() throws Exception {
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      baos.write(new byte[128]); // Preamble
+      baos.write(new byte[] {'D', 'I', 'C', 'M'});
 
+      // Minimal authentic JPEG byte stream
+      BufferedImage img = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+      img.setRGB(0, 0, 0xFF0000);
+      ByteArrayOutputStream imgBaos = new ByteArrayOutputStream();
+      ImageIO.write(img, "jpg", imgBaos);
+      baos.write(imgBaos.toByteArray());
+
+      byte[] sampleDicom = baos.toByteArray();
       String dicomB64 = "data:application/dicom;base64," + java.util.Base64.getEncoder().encodeToString(sampleDicom);
       String stripped = anonymizerService.stripDicomMetadataHeaders(dicomB64);
 
@@ -248,6 +256,21 @@ class PatientAnonymizerServiceTest {
       assertThat(decoded[1]).isEqualTo((byte) 0x50);
       assertThat(decoded[2]).isEqualTo((byte) 0x4E);
       assertThat(decoded[3]).isEqualTo((byte) 0x47);
+    }
+
+    @Test
+    @DisplayName("DICOM without pixel stream preserves deidentified DICOM container (data:application/dicom;base64)")
+    void stripDicom_NoPixelStream_PreservesDeidentifiedDicom() {
+      byte[] sampleDicom = new byte[256];
+      sampleDicom[128] = 'D';
+      sampleDicom[129] = 'I';
+      sampleDicom[130] = 'C';
+      sampleDicom[131] = 'M';
+
+      String dicomB64 = "data:application/dicom;base64," + java.util.Base64.getEncoder().encodeToString(sampleDicom);
+      String stripped = anonymizerService.stripDicomMetadataHeaders(dicomB64);
+
+      assertThat(stripped).isNotNull().startsWith("data:application/dicom;base64,");
     }
   }
 }

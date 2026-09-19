@@ -171,12 +171,12 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
                 <BrainCircuit className="w-4 h-4 text-brand-600" />
                 {isVi ? 'Nguy Cơ Đột Quỵ' : 'Stroke Risk'}
               </span>
-              <RiskBadge level={result.cardiovascularRisk?.level} size="sm" />
+              <RiskBadge level={result.strokeRisk?.level || result.cardiovascularRisk?.level} size="sm" />
             </div>
 
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold font-mono-data text-clinical-text">
-                {result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0}%
+                {result.strokeRisk?.score ?? result.strokeRisk?.threeYearStrokeRiskPercent ?? result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0}%
               </span>
               <span className="text-[11px] text-clinical-text-muted">
                 {isVi ? 'Ước tính nguy cơ 3 năm' : '3-year estimate'}
@@ -187,8 +187,8 @@ export const RiskAssessmentPanel: React.FC<RiskAssessmentPanelProps> = ({
               <div
                 className="h-full transition-all duration-500 rounded-full"
                 style={{
-                  width: `${Math.min(100, result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0)}%`,
-                  backgroundColor: getGaugeColor(result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0),
+                  width: `${Math.min(100, result.strokeRisk?.score ?? result.strokeRisk?.threeYearStrokeRiskPercent ?? result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0)}%`,
+                  backgroundColor: getGaugeColor(result.strokeRisk?.score ?? result.strokeRisk?.threeYearStrokeRiskPercent ?? result.cardiovascularRisk?.threeYearStrokeRiskPercent ?? 0),
                 }}
               />
             </div>

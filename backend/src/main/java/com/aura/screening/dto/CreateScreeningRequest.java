@@ -3,6 +3,7 @@ package com.aura.screening.dto;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import java.util.UUID;
 
 public record CreateScreeningRequest(
@@ -12,6 +13,10 @@ public record CreateScreeningRequest(
 
     @JsonProperty("eyePosition")
     @JsonAlias("eye")
+    @Pattern(
+        regexp = "^(?i)(OD|OS|OU|LEFT_EYE|RIGHT_EYE|UNKNOWN|Right_OD|Left_OS|LEFT|RIGHT|L|R)?$",
+        message = "Vị trí mắt không hợp lệ (chỉ chấp nhận OD, OS, OU, LEFT_EYE, RIGHT_EYE, UNKNOWN)"
+    )
     String eyePosition,
 
     @JsonProperty("scanType")

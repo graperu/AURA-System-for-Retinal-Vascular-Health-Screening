@@ -10,6 +10,7 @@ import java.net.URI;
 import java.util.*;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
@@ -23,10 +24,54 @@ public class TrustedOriginFilter extends OncePerRequestFilter {
     json = j;
   }
 
+  @Override
   protected boolean shouldNotFilter(HttpServletRequest r) {
-    return !"POST".equals(r.getMethod()) || !PATHS.contains(r.getRequestURI());
+    if (!"POST".equalsIgnoreCase(r.getMethod())) {
+      return true;
+    }
+    String normalizedPath = extractNormalizedPath(r);
+    return !PATHS.contains(normalizedPath);
   }
 
+  public static String extractNormalizedPath(HttpServletRequest request) {
+    String uri = request.getRequestURI();
+    if (uri == null || uri.isBlank()) {
+      return "";
+    }
+
+    // 1. Strip context path if present
+    String contextPath = request.getContextPath();
+    if (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath)) {
+      uri = uri.substring(contextPath.length());
+    }
+
+    return normalizeUriPath(uri);
+  }
+
+  public static String normalizeUriPath(String rawPath) {
+    if (rawPath == null || rawPath.isBlank()) {
+      return "";
+    }
+
+    // 2. Strip matrix parameters (e.g., ;jsessionid=... or ;foo=bar)
+    int semicolonIdx = rawPath.indexOf(';');
+    String path = semicolonIdx >= 0 ? rawPath.substring(0, semicolonIdx) : rawPath;
+
+    // 3. Clean dot-segments (. and ..) and normalize separators
+    path = StringUtils.cleanPath(path);
+
+    // 4. Collapse multiple consecutive slashes
+    path = path.replaceAll("/{2,}", "/");
+
+    // 5. Trim trailing slash if length > 1
+    while (path.length() > 1 && path.endsWith("/")) {
+      path = path.substring(0, path.length() - 1);
+    }
+
+    return path;
+  }
+
+  @Override
   protected void doFilterInternal(HttpServletRequest r, HttpServletResponse s, FilterChain c)
       throws ServletException, IOException {
     String origin = r.getHeader("Origin");

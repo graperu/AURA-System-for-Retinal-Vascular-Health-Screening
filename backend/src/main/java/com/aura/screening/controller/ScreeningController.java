@@ -178,6 +178,47 @@ public class ScreeningController {
     return getScreening(id, principal);
   }
 
+  @GetMapping("/{id}/image")
+  @PreAuthorize("@patientAccessService.canAccessScreening(principal, #id)")
+  public org.springframework.http.ResponseEntity<?> getScreeningImage(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    Screening screening = screeningService.getScreeningById(id);
+    if (screening == null || screening.getImageUrl() == null || screening.getImageUrl().isBlank()) {
+      return org.springframework.http.ResponseEntity.notFound().build();
+    }
+    String raw = screening.getImageUrl().trim();
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.FOUND)
+          .location(java.net.URI.create(raw))
+          .build();
+    }
+
+    String mediaType = "image/png";
+    String base64Data = raw;
+    if (raw.startsWith("data:")) {
+      int commaIndex = raw.indexOf(',');
+      if (commaIndex != -1) {
+        String header = raw.substring(5, commaIndex);
+        int semiIndex = header.indexOf(';');
+        mediaType = (semiIndex != -1) ? header.substring(0, semiIndex) : header;
+        base64Data = raw.substring(commaIndex + 1);
+      }
+    } else if (raw.startsWith("/9j/")) {
+      mediaType = "image/jpeg";
+    }
+
+    try {
+      byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data.replaceAll("\\s+", ""));
+      return org.springframework.http.ResponseEntity.ok()
+          .contentType(org.springframework.http.MediaType.parseMediaType(mediaType))
+          .cacheControl(org.springframework.http.CacheControl.maxAge(1, java.util.concurrent.TimeUnit.DAYS).cachePublic())
+          .body(imageBytes);
+    } catch (IllegalArgumentException e) {
+      return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+  }
+
   @Audited(action = "CLINICAL_REVIEW", module = "SCREENING", resourceType = "SCREENING", description = "Bác sĩ thẩm định đánh giá lâm sàng và điều chỉnh nguy cơ")
   @PostMapping("/{id}/review")
   @PreAuthorize("hasRole('DOCTOR') && @patientAccessService.canReviewScreening(principal, #id)")

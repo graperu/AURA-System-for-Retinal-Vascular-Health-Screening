@@ -3,6 +3,7 @@ package com.aura.common.crypto;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -72,12 +73,47 @@ class AesGcmAttributeConverterTest {
   }
 
   @Test
-  @DisplayName("convertToDatabaseColumn: Chuỗi đã có tiền tố ENC: không bị mã hóa lặp")
+  @DisplayName("convertToDatabaseColumn: Chuỗi đã được mã hóa hợp lệ không bị mã hóa lặp (idempotent)")
   void idempotentEncryption() {
-    String alreadyEncrypted = "ENC:abc123456xyz";
-    String result = converter.convertToDatabaseColumn(alreadyEncrypted);
+    String original = "0987654321";
+    String encrypted = converter.convertToDatabaseColumn(original);
+    String reEncrypted = converter.convertToDatabaseColumn(encrypted);
 
-    assertThat(result).isEqualTo(alreadyEncrypted);
+    assertThat(reEncrypted).isEqualTo(encrypted);
+    assertThat(converter.convertToEntityAttribute(reEncrypted)).isEqualTo(original);
+  }
+
+  @Test
+  @DisplayName("convertToDatabaseColumn: Plaintext bắt đầu bằng ENC: được mã hóa an toàn (loại bỏ prefix collision)")
+  void convertToDatabaseColumn_plaintextStartingWithEncPrefix_isEncrypted() {
+    String raw = "ENC:0912345678";
+    String encrypted = converter.convertToDatabaseColumn(raw);
+
+    assertThat(encrypted).startsWith("ENC:");
+    assertThat(encrypted).isNotEqualTo(raw);
+    assertThat(converter.convertToEntityAttribute(encrypted)).isEqualTo(raw);
+  }
+
+  @Test
+  @DisplayName("convertToEntityAttribute: Payload bị tamper hoặc auth tag sai ném SecurityException (Fail-Closed)")
+  void convertToEntityAttribute_corruptedPayload_throwsSecurityException() {
+    String encrypted = converter.convertToDatabaseColumn("Secret Clinical Note");
+    byte[] decoded = Base64.getDecoder().decode(encrypted.substring(4));
+    decoded[decoded.length - 1] ^= 0x01; // tamper last byte of auth tag
+    String tampered = "ENC:" + Base64.getEncoder().encodeToString(decoded);
+
+    assertThatThrownBy(() -> converter.convertToEntityAttribute(tampered))
+        .isInstanceOf(SecurityException.class)
+        .hasMessageContaining("Không thể giải mã dữ liệu y tế nhạy cảm");
+  }
+
+  @Test
+  @DisplayName("convertToEntityAttribute: Payload quá ngắn không đủ IV/Tag ném SecurityException")
+  void convertToEntityAttribute_truncatedPayload_throwsSecurityException() {
+    String truncated = "ENC:" + Base64.getEncoder().encodeToString(new byte[10]);
+
+    assertThatThrownBy(() -> converter.convertToEntityAttribute(truncated))
+        .isInstanceOf(SecurityException.class);
   }
 
   @Test

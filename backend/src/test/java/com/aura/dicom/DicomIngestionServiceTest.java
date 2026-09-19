@@ -1,11 +1,15 @@
 package com.aura.dicom;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.aura.common.exception.ClinicalProcessingException;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -98,6 +102,57 @@ class DicomIngestionServiceTest {
     assertThat(dicomService.isDicomBase64(pngDataUri)).isFalse();
   }
 
+  @Test
+  @DisplayName("MED-01: extractPixelDataAsPng throws ClinicalProcessingException when pixel stream is missing or unsupported")
+  void extractPixelDataAsPng_missingJpegStream_throwsClinicalProcessingException() throws IOException {
+    byte[] dicomWithoutJpeg = createSampleDicomBytesWithoutJpeg("Patient", "MRN-1", "OP", "OD");
+    assertThatThrownBy(() -> dicomService.extractPixelDataAsPng(dicomWithoutJpeg))
+        .isInstanceOf(ClinicalProcessingException.class)
+        .hasMessageContaining("synthetic fallback");
+  }
+
+  @Test
+  @DisplayName("MED-02: deidentifyDicom handles Undefined Length Sequences (0xFFFFFFFF) and fully anonymizes PHI tags")
+  void deidentifyDicom_handlesUndefinedLengthSequence_anonymizesPhiTags() throws IOException {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    baos.write(new byte[128]); // Preamble
+    baos.write(new byte[] {'D', 'I', 'C', 'M'});
+
+    // 1. Write an Undefined Length Sequence (0008, 1111) SQ BEFORE PatientName
+    writeUndefinedLengthSequence(baos, 0x0008, 0x1111);
+
+    // 2. Write PatientName (0010, 0010) AFTER sequence
+    writeDicomStringElement(baos, 0x0010, 0x0010, "PN", "Le Van Cuong");
+
+    // 3. Write PatientID (0010, 0020) AFTER sequence
+    writeDicomStringElement(baos, 0x0010, 0x0020, "LO", "MRN-SECRET-777");
+
+    // 4. Pixel data with minimal JPEG
+    byte[] jpegBytes = createMinimalTestJpeg();
+    writeDicomPixelDataHeader(baos, jpegBytes.length);
+    baos.write(jpegBytes);
+
+    byte[] dicomWithSeq = baos.toByteArray();
+
+    // Verify extractMetadata reads past the sequence
+    DicomMetadata meta = dicomService.extractMetadata(dicomWithSeq);
+    assertThat(meta.patientName()).isEqualTo("Le Van Cuong");
+    assertThat(meta.patientId()).isEqualTo("MRN-SECRET-777");
+
+    // Verify deidentifyDicom replaces PHI tags located after the sequence
+    byte[] anonymized = dicomService.deidentifyDicom(dicomWithSeq, "ANO-CUONG", "MRN-DEID-000");
+    DicomMetadata afterMeta = dicomService.extractMetadata(anonymized);
+    assertThat(afterMeta.patientName()).contains("ANO-CUONG");
+    assertThat(afterMeta.patientId()).contains("MRN-DEID-000");
+
+    // Verify raw binary contains pseudonym and does NOT contain original PHI
+    String anonymizedStr = new String(anonymized, StandardCharsets.UTF_8);
+    assertThat(anonymizedStr).doesNotContain("Le Van Cuong");
+    assertThat(anonymizedStr).doesNotContain("MRN-SECRET-777");
+    assertThat(anonymizedStr).contains("ANO-CUONG");
+    assertThat(anonymizedStr).contains("MRN-DEID-000");
+  }
+
   /**
    * Helper to construct a synthetic compliant binary DICOM dataset (PS 3.10 format).
    */
@@ -129,10 +184,87 @@ class DicomIngestionServiceTest {
     writeDicomShortElement(baos, 0x0028, 0x0011, (short) 512);
 
     // Tag (7FE0,0010) Pixel Data: VR="OB"
-    writeDicomPixelDataHeader(baos, 1024);
-    baos.write(new byte[1024]); // dummy raw pixel data
+    byte[] jpegBytes = createMinimalTestJpeg();
+    writeDicomPixelDataHeader(baos, jpegBytes.length);
+    baos.write(jpegBytes);
 
     return baos.toByteArray();
+  }
+
+  private static byte[] createMinimalTestJpeg() {
+    try {
+      BufferedImage img = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+      img.setRGB(0, 0, 0xFF0000);
+      img.setRGB(1, 1, 0x00FF00);
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      ImageIO.write(img, "jpg", baos);
+      return baos.toByteArray();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private byte[] createSampleDicomBytesWithoutJpeg(String patientName, String patientId, String modality, String laterality) throws IOException {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    baos.write(new byte[128]);
+    baos.write(new byte[] {(byte) 'D', (byte) 'I', (byte) 'C', (byte) 'M'});
+    writeDicomStringElement(baos, 0x0010, 0x0010, "PN", patientName);
+    writeDicomStringElement(baos, 0x0010, 0x0020, "LO", patientId);
+    writeDicomStringElement(baos, 0x0008, 0x0060, "CS", modality);
+    writeDicomStringElement(baos, 0x0020, 0x0060, "CS", laterality);
+    writeDicomShortElement(baos, 0x0028, 0x0010, (short) 512);
+    writeDicomShortElement(baos, 0x0028, 0x0011, (short) 512);
+    writeDicomPixelDataHeader(baos, 128);
+    baos.write(new byte[128]); // Raw non-JPEG bytes
+    return baos.toByteArray();
+  }
+
+  private void writeUndefinedLengthSequence(ByteArrayOutputStream baos, int group, int element) throws IOException {
+    baos.write(group & 0xFF);
+    baos.write((group >> 8) & 0xFF);
+    baos.write(element & 0xFF);
+    baos.write((element >> 8) & 0xFF);
+    baos.write("SQ".getBytes(StandardCharsets.US_ASCII));
+    baos.write(0); // reserved
+    baos.write(0);
+    // Undefined length: 0xFFFFFFFF
+    baos.write(0xFF);
+    baos.write(0xFF);
+    baos.write(0xFF);
+    baos.write(0xFF);
+
+    // Write Item tag (FFFE, E000) with undefined length
+    baos.write(0xFE);
+    baos.write(0xFF);
+    baos.write(0x00);
+    baos.write(0xE0);
+    baos.write(0xFF);
+    baos.write(0xFF);
+    baos.write(0xFF);
+    baos.write(0xFF);
+
+    // Item content (some nested data element, e.g. Code Value 0008,0100)
+    writeDicomStringElement(baos, 0x0008, 0x0100, "SH", "TEST_CODE");
+
+    // Item Delimitation Item (FFFE, E00D) with length 0
+    baos.write(0xFE);
+    baos.write(0xFF);
+    baos.write(0x0D);
+    baos.write(0xE0);
+    baos.write(0);
+    baos.write(0);
+    baos.write(0);
+    baos.write(0);
+
+    // Sequence Delimitation Item (FFFE, E0DD) with length 0
+    baos.write(0xFE);
+    baos.write(0xFF);
+    baos.write(0xDD);
+    baos.write(0xE0);
+    baos.write(0);
+    baos.write(0);
+    baos.write(0);
+    baos.write(0);
   }
 
   private void writeDicomStringElement(ByteArrayOutputStream baos, int group, int element, String vr, String value) throws IOException {

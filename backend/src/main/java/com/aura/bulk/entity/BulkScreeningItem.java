@@ -77,6 +77,9 @@ public class BulkScreeningItem {
   @Column(name = "error_message", columnDefinition = "TEXT")
   private String errorMessage;
 
+  @Column(name = "image_payload", columnDefinition = "TEXT")
+  private String imagePayload;
+
   @Column(name = "processed_at")
   private Instant processedAt;
 
@@ -277,6 +280,14 @@ public class BulkScreeningItem {
 
   public void setErrorMessage(String errorMessage) {
     this.errorMessage = errorMessage;
+  }
+
+  public String getImagePayload() {
+    return imagePayload;
+  }
+
+  public void setImagePayload(String imagePayload) {
+    this.imagePayload = imagePayload;
   }
 
   public Instant getProcessedAt() {

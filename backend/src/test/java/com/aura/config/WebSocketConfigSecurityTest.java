@@ -2,11 +2,14 @@ package com.aura.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.auth.security.JwtTokenProvider;
+import com.aura.auth.service.PatientAccessService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import java.util.List;
@@ -30,6 +33,7 @@ class WebSocketConfigSecurityTest {
 
   private WebSocketConfig webSocketConfig;
   private JwtTokenProvider jwtTokenProvider;
+  private PatientAccessService patientAccessService;
   private ChannelInterceptor interceptor;
   private MessageChannel messageChannel;
 
@@ -37,7 +41,9 @@ class WebSocketConfigSecurityTest {
   void setUp() {
     webSocketConfig = new WebSocketConfig();
     jwtTokenProvider = mock(JwtTokenProvider.class);
+    patientAccessService = mock(PatientAccessService.class);
     ReflectionTestUtils.setField(webSocketConfig, "jwtTokenProvider", jwtTokenProvider);
+    ReflectionTestUtils.setField(webSocketConfig, "patientAccessService", patientAccessService);
 
     ChannelRegistration registration = new ChannelRegistration();
     webSocketConfig.configureClientInboundChannel(registration);
@@ -188,6 +194,143 @@ class WebSocketConfigSecurityTest {
 
     StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
     accessor.setDestination("/topic/clinic/" + clinicId);
+    accessor.setUser(auth);
+
+    Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    Message<?> result = interceptor.preSend(message, messageChannel);
+
+    assertThat(result).isNotNull();
+  }
+
+  // --- SEC-05: Fine-Grained Authorization Tests for Chat & Screening-Chat ---
+
+  @Test
+  @DisplayName("SEC-05: User subscribing to own chat channel /topic/chat.{ownId} is permitted")
+  void subscribe_chat_ownChannel_allowed() {
+    UUID userId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(userId, "u@aura.ai", "p", true, List.of("USER"));
+    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+
+    StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+    accessor.setDestination("/topic/chat." + userId);
+    accessor.setUser(auth);
+
+    Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    Message<?> result = interceptor.preSend(message, messageChannel);
+
+    assertThat(result).isNotNull();
+  }
+
+  @Test
+  @DisplayName("SEC-05: Doctor subscribing to unassigned patient's chat is rejected with AccessDeniedException")
+  void subscribe_chat_unassignedDoctor_throwsAccessDenied() {
+    UUID doctorId = UUID.randomUUID();
+    UUID patientId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(doctorId, "doc@aura.ai", "p", true, List.of("DOCTOR"));
+    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+
+    when(patientAccessService.canChatBetween(principal, patientId)).thenReturn(false);
+
+    StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+    accessor.setDestination("/topic/chat." + patientId);
+    accessor.setUser(auth);
+
+    Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+    assertThatThrownBy(() -> interceptor.preSend(message, messageChannel))
+        .isInstanceOf(AccessDeniedException.class)
+        .hasMessageContaining("Unauthorized subscription to private chat channel");
+  }
+
+  @Test
+  @DisplayName("SEC-05: Doctor subscribing to assigned patient's chat is permitted")
+  void subscribe_chat_assignedDoctor_allowed() {
+    UUID doctorId = UUID.randomUUID();
+    UUID patientId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(doctorId, "doc@aura.ai", "p", true, List.of("DOCTOR"));
+    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+
+    when(patientAccessService.canChatBetween(principal, patientId)).thenReturn(true);
+
+    StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+    accessor.setDestination("/topic/chat." + patientId);
+    accessor.setUser(auth);
+
+    Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    Message<?> result = interceptor.preSend(message, messageChannel);
+
+    assertThat(result).isNotNull();
+  }
+
+  @Test
+  @DisplayName("SEC-05: Admin subscribing to any chat channel is permitted")
+  void subscribe_chat_admin_allowed() {
+    UUID adminId = UUID.randomUUID();
+    UUID targetUserId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(adminId, "admin@aura.ai", "p", true, List.of("ADMIN"));
+    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+
+    StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+    accessor.setDestination("/topic/chat." + targetUserId);
+    accessor.setUser(auth);
+
+    Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    Message<?> result = interceptor.preSend(message, messageChannel);
+
+    assertThat(result).isNotNull();
+  }
+
+  @Test
+  @DisplayName("SEC-05: Patient subscribing to unowned screening chat is rejected with AccessDeniedException")
+  void subscribe_screeningChat_unauthorizedPatient_throwsAccessDenied() {
+    UUID patientId = UUID.randomUUID();
+    UUID screeningId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(patientId, "pat@aura.ai", "p", true, List.of("USER"));
+    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+
+    when(patientAccessService.canAccessScreening(principal, screeningId)).thenReturn(false);
+
+    StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+    accessor.setDestination("/topic/screening-chat." + screeningId);
+    accessor.setUser(auth);
+
+    Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+    assertThatThrownBy(() -> interceptor.preSend(message, messageChannel))
+        .isInstanceOf(AccessDeniedException.class)
+        .hasMessageContaining("Unauthorized subscription to screening chat channel");
+  }
+
+  @Test
+  @DisplayName("SEC-05: Patient subscribing to own screening chat is permitted")
+  void subscribe_screeningChat_authorizedPatient_allowed() {
+    UUID patientId = UUID.randomUUID();
+    UUID screeningId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(patientId, "pat@aura.ai", "p", true, List.of("USER"));
+    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+
+    when(patientAccessService.canAccessScreening(principal, screeningId)).thenReturn(true);
+
+    StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+    accessor.setDestination("/topic/screening-chat." + screeningId);
+    accessor.setUser(auth);
+
+    Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    Message<?> result = interceptor.preSend(message, messageChannel);
+
+    assertThat(result).isNotNull();
+  }
+
+  @Test
+  @DisplayName("SEC-05: Admin subscribing to any screening chat is permitted")
+  void subscribe_screeningChat_admin_allowed() {
+    UUID adminId = UUID.randomUUID();
+    UUID screeningId = UUID.randomUUID();
+    AuraUserPrincipal principal = new AuraUserPrincipal(adminId, "admin@aura.ai", "p", true, List.of("ADMIN"));
+    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+
+    StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+    accessor.setDestination("/topic/screening-chat." + screeningId);
     accessor.setUser(auth);
 
     Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());

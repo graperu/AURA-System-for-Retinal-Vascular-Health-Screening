@@ -133,6 +133,26 @@ class AuditLogServiceTest {
       assertThat(result.getStatus()).isEqualTo("FAILED");
       assertThat(result.getAction()).isEqualTo("IDOR_ACCESS_BLOCKED");
     }
+
+    @Test
+    @DisplayName("AUD-01: logEvent methods must be annotated with @Transactional(propagation = Propagation.REQUIRES_NEW)")
+    void verifyTransactionPropagationRequiresNew() throws NoSuchMethodException {
+      java.lang.reflect.Method logEvent11 = AuditLogService.class.getMethod("logEvent",
+          UUID.class, String.class, String.class, String.class, String.class,
+          String.class, String.class, String.class, String.class, String.class, String.class);
+      org.springframework.transaction.annotation.Transactional tx11 =
+          logEvent11.getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+      assertThat(tx11).isNotNull();
+      assertThat(tx11.propagation()).isEqualTo(org.springframework.transaction.annotation.Propagation.REQUIRES_NEW);
+
+      java.lang.reflect.Method logEvent9 = AuditLogService.class.getMethod("logEvent",
+          UUID.class, String.class, String.class, String.class, String.class,
+          String.class, String.class, String.class, String.class);
+      org.springframework.transaction.annotation.Transactional tx9 =
+          logEvent9.getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+      assertThat(tx9).isNotNull();
+      assertThat(tx9.propagation()).isEqualTo(org.springframework.transaction.annotation.Propagation.REQUIRES_NEW);
+    }
   }
 
   @Nested

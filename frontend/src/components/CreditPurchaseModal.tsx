@@ -484,27 +484,33 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
           onSuccess?.(added);
           setPaymentStep("SUCCESS");
           return;
+        } else {
+          setPurchaseError(
+            res?.message ||
+              (isVi
+                ? "Không thể kích hoạt giao dịch. Vui lòng chờ hệ thống tự động đối soát trong 3-5 giây."
+                : "Unable to activate transaction. Please wait for automatic bank confirmation.")
+          );
         }
       }
-    } catch (err) {
-      console.warn("API confirm payment error, using demo confirmation:", err);
+    } catch (err: any) {
+      console.warn("API confirm payment error:", err);
+      const isForbidden =
+        err?.status === 403 ||
+        (typeof err?.message === "string" && (err.message.includes("403") || err.message.includes("Sandbox") || err.message.includes("thử nghiệm")));
+      setPurchaseError(
+        isForbidden
+          ? (isVi
+              ? "Tính năng xác nhận thủ công chỉ dành cho môi trường thử nghiệm (Sandbox/Dev). Vui lòng đợi hệ thống ngân hàng tự động đối soát và kích hoạt trong giây lát."
+              : "Manual confirmation is only supported in Sandbox/Dev mode. Please wait for the banking system to automatically verify your payment.")
+          : (err?.message ||
+              (isVi
+                ? "Xác nhận thanh toán thất bại. Vui lòng kiểm tra lại trạng thái chuyển khoản."
+                : "Payment confirmation failed. Please check your bank transfer status."))
+      );
     } finally {
       setIsProcessing(false);
     }
-
-    // Hoàn tất nạp lượt khám thành công (chế độ Demo)
-    const added = selectedPackage?.scansCount || 5;
-    setLastTxnDetails({
-      id: activeTxnId || `TXN-DEMO-${Date.now()}`,
-      status: 'SUCCEEDED',
-      creditsAdded: added,
-      amount: selectedPackage?.priceVnd || 2000,
-      createdAt: new Date().toISOString(),
-      provider: paymentMethod,
-    });
-    onPurchaseSuccess?.(activeCredits + added);
-    onSuccess?.(added);
-    setPaymentStep("SUCCESS");
   };
 
   const handleClose = () => {

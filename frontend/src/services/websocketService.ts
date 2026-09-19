@@ -136,10 +136,12 @@ export class StompChatClient {
 
         if (this.manualDisconnect) return;
 
-        // Auto reconnect with exponential backoff if logged in and under max retries
         const currentToken = typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null;
         if (currentToken && this.retryCount < this.maxRetries) {
-          const delay = Math.min(30000, 1000 * Math.pow(1.5, this.retryCount));
+          // FE-06: Bổ sung randomized jitter (±20%) ngăn ngừa thundering herd reconnect storm
+          const baseDelay = Math.min(30000, 1000 * Math.pow(1.5, this.retryCount));
+          const jitter = 0.8 + Math.random() * 0.4;
+          const delay = Math.min(30000, Math.round(baseDelay * jitter));
           this.retryCount++;
           this.reconnectTimer = setTimeout(() => {
             this.connect(onConnected, onError);

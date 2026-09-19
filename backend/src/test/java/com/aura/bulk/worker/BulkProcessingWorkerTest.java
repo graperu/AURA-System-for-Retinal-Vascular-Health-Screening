@@ -362,4 +362,83 @@ class BulkProcessingWorkerTest {
     executor.shutdownNow();
     assertThat(executor.isShutdown()).isTrue();
   }
+
+  @Test
+  @DisplayName("DAT-02: syncItemAndBatchSuccess tự động tạo và lưu trữ Screening entity, cập nhật PatientProfile và phát STOMP event")
+  void syncItemAndBatchSuccess_persistsScreeningAndUpdatesPatientProfile() {
+    com.aura.screening.repository.ScreeningRepository screeningRepo = mock(com.aura.screening.repository.ScreeningRepository.class);
+    com.aura.patient.repository.PatientProfileRepository patientRepo = mock(com.aura.patient.repository.PatientProfileRepository.class);
+    com.aura.patient.repository.PatientMedicalProfileRepository medRepo = mock(com.aura.patient.repository.PatientMedicalProfileRepository.class);
+    com.aura.user.repository.UserRepository userRepo = mock(com.aura.user.repository.UserRepository.class);
+    com.aura.doctor.repository.DoctorPatientAssignmentRepository assignRepo = mock(com.aura.doctor.repository.DoctorPatientAssignmentRepository.class);
+    com.aura.clinic.repository.ClinicMemberRepository clinicMemberRepo = mock(com.aura.clinic.repository.ClinicMemberRepository.class);
+    com.aura.realtime.RealtimeEventPublisher eventPublisher = mock(com.aura.realtime.RealtimeEventPublisher.class);
+
+    BulkProcessingWorker customWorker = new BulkProcessingWorker(
+        jobQueue, aiServiceClient, itemRepository, batchRepository,
+        eventPublisher, billingService, screeningRepo, patientRepo, medRepo, userRepo, assignRepo, clinicMemberRepo
+    );
+
+    UUID clinicId = UUID.randomUUID();
+    UUID batchId = UUID.randomUUID();
+    BulkScreeningBatch batch = new BulkScreeningBatch("BATCH-DAT02", clinicId, 1);
+    batch.setId(batchId);
+    when(batchRepository.findByBatchCode("BATCH-DAT02")).thenReturn(Optional.of(batch));
+
+    BulkScreeningItem item = new BulkScreeningItem();
+    item.setBatchId(batchId);
+    item.setItemCode("ITEM-001");
+    item.setRawMrn("MRN-TEST-123");
+    item.setPatientName("Nguyễn Văn Test");
+    item.setFileName("fundus.jpg");
+    when(itemRepository.findByBatchIdAndItemCode(batchId, "ITEM-001")).thenReturn(Optional.of(item));
+
+    com.aura.patient.entity.PatientProfile profile = new com.aura.patient.entity.PatientProfile("MRN-TEST-123", "Nguyễn Văn Test", 50, "Male", "0901234567");
+    UUID patientUserId = UUID.randomUUID();
+    profile.setUserId(patientUserId);
+    when(patientRepo.findByMrn("MRN-TEST-123")).thenReturn(Optional.of(profile));
+
+    when(screeningRepo.save(any(com.aura.screening.entity.Screening.class))).thenAnswer(invocation -> {
+      com.aura.screening.entity.Screening s = invocation.getArgument(0);
+      s.setId(UUID.randomUUID());
+      return s;
+    });
+
+    PatientAnonymizedDto patientDto = new PatientAnonymizedDto("ps-1", "MRN-TEST-123", 50, "Male", 120, 80, 5.5, false, false, Instant.now());
+    BatchItemTask task = new BatchItemTask("BATCH-DAT02", "ITEM-001", "fundus.jpg", "OD", patientDto, "base64-image-payload");
+
+    AiInferenceResultDto aiResult = new AiInferenceResultDto(
+        "analysis-dat02", 150L, 85, 82, "Critical", 75, "Severe", 26.5, 0.55, 14.2, 1.35, 0.45,
+        "heatmap-base64", 2, List.of("Narrowing detected", "Hemorrhages present")
+    );
+
+    ReflectionTestUtils.invokeMethod(customWorker, "syncItemAndBatchSuccess", task, 150L, aiResult);
+
+    org.mockito.ArgumentCaptor<com.aura.screening.entity.Screening> captor = org.mockito.ArgumentCaptor.forClass(com.aura.screening.entity.Screening.class);
+    verify(screeningRepo, times(1)).save(captor.capture());
+    com.aura.screening.entity.Screening saved = captor.getValue();
+
+    assertThat(saved.getBatchId()).isEqualTo(batchId);
+    assertThat(saved.getClinicId()).isEqualTo(clinicId);
+    assertThat(saved.getPatientId()).isEqualTo(patientUserId);
+    assertThat(saved.getStatus()).isEqualTo(com.aura.screening.entity.ScreeningStatus.ANALYZED);
+    assertThat(saved.getRiskScore()).isEqualTo(85);
+    assertThat(saved.getRiskLevel()).isEqualTo(com.aura.screening.entity.RiskLevel.CRITICAL);
+    assertThat(saved.getHeatmapBase64()).isEqualTo("heatmap-base64");
+    assertThat(saved.getCardiovascularRiskScore()).isEqualTo(82);
+    assertThat(saved.getCardiovascularRiskLevel()).isEqualTo("Critical");
+    assertThat(saved.getDiabeticRetinopathyRiskScore()).isEqualTo(75);
+    assertThat(saved.getStrokeRiskLevel()).isEqualTo("CRITICAL");
+
+    verify(patientRepo, times(1)).save(profile);
+    assertThat(profile.getRiskScore()).isEqualTo(85);
+    assertThat(profile.getRiskLevel()).isEqualTo("CRITICAL");
+    assertThat(profile.getReviewStatus()).isEqualTo("PENDING_REVIEW");
+
+    verify(eventPublisher, times(1)).publishScreeningCreated(any());
+    verify(eventPublisher, times(1)).publishScreeningCompleted(any());
+
+    ExecutorService customExec = (ExecutorService) ReflectionTestUtils.getField(customWorker, "executorService");
+    if (customExec != null) customExec.shutdownNow();
+  }
 }

@@ -106,17 +106,24 @@ public class DoctorPatientAssignmentService {
     Optional<DoctorPatientAssignment> existing =
         assignmentRepository.findByDoctorIdAndPatientId(doctorId, patientId);
 
+    DoctorPatientAssignment savedAssignment;
     if (existing.isPresent()) {
       DoctorPatientAssignment assignment = existing.get();
       assignment.setStatus(AssignmentStatus.ACTIVE);
       assignment.setAssignedAt(Instant.now());
       assignment.setAssignedBy(assignedBy);
-      return assignmentRepository.save(assignment);
+      savedAssignment = assignmentRepository.save(assignment);
+    } else {
+      DoctorPatientAssignment newAssignment =
+          new DoctorPatientAssignment(doctor, patient, AssignmentStatus.ACTIVE, assignedBy);
+      savedAssignment = assignmentRepository.save(newAssignment);
     }
 
-    DoctorPatientAssignment newAssignment =
-        new DoctorPatientAssignment(doctor, patient, AssignmentStatus.ACTIVE, assignedBy);
-    return assignmentRepository.save(newAssignment);
+    if (profileService != null) {
+      String docName = doctor.getFullName() != null && !doctor.getFullName().isBlank() ? doctor.getFullName() : doctor.getEmail();
+      profileService.syncAssignedDoctor(patientId, docName);
+    }
+    return savedAssignment;
   }
 
   @Transactional
@@ -125,5 +132,14 @@ public class DoctorPatientAssignmentService {
         .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công giữa Bác sĩ và Bệnh nhân"));
     assignment.setStatus(AssignmentStatus.INACTIVE);
     assignmentRepository.save(assignment);
+
+    if (profileService != null) {
+      List<DoctorPatientAssignment> remaining = assignmentRepository
+          .findByPatientIdAndStatus(patientId, AssignmentStatus.ACTIVE);
+      String remainingDocName = remaining.stream()
+          .map(a -> a.getDoctor().getFullName() != null ? a.getDoctor().getFullName() : a.getDoctor().getEmail())
+          .collect(java.util.stream.Collectors.joining(", "));
+      profileService.syncAssignedDoctor(patientId, remainingDocName.isBlank() ? null : remainingDocName);
+    }
   }
 }

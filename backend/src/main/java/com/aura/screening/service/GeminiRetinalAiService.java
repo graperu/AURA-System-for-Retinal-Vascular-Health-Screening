@@ -13,7 +13,9 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +25,36 @@ import org.springframework.stereotype.Service;
 public class GeminiRetinalAiService {
 
   private static final Logger log = LoggerFactory.getLogger(GeminiRetinalAiService.class);
+
+  public static final Set<String> ALLOWED_EYE_POSITIONS = Set.of(
+      "OD", "OS", "OU", "LEFT_EYE", "RIGHT_EYE", "UNKNOWN"
+  );
+
+  public static String sanitizeEyePosition(String rawEye) {
+    if (rawEye == null || rawEye.isBlank()) {
+      return "UNKNOWN";
+    }
+    String trimmed = rawEye.trim();
+    // Neutralize prompt injection vectors (newlines, control characters, quotes, excessive length)
+    if (trimmed.length() > 20 || trimmed.contains("\n") || trimmed.contains("\r") || trimmed.contains("\"") || trimmed.contains(";")) {
+      log.warn("[AI-01 Security] Potential prompt injection detected in eyePosition parameter: '{}'. Neutralizing to UNKNOWN.", trimmed);
+      return "UNKNOWN";
+    }
+    String upper = trimmed.toUpperCase(Locale.ROOT);
+    if (ALLOWED_EYE_POSITIONS.contains(upper)) {
+      return upper;
+    }
+    // Normalize valid clinical aliases safely
+    return switch (upper) {
+      case "RIGHT", "RIGHT_OD", "MAT_PHAI", "R" -> "OD";
+      case "LEFT", "LEFT_OS", "MAT_TRAI", "L" -> "OS";
+      case "BOTH", "BOTH_EYES", "HAI_MAT" -> "OU";
+      default -> {
+        log.warn("[AI-01 Security] Unrecognized eyePosition '{}'. Defaulting to UNKNOWN.", rawEye);
+        yield "UNKNOWN";
+      }
+    };
+  }
 
   @Value("${aura.ai-service.gemini.enabled:true}")
   private boolean enabled;
@@ -47,8 +79,10 @@ public class GeminiRetinalAiService {
       return null;
     }
 
+    String sanitizedEye = sanitizeEyePosition(eye);
+
     try {
-      log.info("Dispatching Retinal Image to Cloud AI Engine ({}) for Eye {}...", model, eye);
+      log.info("Dispatching Retinal Image to Cloud AI Engine ({}) for Eye {}...", model, sanitizedEye);
 
       String systemPrompt = """
           Bạn là hệ thống AI chuyên gia cấp cao về Nhãn khoa và Vi mạch Võng mạc (AURA Clinical Retinal Decision Support System).
@@ -90,6 +124,13 @@ public class GeminiRetinalAiService {
           - 65 - 79 (HIGH): Hẹp động mạch rõ rệt, nhiều vi phình mạch, xuất huyết dạng chấm/vệt, xuất tiết cứng gom cụm. Điểm: 65 - 75/100. Phân loại NPDR nặng.
           - 80 - 100 (CRITICAL): Xuất huyết diện rộng, xuất huyết trước võng mạc, phù hoàng điểm nặng, tân mạch (PDR), nguy cơ đột quỵ/mù lòa cấp. Điểm: 80 - 95/100.
           
+          - Phân loại bệnh võng mạc đái tháo đường (Diabetic Retinopathy) bắt buộc tuân theo tiêu chuẩn ETDRS / AAO (Quy tắc 4-2-1):
+            + Cấp độ 0 (Không DR): Hoàn toàn không có tổn thương.
+            + Cấp độ 1 (NPDR nhẹ): Chỉ có vi phình mạch (Microaneurysm).
+            + Cấp độ 2 (NPDR trung bình): Nhiều hơn vi phình mạch nhưng chưa thỏa quy tắc 4-2-1.
+            + Cấp độ 3 (NPDR nặng - Tiền tăng sinh): Thỏa quy tắc 4-2-1 (Xuất huyết ở 4 góc phần tư, hoặc chuỗi hạt tĩnh mạch ở 2 góc, hoặc IRMA ở 1 góc).
+            + Cấp độ 4 (PDR - Tăng sinh): Có tân mạch (Neovascularization NVD/NVE) hoặc xuất huyết dịch kính/trước võng mạc.
+          
           BẮT BUỘC trả về kết quả định dạng JSON DUY NHẤT (không dùng markdown backticks ```json):
           {
             "overallVascularRiskScore": 28,
@@ -101,6 +142,13 @@ public class GeminiRetinalAiService {
                 "confidence": 0.92,
                 "riskLevel": "LOW",
                 "clinicalNote": "Cung mạch võng mạc lưu thông tốt, tỷ lệ A/V ước tính 0.66, chưa ghi nhận dấu hiệu xơ vữa hay co thắt động mạch."
+              },
+              {
+                "category": "Stroke Risk",
+                "riskScore": 18,
+                "confidence": 0.90,
+                "riskLevel": "LOW",
+                "clinicalNote": "Không phát hiện dấu hiệu co thắt cục bộ (Focal Narrowing) hay bắt chéo động-tĩnh mạch (AV Nipping)."
               },
               {
                 "category": "Diabetic Retinopathy",
@@ -150,7 +198,7 @@ public class GeminiRetinalAiService {
               dataUri.substring(0, Math.min(30, dataUri.length())), dataUri.length());
 
           List<Map<String, Object>> contentParts = new ArrayList<>();
-          contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + eye + ") của bệnh nhân sau:"));
+          contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + sanitizedEye + ") của bệnh nhân sau:"));
           contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", dataUri)));
 
           messages.add(Map.of("role", "user", "content", contentParts));
@@ -159,15 +207,15 @@ public class GeminiRetinalAiService {
           String resolvedDataUri = resolveLocalImageToDataUri(imageBase64OrUrl);
           if (resolvedDataUri != null) {
             List<Map<String, Object>> contentParts = new ArrayList<>();
-            contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + eye + ") của bệnh nhân sau:"));
+            contentParts.add(Map.of("type", "text", "text", "Phân tích ảnh đáy mắt võng mạc (" + sanitizedEye + ") của bệnh nhân sau:"));
             contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", resolvedDataUri)));
             messages.add(Map.of("role", "user", "content", contentParts));
           } else {
-            messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch đáy mắt tiêu chuẩn cho mắt: " + eye));
+            messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch đáy mắt tiêu chuẩn cho mắt: " + sanitizedEye));
           }
         }
       } else {
-        messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch mắt: " + eye));
+        messages.add(Map.of("role", "user", "content", "Phân tích sàng lọc vi mạch mắt: " + sanitizedEye));
       }
 
       requestPayload.put("messages", messages);

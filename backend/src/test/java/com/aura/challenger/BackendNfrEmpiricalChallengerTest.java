@@ -37,6 +37,8 @@ import com.aura.screening.service.ScreeningService;
 import com.aura.system.entity.SystemConfig;
 import com.aura.system.repository.SystemConfigRepository;
 import com.aura.system.service.SystemConfigService;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import java.io.ByteArrayOutputStream;
@@ -173,26 +175,28 @@ public class BackendNfrEmpiricalChallengerTest {
     }
 
     @Test
-    @DisplayName("Tamper Detection: Corrupt ciphertext/tag triggers GCM auth failure and returns raw data safely")
+    @DisplayName("Tamper Detection: Corrupt ciphertext/tag triggers GCM auth failure and throws SecurityException")
     void tamperDetection_returnsRawData() {
       String original = "Confidential Patient Address";
       String encrypted = converter.convertToDatabaseColumn(original);
 
       // Tamper 1: Corrupted Base64 payload
       String corruptBase64 = "ENC:NOT_VALID_BASE64_$%^&";
-      assertThat(converter.convertToEntityAttribute(corruptBase64)).isEqualTo(corruptBase64);
+      assertThatThrownBy(() -> converter.convertToEntityAttribute(corruptBase64))
+          .isInstanceOf(SecurityException.class);
 
-      // Tamper 2: Truncated bytes (fewer than 12-byte IV)
+      // Tamper 2: Truncated bytes (fewer than minimum encrypted payload)
       String truncated = "ENC:" + Base64.getEncoder().encodeToString(new byte[6]);
-      assertThat(converter.convertToEntityAttribute(truncated)).isEqualTo(truncated);
+      assertThatThrownBy(() -> converter.convertToEntityAttribute(truncated))
+          .isInstanceOf(SecurityException.class);
 
       // Tamper 3: Flip a bit in the actual ciphertext payload (GCM authentication tag mismatch)
       byte[] decoded = Base64.getDecoder().decode(encrypted.substring(4));
       decoded[decoded.length - 1] ^= 0x01; // flip last bit of authentication tag
       String tamperedEncrypted = "ENC:" + Base64.getEncoder().encodeToString(decoded);
 
-      String result = converter.convertToEntityAttribute(tamperedEncrypted);
-      assertThat(result).isEqualTo(tamperedEncrypted); // gracefully returns raw string rather than crashing application
+      assertThatThrownBy(() -> converter.convertToEntityAttribute(tamperedEncrypted))
+          .isInstanceOf(SecurityException.class);
     }
 
     @Test
@@ -752,12 +756,21 @@ public class BackendNfrEmpiricalChallengerTest {
       baos.write(2); baos.write(0);
       baos.write(0x00); baos.write(0x02);
 
-      // Pixel Data (7FE0,0010)
+      // Pixel Data (7FE0,0010) with genuine minimal JPEG stream
+      BufferedImage img = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+      img.setRGB(0, 0, 0xFF0000);
+      ByteArrayOutputStream imgBaos = new ByteArrayOutputStream();
+      ImageIO.write(img, "jpg", imgBaos);
+      byte[] jpegBytes = imgBaos.toByteArray();
+
       baos.write(0xE0); baos.write(0x7F); baos.write(0x10); baos.write(0x00);
       baos.write("OB".getBytes(StandardCharsets.US_ASCII));
       baos.write(0); baos.write(0);
-      baos.write(128); baos.write(0); baos.write(0); baos.write(0);
-      baos.write(new byte[128]);
+      baos.write(jpegBytes.length & 0xFF);
+      baos.write((jpegBytes.length >> 8) & 0xFF);
+      baos.write((jpegBytes.length >> 16) & 0xFF);
+      baos.write((jpegBytes.length >> 24) & 0xFF);
+      baos.write(jpegBytes);
 
       return baos.toByteArray();
     }

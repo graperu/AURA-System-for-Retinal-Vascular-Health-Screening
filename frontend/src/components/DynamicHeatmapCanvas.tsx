@@ -31,6 +31,22 @@ export const DynamicHeatmapCanvas: React.FC<DynamicHeatmapCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isRendered, setIsRendered] = useState(false);
 
+  // FE-02: Ổn định callback onRenderComplete qua ref để triệt tiêu vòng lặp re-render vô tận
+  const onRenderCompleteRef = useRef(onRenderComplete);
+  useEffect(() => {
+    onRenderCompleteRef.current = onRenderComplete;
+  }, [onRenderComplete]);
+
+  // FE-01: Giải phóng VRAM canvas khi component unmount
+  useEffect(() => {
+    return () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = 0;
+        canvasRef.current.height = 0;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -62,10 +78,10 @@ export const DynamicHeatmapCanvas: React.FC<DynamicHeatmapCanvasProps> = ({
       const success = renderDynamicRetinalHeatmap(img, canvas, options);
       if (success && !isCancelled) {
         setIsRendered(true);
-        if (onRenderComplete) {
+        if (onRenderCompleteRef.current) {
           try {
             const dataUrl = canvas.toDataURL('image/png');
-            onRenderComplete(dataUrl);
+            onRenderCompleteRef.current(dataUrl);
           } catch {
             // Safe fallback
           }
@@ -96,7 +112,7 @@ export const DynamicHeatmapCanvas: React.FC<DynamicHeatmapCanvasProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [imageSrc, riskScore, anomalies, selectedEye, isDarkRoom, onRenderComplete]);
+  }, [imageSrc, riskScore, JSON.stringify(anomalies), selectedEye, isDarkRoom]);
 
   return (
     <canvas

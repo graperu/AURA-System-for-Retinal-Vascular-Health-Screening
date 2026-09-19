@@ -274,8 +274,66 @@ public class PatientProfileService {
     existing.setRiskLevel(updatedData.getRiskLevel());
     existing.setReviewStatus(updatedData.getReviewStatus());
     existing.setFindingsSummary(updatedData.getFindingsSummary());
+    PatientProfile saved = patientRepository.save(existing);
+    syncToMedicalProfile(saved);
+    return PatientProfileDto.from(saved);
+  }
 
-    return PatientProfileDto.from(patientRepository.save(existing));
+  private void syncToMedicalProfile(PatientProfile patientProfile) {
+    if (profileRepository == null || patientProfile == null) {
+      return;
+    }
+    UUID patientUserId = patientProfile.getUserId();
+    String mrn = patientProfile.getMrn();
+
+    // 1. Sync User.fullName if user exists
+    if (patientUserId != null && userRepository != null && patientProfile.getFullName() != null && !patientProfile.getFullName().isBlank()) {
+      userRepository.findById(patientUserId).ifPresent(u -> {
+        if (!patientProfile.getFullName().trim().equals(u.getFullName())) {
+          u.setFullName(patientProfile.getFullName().trim());
+          userRepository.save(u);
+        }
+      });
+    }
+
+    // 2. Find existing or instantiate new PatientMedicalProfile
+    java.util.Optional<PatientMedicalProfile> medProfileOpt = java.util.Optional.empty();
+    if (patientUserId != null) {
+      medProfileOpt = profileRepository.findByUserIdWithUser(patientUserId)
+          .or(() -> profileRepository.findByUserId(patientUserId));
+    }
+    if (medProfileOpt.isEmpty() && mrn != null && !mrn.isBlank()) {
+      medProfileOpt = profileRepository.findByMrn(mrn);
+    }
+
+    PatientMedicalProfile medProfile = medProfileOpt.orElseGet(() -> {
+      if (patientUserId != null && userRepository != null) {
+        User user = userRepository.findById(patientUserId).orElse(null);
+        if (user != null) {
+          return new PatientMedicalProfile(user, mrn != null ? mrn : "MRN-" + UUID.randomUUID());
+        }
+      }
+      return null;
+    });
+
+    if (medProfile == null) {
+      return;
+    }
+
+    if (patientProfile.getAge() != null) medProfile.setAge(patientProfile.getAge());
+    if (patientProfile.getGender() != null && !patientProfile.getGender().isBlank()) medProfile.setGender(patientProfile.getGender());
+    if (patientProfile.getPhone() != null) medProfile.setPhoneNumber(patientProfile.getPhone());
+    if (patientProfile.getAddress() != null) medProfile.setAddress(patientProfile.getAddress());
+    if (patientProfile.getSystolicBp() != null) medProfile.setSystolicBp(patientProfile.getSystolicBp());
+    if (patientProfile.getDiastolicBp() != null) medProfile.setDiastolicBp(patientProfile.getDiastolicBp());
+    if (patientProfile.getHba1c() != null) medProfile.setHba1c(patientProfile.getHba1c());
+    if (patientProfile.getHasDiabetes() != null) medProfile.setHasDiabetes(patientProfile.getHasDiabetes());
+    if (patientProfile.getHasHypertension() != null) medProfile.setHasHypertension(patientProfile.getHasHypertension());
+    if (patientProfile.getHistoryOfSmoking() != null) medProfile.setHistoryOfSmoking(patientProfile.getHistoryOfSmoking());
+    if (patientProfile.getAssignedDoctor() != null && !patientProfile.getAssignedDoctor().isBlank()) {
+      medProfile.setAssignedDoctor(patientProfile.getAssignedDoctor());
+    }
+    profileRepository.save(medProfile);
   }
 
   @Transactional
@@ -361,6 +419,23 @@ public class PatientProfileService {
     syncFromMedicalProfilesAndAssignments();
   }
 
+  @Transactional
+  public void syncAssignedDoctor(UUID patientUserId, String doctorName) {
+    if (patientUserId == null) return;
+    if (profileRepository != null) {
+      profileRepository.findByUserId(patientUserId).ifPresent(med -> {
+        med.setAssignedDoctor(doctorName);
+        profileRepository.save(med);
+      });
+    }
+    if (patientRepository != null) {
+      patientRepository.findByUserId(patientUserId).ifPresent(p -> {
+        p.setAssignedDoctor(doctorName);
+        patientRepository.save(p);
+      });
+    }
+  }
+
   // --- Patient Medical Profile methods ---
 
   @Transactional
@@ -389,6 +464,9 @@ public class PatientProfileService {
           return profileRepository.save(newProfile);
         });
 
+    if (profile != null && profile.getUser() != null) {
+      syncWorklistProfile(profile.getUser(), profile);
+    }
     return toResponse(profile);
   }
 
@@ -472,10 +550,8 @@ public class PatientProfileService {
     }
     UUID patientUserId = user.getId();
     String mrn = savedProfile.getMrn();
-    PatientProfile worklistProfile = patientRepository.findAll().stream()
-        .filter(p -> (p.getUserId() != null && p.getUserId().equals(patientUserId))
-            || (p.getMrn() != null && mrn != null && p.getMrn().equalsIgnoreCase(mrn)))
-        .findFirst()
+    PatientProfile worklistProfile = patientRepository.findByUserId(patientUserId)
+        .or(() -> (mrn != null && !mrn.isBlank() ? patientRepository.findByMrn(mrn) : java.util.Optional.empty()))
         .orElseGet(() -> {
           PatientProfile np = new PatientProfile();
           np.setUserId(patientUserId);
@@ -484,16 +560,19 @@ public class PatientProfileService {
         });
 
     worklistProfile.setFullName(user.getFullName() != null && !user.getFullName().isBlank() ? user.getFullName() : "Bệnh nhân");
-    worklistProfile.setAge(savedProfile.getAge() != null ? savedProfile.getAge() : 45);
-    worklistProfile.setGender(savedProfile.getGender() != null ? savedProfile.getGender() : "Other");
-    worklistProfile.setPhone(savedProfile.getPhoneNumber());
-    worklistProfile.setAddress(savedProfile.getAddress());
-    worklistProfile.setSystolicBp(savedProfile.getSystolicBp() != null ? savedProfile.getSystolicBp() : 120);
-    worklistProfile.setDiastolicBp(savedProfile.getDiastolicBp() != null ? savedProfile.getDiastolicBp() : 80);
-    worklistProfile.setHba1c(savedProfile.getHba1c() != null ? savedProfile.getHba1c() : 5.7);
+    if (savedProfile.getAge() != null) worklistProfile.setAge(savedProfile.getAge());
+    if (savedProfile.getGender() != null && !savedProfile.getGender().isBlank()) worklistProfile.setGender(savedProfile.getGender());
+    if (savedProfile.getPhoneNumber() != null) worklistProfile.setPhone(savedProfile.getPhoneNumber());
+    if (savedProfile.getAddress() != null) worklistProfile.setAddress(savedProfile.getAddress());
+    if (savedProfile.getSystolicBp() != null) worklistProfile.setSystolicBp(savedProfile.getSystolicBp());
+    if (savedProfile.getDiastolicBp() != null) worklistProfile.setDiastolicBp(savedProfile.getDiastolicBp());
+    if (savedProfile.getHba1c() != null) worklistProfile.setHba1c(savedProfile.getHba1c());
     worklistProfile.setHasDiabetes(savedProfile.getHasDiabetes() != null ? savedProfile.getHasDiabetes() : false);
     worklistProfile.setHasHypertension(savedProfile.getHasHypertension() != null ? savedProfile.getHasHypertension() : false);
     worklistProfile.setHistoryOfSmoking(savedProfile.getHistoryOfSmoking() != null ? savedProfile.getHistoryOfSmoking() : false);
+    if (savedProfile.getAssignedDoctor() != null && !savedProfile.getAssignedDoctor().isBlank()) {
+      worklistProfile.setAssignedDoctor(savedProfile.getAssignedDoctor());
+    }
 
     patientRepository.save(worklistProfile);
   }
@@ -580,9 +659,8 @@ public class PatientProfileService {
     // 4. Đồng bộ hoặc tạo bản ghi PatientProfile phục vụ Bác sĩ tìm kiếm & làm việc trên Worklist
     if (patientRepository != null) {
       String mrn = savedProfile.getMrn();
-      PatientProfile worklistProfile = patientRepository.findAll().stream()
-          .filter(p -> (p.getUserId() != null && p.getUserId().equals(patientUserId)) || (p.getMrn() != null && p.getMrn().equalsIgnoreCase(mrn)))
-          .findFirst()
+      PatientProfile worklistProfile = patientRepository.findByUserId(patientUserId)
+          .or(() -> (mrn != null && !mrn.isBlank() ? patientRepository.findByMrn(mrn) : java.util.Optional.empty()))
           .orElseGet(() -> {
             PatientProfile np = new PatientProfile();
             np.setUserId(patientUserId);

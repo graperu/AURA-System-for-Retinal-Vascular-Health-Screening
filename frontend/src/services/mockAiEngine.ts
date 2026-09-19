@@ -488,74 +488,37 @@ export class MockAIService {
 
     // Generate client-side dynamic Grad-CAM heatmap if needed
 
-    // Compute a deterministic hash based on image data/filename/size to vary scores naturally per image
-    let hash = 0;
-    const str = (request.file ? request.file.name + request.file.size : request.imageUrl) || 'aura_fundus';
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i);
-      hash |= 0;
-    }
-    const seed = Math.abs(hash);
+    // MED-04 FIX: Standard physiological baseline references for offline test mock
+    // Completely eliminates pseudo-random ASCII string hashing and modulo tricks
+    const dynamicAvRatio = 0.66;
+    const dynamicVesselDensity = 17.5;
+    const dynamicTortuosity = 1.14;
+    const dynamicVcdr = 0.35;
+    const cardioScore = 28;
+    const hypertensionStage = 'Bình thường (Huyết áp trong giới hạn kiểm soát)';
+    const strokeScore = 5.6;
+    const drScore = 18;
+    const etdrsGrade = 'Cấp độ 0 (Không phát hiện bệnh võng mạc tiểu đường)';
+    const glaucomaScore = 18;
+    const overallScore = 28;
+
     const isRightEye = request.eyePosition === 'Right_OD';
-    const eyeOffset = isRightEye ? 3 : 7;
 
-    // Quantitative Biomarkers (Biomarker định lượng biến thiên theo từng ảnh)
-    // Tỷ lệ A/V Ratio: Ngưỡng chuẩn >= 0.67. Giá trị thực tế dao động 0.49 - 0.73
-    const dynamicAvRatio = Number((0.49 + ((seed + eyeOffset) % 24) / 100).toFixed(2));
-    // Mật độ vi mạch (Vessel Density): 13.0% - 18.8%
-    const dynamicVesselDensity = Number((13.2 + (((seed * 7 + eyeOffset) % 56) / 10)).toFixed(1));
-    // Độ uốn lượn (Tortuosity Index): 1.10 - 1.58
-    const dynamicTortuosity = Number((1.10 + (((seed * 13 + eyeOffset) % 48) / 100)).toFixed(2));
-    // Tỷ lệ Lõm gai/Gai thị (VCDR): 0.30 - 0.56
-    const dynamicVcdr = Number((0.30 + (((seed * 19 + eyeOffset) % 26) / 100)).toFixed(2));
-
-    // Dynamic Clinical Risk Scoring derived from the image's actual biomarkers
-    let cardioScore: number;
-    let hypertensionStage: string;
-    if (dynamicAvRatio < 0.54) {
-      cardioScore = 78 + (seed % 12); // 78 - 89%
-      hypertensionStage = 'Giai đoạn II (Tăng huyết áp Trung bình - Cao)';
-    } else if (dynamicAvRatio < 0.64) {
-      cardioScore = 55 + (seed % 18); // 55 - 72%
-      hypertensionStage = 'Giai đoạn I (Tăng huyết áp Nhẹ - Dao động)';
-    } else {
-      cardioScore = 22 + (seed % 15); // 22 - 36%
-      hypertensionStage = 'Bình thường (Huyết áp trong giới hạn kiểm soát)';
-    }
-
-    const strokeScore = Number((cardioScore * 0.22).toFixed(1));
-
-    let drScore: number;
-    let etdrsGrade: string;
-    if (dynamicVesselDensity < 14.5) {
-      drScore = 65 + (seed % 18); // 65 - 82%
-      etdrsGrade = 'Mức 43-47 (Bệnh võng mạc tiểu đường không tăng sinh trung bình)';
-    } else if (dynamicVesselDensity < 16.5) {
-      drScore = 42 + (seed % 16); // 42 - 57%
-      etdrsGrade = 'Mức 35 (NPDR nhẹ, vi phình mạch rải rác)';
-    } else {
-      drScore = 15 + (seed % 12); // 15 - 26%
-      etdrsGrade = 'Mức 10-20 (Không có dấu hiệu tổn thương vi mạch tiểu đường)';
-    }
-
-    const glaucomaScore = dynamicVcdr > 0.48 ? 58 + (seed % 20) : 18 + (seed % 12);
-    const overallScore = Math.min(95, Math.max(18, Math.round(cardioScore * 0.45 + drScore * 0.35 + glaucomaScore * 0.20)));
-
-    // Dynamic anomalies coordinates based on seed
+    // Standard clinical anomaly references for offline test mock
     const anomalies = [
       {
-        id: `ANO-${(seed % 900) + 100}`,
-        type: (dynamicAvRatio < 0.58 ? 'AV_Nipping' : 'Focal_Narrowing') as any,
-        coordinates: { x: 32 + (seed % 25), y: 36 + ((seed * 3) % 25), width: 8, height: 8 },
-        confidence: Number((0.85 + (seed % 12) / 100).toFixed(2)),
-        description: `Bắt chéo động-tĩnh mạch (Gunn sign) chỉ số hẹp A/V: ${dynamicAvRatio}`,
+        id: 'ANO-101',
+        type: 'Focal_Narrowing' as any,
+        coordinates: { x: 45, y: 40, width: 8, height: 8 },
+        confidence: 0.88,
+        description: `Đoạn co thắt tiểu động mạch khu trú, chỉ số A/V: ${dynamicAvRatio}`,
       },
       {
-        id: `ANO-${(seed % 800) + 200}`,
-        type: (drScore > 50 ? 'Microaneurysm' : 'Hemorrhage') as any,
-        coordinates: { x: 50 + ((seed * 5) % 25), y: 28 + ((seed * 7) % 30), width: 6, height: 6 },
-        confidence: Number((0.82 + (seed % 14) / 100).toFixed(2)),
-        description: `Tổn thương vi mạch bán kính ${((seed % 15) / 10 + 0.8).toFixed(1)}mm từ hoàng điểm`,
+        id: 'ANO-102',
+        type: 'Microaneurysm' as any,
+        coordinates: { x: 55, y: 35, width: 6, height: 6 },
+        confidence: 0.85,
+        description: 'Vi phình mạch rải rác ngoài vùng hoàng điểm',
       },
     ];
 
@@ -572,12 +535,17 @@ export class MockAIService {
       analysisId: `ANALYSIS-${Date.now().toString().slice(-6)}`,
       imageUrl: uploadedImageUrl,
       status: 'COMPLETED',
-      executionTimeMs: 2200 + (seed % 800),
+      executionTimeMs: 2450,
       overallVascularRiskScore: overallScore,
       cardiovascularRisk: {
         level: overallScore >= 75 ? 'High' : (overallScore >= 45 ? 'Moderate' : 'Low'),
         score: cardioScore,
         hypertensionStage,
+        threeYearStrokeRiskPercent: strokeScore,
+      },
+      strokeRisk: {
+        level: strokeScore >= 15 ? 'High' : (strokeScore >= 8 ? 'Moderate' : 'Low'),
+        score: strokeScore,
         threeYearStrokeRiskPercent: strokeScore,
       },
       diabeticRetinopathyRisk: {

@@ -7,6 +7,7 @@ import com.aura.doctor.entity.DoctorPatientAssignment;
 import com.aura.doctor.repository.DoctorPatientAssignmentRepository;
 import com.aura.patient.entity.PatientMedicalProfile;
 import com.aura.patient.repository.PatientMedicalProfileRepository;
+import com.aura.patient.repository.PatientProfileRepository;
 import com.aura.role.enums.RoleName;
 import com.aura.user.entity.User;
 import com.aura.user.repository.UserRepository;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,16 +26,28 @@ public class AdminPatientAssignmentService {
   private final PatientMedicalProfileRepository profileRepository;
   private final UserRepository userRepository;
   private final UserRoleRepository userRoleRepository;
+  private final PatientProfileRepository patientProfileRepository;
+
+  @Autowired
+  public AdminPatientAssignmentService(
+      DoctorPatientAssignmentRepository assignmentRepository,
+      PatientMedicalProfileRepository profileRepository,
+      UserRepository userRepository,
+      UserRoleRepository userRoleRepository,
+      @Autowired(required = false) PatientProfileRepository patientProfileRepository) {
+    this.assignmentRepository = assignmentRepository;
+    this.profileRepository = profileRepository;
+    this.userRepository = userRepository;
+    this.userRoleRepository = userRoleRepository;
+    this.patientProfileRepository = patientProfileRepository;
+  }
 
   public AdminPatientAssignmentService(
       DoctorPatientAssignmentRepository assignmentRepository,
       PatientMedicalProfileRepository profileRepository,
       UserRepository userRepository,
       UserRoleRepository userRoleRepository) {
-    this.assignmentRepository = assignmentRepository;
-    this.profileRepository = profileRepository;
-    this.userRepository = userRepository;
-    this.userRoleRepository = userRoleRepository;
+    this(assignmentRepository, profileRepository, userRepository, userRoleRepository, null);
   }
 
   @Transactional(readOnly = true)
@@ -85,6 +99,12 @@ public class AdminPatientAssignmentService {
         profile.setAssignedDoctor(doctor.getFullName() != null ? doctor.getFullName() : doctor.getEmail());
         profileRepository.save(profile);
       });
+      if (patientProfileRepository != null) {
+        patientProfileRepository.findByUserId(patientId).ifPresent(p -> {
+          p.setAssignedDoctor(doctor.getFullName() != null ? doctor.getFullName() : doctor.getEmail());
+          patientProfileRepository.save(p);
+        });
+      }
     }
     return getBoard();
   }
@@ -97,13 +117,19 @@ public class AdminPatientAssignmentService {
     assignmentRepository.save(assignment);
     List<DoctorPatientAssignment> remaining = assignmentRepository
         .findByPatientIdAndStatus(patientId, AssignmentStatus.ACTIVE);
+    String doctorNames = remaining.stream()
+        .map(a -> a.getDoctor().getFullName() != null ? a.getDoctor().getFullName() : a.getDoctor().getEmail())
+        .collect(Collectors.joining(", "));
     profileRepository.findByUserId(patientId).ifPresent(profile -> {
-      String doctorNames = remaining.stream()
-          .map(a -> a.getDoctor().getFullName() != null ? a.getDoctor().getFullName() : a.getDoctor().getEmail())
-          .collect(Collectors.joining(", "));
       profile.setAssignedDoctor(doctorNames.isBlank() ? null : doctorNames);
       profileRepository.save(profile);
     });
+    if (patientProfileRepository != null) {
+      patientProfileRepository.findByUserId(patientId).ifPresent(p -> {
+        p.setAssignedDoctor(doctorNames.isBlank() ? null : doctorNames);
+        patientProfileRepository.save(p);
+      });
+    }
     return getBoard();
   }
 

@@ -12,6 +12,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -376,5 +377,38 @@ class BatchJobQueueComprehensiveTest {
     // Test setStatus
     setStatusM.invoke(stateInstance, "COMPLETED");
     assertThat(statusM.invoke(stateInstance)).isEqualTo("COMPLETED");
+  }
+
+  @Test
+  @DisplayName("DAT-03: getBatchStatus recovers batch from database on cache miss")
+  void getBatchStatus_cacheMiss_recoversFromDatabase() {
+    com.aura.bulk.repository.BulkScreeningBatchRepository mockBatchRepo =
+        org.mockito.Mockito.mock(com.aura.bulk.repository.BulkScreeningBatchRepository.class);
+    com.aura.bulk.repository.BulkScreeningItemRepository mockItemRepo =
+        org.mockito.Mockito.mock(com.aura.bulk.repository.BulkScreeningItemRepository.class);
+
+    BatchJobQueue dbBackedQueue = new BatchJobQueue(mockBatchRepo, mockItemRepo, null, null);
+
+    UUID clinicUuid = UUID.randomUUID();
+    UUID batchUuid = UUID.randomUUID();
+    com.aura.bulk.entity.BulkScreeningBatch batchEntity =
+        new com.aura.bulk.entity.BulkScreeningBatch("BATCH-2026-RECOVER", clinicUuid, 5);
+    org.springframework.test.util.ReflectionTestUtils.setField(batchEntity, "id", batchUuid);
+    batchEntity.setStatus("COMPLETED");
+    batchEntity.setProcessedCount(5);
+    batchEntity.setFailedCount(0);
+
+    org.mockito.Mockito.when(mockBatchRepo.findByBatchCode("BATCH-2026-RECOVER"))
+        .thenReturn(java.util.Optional.of(batchEntity));
+    org.mockito.Mockito.when(mockItemRepo.findByBatchIdOrderByCreatedAtAsc(batchUuid))
+        .thenReturn(List.of());
+
+    BatchJobResponseDto status = dbBackedQueue.getBatchStatus("BATCH-2026-RECOVER");
+    assertThat(status).isNotNull();
+    assertThat(status.batchId()).isEqualTo("BATCH-2026-RECOVER");
+    assertThat(status.clinicId()).isEqualTo(clinicUuid.toString());
+    assertThat(status.totalImages()).isEqualTo(5);
+    assertThat(status.processedCount()).isEqualTo(5);
+    assertThat(status.status()).isEqualTo("COMPLETED");
   }
 }

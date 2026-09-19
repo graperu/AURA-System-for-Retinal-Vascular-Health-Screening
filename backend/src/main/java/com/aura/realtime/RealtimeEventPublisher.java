@@ -95,6 +95,10 @@ public class RealtimeEventPublisher {
     publish("/topic/screening." + patientId, "SCREENING_PROCESSING", data);
   }
 
+  public void publishScreeningCompleted(Screening screening) {
+    publishScreeningCompleted(screening, null, 0);
+  }
+
   public void publishScreeningCompleted(Screening screening, Map<String, Object> biomarkers, int detectedAnomaliesCount) {
     if (screening == null || screening.getPatientId() == null) {
       return;

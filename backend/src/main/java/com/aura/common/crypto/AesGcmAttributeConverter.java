@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 /**
  * HIPAA NFR-9 Compliant JPA AttributeConverter for At-Rest AES-256 GCM Field Encryption.
  * Stores ciphertext with 12-byte random IV and 128-bit authentication tag prefixed with "ENC:".
- * Gracefully handles unencrypted legacy fields.
+ * Fail-Closed cryptographic implementation with dynamic key injection and zero prefix collision.
  */
 @Converter
 @Component
@@ -27,20 +27,31 @@ public class AesGcmAttributeConverter implements AttributeConverter<String, Stri
 
   private static final Logger log = LoggerFactory.getLogger(AesGcmAttributeConverter.class);
   private static final String ALGORITHM = "AES/GCM/NoPadding";
-  private static final String PREFIX = "ENC:";
+  public static final String PREFIX = "ENC:";
   private static final int TAG_LENGTH_BIT = 128;
   private static final int IV_LENGTH_BYTE = 12;
-  private static final String DEFAULT_KEY = "AURA_SYSTEM_SECURE_AES_KEY_2026_32BYTES_LEN_!!";
+  private static final int MIN_ENCRYPTED_PAYLOAD_BYTE = IV_LENGTH_BYTE + (TAG_LENGTH_BIT / 8); // 28 bytes
 
-  private static volatile SecretKey staticSecretKey = deriveKey(DEFAULT_KEY);
+  private static volatile SecretKey staticSecretKey;
 
   public AesGcmAttributeConverter() {}
 
-  @Value("${aura.security.encryption.aes-key:" + DEFAULT_KEY + "}")
+  @Value("${aura.security.encryption.aes-key:${AURA_ENCRYPTION_AES_KEY:}}")
   public void setAesKey(String key) {
     if (key != null && !key.isBlank()) {
       staticSecretKey = deriveKey(key);
     }
+  }
+
+  public static void setStaticKey(String key) {
+    if (key == null || key.isBlank()) {
+      throw new IllegalArgumentException("AES encryption key cannot be null or blank");
+    }
+    staticSecretKey = deriveKey(key);
+  }
+
+  public static void resetKeyForTesting() {
+    staticSecretKey = null;
   }
 
   private static SecretKey deriveKey(String rawKey) {
@@ -52,8 +63,49 @@ public class AesGcmAttributeConverter implements AttributeConverter<String, Stri
       }
       return new SecretKeySpec(keyBytes, "AES");
     } catch (Exception e) {
-      log.error("Failed to derive AES-256 key, falling back to default", e);
-      return new SecretKeySpec(DEFAULT_KEY.getBytes(StandardCharsets.UTF_8), "AES");
+      log.error("Failed to derive AES-256 key from provided configuration", e);
+      throw new IllegalStateException("Không thể khởi tạo khóa mã hóa AES-256", e);
+    }
+  }
+
+  private static SecretKey getRequiredKey() {
+    SecretKey key = staticSecretKey;
+    if (key == null) {
+      String envKey = System.getenv("AURA_ENCRYPTION_AES_KEY");
+      if (envKey != null && !envKey.isBlank()) {
+        key = deriveKey(envKey);
+        staticSecretKey = key;
+      }
+    }
+    if (key == null) {
+      throw new IllegalStateException(
+          "Khóa mã hóa AES-256 chưa được cấu hình. Vui lòng thiết lập biến môi trường AURA_ENCRYPTION_AES_KEY hoặc thuộc tính aura.security.encryption.aes-key.");
+    }
+    return key;
+  }
+
+  private boolean isAlreadyEncrypted(String attribute) {
+    if (attribute == null || !attribute.startsWith(PREFIX)) {
+      return false;
+    }
+    try {
+      byte[] decoded = Base64.getDecoder().decode(attribute.substring(PREFIX.length()));
+      if (decoded.length < MIN_ENCRYPTED_PAYLOAD_BYTE) {
+        return false;
+      }
+      ByteBuffer buffer = ByteBuffer.wrap(decoded);
+      byte[] iv = new byte[IV_LENGTH_BYTE];
+      buffer.get(iv);
+      byte[] cipherText = new byte[buffer.remaining()];
+      buffer.get(cipherText);
+
+      SecretKey secretKey = getRequiredKey();
+      Cipher cipher = Cipher.getInstance(ALGORITHM);
+      cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(TAG_LENGTH_BIT, iv));
+      cipher.doFinal(cipherText);
+      return true;
+    } catch (Exception e) {
+      return false;
     }
   }
 
@@ -62,16 +114,17 @@ public class AesGcmAttributeConverter implements AttributeConverter<String, Stri
     if (attribute == null || attribute.isBlank()) {
       return attribute;
     }
-    if (attribute.startsWith(PREFIX)) {
+    if (isAlreadyEncrypted(attribute)) {
       return attribute;
     }
 
     try {
+      SecretKey secretKey = getRequiredKey();
       byte[] iv = new byte[IV_LENGTH_BYTE];
       new SecureRandom().nextBytes(iv);
 
       Cipher cipher = Cipher.getInstance(ALGORITHM);
-      cipher.init(Cipher.ENCRYPT_MODE, staticSecretKey, new GCMParameterSpec(TAG_LENGTH_BIT, iv));
+      cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(TAG_LENGTH_BIT, iv));
 
       byte[] cipherText = cipher.doFinal(attribute.getBytes(StandardCharsets.UTF_8));
 
@@ -89,13 +142,15 @@ public class AesGcmAttributeConverter implements AttributeConverter<String, Stri
   @Override
   public String convertToEntityAttribute(String dbData) {
     if (dbData == null || !dbData.startsWith(PREFIX)) {
+      // Dữ liệu cũ chưa mã hóa (legacy unencrypted) được giữ nguyên để tương thích ngược
       return dbData;
     }
 
     try {
       byte[] decoded = Base64.getDecoder().decode(dbData.substring(PREFIX.length()));
-      if (decoded.length <= IV_LENGTH_BYTE) {
-        return dbData;
+      if (decoded.length < MIN_ENCRYPTED_PAYLOAD_BYTE) {
+        throw new IllegalArgumentException(
+            "Payload mã hóa không hợp lệ: độ dài " + decoded.length + " bytes nhỏ hơn mức tối thiểu " + MIN_ENCRYPTED_PAYLOAD_BYTE);
       }
 
       ByteBuffer buffer = ByteBuffer.wrap(decoded);
@@ -105,14 +160,16 @@ public class AesGcmAttributeConverter implements AttributeConverter<String, Stri
       byte[] cipherText = new byte[buffer.remaining()];
       buffer.get(cipherText);
 
+      SecretKey secretKey = getRequiredKey();
       Cipher cipher = Cipher.getInstance(ALGORITHM);
-      cipher.init(Cipher.DECRYPT_MODE, staticSecretKey, new GCMParameterSpec(TAG_LENGTH_BIT, iv));
+      cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(TAG_LENGTH_BIT, iv));
 
       byte[] plainTextBytes = cipher.doFinal(cipherText);
       return new String(plainTextBytes, StandardCharsets.UTF_8);
     } catch (Exception e) {
-      log.error("AES-256 GCM decryption failed for ciphertext; returning raw data for safety", e);
-      return dbData;
+      // FAIL-CLOSED: Tuyệt đối không trả về raw dbData (tránh rò rỉ ciphertext và mã hóa kép)
+      log.error("AES-256 GCM decryption failed for ciphertext; failing closed for clinical data integrity", e);
+      throw new SecurityException("Không thể giải mã dữ liệu y tế nhạy cảm: dữ liệu bị hư hỏng hoặc chữ ký xác thực không hợp lệ", e);
     }
   }
 

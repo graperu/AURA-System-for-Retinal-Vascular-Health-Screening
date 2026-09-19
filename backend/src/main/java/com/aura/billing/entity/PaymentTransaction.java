@@ -64,6 +64,10 @@ public class PaymentTransaction {
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
 

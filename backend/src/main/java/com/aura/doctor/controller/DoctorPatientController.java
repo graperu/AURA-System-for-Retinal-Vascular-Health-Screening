@@ -36,6 +36,9 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Doctor Patient Management", description = "Endpoints for Doctor Patient Worklist, Search, Filter & Pagination (FR-13, FR-18)")
 public class DoctorPatientController {
 
+  public static final int MAX_PAGE_SIZE = 100;
+  public static final int DEFAULT_PAGE_SIZE = 10;
+
   private final DoctorPatientAssignmentService assignmentService;
   private final PatientProfileService profileService;
   private final ScreeningService screeningService;
@@ -82,8 +85,8 @@ public class DoctorPatientController {
       @RequestParam(required = false) Boolean historyOfSmoking,
       @RequestParam(required = false) String doctorName,
       @RequestParam(required = false) String reviewStatus,
-      @RequestParam(required = false) Integer page,
-      @RequestParam(required = false) Integer size,
+      @RequestParam(required = false) @jakarta.validation.constraints.Min(0) Integer page,
+      @RequestParam(required = false) @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(100) Integer size,
       @RequestParam(required = false) String sort,
       @AuthenticationPrincipal AuraUserPrincipal principal) {
 
@@ -92,8 +95,10 @@ public class DoctorPatientController {
 
     // If pagination or filter query params provided (e.g. from DoctorPatientListPage)
     if (page != null || size != null || search != null || risk != null || hasDiabetes != null || hasHypertension != null || historyOfSmoking != null) {
-      int pageNum = page != null ? page : 0;
-      int pageSize = size != null ? size : 10;
+      // CON-05: Chống DoS Heap bằng cơ chế kẹp cận an toàn (Clamp Pagination Bounds)
+      int pageNum = (page != null && page >= 0) ? page : 0;
+      int rawSize = size != null ? size : DEFAULT_PAGE_SIZE;
+      int pageSize = Math.min(Math.max(1, rawSize), MAX_PAGE_SIZE);
       Sort sortObj = Sort.by(Sort.Direction.DESC, "createdAt");
       if (sort != null && !sort.isBlank()) {
         String[] parts = sort.split(",");
@@ -356,7 +361,7 @@ public class DoctorPatientController {
         screenings = directScreenings;
       }
     }
-    List<ScreeningResponse> responseList = screenings.stream().map(ScreeningResponse::fromEntity).toList();
+    List<ScreeningResponse> responseList = screenings.stream().map(ScreeningResponse::fromEntitySummary).toList();
     return ApiResponse.success("Lấy lịch sử ca sàng lọc của bệnh nhân thành công", responseList);
   }
 

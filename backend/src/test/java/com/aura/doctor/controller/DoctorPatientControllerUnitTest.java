@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import org.mockito.ArgumentCaptor;
 import com.aura.auth.exception.AuthException;
 import com.aura.auth.security.AuraUserPrincipal;
 import com.aura.common.response.ApiResponse;
@@ -148,6 +149,49 @@ class DoctorPatientControllerUnitTest {
 
       assertThat(response).isNotNull();
       assertThat(response.message()).isEqualTo("Lấy danh sách bệnh nhân thành công");
+    }
+
+    @Test
+    @DisplayName("CON-05: Kích thước phân trang vượt quá giới hạn (?size=2000000) được tự động kẹp về MAX_PAGE_SIZE = 100")
+    void getPatients_withExcessivePageSize_clampsToMaxPageSize() {
+      AuraUserPrincipal adminPrincipal = new AuraUserPrincipal(UUID.randomUUID(), "admin@aura.test", "secret", true, List.of("ROLE_ADMIN"));
+      ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+      Page<PatientProfileDto> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 100), 0);
+      when(profileService.searchPatients(any(), any(), any(), any(), any(), any(), any(), any(), any(), pageableCaptor.capture()))
+          .thenReturn(emptyPage);
+
+      ApiResponse<?> response = controller.getPatients(
+          null, null, null, null, null, null, null, null, null,
+          0, 2_000_000, null, adminPrincipal
+      );
+
+      assertThat(pageableCaptor.getValue()).isNotNull();
+      assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(DoctorPatientController.MAX_PAGE_SIZE);
+      assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(0);
+      assertThat(response.data()).isInstanceOf(PageResponse.class);
+      assertThat(((PageResponse<?>) response.data()).size()).isEqualTo(DoctorPatientController.MAX_PAGE_SIZE);
+    }
+
+    @Test
+    @DisplayName("CON-05: Tham số trang âm hoặc size <= 0 được tự động kẹp về giá trị an toàn")
+    void getPatients_withNegativePageAndSize_clampsSafely() {
+      AuraUserPrincipal adminPrincipal = new AuraUserPrincipal(UUID.randomUUID(), "admin@aura.test", "secret", true, List.of("ROLE_ADMIN"));
+      ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+      Page<PatientProfileDto> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 1), 0);
+      when(profileService.searchPatients(any(), any(), any(), any(), any(), any(), any(), any(), any(), pageableCaptor.capture()))
+          .thenReturn(emptyPage);
+
+      ApiResponse<?> response = controller.getPatients(
+          null, null, null, null, null, null, null, null, null,
+          -5, -100, null, adminPrincipal
+      );
+
+      assertThat(pageableCaptor.getValue()).isNotNull();
+      assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(0);
+      assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(1);
+      assertThat(response.data()).isInstanceOf(PageResponse.class);
+      assertThat(((PageResponse<?>) response.data()).page()).isEqualTo(0);
+      assertThat(((PageResponse<?>) response.data()).size()).isEqualTo(1);
     }
   }
 

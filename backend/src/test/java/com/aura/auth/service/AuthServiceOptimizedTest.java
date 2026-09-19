@@ -50,6 +50,7 @@ class AuthServiceOptimizedTest {
   @Mock private JwtTokenProvider jwtTokenProvider;
   @Mock private RefreshTokenService refreshTokenService;
   @Mock private OtpService otpService;
+  @Mock private SocialTokenVerifier socialTokenVerifier;
 
   private AuthService authService;
   private Role defaultUserRole;
@@ -72,7 +73,8 @@ class AuthServiceOptimizedTest {
             authenticationManager,
             jwtTokenProvider,
             refreshTokenService,
-            otpService);
+            otpService,
+            socialTokenVerifier);
 
     defaultUserRole = createRole(RoleName.USER);
   }
@@ -89,8 +91,11 @@ class AuthServiceOptimizedTest {
   @DisplayName("loginWithSocial: Kiểm tra switch case OAuth providers và fallback tên mặc định")
   void testOAuthProviderSwitchCaseAndDefaultDisplayName(String provider, String expectedDisplayName) {
     String testEmail = "oauth.user@aurascreening.ai";
-    SocialLoginRequest request = new SocialLoginRequest(provider, null, testEmail, null, null);
+    String token = "token-" + provider;
+    SocialLoginRequest request = new SocialLoginRequest(provider, token, testEmail, null, null);
 
+    when(socialTokenVerifier.verifyToken(eq(provider), eq(token)))
+        .thenReturn(new SocialTokenVerifier.VerifiedSocialUser(testEmail, null));
     when(userRepository.findByEmailIgnoreCase(testEmail)).thenReturn(Optional.empty());
     when(passwordEncoder.encode(any())).thenReturn("encoded_dummy_hash");
     when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.of(defaultUserRole));
@@ -130,8 +135,10 @@ class AuthServiceOptimizedTest {
     ReflectionTestUtils.setField(existingUser, "id", userId);
     existingUser.setActive(true);
 
-    SocialLoginRequest request = new SocialLoginRequest("google", null, testEmail, "Existing Dr. AURA", null);
+    SocialLoginRequest request = new SocialLoginRequest("google", "valid_token", testEmail, "Existing Dr. AURA", null);
 
+    when(socialTokenVerifier.verifyToken("google", "valid_token"))
+        .thenReturn(new SocialTokenVerifier.VerifiedSocialUser(testEmail, "Existing Dr. AURA"));
     when(userRepository.findByEmailIgnoreCase(testEmail)).thenReturn(Optional.of(existingUser));
     when(userRoleRepository.findAllByUserId(userId)).thenReturn(Collections.emptyList());
     when(refreshTokenService.issue(existingUser)).thenReturn(new RefreshTokenService.Issued("refresh_token_abc", null));
@@ -153,8 +160,10 @@ class AuthServiceOptimizedTest {
     ReflectionTestUtils.setField(userWithoutName, "id", userId);
     userWithoutName.setActive(true);
 
-    SocialLoginRequest request = new SocialLoginRequest("google", null, testEmail, "Dr. John Doe", null);
+    SocialLoginRequest request = new SocialLoginRequest("google", "valid_token", testEmail, "Dr. John Doe", null);
 
+    when(socialTokenVerifier.verifyToken("google", "valid_token"))
+        .thenReturn(new SocialTokenVerifier.VerifiedSocialUser(testEmail, "Dr. John Doe"));
     when(userRepository.findByEmailIgnoreCase(testEmail)).thenReturn(Optional.of(userWithoutName));
     when(userRoleRepository.findAllByUserId(userId))
         .thenReturn(List.of(new UserRole(userWithoutName, defaultUserRole)));
@@ -169,14 +178,13 @@ class AuthServiceOptimizedTest {
   }
 
   @Test
-  @DisplayName("loginWithSocial: Trích xuất email và name từ idToken hợp lệ (JWT format)")
+  @DisplayName("loginWithSocial: Trích xuất email và name từ idToken hợp lệ qua SocialTokenVerifier")
   void testExtractEmailAndNameFromValidIdToken() {
-    String payload = "{\"email\":\"token.user@aurascreening.ai\",\"name\":\"Token User\"}";
-    String base64Payload = Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
-    String dummyJwt = "eyJhbGciOiJIUzI1NiJ9." + base64Payload + ".mockSignature";
-
+    String dummyJwt = "eyJhbGciOiJIUzI1NiJ9.dummyPayload.mockSignature";
     SocialLoginRequest request = new SocialLoginRequest(null, dummyJwt, null, null, null);
 
+    when(socialTokenVerifier.verifyToken("google", dummyJwt))
+        .thenReturn(new SocialTokenVerifier.VerifiedSocialUser("token.user@aurascreening.ai", "Token User"));
     when(userRepository.findByEmailIgnoreCase("token.user@aurascreening.ai")).thenReturn(Optional.empty());
     when(passwordEncoder.encode(any())).thenReturn("encoded_dummy_hash");
     when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.of(defaultUserRole));
@@ -203,12 +211,14 @@ class AuthServiceOptimizedTest {
   @ValueSource(strings = {"", "   "})
   @DisplayName("loginWithSocial: Ném AuthException khi không có email trong token lẫn request")
   void testThrowAuthExceptionWhenEmailIsMissingOrBlank(String blankEmail) {
-    SocialLoginRequest request = new SocialLoginRequest("apple", null, blankEmail, "Name", null);
+    SocialLoginRequest request = new SocialLoginRequest("apple", "valid_token", blankEmail, "Name", null);
+    when(socialTokenVerifier.verifyToken("apple", "valid_token"))
+        .thenReturn(new SocialTokenVerifier.VerifiedSocialUser(blankEmail, "Name"));
 
     assertThatThrownBy(() -> authService.loginWithSocial(request))
         .isInstanceOf(AuthException.class)
         .hasFieldOrPropertyWithValue("code", ErrorCode.INVALID_CREDENTIALS)
-        .hasMessageContaining("Không thể trích xuất thông tin email");
+        .hasMessageContaining("Token xác thực mạng xã hội");
   }
 
   @Test
@@ -219,7 +229,9 @@ class AuthServiceOptimizedTest {
     disabledUser.setActive(false);
     ReflectionTestUtils.setField(disabledUser, "id", UUID.randomUUID());
 
-    SocialLoginRequest request = new SocialLoginRequest("github", null, testEmail, "Disabled User", null);
+    SocialLoginRequest request = new SocialLoginRequest("github", "valid_token", testEmail, "Disabled User", null);
+    when(socialTokenVerifier.verifyToken("github", "valid_token"))
+        .thenReturn(new SocialTokenVerifier.VerifiedSocialUser(testEmail, "Disabled User"));
     when(userRepository.findByEmailIgnoreCase(testEmail)).thenReturn(Optional.of(disabledUser));
 
     assertThatThrownBy(() -> authService.loginWithSocial(request))
@@ -229,28 +241,40 @@ class AuthServiceOptimizedTest {
   }
 
   @Test
-  @DisplayName("loginWithSocial: Xử lý an toàn khi idToken có định dạng lạ/không phải base64 hợp lệ")
+  @DisplayName("loginWithSocial: Fail-closed khi idToken không hợp lệ hoặc không xác thực được")
   void testCorruptedIdTokenHandledGracefully() {
     String testEmail = "corrupted.token@aurascreening.ai";
-    // idToken contains '.' but part 2 is not valid Base64
     SocialLoginRequest request = new SocialLoginRequest("google", "header.not_valid_base64!!!.sig", testEmail, "Fallback Name", null);
 
-    when(userRepository.findByEmailIgnoreCase(testEmail)).thenReturn(Optional.empty());
-    when(passwordEncoder.encode(any())).thenReturn("encoded_pass");
-    when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.of(defaultUserRole));
-    when(userRepository.save(any(User.class))).thenAnswer(i -> {
-      User u = i.getArgument(0);
-      ReflectionTestUtils.setField(u, "id", UUID.randomUUID());
-      return u;
-    });
-    when(userRoleRepository.findAllByUserId(any())).thenReturn(Collections.emptyList());
-    when(refreshTokenService.issue(any())).thenReturn(new RefreshTokenService.Issued("tok", null));
-    when(jwtTokenProvider.create(any(), any())).thenReturn("jwt");
-    when(jwtTokenProvider.expiresIn()).thenReturn(3600L);
+    when(socialTokenVerifier.verifyToken("google", "header.not_valid_base64!!!.sig")).thenReturn(null);
 
-    AuthService.LoginResult result = authService.loginWithSocial(request);
-    assertThat(result).isNotNull();
-    assertThat(result.response().user().fullName()).isEqualTo("Fallback Name");
+    assertThatThrownBy(() -> authService.loginWithSocial(request))
+        .isInstanceOf(AuthException.class)
+        .hasFieldOrPropertyWithValue("code", ErrorCode.INVALID_CREDENTIALS);
+  }
+
+  @Test
+  @DisplayName("loginWithSocial: Chặn chiếm quyền tài khoản Quản trị viên và Bác sĩ qua mạng xã hội (SEC-01)")
+  void testBlockSocialTakeoverOfAdminOrDoctor() {
+    String adminEmail = "admin@aurascreening.ai";
+    User adminUser = new User(adminEmail, "pass", "Admin User");
+    UUID adminId = UUID.randomUUID();
+    ReflectionTestUtils.setField(adminUser, "id", adminId);
+    adminUser.setActive(true);
+
+    Role adminRole = createRole(RoleName.ADMIN);
+    when(socialTokenVerifier.verifyToken("google", "admin-token"))
+        .thenReturn(new SocialTokenVerifier.VerifiedSocialUser(adminEmail, "Fake Admin"));
+    when(userRepository.findByEmailIgnoreCase(adminEmail)).thenReturn(Optional.of(adminUser));
+    when(userRoleRepository.findAllByUserId(adminId))
+        .thenReturn(List.of(new UserRole(adminUser, adminRole)));
+
+    SocialLoginRequest request = new SocialLoginRequest("google", "admin-token", adminEmail, "Fake Admin", null);
+
+    assertThatThrownBy(() -> authService.loginWithSocial(request))
+        .isInstanceOf(AuthException.class)
+        .hasFieldOrPropertyWithValue("code", ErrorCode.ACCESS_DENIED)
+        .hasMessageContaining("Tài khoản Quản trị viên hoặc Bác sĩ không được phép đăng nhập qua mạng xã hội");
   }
 
   @Test
@@ -260,6 +284,8 @@ class AuthServiceOptimizedTest {
     com.aura.auth.dto.GoogleLoginRequest googleReq =
         new com.aura.auth.dto.GoogleLoginRequest("dummy.token", testEmail, "Dr. Google User", "https://pic.url");
 
+    when(socialTokenVerifier.verifyToken("google", "dummy.token"))
+        .thenReturn(new SocialTokenVerifier.VerifiedSocialUser(testEmail, "Dr. Google User"));
     when(userRepository.findByEmailIgnoreCase(testEmail)).thenReturn(Optional.empty());
     when(passwordEncoder.encode(any())).thenReturn("encoded_pass");
     when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.of(defaultUserRole));

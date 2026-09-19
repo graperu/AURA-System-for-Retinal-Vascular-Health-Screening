@@ -102,9 +102,34 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
+  // FE-07: Quản lý và thu hồi toàn bộ Blob Object URL chống rò rỉ RAM trình duyệt
+  const stagedItemsRef = useRef<StagedItem[]>(stagedItems);
+  useEffect(() => {
+    stagedItemsRef.current = stagedItems;
+  }, [stagedItems]);
+
+  const revokeStagedUrls = (items: StagedItem[]) => {
+    items.forEach((item) => {
+      if (item.previewUrl && item.previewUrl.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(item.previewUrl);
+        } catch {
+          // ignore
+        }
+      }
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      revokeStagedUrls(stagedItemsRef.current);
+    };
+  }, []);
+
   // Always reset staged items to 0 whenever modal opens
   useEffect(() => {
     if (isOpen) {
+      revokeStagedUrls(stagedItemsRef.current);
       setStagedItems([]);
       setFilterEye('ALL');
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -210,11 +235,22 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
       };
     });
 
+    revokeStagedUrls(stagedItems);
     setStagedItems(demo100);
   };
 
   const handleRemoveItem = (id: string) => {
-    setStagedItems((prev) => prev.filter((it) => it.id !== id));
+    setStagedItems((prev) => {
+      const target = prev.find((it) => it.id === id);
+      if (target?.previewUrl && target.previewUrl.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(target.previewUrl);
+        } catch {
+          // ignore
+        }
+      }
+      return prev.filter((it) => it.id !== id);
+    });
   };
 
   const handleUpdateItemEye = (id: string, eye: 'OD' | 'OS') => {
@@ -240,8 +276,9 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
         }
         const img = new Image();
         img.onload = () => {
+          let canvas: HTMLCanvasElement | null = null;
           try {
-            const canvas = document.createElement('canvas');
+            canvas = document.createElement('canvas');
             let w = img.width;
             let h = img.height;
             if (w > maxDim || h > maxDim) {
@@ -258,11 +295,17 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.drawImage(img, 0, 0, w, h);
-              resolve(canvas.toDataURL('image/jpeg', 0.8));
+              const thumbUrl = canvas.toDataURL('image/jpeg', 0.8);
+              resolve(thumbUrl);
               return;
             }
           } catch (err) {
             console.warn('Canvas thumbnail generation failed, using dataUrl', err);
+          } finally {
+            if (canvas) {
+              canvas.width = 0;
+              canvas.height = 0;
+            }
           }
           resolve(dataUrl);
         };
@@ -300,8 +343,9 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
 
         const img = new Image();
         img.onload = () => {
+          let canvas: HTMLCanvasElement | null = null;
           try {
-            const canvas = document.createElement('canvas');
+            canvas = document.createElement('canvas');
             const maxDim = 512;
             let w = img.width;
             let h = img.height;
@@ -319,11 +363,17 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.drawImage(img, 0, 0, w, h);
-              resolve(canvas.toDataURL('image/jpeg', 0.8));
+              const compressedUrl = canvas.toDataURL('image/jpeg', 0.8);
+              resolve(compressedUrl);
               return;
             }
           } catch (err) {
             console.warn('Canvas compress for AI failed, using dataUrl', err);
+          } finally {
+            if (canvas) {
+              canvas.width = 0;
+              canvas.height = 0;
+            }
           }
           resolve(dataUrl);
         };

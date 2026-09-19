@@ -142,6 +142,12 @@ export interface AIRiskResult {
     hypertensionStage: string;
     threeYearStrokeRiskPercent: number;
   };
+  strokeRisk?: {
+    level: RiskLevel;
+    score: number;
+    threeYearStrokeRiskPercent: number;
+    clinicalNote?: string;
+  };
   diabeticRetinopathyRisk: {
     level: RiskLevel;
     score: number;

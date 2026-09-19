@@ -1,8 +1,11 @@
 package com.aura.bulk.service;
 
 import com.aura.bulk.dto.PatientAnonymizedDto;
+import com.aura.common.exception.ClinicalProcessingException;
 import com.aura.dicom.DicomIngestionService;
 import com.aura.dicom.DicomMetadata;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,8 @@ import java.util.HexFormat;
  */
 @Service
 public class PatientAnonymizerService {
+
+    private static final Logger log = LoggerFactory.getLogger(PatientAnonymizerService.class);
 
     private final byte[] hmacSecretKeyBytes;
     private final DicomIngestionService dicomIngestionService;
@@ -109,15 +114,21 @@ public class PatientAnonymizerService {
                 rawBytes, anonymized.pseudonymId(), anonymized.deidentifiedMrn());
 
             // Convert / extract pixel data safely as standard PNG
-            byte[] pngBytes = dicomIngestionService.extractPixelDataAsPng(deidentifiedDicomBytes);
-            if (pngBytes != null && pngBytes.length > 0) {
-                return "data:image/png;base64," + Base64.getEncoder().encodeToString(pngBytes);
+            try {
+                byte[] pngBytes = dicomIngestionService.extractPixelDataAsPng(deidentifiedDicomBytes);
+                if (pngBytes != null && pngBytes.length > 0) {
+                    return "data:image/png;base64," + Base64.getEncoder().encodeToString(pngBytes);
+                }
+            } catch (ClinicalProcessingException cpe) {
+                log.info("Pixel data cannot be converted to PNG directly ({}); preserving deidentified DICOM container", cpe.getMessage());
             }
 
             return "data:application/dicom;base64," + Base64.getEncoder().encodeToString(deidentifiedDicomBytes);
+        } catch (ClinicalProcessingException cpe) {
+            throw cpe;
         } catch (Exception ex) {
-            // Fallback gracefully on parsing error
-            return base64ImagePayload;
+            log.error("Failed to strip DICOM metadata: {}", ex.getMessage(), ex);
+            throw new ClinicalProcessingException("Lỗi xử lý ẩn danh tệp DICOM: " + ex.getMessage(), ex);
         }
     }
 }

@@ -25,6 +25,29 @@ public class AuthService {
   private final JwtTokenProvider jwt;
   private final RefreshTokenService refresh;
   private final OtpService otpService;
+  private final SocialTokenVerifier socialTokenVerifier;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public AuthService(
+      UserRepository u,
+      RoleRepository r,
+      UserRoleRepository ur,
+      PasswordEncoder e,
+      AuthenticationManager a,
+      JwtTokenProvider j,
+      RefreshTokenService f,
+      OtpService o,
+      SocialTokenVerifier s) {
+    users = u;
+    roles = r;
+    userRoles = ur;
+    encoder = e;
+    auth = a;
+    jwt = j;
+    refresh = f;
+    otpService = o;
+    socialTokenVerifier = s;
+  }
 
   public AuthService(
       UserRepository u,
@@ -35,14 +58,7 @@ public class AuthService {
       JwtTokenProvider j,
       RefreshTokenService f,
       OtpService o) {
-    users = u;
-    roles = r;
-    userRoles = ur;
-    encoder = e;
-    auth = a;
-    jwt = j;
-    refresh = f;
-    otpService = o;
+    this(u, r, ur, e, a, j, f, o, new GoogleSocialTokenVerifier(new com.fasterxml.jackson.databind.ObjectMapper(), ""));
   }
 
   public long sendRegistrationOtp(SendOtpRequest q) {
@@ -102,10 +118,6 @@ public class AuthService {
     Map<String, Object> map = new java.util.HashMap<>();
     map.put("email", email);
     map.put("expiresInSeconds", expiresIn);
-    String debugOtp = otpService.getLatestOtpForDebug(email);
-    if (debugOtp != null) {
-      map.put("devOtp", debugOtp);
-    }
     return map;
   }
 
@@ -173,46 +185,22 @@ public class AuthService {
 
   @Transactional
   public LoginResult loginWithSocial(SocialLoginRequest q) {
+    if (q == null || q.idToken() == null || q.idToken().isBlank()) {
+      throw new AuthException(ErrorCode.INVALID_CREDENTIALS, "ID Token không được để trống");
+    }
+
     String provider = q.provider() != null ? q.provider().trim().toLowerCase(Locale.ROOT) : "google";
-    String email = null;
-    String name = null;
 
-    if ("google".equalsIgnoreCase(provider) && q.idToken() != null && !q.idToken().isBlank()) {
-      var verifiedGoogleUser = verifyGoogleIdToken(q.idToken());
-      if (verifiedGoogleUser != null) {
-        email = verifiedGoogleUser.email();
-        name = verifiedGoogleUser.name();
-      }
+    // 1. Verify cryptographic token signature via SocialTokenVerifier
+    var verifiedUser = socialTokenVerifier.verifyToken(provider, q.idToken());
+    if (verifiedUser == null || verifiedUser.email() == null || verifiedUser.email().isBlank()) {
+      throw new AuthException(ErrorCode.INVALID_CREDENTIALS,
+          "Token xác thực mạng xã hội (" + provider + ") không hợp lệ hoặc đã hết hạn");
     }
 
-    if (email == null && q.idToken() != null && q.idToken().contains(".")) {
-      try {
-        String[] parts = q.idToken().split("\\.");
-        if (parts.length >= 2) {
-          String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]), java.nio.charset.StandardCharsets.UTF_8);
-          com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-          var node = mapper.readTree(payloadJson);
-          if (node.has("email")) {
-            email = node.get("email").asText().trim().toLowerCase(Locale.ROOT);
-          }
-          if (node.has("name")) {
-            name = node.get("name").asText().trim();
-          }
-        }
-      } catch (Exception ignored) {
-      }
-    }
-
-    if (email == null && q.email() != null && !q.email().isBlank()) {
-      email = q.email().trim().toLowerCase(Locale.ROOT);
-    }
-    if (name == null && q.fullName() != null && !q.fullName().isBlank()) {
-      name = q.fullName().trim();
-    }
-
-    if (email == null || email.isBlank()) {
-      throw new AuthException(ErrorCode.INVALID_CREDENTIALS, "Không thể trích xuất thông tin email từ tài khoản " + provider);
-    }
+    // 2. Email is strictly sourced from verified token claims ONLY (NEVER from request body)
+    final String targetEmail = verifiedUser.email().trim().toLowerCase(Locale.ROOT);
+    final String name = verifiedUser.name();
 
     final String providerDisplayName = switch (provider) {
       case "microsoft" -> "Microsoft";
@@ -222,10 +210,24 @@ public class AuthService {
       default -> "Google";
     };
 
-    final String finalName = name != null ? name : "Người dùng " + providerDisplayName;
-    final String targetEmail = email;
+    final String finalName = (name != null && !name.isBlank()) ? name.trim() : "Người dùng " + providerDisplayName;
 
-    var user = users.findByEmailIgnoreCase(targetEmail).orElseGet(() -> {
+    // 3. Defense-in-depth: Prevent Account Takeover of Admin / Doctor accounts
+    var existingUserOpt = users.findByEmailIgnoreCase(targetEmail);
+    if (existingUserOpt.isPresent()) {
+      var existingUser = existingUserOpt.get();
+      var userRoleEntities = userRoles.findAllByUserId(existingUser.getId());
+      boolean isPrivileged = userRoleEntities.stream().anyMatch(ur ->
+          ur.getRole().getName() == RoleName.ADMIN || ur.getRole().getName() == RoleName.DOCTOR
+      );
+      if (isPrivileged) {
+        throw new AuthException(ErrorCode.ACCESS_DENIED,
+            "Tài khoản Quản trị viên hoặc Bác sĩ không được phép đăng nhập qua mạng xã hội vì lý do an toàn y tế.");
+      }
+    }
+
+    // 4. Load or create regular user
+    var user = existingUserOpt.orElseGet(() -> {
       var newUser = new User(targetEmail, encoder.encode(UUID.randomUUID().toString()), finalName);
       newUser.setEmailVerified(true);
       newUser.setActive(true);
@@ -239,8 +241,8 @@ public class AuthService {
       throw new AuthException(ErrorCode.ACCOUNT_DISABLED, "Tài khoản đã bị vô hiệu hóa");
     }
 
-    if ((user.getFullName() == null || user.getFullName().isBlank()) && name != null) {
-      user.setFullName(name);
+    if ((user.getFullName() == null || user.getFullName().isBlank()) && name != null && !name.isBlank()) {
+      user.setFullName(name.trim());
       users.save(user);
     }
 
@@ -252,40 +254,6 @@ public class AuthService {
     }
 
     return result(user, names);
-  }
-
-  private record VerifiedSocialUser(String email, String name) {}
-
-  private VerifiedSocialUser verifyGoogleIdToken(String idToken) {
-    if (idToken == null || idToken.isBlank() || !idToken.contains(".")) {
-      return null;
-    }
-    try {
-      java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
-          .connectTimeout(java.time.Duration.ofSeconds(3))
-          .build();
-      String verifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + java.net.URLEncoder.encode(idToken, java.nio.charset.StandardCharsets.UTF_8);
-      java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-          .uri(java.net.URI.create(verifyUrl))
-          .timeout(java.time.Duration.ofSeconds(4))
-          .GET()
-          .build();
-
-      java.net.http.HttpResponse<String> response = httpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-      if (response.statusCode() == 200) {
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        var node = mapper.readTree(response.body());
-        boolean emailVerified = node.has("email_verified") &&
-            ("true".equalsIgnoreCase(node.get("email_verified").asText()) || node.get("email_verified").asBoolean());
-        if (emailVerified && node.has("email")) {
-          String verifiedEmail = node.get("email").asText().trim().toLowerCase(Locale.ROOT);
-          String verifiedName = node.has("name") ? node.get("name").asText().trim() : null;
-          return new VerifiedSocialUser(verifiedEmail, verifiedName);
-        }
-      }
-    } catch (Exception ignored) {
-    }
-    return null;
   }
 
   public LoginResult refresh(String raw) {

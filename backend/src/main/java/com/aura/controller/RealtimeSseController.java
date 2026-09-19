@@ -90,9 +90,7 @@ public class RealtimeSseController {
   @GetMapping(value = {"/api/v1/events/stream", "/api/events/stream"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public SseEmitter subscribe(
       @org.springframework.security.core.annotation.AuthenticationPrincipal com.aura.auth.security.AuraUserPrincipal principal,
-      @RequestParam(name = "token", required = false) String token,
-      @RequestParam(name = "userId", required = false) String userIdParam,
-      @RequestParam(name = "role", required = false) String roleParam
+      @RequestParam(name = "token", required = false) String token
   ) {
     String effectiveUserId = null;
     String effectiveRole = null;
@@ -118,18 +116,13 @@ public class RealtimeSseController {
         }
       } catch (Exception e) {
         log.warn("Invalid JWT in SSE subscribe request parameter: {}", e.getMessage());
+        throw new com.aura.auth.exception.AuthException(
+            com.aura.common.response.ErrorCode.UNAUTHORIZED,
+            "JWT token trong tham số SSE không hợp lệ hoặc đã hết hạn");
       }
     }
 
-    if (effectiveUserId == null && userIdParam != null && !userIdParam.isBlank()) {
-      effectiveUserId = userIdParam.trim();
-      if (roleParam != null && !roleParam.isBlank()) {
-        effectiveRole = roleParam.trim();
-        effectiveRoles.add(effectiveRole);
-      }
-    }
-
-    if (effectiveUserId == null && principal == null) {
+    if (effectiveUserId == null || effectiveRoles.isEmpty()) {
       throw new com.aura.auth.exception.AuthException(
           com.aura.common.response.ErrorCode.UNAUTHORIZED,
           "Yêu cầu đăng nhập hoặc JWT token hợp lệ để kết nối SSE Stream");
@@ -183,10 +176,10 @@ public class RealtimeSseController {
   }
 
   /**
-   * Overloaded subscribe method for backward compatibility with existing tests and callers.
+   * Helper subscribe method for testing with principal.
    */
-  public SseEmitter subscribe(String token, String userId, String role) {
-    return subscribe(null, token, userId, role);
+  public SseEmitter subscribe(com.aura.auth.security.AuraUserPrincipal principal) {
+    return subscribe(principal, null);
   }
 
   /**

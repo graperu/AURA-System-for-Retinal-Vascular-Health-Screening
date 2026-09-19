@@ -48,12 +48,21 @@ public class PatientSpecification {
       }
 
       if (search != null && !search.isBlank()) {
-        String pattern = "%" + search.trim().toLowerCase() + "%";
-        Predicate nameMatch = cb.like(cb.lower(root.get("fullName")), pattern);
-        Predicate mrnMatch = cb.like(cb.lower(root.get("mrn")), pattern);
-        Predicate phoneMatch = cb.like(cb.lower(root.get("phone")), pattern);
-        Predicate doctorMatch = cb.like(cb.lower(root.get("assignedDoctor")), pattern);
-        predicates.add(cb.or(nameMatch, mrnMatch, phoneMatch, doctorMatch));
+        String rawSearch = search.trim();
+        String pattern = "%" + rawSearch.toLowerCase() + "%";
+        List<Predicate> searchPredicates = new ArrayList<>();
+        searchPredicates.add(cb.like(cb.lower(root.get("fullName")), pattern));
+        searchPredicates.add(cb.like(cb.lower(root.get("mrn")), pattern));
+        searchPredicates.add(cb.like(cb.lower(root.get("assignedDoctor")), pattern));
+
+        // CON-01: TUYỆT ĐỐI KHÔNG dùng cb.like trên trường ciphertext 'phone' (tránh rò rỉ khi search 'ENC')
+        // Tra cứu số điện thoại bằng Blind Index (HMAC-SHA256) nếu từ khóa chứa số điện thoại hợp lệ
+        String normalizedPhone = com.aura.common.crypto.BlindIndexUtil.normalizePhone(rawSearch);
+        if (normalizedPhone != null && normalizedPhone.length() >= 7) {
+          String phoneHash = com.aura.common.crypto.BlindIndexUtil.computePhoneHash(normalizedPhone);
+          searchPredicates.add(cb.equal(root.get("phoneHash"), phoneHash));
+        }
+        predicates.add(cb.or(searchPredicates.toArray(new Predicate[0])));
       }
 
       if (riskLevel != null && !riskLevel.isBlank() && !riskLevel.equalsIgnoreCase("ALL")) {

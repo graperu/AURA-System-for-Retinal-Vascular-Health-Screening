@@ -495,11 +495,16 @@ public class ScreeningService {
               }
             }
 
-            if (category.contains("Cardiovascular") || category.contains("Hypertensive")) {
-              screening.setCardiovascularRiskScore(predScore);
-              screening.setCardiovascularRiskLevel(predRiskLevel);
+            // --- MED-06 FIX: Tách biệt trục bệnh lý Đột quỵ khỏi Tim mạch ---
+            if (category.contains("Stroke") || category.contains("Cerebrovascular") || category.contains("Đột quỵ")) {
               screening.setStrokeRiskScore(predScore);
               screening.setStrokeRiskLevel(predRiskLevel);
+              if (clinicalNote != null && !clinicalNote.isBlank()) {
+                combinedNotes.add("• Nguy cơ Đột quỵ (3 năm): " + clinicalNote);
+              }
+            } else if (category.contains("Cardiovascular") || category.contains("Hypertensive")) {
+              screening.setCardiovascularRiskScore(predScore);
+              screening.setCardiovascularRiskLevel(predRiskLevel);
               screening.setHypertensionRiskScore(predScore);
               screening.setHypertensionRiskLevel(predRiskLevel);
               if (clinicalNote != null && !clinicalNote.isBlank()) {
@@ -509,19 +514,20 @@ public class ScreeningService {
               screening.setDiabeticRetinopathyRiskScore(predScore);
               screening.setDiabeticRetinopathyRiskLevel(predRiskLevel);
 
+              // --- MED-03 FIX: ETDRS Classification via AAO/ETDRS Rule 4-2-1 ---
               String etdrs = (String) prediction.get("etdrsGrade");
-              if (etdrs == null || etdrs.isBlank()) {
-                if (predScore >= criticalLimit || "CRITICAL".equalsIgnoreCase(predRiskLevel)) {
-                  etdrs = "Cấp độ 4 (PDR - Tăng sinh)";
-                } else if (predScore >= highLimit || "HIGH".equalsIgnoreCase(predRiskLevel)) {
-                  etdrs = "Cấp độ 3 (NPDR nặng - Tiền tăng sinh)";
-                } else if (predScore >= 45 || "MODERATE".equalsIgnoreCase(predRiskLevel)) {
-                  etdrs = "Cấp độ 2 (NPDR trung bình)";
-                } else if (predScore >= 25) {
-                  etdrs = "Cấp độ 1 (NPDR nhẹ)";
-                } else {
-                  etdrs = "Cấp độ 0 (Không DR)";
+              if (etdrs == null || etdrs.isBlank() || etdrs.toLowerCase().contains("theo phân tích")) {
+                String anomaliesRaw = null;
+                Object aObj = body.get("detectedAnomalies");
+                if (aObj instanceof String s) {
+                  anomaliesRaw = s;
+                } else if (aObj != null) {
+                  try {
+                    anomaliesRaw = objectMapper.writeValueAsString(aObj);
+                  } catch (Exception ignored) {
+                  }
                 }
+                etdrs = determineEtdrsGradeFromLesions(anomaliesRaw, predScore, predRiskLevel);
               }
               screening.setEtdrsGrade(etdrs);
               if (clinicalNote != null && !clinicalNote.isBlank()) {
@@ -588,6 +594,58 @@ public class ScreeningService {
           String maskStr = maskObj.toString().trim();
           if (!maskStr.isBlank()) {
             screening.setVesselMaskUrl(maskStr);
+          }
+        }
+
+        // Ensure independent stroke risk is populated even if AI payload lacked explicit category
+        if (screening.getStrokeRiskScore() == null) {
+          if (screening.getAvRatio() != null || screening.getTortuosityIndex() != null || (screening.getDetectedAnomalies() != null && screening.getDetectedAnomalies().contains("AV_Nipping"))) {
+            int calculatedStroke = computeIndependentStrokeScore(
+                screening.getCardiovascularRiskScore(),
+                screening.getAvRatio(),
+                screening.getTortuosityIndex(),
+                screening.getDetectedAnomalies()
+            );
+            screening.setStrokeRiskScore(calculatedStroke);
+            screening.setStrokeRiskLevel(
+                calculatedStroke >= criticalLimit ? "CRITICAL" :
+                calculatedStroke >= highLimit ? "HIGH" :
+                calculatedStroke >= modLimit ? "MODERATE" : "LOW"
+            );
+          } else if (screening.getCardiovascularRiskScore() != null) {
+            screening.setStrokeRiskScore(screening.getCardiovascularRiskScore());
+            screening.setStrokeRiskLevel(screening.getCardiovascularRiskLevel());
+          }
+        }
+
+        // Ensure ETDRS grade is populated from anomalies even if predictions lacked explicit DR entry
+        if (screening.getEtdrsGrade() == null) {
+          screening.setEtdrsGrade(determineEtdrsGradeFromLesions(
+              screening.getDetectedAnomalies(),
+              screening.getDiabeticRetinopathyRiskScore() != null ? screening.getDiabeticRetinopathyRiskScore() : 0,
+              screening.getDiabeticRetinopathyRiskLevel()
+          ));
+        }
+
+        // --- MED-05 FIX: Emergency Risk Override Formula ---
+        // Tuyệt đối không để điểm tim mạch nhẹ làm suy giảm ca cấp cứu nhãn khoa (PDR, xuất huyết diện rộng)
+        int cvdScore = screening.getCardiovascularRiskScore() != null ? screening.getCardiovascularRiskScore() : 0;
+        int drScore = screening.getDiabeticRetinopathyRiskScore() != null ? screening.getDiabeticRetinopathyRiskScore() : 0;
+        int strokeScore = screening.getStrokeRiskScore() != null ? screening.getStrokeRiskScore() : 0;
+        int maxOrganScore = Math.max(cvdScore, Math.max(drScore, strokeScore));
+
+        boolean isPdrEmergency = screening.getEtdrsGrade() != null && screening.getEtdrsGrade().contains("Cấp độ 4");
+        boolean isDrCritical = "CRITICAL".equalsIgnoreCase(screening.getDiabeticRetinopathyRiskLevel()) || drScore >= criticalLimit;
+        boolean isCardioCritical = "CRITICAL".equalsIgnoreCase(screening.getCardiovascularRiskLevel()) || cvdScore >= criticalLimit;
+        boolean isStrokeCritical = "CRITICAL".equalsIgnoreCase(screening.getStrokeRiskLevel()) || strokeScore >= criticalLimit;
+
+        if (isPdrEmergency || isDrCritical || isCardioCritical || isStrokeCritical) {
+          score = Math.max(score, maxOrganScore);
+          calculatedRisk = RiskLevel.CRITICAL;
+        } else if (maxOrganScore >= highLimit) {
+          score = Math.max(score, maxOrganScore);
+          if (calculatedRisk == RiskLevel.LOW || calculatedRisk == RiskLevel.MODERATE) {
+            calculatedRisk = RiskLevel.HIGH;
           }
         }
 
@@ -957,12 +1015,19 @@ public class ScreeningService {
     screening.setDoctorCardiovascularRiskLevel(adjustedCardioRisk);
     screening.setDoctorDiabeticRetinopathyRiskLevel(adjustedDrRisk);
     screening.setIcd10Codes(icd10Codes == null ? null : String.join("\n", icd10Codes));
-    if (adjustedCardioRisk != null) {
-      screening.setDoctorRiskLevel(adjustedCardioRisk);
-      screening.setRiskLevel(adjustedCardioRisk);
+    // --- MED-05 FIX: Đánh giá tổng hợp bác sĩ lấy mức nghiêm trọng cao nhất (Max-Rule) ---
+    RiskLevel effectiveDoctorRisk = null;
+    if (adjustedCardioRisk != null && adjustedDrRisk != null) {
+      effectiveDoctorRisk = adjustedCardioRisk.compareTo(adjustedDrRisk) >= 0 ? adjustedCardioRisk : adjustedDrRisk;
+    } else if (adjustedCardioRisk != null) {
+      effectiveDoctorRisk = adjustedCardioRisk;
     } else if (adjustedDrRisk != null) {
-      screening.setDoctorRiskLevel(adjustedDrRisk);
-      screening.setRiskLevel(adjustedDrRisk);
+      effectiveDoctorRisk = adjustedDrRisk;
+    }
+
+    if (effectiveDoctorRisk != null) {
+      screening.setDoctorRiskLevel(effectiveDoctorRisk);
+      screening.setRiskLevel(effectiveDoctorRisk);
     }
     screening.setReviewedAt(java.time.Instant.now());
     screening.setStatus(ScreeningStatus.REVIEWED);
@@ -1059,6 +1124,7 @@ public class ScreeningService {
           + "Xây dựng chế độ ăn uống lành mạnh, vận động đều đặn và theo dõi các chỉ số tim mạch, đường huyết.";
       case LOW -> "Nguy cơ THẤP: Chưa phát hiện dấu hiệu bất thường đáng lo ngại. "
           + "Duy trì khám sàng lọc định kỳ hằng năm và lối sống lành mạnh để phòng ngừa.";
+      case UNVERIFIED -> "Chưa xác minh: Ca khám đang chờ bác sĩ chuyên khoa đánh giá và xác thực lâm sàng.";
     };
   }
 
@@ -1067,6 +1133,136 @@ public class ScreeningService {
       return number.doubleValue();
     }
     return null;
+  }
+
+  /**
+   * Chuẩn hóa phân độ ETDRS theo Quy tắc 4-2-1 quốc tế (AAO / Quyết định 3987/QĐ-BYT):
+   * - Cấp độ 4 (PDR): Có tân mạch (Neovascularization NVD/NVE) hoặc xuất huyết dịch kính/trước võng mạc.
+   * - Cấp độ 3 (NPDR nặng - Tiền tăng sinh): Thỏa quy tắc 4-2-1:
+   *     + Xuất huyết vi mạch xuất hiện ở cả 4 góc phần tư võng mạc, HOẶC
+   *     + Chuỗi hạt tĩnh mạch (Venous Beading) ở >= 2 góc phần tư, HOẶC
+   *     + Bất thường vi mạch trong võng mạc (IRMA) ở >= 1 góc phần tư.
+   * - Cấp độ 2 (NPDR trung bình): Tổn thương nhiều hơn vi phình mạch đơn thuần nhưng chưa đạt quy tắc 4-2-1.
+   * - Cấp độ 1 (NPDR nhẹ): Chỉ có vi phình mạch (Microaneurysm).
+   * - Cấp độ 0 (Không DR): Hoàn toàn không có tổn thương võng mạc đái tháo đường.
+   */
+  public String determineEtdrsGradeFromLesions(String detectedAnomaliesJson, int predScore, String predRiskLevel) {
+    if (detectedAnomaliesJson == null || detectedAnomaliesJson.isBlank() || "[]".equals(detectedAnomaliesJson.trim())) {
+      if ("CRITICAL".equalsIgnoreCase(predRiskLevel) || predScore >= 85) {
+        return "Cấp độ 3 (NPDR nặng - Tiền tăng sinh)"; // Bảo vệ an toàn, không gán PDR khi chưa có bằng chứng tân mạch
+      } else if ("HIGH".equalsIgnoreCase(predRiskLevel) || predScore >= 65) {
+        return "Cấp độ 2 (NPDR trung bình)";
+      } else if (predScore >= 25) {
+        return "Cấp độ 1 (NPDR nhẹ - Vi phình mạch)";
+      }
+      return "Cấp độ 0 (Không DR)";
+    }
+
+    try {
+      List<Map<String, Object>> anomalies = objectMapper.readValue(
+          detectedAnomaliesJson, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+      if (anomalies == null || anomalies.isEmpty()) {
+        return "Cấp độ 0 (Không DR)";
+      }
+
+      boolean hasNeovascularization = false;
+      boolean hasIrma = false;
+      boolean hasMicroaneurysm = false;
+      boolean hasExudates = false;
+      java.util.Set<Integer> hemQuadrants = new java.util.HashSet<>();
+      java.util.Set<Integer> venousBeadingQuadrants = new java.util.HashSet<>();
+
+      for (Map<String, Object> a : anomalies) {
+        String type = String.valueOf(a.get("type")).toUpperCase(java.util.Locale.ROOT);
+        Map<String, Object> coords = (Map<String, Object>) a.get("coordinates");
+        int quadrant = determineQuadrant(coords);
+
+        if (type.contains("NEOVASCULAR") || type.contains("NVD") || type.contains("NVE") || type.contains("VITREOUS_HEM")) {
+          hasNeovascularization = true;
+        }
+        if (type.contains("IRMA") || type.contains("MICROVASCULAR_ABNORMAL")) {
+          hasIrma = true;
+        }
+        if (type.contains("VENOUS_BEAD") || type.contains("BEADING")) {
+          venousBeadingQuadrants.add(quadrant);
+        }
+        if (type.contains("HEMORRHAGE") || type.contains("XUAT_HUYET") || type.contains("BLEED")) {
+          hemQuadrants.add(quadrant);
+        }
+        if (type.contains("MICROANEURYSM") || type.contains("VI_PHINH")) {
+          hasMicroaneurysm = true;
+        }
+        if (type.contains("EXUDATE") || type.contains("COTTON_WOOL")) {
+          hasExudates = true;
+        }
+      }
+
+      // 1. Cấp độ 4: Tân mạch PDR
+      if (hasNeovascularization || ("CRITICAL".equalsIgnoreCase(predRiskLevel) && (hasIrma || hemQuadrants.size() >= 4))) {
+        return "Cấp độ 4 (PDR - Tăng sinh)";
+      }
+
+      // 2. Cấp độ 3: Quy tắc 4-2-1
+      boolean rule4Met = hemQuadrants.size() >= 4;
+      boolean rule2Met = venousBeadingQuadrants.size() >= 2;
+      boolean rule1Met = hasIrma;
+      if (rule4Met || rule2Met || rule1Met) {
+        return "Cấp độ 3 (NPDR nặng - Tiền tăng sinh)";
+      }
+
+      // 3. Cấp độ 2: NPDR trung bình
+      if (hasExudates || hemQuadrants.size() >= 1 || anomalies.size() >= 3) {
+        return "Cấp độ 2 (NPDR trung bình)";
+      }
+
+      // 4. Cấp độ 1: Chỉ có vi phình mạch
+      if (hasMicroaneurysm) {
+        return "Cấp độ 1 (NPDR nhẹ - Vi phình mạch)";
+      }
+
+      return "Cấp độ 0 (Không DR)";
+    } catch (Exception e) {
+      log.warn("Lỗi phân tích tổn thương cho ETDRS 4-2-1: {}", e.getMessage());
+      return predScore >= 70 ? "Cấp độ 2 (NPDR trung bình)" : "Cấp độ 1 (NPDR nhẹ)";
+    }
+  }
+
+  private int determineQuadrant(Map<String, Object> coords) {
+    if (coords == null) return 1;
+    Double xVal = toDouble(coords.get("x"));
+    Double yVal = toDouble(coords.get("y"));
+    double x = xVal != null ? xVal : 50.0;
+    double y = yVal != null ? yVal : 50.0;
+    double cx = (x <= 1.0) ? 0.5 : 50.0;
+    double cy = (y <= 1.0) ? 0.5 : 50.0;
+    if (x >= cx && y < cy) return 1; // Superior-Temporal
+    if (x < cx && y < cy) return 2;  // Superior-Nasal
+    if (x < cx && y >= cy) return 3; // Inferior-Nasal
+    return 4;                        // Inferior-Temporal
+  }
+
+  private int computeIndependentStrokeScore(Integer cvdScore, Double avRatio, Double tortuosity, String anomaliesJson) {
+    double score = cvdScore != null ? cvdScore * 0.5 : 20.0;
+    if (avRatio != null) {
+      if (avRatio < 0.55) {
+        score += 35.0; // Hẹp tiểu động mạch rất nặng (<0.55)
+      } else if (avRatio < 0.60) {
+        score += 25.0; // Hẹp tiểu động mạch rõ (<0.60)
+      } else if (avRatio < 0.65) {
+        score += 12.0; // Co nhẹ vi mạch
+      }
+    }
+    if (tortuosity != null) {
+      if (tortuosity > 1.30) {
+        score += 20.0; // Xoắn vặn vi mạch đáng kể
+      } else if (tortuosity > 1.20) {
+        score += 10.0;
+      }
+    }
+    if (anomaliesJson != null && (anomaliesJson.contains("AV_Nipping") || anomaliesJson.contains("Focal_Narrowing") || anomaliesJson.contains("AV_NIP") || anomaliesJson.contains("GUNN") || anomaliesJson.contains("Salus"))) {
+      score += 20.0; // Dấu hiệu bắt chéo Gunn / Salus sign đặc hiệu cho xơ vữa tiểu động mạch não
+    }
+    return (int) Math.min(95, Math.max(5, Math.round(score)));
   }
 
   public boolean isUserScreeningOwner(Screening screening, UUID userId) {

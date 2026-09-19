@@ -111,6 +111,8 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
   const [isNewScanOpen, setIsNewScanOpen] = useState(false);
   const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
   const [feedbackSuccessMsg, setFeedbackSuccessMsg] = useState<string>('');
+  const [feedbackErrorToast, setFeedbackErrorToast] = useState(false);
+  const [feedbackErrorMsg, setFeedbackErrorMsg] = useState<string>('');
 
   const loadPatientDetails = useCallback(
     async (
@@ -424,19 +426,36 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
   };
 
   const handleSaveFeedback = async (feedback: DoctorFeedback) => {
-    try {
-      if (feedback.analysisId) {
-        await screeningApi.doctorReview(feedback.analysisId, {
-          decision: feedback.decision,
-          doctorNotes: feedback.clinicalNotes || (isVi ? 'Bác sĩ đã xác nhận kết quả chẩn đoán' : 'Doctor confirmed diagnosis'),
-          adjustedCardioRisk: toApiRiskLevel(feedback.adjustedCardioRisk),
-          adjustedDrRisk: toApiRiskLevel(feedback.adjustedDrRisk),
-          icd10Codes: feedback.icd10Codes,
-        });
+    setFeedbackErrorToast(false);
+    setFeedbackSuccessToast(false);
 
-        // Broadcast review event in real time to patient and analytics
-        realtimeBus.emit('screening:reviewed', feedback);
+    try {
+      if (!feedback.analysisId) {
+        throw new Error(
+          isVi
+            ? 'Không thể lưu đánh giá: Mã ca phân tích (analysisId) không tồn tại. Vui lòng chọn ca khám hợp lệ.'
+            : 'Cannot save assessment: Missing analysisId. Please select a valid screening case.'
+        );
       }
+
+      const res = await screeningApi.doctorReview(feedback.analysisId, {
+        decision: feedback.decision,
+        doctorNotes: feedback.clinicalNotes || (isVi ? 'Bác sĩ đã xác nhận kết quả chẩn đoán' : 'Doctor confirmed diagnosis'),
+        adjustedCardioRisk: toApiRiskLevel(feedback.adjustedCardioRisk),
+        adjustedDrRisk: toApiRiskLevel(feedback.adjustedDrRisk),
+        icd10Codes: feedback.icd10Codes,
+      });
+
+      if (!res || !res.success) {
+        throw new Error(
+          res?.message || (isVi
+            ? 'Lưu thẩm định chuyên môn thất bại. Máy chủ từ chối cập nhật kết quả.'
+            : 'Failed to save clinical review. Server rejected update.')
+        );
+      }
+
+      // Broadcast review event in real time to patient and analytics ONLY after server confirms success
+      realtimeBus.emit('screening:reviewed', feedback);
 
       setFeedbackSuccessMsg(
         t(
@@ -447,7 +466,14 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       setFeedbackSuccessToast(true);
       setTimeout(() => setFeedbackSuccessToast(false), 3500);
     } catch (err) {
-      console.warn('Feedback submission error:', err);
+      console.error('[MED-07] Doctor review save error:', err);
+      const errorText = err instanceof Error
+        ? err.message
+        : (isVi ? 'Đã xảy ra lỗi hệ thống khi lưu chẩn đoán của bác sĩ.' : 'System error occurred while saving diagnosis.');
+      setFeedbackErrorMsg(errorText);
+      setFeedbackErrorToast(true);
+      setTimeout(() => setFeedbackErrorToast(false), 6000);
+      throw err;
     }
   };
 
@@ -892,6 +918,22 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         <div className="bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-md flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-top-4 duration-200">
           <CheckCircle2 className="w-4 h-4 text-emerald-100 flex-shrink-0" />
           <span>{feedbackSuccessMsg}</span>
+        </div>
+      )}
+
+      {feedbackErrorToast && (
+        <div className="bg-red-600 text-white px-4 py-3 rounded-xl shadow-md flex items-center justify-between gap-2 text-xs font-semibold animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-100 flex-shrink-0" />
+            <span>{feedbackErrorMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFeedbackErrorToast(false)}
+            className="text-white hover:text-red-200 text-xs font-bold cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
       )}
 

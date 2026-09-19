@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   CheckCircle2,
+  AlertTriangle,
   FileSignature,
   Save,
   Printer,
@@ -43,6 +44,8 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
   const [icd10Input, setIcd10Input] = useState<string>('H35.0');
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
+  const [saveError, setSaveError] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
 
   const handleSave = async (isDraft: boolean = false) => {
@@ -57,6 +60,8 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
     }
 
     setOverrideError(null);
+    setSaveError(false);
+    setSaveSuccess(false);
     setSaving(true);
     const feedback: DoctorFeedback = {
       feedbackId: `FB-${Date.now()}`,
@@ -83,8 +88,15 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       );
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 4000);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('[MED-07] Validation save error in bar:', e);
+      setErrorMessage(
+        e?.message || (isVi
+          ? 'Không thể lưu đánh giá lâm sàng. Vui lòng kiểm tra lại kết nối hoặc thông tin ca khám.'
+          : 'Failed to save clinical validation. Please check connection or screening details.')
+      );
+      setSaveError(true);
+      setTimeout(() => setSaveError(false), 6000);
     } finally {
       setSaving(false);
     }
@@ -381,6 +393,23 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
               className="w-full text-xs p-2 rounded-lg border border-clinical-border bg-white text-clinical-text focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
+
+          {saveSuccess && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-2.5 rounded-lg text-xs flex items-center gap-2 animate-in fade-in duration-200">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 p-2.5 rounded-lg text-xs flex items-start gap-2 animate-in fade-in duration-200">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold">{isVi ? 'Lỗi lưu thẩm định' : 'Save Error'}</p>
+                <p className="text-[11px] leading-tight text-red-700">{errorMessage}</p>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#EAECF0]">
             <Button

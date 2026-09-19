@@ -56,6 +56,10 @@ public class RefreshToken {
     return revokedAt;
   }
 
+  public RefreshToken getReplacedBy() {
+    return replacedBy;
+  }
+
   public boolean usable() {
     return revokedAt == null && expiresAt.isAfter(Instant.now()) && user.isActive();
   }

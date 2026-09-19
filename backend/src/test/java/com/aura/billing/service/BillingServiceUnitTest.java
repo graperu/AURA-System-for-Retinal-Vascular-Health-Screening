@@ -853,4 +853,53 @@ class BillingServiceUnitTest {
       verify(subscriptionRepository, never()).save(any(Subscription.class));
     }
   }
+
+  @Nested
+  @DisplayName("processPaymentSuccess Tests (CON-03 & BIL-03)")
+  class ProcessPaymentSuccessTests {
+
+    @Test
+    @DisplayName("processPaymentSuccess: Khớp lệnh thành công khi ngân hàng gửi nội dung chữ thường (BIL-03)")
+    void processPaymentSuccess_CaseInsensitiveTransferContent_Success() {
+      PaymentTransaction txn = PaymentTransaction.builder()
+          .id(888L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.PENDING)
+          .provider("VIETQR")
+          .transferContent("AURA NAP 1 KHAM TEST")
+          .build();
+
+      when(paymentTransactionRepository.findByProviderReference("aura nap 1 kham test")).thenReturn(Optional.empty());
+      when(paymentTransactionRepository.findByTransferContent("aura nap 1 kham test")).thenReturn(Optional.of(txn));
+      when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(i -> i.getArgument(0));
+      when(subscriptionRepository.findByOwnerIdAndServicePackageId(individualUserId, 1L)).thenReturn(Optional.empty());
+      when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(i -> i.getArgument(0));
+
+      PaymentTransaction confirmed = billingService.processPaymentSuccess("aura nap 1 kham test", "GATEWAY_TXN_001", BigDecimal.valueOf(100_000));
+      assertThat(confirmed.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+      verify(subscriptionRepository).save(any(Subscription.class));
+    }
+
+    @Test
+    @DisplayName("processPaymentSuccess: Bỏ qua cộng credit lần 2 khi giao dịch đã SUCCEEDED (CON-03)")
+    void processPaymentSuccess_IdempotentAlreadySucceeded_DoesNotGrantTwice() {
+      PaymentTransaction txn = PaymentTransaction.builder()
+          .id(889L)
+          .buyer(individualUser)
+          .servicePackage(individualPackage)
+          .amount(BigDecimal.valueOf(100_000))
+          .status(PaymentStatus.SUCCEEDED)
+          .provider("VNPAY")
+          .providerReference("VNPAY-DUP-REF")
+          .build();
+
+      when(paymentTransactionRepository.findByProviderReference("VNPAY-DUP-REF")).thenReturn(Optional.of(txn));
+
+      PaymentTransaction result = billingService.processPaymentSuccess("VNPAY-DUP-REF", "TXN_002", BigDecimal.valueOf(100_000));
+      assertThat(result.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+      verify(subscriptionRepository, never()).save(any(Subscription.class));
+    }
+  }
 }

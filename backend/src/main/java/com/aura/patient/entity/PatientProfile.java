@@ -41,6 +41,9 @@ public class PatientProfile {
   @Column(name = "phone", length = 255)
   private String phone;
 
+  @Column(name = "phone_hash", length = 64)
+  private String phoneHash;
+
   @Convert(converter = AesGcmAttributeConverter.class)
   @Column(name = "address", length = 500)
   private String address;
@@ -170,6 +173,15 @@ public class PatientProfile {
 
   public void setPhone(String phone) {
     this.phone = phone;
+    this.phoneHash = com.aura.common.crypto.BlindIndexUtil.computePhoneHash(phone);
+  }
+
+  public String getPhoneHash() {
+    return phoneHash;
+  }
+
+  public void setPhoneHash(String phoneHash) {
+    this.phoneHash = phoneHash;
   }
 
   public String getAddress() {
@@ -290,5 +302,15 @@ public class PatientProfile {
 
   public Instant getUpdatedAt() {
     return updatedAt;
+  }
+
+  @PrePersist
+  @PreUpdate
+  public void syncPhoneHash() {
+    if (this.phone != null && !this.phone.isBlank()) {
+      this.phoneHash = com.aura.common.crypto.BlindIndexUtil.computePhoneHash(this.phone);
+    } else {
+      this.phoneHash = null;
+    }
   }
 }

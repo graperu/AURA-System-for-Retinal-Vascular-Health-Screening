@@ -44,6 +44,10 @@ public class Subscription {
     @Column(nullable = false)
     private SubscriptionStatus status;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

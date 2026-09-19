@@ -7,3 +7,6 @@ aura:
     cookie-same-site: Lax
   cors:
     allowed-origins: http://localhost:5173
+  security:
+    encryption:
+      aes-key: AURA_TEST_AES_KEY_32_BYTES_SECURE_2026!!

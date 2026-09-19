@@ -497,14 +497,14 @@ runTest('DOT-NOTATION-4: Tái sử dụng từ điển qua getAnomalyName và nh
     )
   );
 
-  // Hệ thống đã khóa chỉ dùng Tiếng Việt và tự động reset 'en' về 'vi'
-  assert.ok(htmlEn.includes('Vi phình mạch'), 'Hệ thống tự động khóa tiếng Việt');
-  assert.ok(htmlEn.includes('Xuất huyết võng mạc'), 'Hệ thống tự động khóa tiếng Việt');
-  assert.ok(htmlEn.includes('Lượt khám khả dụng:'), 'Hệ thống tự động khóa tiếng Việt');
-  assert.ok(htmlEn.includes('vượt quá dung lượng tối đa cho phép (15MB)'), 'Hệ thống tự động khóa tiếng Việt');
-  assert.ok(htmlEn.includes('Tệp rỗng (0 bytes)'), 'Hệ thống tự động khóa tiếng Việt');
-  assert.ok(htmlEn.includes('Định dạng tệp không được hỗ trợ'), 'Hệ thống tự động khóa tiếng Việt');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  // Hệ thống hỗ trợ tiếng Anh và bảo lưu 'en' trong localStorage
+  assert.ok(htmlEn.includes('Microaneurysm'), 'Hệ thống hỗ trợ tiếng Anh cho Microaneurysm');
+  assert.ok(htmlEn.includes('Retinal Hemorrhage') || htmlEn.includes('Hemorrhage'), 'Hệ thống hỗ trợ tiếng Anh cho Hemorrhage');
+  assert.ok(htmlEn.includes('Credits remaining:'), 'Hệ thống hỗ trợ tiếng Anh cho Credits remaining');
+  assert.ok(htmlEn.includes('exceeds maximum size (15MB)'), 'Hệ thống hỗ trợ tiếng Anh cho fileSizeError');
+  assert.ok(htmlEn.includes('File is empty'), 'Hệ thống hỗ trợ tiếng Anh cho fileEmptyError');
+  assert.ok(htmlEn.includes('Unsupported format'), 'Hệ thống hỗ trợ tiếng Anh cho fileFormatError');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 // -----------------------------------------------------------------------------
@@ -613,7 +613,7 @@ runTest('LIVE-RENDER-1: InteractiveCDSViewer render tiếng Việt chuẩn và k
   assert.ok(!htmlVi.includes('Interactive CDS Workspace'), 'Không hiển thị nhãn tiếng Anh khi ở chế độ VI');
 });
 
-runTest('LIVE-RENDER-2: InteractiveCDSViewer tự động khóa tiếng Việt kể cả khi localStorage set en', () => {
+runTest('LIVE-RENDER-2: InteractiveCDSViewer render tiếng Anh khi localStorage set en', () => {
   localStorage.setItem('aura_language', 'en');
   const htmlEn = renderToStaticMarkup(
     React.createElement(
@@ -627,17 +627,17 @@ runTest('LIVE-RENDER-2: InteractiveCDSViewer tự động khóa tiếng Việt k
   );
 
   assert.ok(
-    htmlEn.includes('Bản đồ nhiệt vi mạch (Grad-CAM)') ||
-    htmlEn.includes('Bản đồ nhiệt Grad-CAM') ||
-    htmlEn.includes('Bàn chẩn đoán tương tác CDS'),
-    'Tiêu đề tiếng Việt chuẩn'
+    htmlEn.includes('Interactive CDS') ||
+    htmlEn.includes('Heatmap') ||
+    htmlEn.includes('Grad-CAM') ||
+    htmlEn.includes('Microvascular Heatmap'),
+    'Tiêu đề tiếng Anh chuẩn'
   );
-  assert.ok(!htmlEn.includes('Interactive CDS Workspace'), 'Không hiển thị nhãn tiếng Anh khi ở chế độ VI');
   assert.ok(!htmlEn.includes('Fundus &amp; Grad-CAM Heatmap Viewer'), 'Cấm chuỗi lai tạp cũ');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
-runTest('LIVE-RENDER-3: MedicalDisclaimer render chính xác thông điệp Bộ Y Tế (VI), tự động reset và khóa tiếng Việt khi có en', () => {
+runTest('LIVE-RENDER-3: MedicalDisclaimer render chính xác thông điệp Bộ Y Tế (VI) và phiên bản tiếng Anh (EN)', () => {
   // Tiếng Việt
   localStorage.setItem('aura_language', 'vi');
   const htmlVi = renderToStaticMarkup(
@@ -651,19 +651,19 @@ runTest('LIVE-RENDER-3: MedicalDisclaimer render chính xác thông điệp Bộ
   );
   assert.ok(htmlBannerVi.includes('Tuyên bố Miễn trừ Y tế:'), 'Banner tiếng Việt có tiêu đề chuẩn');
 
-  // Thử nghiệm lưu en trong localStorage -> Hệ thống phải tự động khóa tiếng Việt
+  // Thử nghiệm lưu en trong localStorage -> Hệ thống hiển thị tiếng Anh và bảo lưu en
   localStorage.setItem('aura_language', 'en');
   const htmlEn = renderToStaticMarkup(
     React.createElement(LanguageProvider, null, React.createElement(MedicalDisclaimer, null))
   );
-  assert.ok(htmlEn.includes(MANDATORY_MEDICAL_DISCLAIMER_VI), 'Khóa tuyên bố miễn trừ tiếng Việt chuẩn');
-  assert.ok(!htmlEn.includes(MANDATORY_MEDICAL_DISCLAIMER_EN), 'Không hiển thị tuyên bố tiếng Anh');
+  assert.ok(htmlEn.includes(MANDATORY_MEDICAL_DISCLAIMER_EN), 'Hiển thị tuyên bố miễn trừ tiếng Anh chuẩn');
+  assert.ok(!htmlEn.includes(MANDATORY_MEDICAL_DISCLAIMER_VI), 'Không hiển thị tuyên bố tiếng Việt');
 
   const htmlBannerEn = renderToStaticMarkup(
     React.createElement(LanguageProvider, null, React.createElement(MedicalDisclaimer, { variant: 'banner' }))
   );
-  assert.ok(htmlBannerEn.includes('Tuyên bố Miễn trừ Y tế:'), 'Banner vẫn giữ tiếng Việt');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.ok(htmlBannerEn.includes('Medical Disclaimer:'), 'Banner tiếng Anh có tiêu đề chuẩn');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 // -----------------------------------------------------------------------------
@@ -913,8 +913,8 @@ runTest('PATIENT-I18N-1: PatientDashboardView render song ngữ chuẩn (VI & EN
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('PATIENT-I18N-2: PatientHistoryView render song ngữ chuẩn (VI & EN)', () => {
@@ -937,8 +937,8 @@ runTest('PATIENT-I18N-2: PatientHistoryView render song ngữ chuẩn (VI & EN)'
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('PATIENT-I18N-3: PatientScreeningResultView render song ngữ chuẩn (VI & EN)', () => {
@@ -959,8 +959,8 @@ runTest('PATIENT-I18N-3: PatientScreeningResultView render song ngữ chuẩn (V
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('PATIENT-I18N-4: ConsultationChatModal render song ngữ chuẩn (VI & EN)', () => {
@@ -991,8 +991,8 @@ runTest('PATIENT-I18N-4: ConsultationChatModal render song ngữ chuẩn (VI & E
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('PATIENT-I18N-5: MedicalProfileModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1020,8 +1020,8 @@ runTest('PATIENT-I18N-5: MedicalProfileModal render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('PATIENT-I18N-6: CreditPurchaseModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1069,9 +1069,8 @@ runTest('PATIENT-I18N-6: CreditPurchaseModal render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.ok(enHtml.includes('Nạp Thêm Lượt Khám Sàng Lọc AI'), 'VI: Tiêu đề modal (khóa tiếng Việt)');
-  assert.ok(enHtml.includes('Tiếp tục chọn phương thức'), 'VI: Nút tiếp tục (khóa tiếng Việt)');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.ok(enHtml.includes('Basic Package (Single Scan)'), 'EN: Gói tiếng Anh');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('PATIENT-I18N-7: PatientPortalPage render song ngữ chuẩn (VI & EN)', () => {
@@ -1109,8 +1108,8 @@ runTest('PATIENT-I18N-7: PatientPortalPage render song ngữ chuẩn (VI & EN)',
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 // -----------------------------------------------------------------------------
@@ -1160,8 +1159,8 @@ runTest('DOCTOR-I18N-1: DoctorWorklistView render song ngữ chuẩn (VI & EN)',
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('DOCTOR-I18N-2: DoctorDiagnosisModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1196,8 +1195,8 @@ runTest('DOCTOR-I18N-2: DoctorDiagnosisModal render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('DOCTOR-I18N-3: DoctorRiskAnalyticsView render song ngữ chuẩn (VI & EN)', () => {
@@ -1227,8 +1226,8 @@ runTest('DOCTOR-I18N-3: DoctorRiskAnalyticsView render song ngữ chuẩn (VI & 
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('DOCTOR-I18N-4: DoctorReportsView render song ngữ chuẩn (VI & EN)', () => {
@@ -1275,8 +1274,8 @@ runTest('DOCTOR-I18N-4: DoctorReportsView render song ngữ chuẩn (VI & EN)', 
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('DOCTOR-I18N-5: DoctorConsultationView render song ngữ chuẩn (VI & EN)', () => {
@@ -1319,8 +1318,8 @@ runTest('DOCTOR-I18N-5: DoctorConsultationView render song ngữ chuẩn (VI & E
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('DOCTOR-I18N-6: ClinicalValidationBar render song ngữ chuẩn (VI & EN)', () => {
@@ -1351,8 +1350,8 @@ runTest('DOCTOR-I18N-6: ClinicalValidationBar render song ngữ chuẩn (VI & EN
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('DOCTOR-I18N-7: PatientAssignmentBoard render song ngữ chuẩn (VI & EN)', () => {
@@ -1375,8 +1374,8 @@ runTest('DOCTOR-I18N-7: PatientAssignmentBoard render song ngữ chuẩn (VI & E
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('DOCTOR-I18N-8: MedicalReportModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1409,8 +1408,8 @@ runTest('DOCTOR-I18N-8: MedicalReportModal render song ngữ chuẩn (VI & EN)',
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('DOCTOR-I18N-9: RiskAssessmentPanel render song ngữ chuẩn (VI & EN)', () => {
@@ -1432,8 +1431,8 @@ runTest('DOCTOR-I18N-9: RiskAssessmentPanel render song ngữ chuẩn (VI & EN)'
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 // -----------------------------------------------------------------------------
@@ -1510,8 +1509,8 @@ runTest('CLINIC-I18N-1: ClinicBatchWorkspace render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('CLINIC-I18N-2: ClinicBatchProcessing render song ngữ chuẩn (VI & EN)', () => {
@@ -1534,8 +1533,8 @@ runTest('CLINIC-I18N-2: ClinicBatchProcessing render song ngữ chuẩn (VI & EN
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('CLINIC-I18N-3: BatchUploadModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1576,8 +1575,8 @@ runTest('CLINIC-I18N-3: BatchUploadModal render song ngữ chuẩn (VI & EN)', (
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('CLINIC-I18N-4: BatchItemDetailModal render song ngữ chuẩn (VI & EN)', () => {
@@ -1617,8 +1616,8 @@ runTest('CLINIC-I18N-4: BatchItemDetailModal render song ngữ chuẩn (VI & EN)
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('CLINIC-I18N-5: ClinicCampaignAnalytics render song ngữ chuẩn (VI & EN)', () => {
@@ -1640,8 +1639,8 @@ runTest('CLINIC-I18N-5: ClinicCampaignAnalytics render song ngữ chuẩn (VI & 
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('CLINIC-I18N-6: ClinicCreditPackageSection render song ngữ chuẩn (VI & EN)', () => {
@@ -1667,8 +1666,8 @@ runTest('CLINIC-I18N-6: ClinicCreditPackageSection render song ngữ chuẩn (VI
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('CLINIC-I18N-7: ClinicPortalPage render song ngữ chuẩn (VI & EN)', () => {
@@ -1697,8 +1696,8 @@ runTest('CLINIC-I18N-7: ClinicPortalPage render song ngữ chuẩn (VI & EN)', (
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 // -----------------------------------------------------------------------------
@@ -1747,8 +1746,8 @@ runTest('ADMIN-I18N-1: AdminAuditWorkspace render song ngữ chuẩn (VI & EN)',
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('ADMIN-I18N-2: AdminAuditLogsPage render song ngữ chuẩn (VI & EN)', () => {
@@ -1775,8 +1774,8 @@ runTest('ADMIN-I18N-2: AdminAuditLogsPage render song ngữ chuẩn (VI & EN)', 
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 // -----------------------------------------------------------------------------
@@ -1814,8 +1813,8 @@ runTest('AUTH-I18N-1: AuthHeroPanel render song ngữ chuẩn (VI & EN)', () => 
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('AUTH-I18N-2: PasswordInput render song ngữ chuẩn (VI & EN)', () => {
@@ -1837,8 +1836,8 @@ runTest('AUTH-I18N-2: PasswordInput render song ngữ chuẩn (VI & EN)', () => 
     'en'
   );
 
-  assert.ok(enHtml.includes('aria-label="Hiện mật khẩu"'), 'Khóa tiếng Việt: aria-label vẫn là tiếng Việt');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.ok(enHtml.includes('aria-label="Show"'), 'EN: aria-label tiếng Anh');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 // -----------------------------------------------------------------------------
@@ -1869,8 +1868,8 @@ runTest('COMMON-I18N-1: Footer render song ngữ chuẩn (VI & EN)', () => {
     'en'
   );
 
-  assert.strictEqual(enHtml, viHtml, 'Khóa tiếng Việt: enHtml đồng nhất với viHtml');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi', 'LocalStorage tự động reset về vi');
+  assert.notStrictEqual(enHtml, viHtml, 'Song ngữ: enHtml khác biệt với viHtml');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en', 'LocalStorage bảo lưu ngôn ngữ en');
 });
 
 runTest('COMMON-I18N-2: StateFeedback (LoadingState & ErrorState) render song ngữ chuẩn (VI & EN)', () => {
@@ -1878,8 +1877,8 @@ runTest('COMMON-I18N-2: StateFeedback (LoadingState & ErrorState) render song ng
   assert.ok(viLoading.includes('Đang tải dữ liệu lâm sàng...'), 'VI: Loading default message');
 
   const enLoading = renderWithLang(React.createElement(LoadingState, null), 'en');
-  assert.ok(enLoading.includes('Đang tải dữ liệu lâm sàng...'), 'Khóa tiếng Việt: Loading default message');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi');
+  assert.ok(enLoading.includes('Loading...'), 'EN: Loading default message');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en');
 
   const viError = renderWithLang(
     React.createElement(ErrorState, { message: 'Lỗi mạng', onRetry: () => {} }),
@@ -1892,9 +1891,9 @@ runTest('COMMON-I18N-2: StateFeedback (LoadingState & ErrorState) render song ng
     React.createElement(ErrorState, { message: 'Network error', onRetry: () => {} }),
     'en'
   );
-  assert.ok(enError.includes('Đã xảy ra lỗi'), 'Khóa tiếng Việt: Error default title');
-  assert.ok(enError.includes('Thử lại'), 'Khóa tiếng Việt: Retry button');
-  assert.strictEqual(localStorage.getItem('aura_language'), 'vi');
+  assert.ok(enError.includes('An error occurred'), 'EN: Error default title');
+  assert.ok(enError.includes('Retry'), 'EN: Retry button');
+  assert.strictEqual(localStorage.getItem('aura_language'), 'en');
 });
 
 // Reset storage sau khi test

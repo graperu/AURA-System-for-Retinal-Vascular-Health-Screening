@@ -1,7 +1,6 @@
 package com.aura.dicom;
 
-import java.awt.Color;
-import java.awt.Graphics2D;
+import com.aura.common.exception.ClinicalProcessingException;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -118,6 +117,18 @@ public class DicomIngestionService {
             | ((data[offset + 2] & 0xFF) << 16)
             | ((data[offset + 3] & 0xFF) << 24);
         offset += 4;
+      }
+
+      // Support Undefined Length Sequence (0xFFFFFFFF / -1) (MED-02)
+      if (valLength == -1) {
+        int seqEnd = findSequenceEnd(data, offset);
+        if (seqEnd > offset && seqEnd <= len) {
+          offset = seqEnd;
+          continue;
+        } else {
+          log.warn("Malformed Undefined Length Sequence at offset {}; aborting metadata extraction", offset);
+          break;
+        }
       }
 
       if (valLength < 0 || offset + valLength > len) {
@@ -241,6 +252,21 @@ public class DicomIngestionService {
           valOffset = offset;
         }
 
+        // Support Undefined Length Sequence (0xFFFFFFFF / -1) without aborting loop (MED-02)
+        if (valLength == -1) {
+          int seqEnd = findSequenceEnd(data, valOffset);
+          if (seqEnd > valOffset && seqEnd <= len) {
+            // Write sequence elements verbatim and continue parsing subsequent PHI tags
+            out.write(data, tagStart, seqEnd - tagStart);
+            offset = seqEnd;
+            continue;
+          } else {
+            log.warn("Malformed Undefined Length Sequence at offset {}; falling back to verbatim tail write", valOffset);
+            out.write(data, tagStart, len - tagStart);
+            break;
+          }
+        }
+
         if (valLength < 0 || valOffset + valLength > len) {
           out.write(data, tagStart, len - tagStart);
           break;
@@ -327,48 +353,97 @@ public class DicomIngestionService {
       }
     }
 
-    // 2. Synthesize clean fundus viewport PNG with clinical diagnostics
-    DicomMetadata meta = extractMetadata(data);
-    int width = (meta.columns() != null && meta.columns() > 0) ? meta.columns() : 512;
-    int height = (meta.rows() != null && meta.rows() > 0) ? meta.rows() : 512;
-    width = Math.min(Math.max(width, 256), 1024);
-    height = Math.min(Math.max(height, 256), 1024);
+    // 2. Completely eliminate synthetic cartoon eye fallback (MED-01)
+    // Generating synthetic visual representations of patient fundus anatomy is a Class I medical safety hazard.
+    throw new ClinicalProcessingException(
+        "Không thể trích xuất luồng ảnh pixel hợp lệ từ tệp DICOM (Transfer Syntax không được hỗ trợ hoặc dữ liệu bị lỗi). "
+            + "Hệ thống từ chối tạo ảnh giả lập (synthetic fallback) để bảo đảm an toàn chẩn đoán y tế tuyệt đối.");
+  }
 
-    BufferedImage synthetic = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-    Graphics2D g = synthetic.createGraphics();
-    try {
-      g.setColor(new Color(15, 23, 42)); // dark clinical navy
-      g.fillRect(0, 0, width, height);
+  /**
+   * Scans forward through a DICOM Undefined Length Sequence (0xFFFFFFFF) to locate
+   * the matching Sequence Delimitation Item (0xFFFE, 0xE0DD).
+   * Supports nested sequences by tracking sequence nesting depth.
+   *
+   * @param data Raw binary DICOM stream
+   * @param startOffset Offset where sequence value starts (immediately following the 4-byte 0xFFFFFFFF length)
+   * @return Offset immediately following the 8-byte Sequence Delimitation Item (tag + 4-byte length), or -1 if malformed
+   */
+  private int findSequenceEnd(byte[] data, int startOffset) {
+    int offset = startOffset;
+    int len = data.length;
+    int depth = 1;
 
-      // Draw fundus eye circle
-      g.setColor(new Color(185, 28, 28, 180)); // retinal red
-      int radius = Math.min(width, height) - 40;
-      int cx = (width - radius) / 2;
-      int cy = (height - radius) / 2;
-      g.fillOval(cx, cy, radius, radius);
+    while (offset + 8 <= len) {
+      int group = (data[offset] & 0xFF) | ((data[offset + 1] & 0xFF) << 8);
+      int elem = (data[offset + 2] & 0xFF) | ((data[offset + 3] & 0xFF) << 8);
 
-      // Optic disc
-      g.setColor(new Color(254, 240, 138, 220)); // optic disc yellow
-      g.fillOval(cx + (int)(radius * 0.3), cy + (int)(radius * 0.4), radius / 6, radius / 6);
-
-      // Diagnostic text
-      g.setColor(Color.WHITE);
-      g.drawString("DICOM FUNDUS: " + (meta.eyeLaterality() != null ? meta.eyeLaterality() : "OP"), 20, 30);
-      if (meta.patientId() != null) {
-        g.drawString("ID: " + meta.patientId(), 20, 50);
+      // Stop if Pixel Data (7FE0, 0010) is unexpectedly encountered
+      if (group == 0x7FE0 && elem == 0x0010) {
+        log.warn("Unexpected Pixel Data (7FE0,0010) encountered while scanning sequence at offset {}", offset);
+        return offset;
       }
-    } finally {
-      g.dispose();
+
+      // Check for Sequence Delimitation Item (FFFE, E0DD)
+      if (group == 0xFFFE && elem == 0xE0DD) {
+        depth--;
+        offset += 8; // Skip tag (4 bytes) + length (4 bytes of 0x00)
+        if (depth == 0) {
+          return offset;
+        }
+        continue;
+      }
+
+      // Check for Item Delimitation Item (FFFE, E00D)
+      if (group == 0xFFFE && elem == 0xE00D) {
+        offset += 8; // Skip tag (4 bytes) + length (4 bytes of 0x00)
+        continue;
+      }
+
+      // Check for Item Tag (FFFE, E000)
+      if (group == 0xFFFE && elem == 0xE000) {
+        offset += 8; // Skip tag (4 bytes) + length (4 bytes)
+        continue;
+      }
+
+      // Check for nested explicit VR SQ with undefined length (0xFFFFFFFF)
+      if (offset + 12 <= len && isAsciiUpper(data[offset + 4]) && isAsciiUpper(data[offset + 5])) {
+        String vr = new String(data, offset + 4, 2, StandardCharsets.US_ASCII);
+        if ("SQ".equals(vr)) {
+          int sqLen = (data[offset + 8] & 0xFF)
+              | ((data[offset + 9] & 0xFF) << 8)
+              | ((data[offset + 10] & 0xFF) << 16)
+              | ((data[offset + 11] & 0xFF) << 24);
+          if (sqLen == -1) {
+            depth++;
+            offset += 12;
+            continue;
+          }
+        }
+      }
+
+      // Check for nested implicit VR SQ with undefined length
+      if (offset + 8 <= len && group != 0xFFFE) {
+        int possibleLen = (data[offset + 4] & 0xFF)
+            | ((data[offset + 5] & 0xFF) << 8)
+            | ((data[offset + 6] & 0xFF) << 16)
+            | ((data[offset + 7] & 0xFF) << 24);
+        if (possibleLen == -1 && offset + 12 <= len) {
+          // Look ahead to check if next tag is an Item tag (FFFE, E000)
+          int nextGroup = (data[offset + 8] & 0xFF) | ((data[offset + 9] & 0xFF) << 8);
+          int nextElem = (data[offset + 10] & 0xFF) | ((data[offset + 11] & 0xFF) << 8);
+          if (nextGroup == 0xFFFE && nextElem == 0xE000) {
+            depth++;
+            offset += 8;
+            continue;
+          }
+        }
+      }
+
+      offset++;
     }
 
-    try {
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      ImageIO.write(synthetic, "png", baos);
-      return baos.toByteArray();
-    } catch (Exception e) {
-      log.error("Failed to encode synthetic PNG from DICOM: {}", e.getMessage());
-      return new byte[0];
-    }
+    return -1;
   }
 
   public byte[] decodeBase64Payload(String payload) {

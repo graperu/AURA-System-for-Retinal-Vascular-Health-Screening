@@ -122,7 +122,7 @@ public record ScreeningResponse(
         s.getDoctorId(),
         s.getClinicId(),
         s.getBatchId(),
-        s.getImageUrl(),
+        resolveSummaryImageUrl(s),
         s.getStatus(),
         s.getRiskLevel(),
         s.getAiRiskLevel(),
@@ -167,5 +167,24 @@ public record ScreeningResponse(
         s.getAiModelVersion(),
         s.getAppliedThresholds()
     );
+  }
+
+  /**
+   * DAT-04: Omit large raw Base64 image payload from summary list DTOs to avoid
+   * >200MB JSON responses while preserving URL accessibility via dedicated image endpoint.
+   */
+  public static String resolveSummaryImageUrl(Screening s) {
+    if (s == null || s.getImageUrl() == null || s.getImageUrl().isBlank()) {
+      return null;
+    }
+    String raw = s.getImageUrl().trim();
+    if (raw.startsWith("http://") || raw.startsWith("https://") ||
+        raw.startsWith("/uploads/") || raw.startsWith("/assets/") || raw.startsWith("/api/")) {
+      return raw;
+    }
+    if (s.getId() != null) {
+      return "/api/v1/screenings/" + s.getId() + "/image";
+    }
+    return null;
   }
 }

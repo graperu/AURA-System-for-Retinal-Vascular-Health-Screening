@@ -34,7 +34,8 @@ const request = async <T>(
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData) && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  if (accessToken && endpoint !== "/api/v1/auth/refresh")
+    headers.set("Authorization", `Bearer ${accessToken}`);
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -43,16 +44,26 @@ const request = async <T>(
   });
 
   let body: any;
-  try {
-    body = await response.json();
-  } catch {
+  // FE-03: Xử lý an toàn phản hồi HTTP 204 No Content và 205 Reset Content
+  if (response.status === 204 || response.status === 205) {
     body = {
-      success: false,
-      message:
-        response.status >= 500
-          ? "Máy chủ đang gặp sự cố. Vui lòng thử lại sau."
-          : "Phản hồi từ máy chủ không hợp lệ.",
+      success: true,
+      data: null,
+      message: "Thao tác thành công",
     };
+  } else {
+    try {
+      const text = await response.text();
+      body = text && text.trim().length > 0 ? JSON.parse(text) : { success: true, data: null };
+    } catch {
+      body = {
+        success: false,
+        message:
+          response.status >= 500
+            ? "Máy chủ đang gặp sự cố. Vui lòng thử lại sau."
+            : "Phản hồi từ máy chủ không hợp lệ.",
+      };
+    }
   }
 
   if (!response.ok) {
@@ -410,7 +421,8 @@ export const adminUserApi = {
     }),
 
   updateRole: (userId: string, roleName: string) => {
-    const cleanRole = (roleName || "").replace(/^ROLE_/, "").toUpperCase();
+    let cleanRole = (roleName || "").replace(/^ROLE_/, "").toUpperCase();
+    if (cleanRole === "PATIENT") cleanRole = "USER";
     return apiFetch<any>(`/api/v1/admin/users/${userId}/role`, {
       method: "PUT",
       body: JSON.stringify({ role: cleanRole, roleName: cleanRole }),

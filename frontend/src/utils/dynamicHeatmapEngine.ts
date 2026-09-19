@@ -170,9 +170,11 @@ export function renderDynamicRetinalHeatmap(
   let directPixelExtracted = false;
 
   if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+    let tempCanvas: HTMLCanvasElement | null = null;
+    let intensityGrid: Float32Array | null = null;
     try {
       // Tạo canvas trung gian để đọc pixel
-      const tempCanvas = document.createElement('canvas');
+      tempCanvas = document.createElement('canvas');
       tempCanvas.width = w;
       tempCanvas.height = h;
       const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
@@ -183,7 +185,8 @@ export function renderDynamicRetinalHeatmap(
         const data = imgData.data;
 
         // Khởi tạo mảng attention intensity (0.0 -> 1.0)
-        const intensityGrid = new Float32Array(w * h);
+        const grid = new Float32Array(w * h);
+        intensityGrid = grid;
 
         // 1. Phân tích quang học Red-Free kênh Green (540nm) trên từng pixel
         for (let y = 0; y < h; y++) {
@@ -196,7 +199,7 @@ export function renderDynamicRetinalHeatmap(
             const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
             // Bỏ qua vùng viền đen ngoài nhãn cầu
             if (luminance < 14) {
-              intensityGrid[y * w + x] = 0;
+              grid[y * w + x] = 0;
               continue;
             }
 
@@ -224,7 +227,7 @@ export function renderDynamicRetinalHeatmap(
               baseWeight = (maculaFactor * 0.2 + vesselSignal * 0.25) * 0.6;
             }
 
-            intensityGrid[y * w + x] = Math.min(0.65, baseWeight);
+            grid[y * w + x] = Math.min(0.65, baseWeight);
           }
         }
 
@@ -253,7 +256,7 @@ export function renderDynamicRetinalHeatmap(
                   const distRatio = Math.sqrt(dSq) / (radius * 1.8);
                   // Gaussian-like falloff
                   const falloff = Math.exp(-3.2 * distRatio * distRatio) * spotStrength;
-                  intensityGrid[pIdx] = Math.min(1.0, intensityGrid[pIdx] + falloff);
+                  grid[pIdx] = Math.min(1.0, grid[pIdx] + falloff);
                 }
               }
             }
@@ -264,8 +267,8 @@ export function renderDynamicRetinalHeatmap(
         const outputImgData = targetCtx.createImageData(w, h);
         const outData = outputImgData.data;
 
-        for (let i = 0; i < intensityGrid.length; i++) {
-          const val = intensityGrid[i];
+        for (let i = 0; i < grid.length; i++) {
+          const val = grid[i];
           if (val > 0.02) {
             const [pr, pg, pb, pa] = getMedicalPlasmaColor(val, opacity);
             const outIdx = i * 4;
@@ -282,6 +285,14 @@ export function renderDynamicRetinalHeatmap(
     } catch (err) {
       // CORS tainted canvas fallback
       directPixelExtracted = false;
+    } finally {
+      // FE-01: Giải phóng bộ nhớ GPU / Canvas Backing Store
+      if (tempCanvas) {
+        tempCanvas.width = 0;
+        tempCanvas.height = 0;
+        tempCanvas = null;
+      }
+      intensityGrid = null;
     }
   }
 
@@ -391,8 +402,10 @@ export async function generateDynamicHeatmapDataUrl(
     img.crossOrigin = 'anonymous';
 
     const handleGenerate = (source: HTMLImageElement | null) => {
+      let canvas: HTMLCanvasElement | null = null;
+      let dummyCanvas: HTMLCanvasElement | null = null;
       try {
-        const canvas = document.createElement('canvas');
+        canvas = document.createElement('canvas');
         const w = options.width || (source ? source.naturalWidth || source.width : 512) || 512;
         const h = options.height || (source ? source.naturalHeight || source.height : 512) || 512;
         canvas.width = Math.max(100, w);
@@ -406,7 +419,7 @@ export async function generateDynamicHeatmapDataUrl(
           });
         } else {
           // Tạo một placeholder canvas để render vector fallback
-          const dummyCanvas = document.createElement('canvas');
+          dummyCanvas = document.createElement('canvas');
           dummyCanvas.width = canvas.width;
           dummyCanvas.height = canvas.height;
           renderDynamicRetinalHeatmap(dummyCanvas, canvas, {
@@ -416,9 +429,19 @@ export async function generateDynamicHeatmapDataUrl(
           });
         }
 
-        resolve(canvas.toDataURL('image/png'));
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve(dataUrl);
       } catch {
         resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=');
+      } finally {
+        if (dummyCanvas) {
+          dummyCanvas.width = 0;
+          dummyCanvas.height = 0;
+        }
+        if (canvas) {
+          canvas.width = 0;
+          canvas.height = 0;
+        }
       }
     };
 

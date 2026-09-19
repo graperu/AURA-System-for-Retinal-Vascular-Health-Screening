@@ -37,6 +37,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
   @Autowired(required = false)
   private JwtTokenProvider jwtTokenProvider;
 
+  @Autowired(required = false)
+  private com.aura.auth.service.PatientAccessService patientAccessService;
+
+  public void setPatientAccessService(com.aura.auth.service.PatientAccessService patientAccessService) {
+    this.patientAccessService = patientAccessService;
+  }
+
   @Override
   public void configureMessageBroker(MessageBrokerRegistry config) {
     config.enableSimpleBroker("/topic", "/queue");
@@ -147,10 +154,22 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         } else if (normalized.startsWith("/topic/chat.")) {
           String targetUserId = normalized.substring("/topic/chat.".length());
           boolean isSelf = principal.id().toString().equalsIgnoreCase(targetUserId);
-          boolean isDoctor = hasRole(principal, "DOCTOR");
-          if (!isSelf && !isDoctor) {
-            log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
-            throw new AccessDeniedException("Unauthorized subscription to private channel");
+          if (isSelf) {
+            return;
+          }
+          if (hasRole(principal, "ADMIN")) {
+            return;
+          }
+          UUID targetUuid;
+          try {
+            targetUuid = UUID.fromString(targetUserId);
+          } catch (IllegalArgumentException e) {
+            log.warn("Invalid target user ID in destination: {}", destination);
+            throw new AccessDeniedException("Invalid target user ID in destination: " + destination);
+          }
+          if (patientAccessService == null || !patientAccessService.canChatBetween(principal, targetUuid)) {
+            log.warn("Unauthorized subscription attempt to chat channel {} by user {}", destination, principal.id());
+            throw new AccessDeniedException("Unauthorized subscription to private chat channel");
           }
         } else if (normalized.startsWith("/topic/notifications.")) {
           String targetUserId = normalized.substring("/topic/notifications.".length());
@@ -182,12 +201,19 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             throw new AccessDeniedException("Unauthorized subscription to clinic channel");
           }
         } else if (normalized.startsWith("/topic/screening-chat.")) {
-          boolean isAuthorized = hasRole(principal, "USER")
-              || hasRole(principal, "PATIENT")
-              || hasRole(principal, "DOCTOR")
-              || hasRole(principal, "CLINIC");
-          if (!isAuthorized) {
-            log.warn("Unauthorized subscription attempt to {} by user {}", destination, principal.id());
+          if (hasRole(principal, "ADMIN")) {
+            return;
+          }
+          String screeningIdStr = normalized.substring("/topic/screening-chat.".length());
+          UUID screeningUuid;
+          try {
+            screeningUuid = UUID.fromString(screeningIdStr);
+          } catch (IllegalArgumentException e) {
+            log.warn("Invalid screening ID in destination: {}", destination);
+            throw new AccessDeniedException("Invalid screening ID in destination: " + destination);
+          }
+          if (patientAccessService == null || !patientAccessService.canAccessScreening(principal, screeningUuid)) {
+            log.warn("Unauthorized subscription attempt to screening chat channel {} by user {}", destination, principal.id());
             throw new AccessDeniedException("Unauthorized subscription to screening chat channel");
           }
         }

@@ -118,7 +118,10 @@ public class OtpService {
     return OTP_VALID_SECONDS;
   }
 
-  public String getLatestOtpForDebug(String rawEmail) {
+  /**
+   * Package-private test utility. MUST NEVER be exposed in production API responses.
+   */
+  String getLatestOtpForDebug(String rawEmail) {
     String email = rawEmail.trim().toLowerCase(Locale.ROOT);
     OtpData data = otpStorage.get(email);
     return data != null ? data.code() : null;

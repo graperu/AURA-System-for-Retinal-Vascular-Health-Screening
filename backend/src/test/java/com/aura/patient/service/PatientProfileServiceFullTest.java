@@ -393,4 +393,52 @@ class PatientProfileServiceFullTest {
   void syncFromMedicalProfilesAndAssignments_whenExceptionThrown_handlesGracefully() {
     service.syncFromMedicalProfilesAndAssignments();
   }
+
+  @Test
+  @DisplayName("DAT-01: updatePatient (Doctor) đồng bộ 2 chiều sang PatientMedicalProfile và User")
+  void updatePatient_syncsToPatientMedicalProfileAndUser() {
+    UUID patientProfileId = UUID.randomUUID();
+    PatientProfile existing = new PatientProfile("MRN-2026-9999", "Bệnh Nhân Cũ", 40, "Male", "0901112222");
+    existing.setUserId(userId);
+
+    PatientProfile updatedInput = new PatientProfile("MRN-2026-9999", "Bệnh Nhân Mới", 42, "Female", "0903334444");
+    updatedInput.setAddress("123 Phố Huế, Hà Nội");
+    updatedInput.setSystolicBp(145);
+    updatedInput.setDiastolicBp(92);
+    updatedInput.setHba1c(7.5);
+    updatedInput.setHasDiabetes(true);
+    updatedInput.setHasHypertension(true);
+    updatedInput.setHistoryOfSmoking(true);
+    updatedInput.setAssignedDoctor("BS. CKII Lê Văn Bác Sĩ");
+
+    PatientMedicalProfile existingMed = new PatientMedicalProfile(mockUser, "MRN-2026-9999");
+
+    when(patientRepository.findById(patientProfileId)).thenReturn(Optional.of(existing));
+    when(patientRepository.save(any(PatientProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+    when(profileRepository.findByUserIdWithUser(userId)).thenReturn(Optional.of(existingMed));
+    when(profileRepository.save(any(PatientMedicalProfile.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    PatientProfileDto result = service.updatePatient(patientProfileId, updatedInput);
+
+    assertThat(result).isNotNull();
+    assertThat(result.fullName()).isEqualTo("Bệnh Nhân Mới");
+    assertThat(mockUser.getFullName()).isEqualTo("Bệnh Nhân Mới");
+
+    org.mockito.ArgumentCaptor<PatientMedicalProfile> medCaptor =
+        org.mockito.ArgumentCaptor.forClass(PatientMedicalProfile.class);
+    verify(profileRepository).save(medCaptor.capture());
+    PatientMedicalProfile savedMed = medCaptor.getValue();
+    assertThat(savedMed.getAge()).isEqualTo(42);
+    assertThat(savedMed.getGender()).isEqualTo("Female");
+    assertThat(savedMed.getPhoneNumber()).isEqualTo("0903334444");
+    assertThat(savedMed.getAddress()).isEqualTo("123 Phố Huế, Hà Nội");
+    assertThat(savedMed.getSystolicBp()).isEqualTo(145);
+    assertThat(savedMed.getDiastolicBp()).isEqualTo(92);
+    assertThat(savedMed.getHba1c()).isEqualTo(7.5);
+    assertThat(savedMed.getHasDiabetes()).isTrue();
+    assertThat(savedMed.getHasHypertension()).isTrue();
+    assertThat(savedMed.getHistoryOfSmoking()).isTrue();
+    assertThat(savedMed.getAssignedDoctor()).isEqualTo("BS. CKII Lê Văn Bác Sĩ");
+  }
 }

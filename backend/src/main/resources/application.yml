@@ -80,7 +80,7 @@ aura:
     secret: ${REVIEW_SIGNATURE_SECRET:AURA_REVIEW_SIGNATURE_SECRET_2026}
   security:
     encryption:
-      aes-key: ${AURA_ENCRYPTION_AES_KEY:AURA_SYSTEM_SECURE_AES_KEY_2026_32BYTES_LEN_!!}
+      aes-key: ${AURA_ENCRYPTION_AES_KEY:}
 payment:
   webhook-secret: ${PAYMENT_WEBHOOK_SECRET:AURA_BILLING_WEBHOOK_SECRET_2026}
   sandbox-mode: ${PAYMENT_SANDBOX_MODE:true}

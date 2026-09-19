@@ -15,7 +15,13 @@ import java.util.UUID;
 @Repository
 public interface SubscriptionRepository extends JpaRepository<Subscription, Long> {
 
-    Optional<Subscription> findByOwnerIdAndServicePackageId(UUID ownerId, Long servicePackageId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Subscription s WHERE s.owner.id = :ownerId AND s.servicePackage.id = :servicePackageId")
+    Optional<Subscription> findByOwnerIdAndServicePackageId(@Param("ownerId") UUID ownerId, @Param("servicePackageId") Long servicePackageId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Subscription s WHERE s.owner.id = :ownerId AND s.servicePackage.id = :servicePackageId")
+    Optional<Subscription> findByOwnerIdAndServicePackageIdForUpdate(@Param("ownerId") UUID ownerId, @Param("servicePackageId") Long servicePackageId);
 
     List<Subscription> findByOwnerId(UUID ownerId);
 

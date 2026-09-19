@@ -1,12 +1,22 @@
 package com.aura.bulk.queue;
 
 import com.aura.bulk.dto.*;
+import com.aura.bulk.entity.BulkScreeningBatch;
+import com.aura.bulk.entity.BulkScreeningItem;
+import com.aura.bulk.repository.BulkScreeningBatchRepository;
+import com.aura.bulk.repository.BulkScreeningItemRepository;
+import com.aura.bulk.service.PatientAnonymizerService;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -19,9 +29,81 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Component
 public class BatchJobQueue {
 
+    private static final Logger log = LoggerFactory.getLogger(BatchJobQueue.class);
+
     private final LinkedBlockingQueue<BatchItemTask> taskQueue = new LinkedBlockingQueue<>(5000);
     private final ConcurrentHashMap<String, BatchJobState> batchStore = new ConcurrentHashMap<>();
     private volatile String latestBatchId = null;
+
+    private final BulkScreeningBatchRepository batchRepository;
+    private final BulkScreeningItemRepository itemRepository;
+    private final PatientAnonymizerService anonymizerService;
+    private final com.aura.billing.service.BillingService billingService;
+
+    public BatchJobQueue() {
+        this(null, null, null, null);
+    }
+
+    @Autowired
+    public BatchJobQueue(
+            @Autowired(required = false) BulkScreeningBatchRepository batchRepository,
+            @Autowired(required = false) BulkScreeningItemRepository itemRepository,
+            @Autowired(required = false) PatientAnonymizerService anonymizerService,
+            @Autowired(required = false) com.aura.billing.service.BillingService billingService) {
+        this.batchRepository = batchRepository;
+        this.itemRepository = itemRepository;
+        this.anonymizerService = anonymizerService;
+        this.billingService = billingService;
+    }
+
+    /**
+     * DAT-03 FIX: Phục hồi trạng thái hàng đợi và các tác vụ bị gián đoạn từ PostgreSQL khi khởi động lại
+     */
+    @PostConstruct
+    public void recoverStateOnStartup() {
+        if (batchRepository == null || itemRepository == null) {
+            log.info("[BatchJobQueue] PostgreSQL repositories not wired; running in standalone mode.");
+            return;
+        }
+        try {
+            List<BulkScreeningBatch> dbBatches = batchRepository.findAll();
+            log.info("[BatchJobQueue] DAT-03: Scanning {} bulk screening batches from PostgreSQL for recovery...", dbBatches.size());
+
+            for (BulkScreeningBatch batch : dbBatches) {
+                String batchCode = batch.getBatchCode();
+                if (batchCode == null) continue;
+                List<BulkScreeningItem> dbItems = itemRepository.findByBatchIdOrderByCreatedAtAsc(batch.getId());
+
+                BatchJobState state = new BatchJobState(
+                        batchCode,
+                        batch.getClinicId() != null ? batch.getClinicId().toString() : "unknown",
+                        batch.getTotalImages(),
+                        new AtomicInteger(batch.getProcessedCount() != null ? batch.getProcessedCount() : 0),
+                        new AtomicInteger(batch.getFailedCount() != null ? batch.getFailedCount() : 0),
+                        batch.getStatus(),
+                        batch.getCreatedAt() != null ? batch.getCreatedAt() : Instant.now(),
+                        new ConcurrentHashMap<>()
+                );
+
+                for (BulkScreeningItem item : dbItems) {
+                    BatchJobItemStatusDto itemDto = toItemStatusDto(item);
+                    state.items().put(item.getItemCode(), itemDto);
+
+                    if ("IN_PROGRESS".equals(batch.getStatus()) || "QUEUED".equals(batch.getStatus())) {
+                        if ("QUEUED".equals(item.getStatus()) || "PROCESSING".equals(item.getStatus())) {
+                            resumeItemTask(batch, item);
+                        }
+                    }
+                }
+
+                batchStore.put(batchCode, state);
+                this.latestBatchId = batchCode;
+            }
+            log.info("[BatchJobQueue] DAT-03: Successfully recovered {} batches from PostgreSQL.", batchStore.size());
+        } catch (Exception ex) {
+            log.error("[BatchJobQueue] DAT-03: Error recovering batch queue state from PostgreSQL: {}", ex.getMessage(), ex);
+        }
+    }
 
     public void enqueue(BatchItemTask task) throws InterruptedException {
         taskQueue.put(task);
@@ -53,6 +135,9 @@ public class BatchJobQueue {
     public BatchJobResponseDto getBatchStatus(String batchId) {
         BatchJobState state = batchStore.get(batchId);
         if (state == null) {
+            state = loadBatchFromDatabase(batchId);
+        }
+        if (state == null) {
             return null;
         }
 
@@ -79,6 +164,18 @@ public class BatchJobQueue {
     }
 
     public List<BatchJobResponseDto> getAllBatches() {
+        if (batchRepository != null) {
+            try {
+                List<BulkScreeningBatch> allDb = batchRepository.findAll();
+                for (BulkScreeningBatch b : allDb) {
+                    if (b.getBatchCode() != null && !batchStore.containsKey(b.getBatchCode())) {
+                        loadBatchFromDatabase(b.getBatchCode());
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[BatchJobQueue] Could not refresh batches from PostgreSQL: {}", ex.getMessage());
+            }
+        }
         return batchStore.values().stream()
                 .sorted((a, b) -> b.createdAt().compareTo(a.createdAt()))
                 .map(state -> getBatchStatus(state.batchId()))
@@ -141,6 +238,16 @@ public class BatchJobQueue {
         if (state != null) {
             state.setStatus("CANCELLED");
         }
+        if (batchRepository != null) {
+            try {
+                batchRepository.findByBatchCode(batchId).ifPresent(b -> {
+                    b.setStatus("CANCELLED");
+                    batchRepository.save(b);
+                });
+            } catch (Exception ex) {
+                log.error("[BatchJobQueue] Could not sync CANCELLED status to PostgreSQL: {}", ex.getMessage());
+            }
+        }
     }
 
     /**
@@ -148,6 +255,9 @@ public class BatchJobQueue {
      */
     public BulkBatchRiskStatisticsDto calculateRiskStatistics(String batchId) {
         BatchJobState state = batchStore.get(batchId);
+        if (state == null) {
+            state = loadBatchFromDatabase(batchId);
+        }
         if (state == null) {
             return null;
         }
@@ -224,6 +334,9 @@ public class BatchJobQueue {
      */
     public BulkBatchAlertSummaryDto detectAlertsAndTrends(String batchId) {
         BatchJobState state = batchStore.get(batchId);
+        if (state == null) {
+            state = loadBatchFromDatabase(batchId);
+        }
         if (state == null) {
             return null;
         }
@@ -313,6 +426,121 @@ public class BatchJobQueue {
                 hasAbnormalTrend,
                 trendMsg,
                 alerts
+        );
+    }
+
+    private synchronized BatchJobState loadBatchFromDatabase(String batchId) {
+        if (batchRepository == null || itemRepository == null) {
+            return null;
+        }
+        try {
+            Optional<BulkScreeningBatch> batchOpt = batchRepository.findByBatchCode(batchId);
+            if (batchOpt.isEmpty()) {
+                return null;
+            }
+            BulkScreeningBatch batch = batchOpt.get();
+            List<BulkScreeningItem> items = itemRepository.findByBatchIdOrderByCreatedAtAsc(batch.getId());
+
+            BatchJobState state = new BatchJobState(
+                    batch.getBatchCode(),
+                    batch.getClinicId() != null ? batch.getClinicId().toString() : "unknown",
+                    batch.getTotalImages(),
+                    new AtomicInteger(batch.getProcessedCount() != null ? batch.getProcessedCount() : 0),
+                    new AtomicInteger(batch.getFailedCount() != null ? batch.getFailedCount() : 0),
+                    batch.getStatus(),
+                    batch.getCreatedAt() != null ? batch.getCreatedAt() : Instant.now(),
+                    new ConcurrentHashMap<>()
+            );
+            for (BulkScreeningItem it : items) {
+                state.items().put(it.getItemCode(), toItemStatusDto(it));
+            }
+            batchStore.put(batch.getBatchCode(), state);
+            return state;
+        } catch (Exception ex) {
+            log.warn("[BatchJobQueue] Could not load batch {} from PostgreSQL: {}", batchId, ex.getMessage());
+            return null;
+        }
+    }
+
+    private void resumeItemTask(BulkScreeningBatch batch, BulkScreeningItem item) {
+        try {
+            if (item.getImagePayload() != null && !item.getImagePayload().isBlank()) {
+                PatientAnonymizedDto anonymized = anonymizerService != null
+                        ? anonymizerService.anonymizePatient(
+                                item.getRawMrn(), item.getPatientName(),
+                                item.getPatientAge() != null ? item.getPatientAge() : 0,
+                                item.getPatientGender() != null ? item.getPatientGender() : "Other",
+                                item.getSystolicBp() != null ? item.getSystolicBp() : 120,
+                                item.getDiastolicBp() != null ? item.getDiastolicBp() : 80,
+                                item.getHba1c() != null ? item.getHba1c() : 5.7
+                        )
+                        : new PatientAnonymizedDto(
+                                item.getPseudonymPatientId(), item.getRawMrn(),
+                                item.getPatientAge() != null ? item.getPatientAge() : 0,
+                                item.getPatientGender() != null ? item.getPatientGender() : "Other",
+                                item.getSystolicBp() != null ? item.getSystolicBp() : 120,
+                                item.getDiastolicBp() != null ? item.getDiastolicBp() : 80,
+                                item.getHba1c() != null ? item.getHba1c() : 5.7,
+                                false, false, Instant.now()
+                        );
+
+                BatchItemTask task = new BatchItemTask(
+                        batch.getBatchCode(),
+                        item.getItemCode(),
+                        item.getFileName(),
+                        item.getEyePosition(),
+                        anonymized,
+                        item.getImagePayload()
+                );
+                this.enqueue(task);
+                log.info("[BatchJobQueue] DAT-03: Re-enqueued interrupted task {} for Batch {}", item.getItemCode(), batch.getBatchCode());
+            } else {
+                item.setStatus("FAILED");
+                item.setErrorMessage("Tiến trình bị gián đoạn do khởi động lại hệ thống.");
+                itemRepository.save(item);
+            }
+        } catch (Exception ex) {
+            log.error("[BatchJobQueue] DAT-03: Failed to re-enqueue task {}: {}", item.getItemCode(), ex.getMessage());
+        }
+    }
+
+    private BatchJobItemStatusDto toItemStatusDto(BulkScreeningItem item) {
+        AiInferenceResultDto ai = null;
+        if ("COMPLETED".equals(item.getStatus()) && item.getRiskScore() != null) {
+            String level = item.getRiskLevel() != null ? item.getRiskLevel() : "Low";
+            ai = new AiInferenceResultDto(
+                    item.getId() != null ? item.getId().toString() : item.getItemCode(),
+                    item.getDurationMs() != null ? item.getDurationMs() : 0L,
+                    item.getRiskScore(),
+                    item.getRiskScore(),
+                    level,
+                    (int) Math.round(item.getRiskScore() * 0.8),
+                    level,
+                    item.getRiskScore() * 0.25,
+                    0.65,
+                    18.0,
+                    1.1,
+                    0.35,
+                    null,
+                    0,
+                    item.getFindings() != null ? List.of(item.getFindings().split(";\\s*")) : List.of()
+            );
+        }
+        return new BatchJobItemStatusDto(
+                item.getItemCode(),
+                item.getFileName(),
+                item.getEyePosition(),
+                item.getPseudonymPatientId(),
+                item.getPatientName(),
+                item.getRawMrn(),
+                item.getPatientAge() != null ? item.getPatientAge() : 0,
+                item.getPatientGender(),
+                item.getSystolicBp() != null ? item.getSystolicBp() : 120,
+                item.getDiastolicBp() != null ? item.getDiastolicBp() : 80,
+                item.getHba1c() != null ? item.getHba1c() : 5.7,
+                item.getStatus(),
+                item.getDurationMs() != null ? item.getDurationMs() : 0L,
+                ai
         );
     }
 

@@ -117,6 +117,16 @@ public class GlobalExceptionHandler {
         ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, exception.getMessage(), List.of()));
   }
 
+  @ExceptionHandler(ClinicalProcessingException.class)
+  ResponseEntity<ApiErrorResponse> handleClinicalProcessing(ClinicalProcessingException exception) {
+    return response(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        ApiErrorResponse.of(
+            ErrorCode.INVALID_REQUEST,
+            exception.getMessage(),
+            List.of()));
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiErrorResponse> handleUnexpected(Exception exception) {
     org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Unexpected error in request: ", exception);

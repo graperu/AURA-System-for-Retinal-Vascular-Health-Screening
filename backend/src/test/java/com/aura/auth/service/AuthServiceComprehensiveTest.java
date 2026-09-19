@@ -61,6 +61,7 @@ class AuthServiceComprehensiveTest {
   @Mock private JwtTokenProvider jwt;
   @Mock private RefreshTokenService refresh;
   @Mock private OtpService otpService;
+  @Mock private SocialTokenVerifier socialTokenVerifier;
 
   @InjectMocks private AuthService authService;
 
@@ -338,13 +339,12 @@ class AuthServiceComprehensiveTest {
     }
 
     @Test
-    @DisplayName("getOtpDataResponse returns normalized email and seconds and devOtp if present")
+    @DisplayName("SEC-02: getOtpDataResponse returns normalized email and seconds and never leaks devOtp")
     void getOtpDataResponse_ReturnsExpectedMap() {
-      when(otpService.getLatestOtpForDebug("test@example.com")).thenReturn("123456");
       var map = authService.getOtpDataResponse("  TEST@Example.com  ", 300L);
       assertThat(map.get("email")).isEqualTo("test@example.com");
       assertThat(map.get("expiresInSeconds")).isEqualTo(300L);
-      assertThat(map.get("devOtp")).isEqualTo("123456");
+      assertThat(map).doesNotContainKey("devOtp");
     }
   }
 
@@ -356,6 +356,8 @@ class AuthServiceComprehensiveTest {
     @DisplayName("loginWithSocial with existing active user succeeds")
     void loginWithSocial_ExistingActiveUser_Success() {
       // Arrange
+      when(socialTokenVerifier.verifyToken("google", "valid.jwt.dummy"))
+          .thenReturn(new SocialTokenVerifier.VerifiedSocialUser("existing.social@aura.com", "Nguyễn Văn A"));
       when(users.findByEmailIgnoreCase("existing.social@aura.com")).thenReturn(Optional.of(testUser));
       var mockUserRole = new UserRole(testUser, userRole);
       when(userRoles.findAllByUserId(testUserId)).thenReturn(List.of(mockUserRole));
@@ -379,6 +381,8 @@ class AuthServiceComprehensiveTest {
     void loginWithSocial_ExistingDisabledUser_ThrowsAccountDisabled() {
       // Arrange
       testUser.setActive(false);
+      when(socialTokenVerifier.verifyToken("google", "token"))
+          .thenReturn(new SocialTokenVerifier.VerifiedSocialUser("disabled.social@aura.com", "Name"));
       when(users.findByEmailIgnoreCase("disabled.social@aura.com")).thenReturn(Optional.of(testUser));
 
       // Act & Assert
@@ -393,6 +397,8 @@ class AuthServiceComprehensiveTest {
     @DisplayName("loginWithSocial with new user creates user and assigns USER role")
     void loginWithSocial_NewUser_CreatesAndAssignsUserRole() {
       // Arrange
+      when(socialTokenVerifier.verifyToken("google", "token"))
+          .thenReturn(new SocialTokenVerifier.VerifiedSocialUser("new.social@aura.com", "New Social User"));
       when(users.findByEmailIgnoreCase("new.social@aura.com")).thenReturn(Optional.empty());
       when(encoder.encode(any())).thenReturn("random_hash");
       when(users.save(any(User.class))).thenAnswer(i -> {
@@ -418,12 +424,11 @@ class AuthServiceComprehensiveTest {
     }
 
     @Test
-    @DisplayName("loginWithSocial extracts email and name from valid JWT idToken payload")
+    @DisplayName("loginWithSocial extracts email and name from verified token")
     void loginWithSocial_ExtractsEmailFromIdToken() {
       // Arrange
-      String jsonPayload = "{\"email\":\"jwt.extracted@aura.com\",\"name\":\"JWT Name\"}";
-      String base64Payload = Base64.getUrlEncoder().withoutPadding().encodeToString(jsonPayload.getBytes(StandardCharsets.UTF_8));
-      String fakeIdToken = "eyJhbGciOiJIUzI1NiJ9." + base64Payload + ".signature";
+      when(socialTokenVerifier.verifyToken("microsoft", "verified-token"))
+          .thenReturn(new SocialTokenVerifier.VerifiedSocialUser("jwt.extracted@aura.com", "JWT Name"));
 
       when(users.findByEmailIgnoreCase("jwt.extracted@aura.com")).thenReturn(Optional.of(testUser));
       when(userRoles.findAllByUserId(testUserId)).thenReturn(List.of(new UserRole(testUser, userRole)));
@@ -432,7 +437,7 @@ class AuthServiceComprehensiveTest {
       when(refresh.issue(any())).thenReturn(new RefreshTokenService.Issued("rf-tok", mockTokenEntity));
 
       // Act
-      var result = authService.loginWithSocial(new SocialLoginRequest("microsoft", fakeIdToken, null, null, null));
+      var result = authService.loginWithSocial(new SocialLoginRequest("microsoft", "verified-token", null, null, null));
 
       // Assert
       assertThat(result).isNotNull();
@@ -440,16 +445,77 @@ class AuthServiceComprehensiveTest {
     }
 
     @Test
-    @DisplayName("loginWithSocial throws INVALID_CREDENTIALS when no email found")
+    @DisplayName("SEC-01: loginWithSocial throws INVALID_CREDENTIALS when token is unverified or invalid")
     void loginWithSocial_NoEmail_ThrowsInvalidCredentials() {
       // Arrange
+      when(socialTokenVerifier.verifyToken("apple", "not-a-jwt")).thenReturn(null);
       var request = new SocialLoginRequest("apple", "not-a-jwt", null, null, null);
 
       // Act & Assert
       assertThatThrownBy(() -> authService.loginWithSocial(request))
           .isInstanceOfSatisfying(AuthException.class, e -> {
             assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS);
-            assertThat(e.getMessage()).contains("Không thể trích xuất thông tin email");
+            assertThat(e.getMessage()).contains("Token xác thực mạng xã hội");
+          });
+    }
+
+    @Test
+    @DisplayName("SEC-01: Social login attempt on account with ROLE_ADMIN throws ACCESS_DENIED")
+    void loginWithSocial_PrivilegedAdminAccount_ThrowsAccessDenied() {
+      Role adminRole = new Role();
+      ReflectionTestUtils.setField(adminRole, "id", UUID.randomUUID());
+      ReflectionTestUtils.setField(adminRole, "name", RoleName.ADMIN);
+
+      User adminUser = new User("admin@aura.com", "hash", "Admin");
+      UUID adminId = UUID.randomUUID();
+      ReflectionTestUtils.setField(adminUser, "id", adminId);
+
+      when(socialTokenVerifier.verifyToken("google", "admin-token"))
+          .thenReturn(new SocialTokenVerifier.VerifiedSocialUser("admin@aura.com", "Admin"));
+      when(users.findByEmailIgnoreCase("admin@aura.com")).thenReturn(Optional.of(adminUser));
+      when(userRoles.findAllByUserId(adminId)).thenReturn(List.of(new UserRole(adminUser, adminRole)));
+
+      assertThatThrownBy(() -> authService.loginWithSocial(
+          new SocialLoginRequest("google", "admin-token", null, null, null)))
+          .isInstanceOfSatisfying(AuthException.class, e -> {
+            assertThat(e.code()).isEqualTo(ErrorCode.ACCESS_DENIED);
+            assertThat(e.getMessage()).contains("Tài khoản Quản trị viên hoặc Bác sĩ không được phép");
+          });
+    }
+
+    @Test
+    @DisplayName("SEC-01: Social login attempt on account with ROLE_DOCTOR throws ACCESS_DENIED")
+    void loginWithSocial_PrivilegedDoctorAccount_ThrowsAccessDenied() {
+      Role doctorRole = new Role();
+      ReflectionTestUtils.setField(doctorRole, "id", UUID.randomUUID());
+      ReflectionTestUtils.setField(doctorRole, "name", RoleName.DOCTOR);
+
+      User doctorUser = new User("doctor@aura.com", "hash", "Doctor");
+      UUID doctorId = UUID.randomUUID();
+      ReflectionTestUtils.setField(doctorUser, "id", doctorId);
+
+      when(socialTokenVerifier.verifyToken("google", "doctor-token"))
+          .thenReturn(new SocialTokenVerifier.VerifiedSocialUser("doctor@aura.com", "Doctor"));
+      when(users.findByEmailIgnoreCase("doctor@aura.com")).thenReturn(Optional.of(doctorUser));
+      when(userRoles.findAllByUserId(doctorId)).thenReturn(List.of(new UserRole(doctorUser, doctorRole)));
+
+      assertThatThrownBy(() -> authService.loginWithSocial(
+          new SocialLoginRequest("google", "doctor-token", null, null, null)))
+          .isInstanceOfSatisfying(AuthException.class, e -> {
+            assertThat(e.code()).isEqualTo(ErrorCode.ACCESS_DENIED);
+            assertThat(e.getMessage()).contains("Tài khoản Quản trị viên hoặc Bác sĩ không được phép");
+          });
+    }
+
+    @Test
+    @DisplayName("SEC-01: Sending fake email in body without valid token throws INVALID_CREDENTIALS")
+    void loginWithSocial_BodyEmailSpoofing_Rejected() {
+      when(socialTokenVerifier.verifyToken(any(), any())).thenReturn(null);
+
+      assertThatThrownBy(() -> authService.loginWithSocial(
+          new SocialLoginRequest("google", "invalid.token", "victim@aura.com", "Victim", null)))
+          .isInstanceOfSatisfying(AuthException.class, e -> {
+            assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS);
           });
     }
 
@@ -457,6 +523,8 @@ class AuthServiceComprehensiveTest {
     @DisplayName("loginWithGoogle delegates to loginWithSocial")
     void loginWithGoogle_DelegatesToSocialLogin() {
       // Arrange
+      when(socialTokenVerifier.verifyToken(eq("google"), eq("google-token")))
+          .thenReturn(new SocialTokenVerifier.VerifiedSocialUser("google.user@aura.com", "Google User"));
       when(users.findByEmailIgnoreCase("google.user@aura.com")).thenReturn(Optional.of(testUser));
       when(userRoles.findAllByUserId(testUserId)).thenReturn(List.of(new UserRole(testUser, userRole)));
       when(jwt.create(any(), any())).thenReturn("access-token");

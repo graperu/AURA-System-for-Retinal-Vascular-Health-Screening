@@ -51,20 +51,22 @@ const defaultContextValue: LanguageContextType = {
 
 const LanguageContext = createContext<LanguageContextType>(defaultContextValue);
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Ensure default starts with 'vi' and resets invalid/external localStorage
+const getInitialLanguage = (): SupportedLanguage => {
   try {
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored !== 'vi') {
-        localStorage.setItem(STORAGE_KEY, 'vi');
+      if (stored === 'en' || stored === 'vi') {
+        return stored;
       }
     }
   } catch {
     // LocalStorage restricted
   }
+  return 'vi';
+};
 
-  const [language, setLanguageState] = useState<SupportedLanguage>('vi');
+export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [language, setLanguageState] = useState<SupportedLanguage>(getInitialLanguage);
 
   useEffect(() => {
     if (typeof document !== 'undefined' && document.documentElement) {

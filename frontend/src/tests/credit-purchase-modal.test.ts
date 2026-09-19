@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import fs from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
@@ -269,8 +270,14 @@ runTest('CPM-3.4: Đồng bộ cổng thanh toán duy nhất VietQR Napas 24/7 t
   assert.ok(translations.en.clinic.creditPackage.providerVietqr.includes('VietQR'));
 });
 
+runTest('CPM-3.5: Khi confirmLocalPayment gặp lỗi 403 hoặc API thất bại, tuyệt đối KHÔNG tự cộng credit ảo (BIL-02)', () => {
+  const fileContent = fs.readFileSync('src/components/CreditPurchaseModal.tsx', 'utf8');
+  assert.strictEqual(fileContent.includes('TXN-DEMO'), false, 'Source must not contain TXN-DEMO fallback');
+  assert.strictEqual(fileContent.includes('onPurchaseSuccess?.(activeCredits + added);\n    onSuccess?.(added);\n    setPaymentStep("SUCCESS");\n  };'), false, 'Must not grant fake credits on error');
+});
+
 console.log('\n=================================================================');
-console.log('   KẾT QUẢ KIỂM THỬ: 13/13 TESTS ĐÃ ĐẠT (100% PASS)');
+console.log('   KẾT QUẢ KIỂM THỬ: 14/14 TESTS ĐÃ ĐẠT (100% PASS)');
 console.log('=================================================================\n');
 
 process.exit(0);

@@ -79,10 +79,61 @@ export const computeHypertensionStage = (stage?: string | null, score?: number, 
   return stage || 'Giai đoạn 0 (Huyết áp bình thường)';
 };
 
-export const computeEtdrsGrade = (grade?: string | null, score?: number, level?: string | null): string => {
-  if (grade && !grade.toLowerCase().includes('theo phân tích') && !grade.toLowerCase().includes('không dr') && !grade.toLowerCase().includes('no dr')) {
+export const computeEtdrsGrade = (
+  grade?: string | null,
+  score?: number,
+  level?: string | null,
+  anomalies?: VesselAnomalyRegion[]
+): string => {
+  if (grade && !grade.toLowerCase().includes('theo phân tích')) {
     return grade;
   }
+
+  // Phân độ dựa trên danh sách tổn thương thực tế (Quy tắc 4-2-1 quốc tế)
+  if (anomalies && anomalies.length > 0) {
+    const hasNeovascularization = anomalies.some((a) =>
+      /neovascular|nvd|nve|tân mạch|tan mach/i.test(a.type || a.description || '')
+    );
+    if (hasNeovascularization) {
+      return 'Cấp độ 4 (PDR - Tăng sinh)';
+    }
+
+    const hemQuadrants = new Set<number>();
+    const vbQuadrants = new Set<number>();
+    let hasIrma = false;
+    let hasMicroaneurysm = false;
+    let hasExudate = false;
+
+    for (const a of anomalies) {
+      const type = (a.type || a.description || '').toLowerCase();
+      const x = a.coordinates?.x ?? 50;
+      const y = a.coordinates?.y ?? 50;
+      const cx = x <= 1 ? 0.5 : 50;
+      const cy = y <= 1 ? 0.5 : 50;
+      const q = x >= cx ? (y < cy ? 1 : 4) : (y < cy ? 2 : 3);
+
+      if (/irma|bất thường vi mạch/i.test(type)) hasIrma = true;
+      if (/venous.*bead|chuỗi hạt/i.test(type)) vbQuadrants.add(q);
+      if (/hemorrhage|xuất huyết/i.test(type)) hemQuadrants.add(q);
+      if (/microaneurysm|vi phình mạch/i.test(type)) {
+        hasMicroaneurysm = true;
+      }
+      if (/exudate|xuất tiết|cotton/i.test(type)) hasExudate = true;
+    }
+
+    // Quy tắc 4-2-1
+    if (hemQuadrants.size >= 4 || vbQuadrants.size >= 2 || hasIrma) {
+      return 'Cấp độ 3 (NPDR nặng - Tiền tăng sinh)';
+    }
+    if (hasExudate || hemQuadrants.size >= 1 || anomalies.length >= 3) {
+      return 'Cấp độ 2 (NPDR trung bình)';
+    }
+    if (hasMicroaneurysm) {
+      return 'Cấp độ 1 (NPDR nhẹ - Vi phình mạch)';
+    }
+    return 'Cấp độ 0 (Không DR)';
+  }
+
   const s = score ?? 0;
   const l = (level || '').toUpperCase();
   if (s >= 80 || l.includes('CRITICAL') || l.includes('SEVERE')) {
@@ -97,7 +148,7 @@ export const computeEtdrsGrade = (grade?: string | null, score?: number, level?:
   if (s >= 25) {
     return 'Cấp độ 1 (NPDR nhẹ - Vi phình mạch)';
   }
-  return 'Cấp độ 0 (Bình thường)';
+  return 'Cấp độ 0 (Không DR)';
 };
 
 /**
@@ -148,12 +199,20 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
   const drScore = screening.diabeticRetinopathyRiskScore ?? 0;
   const strokeScore = screening.strokeRiskScore ?? cvdScore;
 
-  // Sửa dứt điểm công thức tính điểm:
-  // Lấy screening.riskScore ?? screening.overallVascularRiskScore ?? Math.round((cvdScore + drScore) / 2).
-  // TUYỆT ĐỐI KHÔNG dùng confidence * 100!
-  const overallScore = Math.round(
+  // MED-05 FIX: Emergency Risk Max-Rule formula:
+  // Nếu có bất kỳ cơ quan nào đạt ngưỡng nguy kịch (>=75 hoặc CRITICAL / PDR),
+  // điểm nguy cơ tổng thể không được phép bị pha loãng bởi các cơ quan bình thường khác.
+  const maxOrganScore = Math.max(cvdScore, Math.max(drScore, strokeScore));
+  const isEmergency = maxOrganScore >= 75 ||
+    String(screening.diabeticRetinopathyRiskLevel).toUpperCase() === 'CRITICAL' ||
+    String(screening.cardiovascularRiskLevel).toUpperCase() === 'CRITICAL' ||
+    String(screening.strokeRiskLevel).toUpperCase() === 'CRITICAL' ||
+    String(screening.etdrsGrade).includes('Cấp độ 4');
+
+  const baseScore = Math.round(
     screening.riskScore ?? screening.overallVascularRiskScore ?? ((cvdScore + drScore) / 2)
   );
+  const overallScore = isEmergency ? Math.max(baseScore, maxOrganScore) : baseScore;
 
   // Parse an toàn trường detectedAnomalies từ chuỗi JSON string hoặc mảng thật
   const detectedAnomalies: VesselAnomalyRegion[] =
@@ -213,13 +272,20 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
       ),
       threeYearStrokeRiskPercent: strokeScore,
     },
+    strokeRisk: {
+      level: toFrontendRiskLevel(screening.strokeRiskLevel || screening.cardiovascularRiskLevel),
+      score: strokeScore,
+      threeYearStrokeRiskPercent: strokeScore,
+      clinicalNote: screening.strokeClinicalNote,
+    },
     diabeticRetinopathyRisk: {
       level: toFrontendRiskLevel(screening.diabeticRetinopathyRiskLevel),
       score: drScore,
       etdrsGrade: computeEtdrsGrade(
         screening.etdrsGrade,
         drScore,
-        screening.diabeticRetinopathyRiskLevel
+        screening.diabeticRetinopathyRiskLevel,
+        detectedAnomalies
       ),
       macularEdemaPresent: Boolean((screening as any).macularEdemaPresent ?? false),
     },

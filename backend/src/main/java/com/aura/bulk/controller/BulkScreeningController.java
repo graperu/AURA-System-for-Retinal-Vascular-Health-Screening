@@ -217,6 +217,7 @@ public class BulkScreeningController {
                     itemEntity.setSystolicBp(item.systolicBp());
                     itemEntity.setDiastolicBp(item.diastolicBp());
                     itemEntity.setHba1c(item.hbA1c());
+                    itemEntity.setImagePayload(strippedBase64 != null ? strippedBase64 : item.base64ImageContent());
                     itemRepository.save(itemEntity);
                 } catch (Exception e) {
                     log.warn("Không thể lưu BulkScreeningItem vào PostgreSQL: {}", e.getMessage());

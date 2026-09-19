@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
@@ -21,6 +22,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class RefreshTokenService {
   private static final Logger log = LoggerFactory.getLogger(RefreshTokenService.class);
+
+  /**
+   * Cửa sổ ân hạn 30 giây cho Refresh Token Rotation (CON-04).
+   * Cho phép các request đồng thời từ nhiều tab trình duyệt hoàn tất mà không hủy toàn bộ phiên.
+   */
+  public static final long ROTATION_GRACE_PERIOD_SECONDS = 30L;
+
   private final RefreshTokenRepository repository;
   private final AuthProperties properties;
   private final SecureRandom random = new SecureRandom();
@@ -51,8 +59,22 @@ public class RefreshTokenService {
             .orElseThrow(
                 () -> invalid(ErrorCode.REFRESH_TOKEN_INVALID, "Refresh token không hợp lệ"));
     if (old.getRevokedAt() != null) {
+      Instant now = Instant.now();
+      Instant revokedAt = old.getRevokedAt();
+      long secondsSinceRevocation = Math.abs(Duration.between(revokedAt, now).getSeconds());
+
+      // CON-04: Grace Period Window — Nếu token đã bị thu hồi trong vòng 30s VÀ được thu hồi do rotation (có replacedBy)
+      if (old.getReplacedBy() != null && secondsSinceRevocation <= ROTATION_GRACE_PERIOD_SECONDS
+          && old.getUser().isActive() && old.getExpiresAt().isAfter(now)) {
+        log.info("Phát hiện làm mới token đồng thời trong Grace Period ({}s trước) cho userId={}. Cấp phát phiên mới an toàn.",
+            secondsSinceRevocation, old.getUser().getId());
+        Issued graceReplacement = issue(old.getUser());
+        return new Rotation(old.getUser(), graceReplacement);
+      }
+
+      // Ngoài Grace Period hoặc token thu hồi do Đăng xuất chủ động (replacedBy == null): coi là Replay Attack thực sự
       repository.revokeAllActiveByUserId(old.getUser().getId(), Instant.now());
-      log.warn("Refresh token reuse detected for userId={}", old.getUser().getId());
+      log.warn("Cảnh báo tái sử dụng token ngoài Grace Period cho userId={}. Đã thu hồi toàn bộ phiên hoạt động.", old.getUser().getId());
       throw invalid(ErrorCode.REFRESH_TOKEN_REVOKED, "Refresh token đã bị thu hồi");
     }
     if (!old.usable()) {
