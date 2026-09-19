@@ -234,7 +234,60 @@ assert.ok(overlayHtmlOS.includes('(Narrowed)'), 'A/V ratio constriction flagged'
 
 console.log('  [PASS] OVERLAY-6: Left Eye (OS) anatomical conformation and metrics verified');
 
+// -----------------------------------------------------------------------------
+// SECTION 7: ANTI-COLLISION & SMART RETICLES
+// -----------------------------------------------------------------------------
+console.log('\n--- 7. Anti-Collision & Smart Reticle Numbering ---');
+
+assert.ok(
+  overlayHtmlOD.includes('#1') && overlayHtmlOD.includes('#2'),
+  'Numbered order badges (#1, #2) rendered on bounding boxes'
+);
+assert.ok(
+  overlayHtmlOD.includes('Tổn thương:') || overlayHtmlOD.includes('Lesions:'),
+  'Interactive lesion ribbon renders at bottom'
+);
+
+console.log('  [PASS] OVERLAY-7: Anti-collision numbering and interactive ribbon verified');
+
+// -----------------------------------------------------------------------------
+// SECTION 8: RETINAL BOUNDARY CLIPPING (ZERO OVERFLOW)
+// -----------------------------------------------------------------------------
+console.log('\n--- 8. Retinal Boundary Clipping (No Outer Bleed) ---');
+
+assert.ok(
+  overlayHtmlOD.includes('clip-path') || overlayHtmlOD.includes('clipPath') || overlayHtmlOD.includes('retina-disc-clip'),
+  'Retinal boundary clip-path active to prevent outer bleed'
+);
+assert.ok(
+  overlayHtmlOD.includes('retina-disc-clip'),
+  'SVG vessel layer enclosed within retina-disc-clip mask'
+);
+assert.ok(
+  overlayHtmlOD.includes('retina-heatmap-clip'),
+  'Heatmap layer enclosed within retina-heatmap-clip mask'
+);
+
+console.log('  [PASS] OVERLAY-8: Retinal boundary clip-paths strictly constrain vessels and heatmap inside fundus');
+
+// -----------------------------------------------------------------------------
+// SECTION 9: LESION FILTERING & OPTICAL CANVAS
+// -----------------------------------------------------------------------------
+console.log('\n--- 9. Lesion Type Filter & Optical Canvas ---');
+
+assert.ok(
+  overlayHtmlOD.includes('Lọc tổn thương:') || overlayHtmlOD.includes('Filter Type:'),
+  'Filter controls for lesion types present'
+);
+assert.ok(
+  overlayHtmlOD.includes('<canvas'),
+  'Optical vessel segmentation canvas rendered'
+);
+
+console.log('  [PASS] OVERLAY-9: Lesion type filtering chips and optical canvas verified');
+
 console.log('\n=================================================================');
-console.log('   KẾT QUẢ KIỂM THỬ: 6/6 TESTS ĐÃ ĐẠT (100% PASS)');
+console.log('   KẾT QUẢ KIỂM THỬ: 9/9 TESTS ĐÃ ĐẠT (100% PASS)');
 console.log('=================================================================');
 process.exit(0);
+

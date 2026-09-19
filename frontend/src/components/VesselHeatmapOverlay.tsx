@@ -20,10 +20,12 @@ import {
   Move,
   X,
   Crosshair,
+  Filter,
 } from 'lucide-react';
 import { VesselAnomalyRegion } from '../types/cds';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuraReducedMotion } from '../hooks/useAuraReducedMotion';
+import { processVesselOverlayCanvas } from '../utils/vesselCanvasUtils';
 
 export interface VesselHeatmapOverlayProps {
   imageUrl: string;
@@ -108,11 +110,16 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
   const [showBoundingBoxes, setShowBoundingBoxes] = useState<boolean>(true);
   const [invertColors, setInvertColors] = useState<boolean>(false);
 
+  // Bộ lọc loại tổn thương & chế độ hiển thị nhãn chống đè (Anti-collision)
+  const [lesionFilter, setLesionFilter] = useState<'ALL' | 'MA' | 'BLEED' | 'EXUDATE'>('ALL');
+  const [labelDisplayMode, setLabelDisplayMode] = useState<'smart' | 'compact' | 'focus'>('smart');
+
   // 2. Tương tác và hiển thị
   const [selectedAnomaly, setSelectedAnomaly] = useState<VesselAnomalyRegion | null>(null);
   const [hoveredAnomaly, setHoveredAnomaly] = useState<VesselAnomalyRegion | null>(null);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isImageLoaded, setIsImageLoaded] = useState<boolean>(false);
 
   // 3. Zoom & Pan State
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
@@ -124,6 +131,7 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const vesselCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Nhận biết mắt Phải (OD) hay Trái (OS) để căn chỉnh giải phẫu
   const eyeUpper = (selectedEye || '').toUpperCase();
@@ -141,13 +149,60 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
     return raw;
   }, [drStatus]);
 
-  // Cung cấp danh sách tổn thương thực tế từ kết quả phân tích AI (không tạo tổn thương giả trên mắt bình thường)
+  // Cung cấp danh sách tổn thương thực tế từ kết quả phân tích AI
   const displayAnomalies: VesselAnomalyRegion[] = useMemo(() => {
     if (anomalies && anomalies.length > 0) {
       return anomalies;
     }
     return [];
   }, [anomalies]);
+
+  // Lọc tổn thương theo phân loại lâm sàng (All, MA, Bleed, Exudate)
+  const filteredAnomalies = useMemo(() => {
+    if (lesionFilter === 'ALL') return displayAnomalies;
+    return displayAnomalies.filter((a) => {
+      const tLower = (a.type || '').toLowerCase();
+      if (lesionFilter === 'MA') return tLower.includes('microaneurysm') || tLower === 'ma';
+      if (lesionFilter === 'BLEED') return tLower.includes('hemorrhage') || tLower.includes('bleed');
+      if (lesionFilter === 'EXUDATE') return tLower.includes('exudate') || tLower.includes('cotton_wool');
+      return true;
+    });
+  }, [displayAnomalies, lesionFilter]);
+
+  // Thuật toán chống đè nhãn (Smart Anti-Collision & Staggering Layout)
+  const anomalyLayouts = useMemo(() => {
+    return filteredAnomalies.map((anom, idx) => {
+      // Kiểm tra các tổn thương đã xếp trước có nằm quá gần trong phạm vi bán kính va chạm không
+      const hasNearbyAbove = filteredAnomalies.slice(0, idx).some((other) => {
+        const dx = Math.abs(other.coordinates.x - anom.coordinates.x);
+        const dy = other.coordinates.y - anom.coordinates.y;
+        return dx < 15 && Math.abs(dy) < 14;
+      });
+
+      // Nếu gần mép trên hoặc có tổn thương khác ngay trên, đưa nhãn xuống phía dưới hộp
+      const isNearTop = anom.coordinates.y < 22;
+      const badgePosition: 'top' | 'bottom' = hasNearbyAbove || isNearTop ? 'bottom' : 'top';
+
+      return {
+        ...anom,
+        orderIndex: idx + 1,
+        badgePosition,
+      };
+    });
+  }, [filteredAnomalies]);
+
+  // Trích xuất mạch máu thực tế lên Canvas khi ảnh nạp xong
+  useEffect(() => {
+    if (!imageRef.current || !vesselCanvasRef.current) return;
+    try {
+      processVesselOverlayCanvas(imageRef.current, vesselCanvasRef.current, {
+        isDarkRoom,
+        vesselMaskUrl,
+      });
+    } catch (err) {
+      console.warn('[VesselHeatmapOverlay] Error rendering optical vessel canvas:', err);
+    }
+  }, [isImageLoaded, isDarkRoom, vesselMaskUrl, imageUrl]);
 
   // Điều khiển Zoom
   const handleZoom = (delta: number) => {
@@ -335,7 +390,7 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
-          {/* Close button (if modal/tab onClose provided) */}
+          {/* Close button */}
           {onClose && (
             <button
               type="button"
@@ -384,7 +439,7 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
             transition: isDragging ? 'none' : 'transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
-          {/* Inner Aspect Ratio Container (Tỉ lệ vuông hoặc gốc của Fundus Image) */}
+          {/* Inner Aspect Ratio Container */}
           <div className="relative inline-flex items-center justify-center max-w-[92vw] max-h-[78vh] sm:max-w-[540px] sm:max-h-[540px] lg:max-w-[600px] lg:max-h-[600px]">
             {/* ------------------------------------------------------------- */}
             {/* LAYER 0: BASE FUNDUS IMAGE                                    */}
@@ -395,427 +450,378 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
               alt={`Retinal Fundus Scan ${selectedEye}`}
               className="max-h-[520px] sm:max-h-[560px] w-auto max-w-full object-contain rounded-2xl shadow-2xl block select-none pointer-events-none"
               draggable={false}
-              crossOrigin="anonymous"
+              crossOrigin={imageUrl?.startsWith('data:') || imageUrl?.startsWith('blob:') ? undefined : 'anonymous'}
+              onLoad={() => setIsImageLoaded(true)}
               style={{
                 filter: invertColors ? 'invert(100%) hue-rotate(180deg) contrast(135%) brightness(95%)' : undefined,
               }}
             />
 
             {/* ------------------------------------------------------------- */}
-            {/* LAYER 1: LƯỚI MẠCH MÁU (Vessel Segmentation - Xanh neon)      */}
-            {/* Xanh neon #10B981 / #00FF66 với Opacity Slider (0% - 100%)    */}
+            {/* LAYER 1: LƯỚI MẠCH MÁU (Vessel Segmentation)                  */}
+            {/* Giới hạn chặt chẽ trong vòng tròn võng mạc, không tràn viền đen */}
             {/* ------------------------------------------------------------- */}
             <div
               className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-200 ${
                 showVessels ? 'opacity-100' : 'opacity-0'
               }`}
-              style={{ opacity: showVessels ? vesselOpacity : 0 }}
+              style={{
+                opacity: showVessels ? vesselOpacity : 0,
+                clipPath: 'circle(44% at 50% 50%)', // Đảm bảo mạch máu không bao giờ tràn ra ngoài hình tròn đáy mắt
+              }}
             >
+              {/* 1A. Canvas trích xuất vi mạch thực tế từ ảnh đáy mắt gốc */}
+              <canvas
+                ref={vesselCanvasRef}
+                className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                style={{
+                  mixBlendMode: 'screen',
+                  filter: 'contrast(160%) brightness(110%)',
+                }}
+              />
+
+              {/* 1B. Phân đoạn mạch máu tiền xử lý AI (nếu có URL riêng) */}
+              {vesselMaskUrl && !vesselMaskUrl.startsWith('data:') && (
+                <img
+                  src={vesselMaskUrl}
+                  alt="Retinal Vessel Mask"
+                  className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-screen"
+                />
+              )}
+
+              {/* 1C. Sơ đồ giải phẫu vi mạch tinh tế chuẩn y khoa (Nét mảnh, giới hạn bên trong r=41%) */}
               <svg
                 viewBox="0 0 100 100"
                 preserveAspectRatio="none"
-                className="w-full h-full object-contain"
-                style={{
-                  filter: 'drop-shadow(0 0 2px #00FF66) drop-shadow(0 0 5px rgba(16, 185, 129, 0.7))',
-                }}
+                className="w-full h-full object-contain opacity-80"
               >
                 <defs>
-                  {/* Neon Glow Filter cho Lưới mạch máu */}
+                  {/* Mặt nạ tròn giới hạn tuyệt đối các đường mạch máu */}
+                  <clipPath id="retina-disc-clip">
+                    <circle cx="50" cy="50" r="41" />
+                  </clipPath>
+                  {/* Subtle Medical Glow (0.4 stdDev, không nhòe nhoẹt) */}
                   <filter id="aura-vessel-neon-glow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="0.8" result="blur1" />
-                    <feGaussianBlur stdDeviation="1.6" result="blur2" />
+                    <feGaussianBlur stdDeviation="0.4" result="blur1" />
                     <feMerge>
-                      <feMergeNode in="blur2" />
                       <feMergeNode in="blur1" />
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
-                  {/* Linear Gradient cho động mạch và tĩnh mạch */}
                   <linearGradient id="vessel-gradient-primary" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#00FF66" stopOpacity="0.95" />
-                    <stop offset="60%" stopColor="#10B981" stopOpacity="0.85" />
+                    <stop offset="0%" stopColor="#00FF66" stopOpacity="0.9" />
+                    <stop offset="60%" stopColor="#10B981" stopOpacity="0.8" />
                     <stop offset="100%" stopColor="#059669" stopOpacity="0.7" />
                   </linearGradient>
                   <linearGradient id="vessel-gradient-arteriole" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#6EE7B7" stopOpacity="0.95" />
-                    <stop offset="100%" stopColor="#00FF66" stopOpacity="0.85" />
+                    <stop offset="0%" stopColor="#6EE7B7" stopOpacity="0.9" />
+                    <stop offset="100%" stopColor="#00FF66" stopOpacity="0.8" />
                   </linearGradient>
                 </defs>
 
-                {/* Vùng Gai Thị (Optic Disc) - Nơi xuất phát của các nhánh mạch máu */}
-                <g className="optic-disc-node">
-                  <circle
-                    cx={opticDiscX}
-                    cy={opticDiscY}
-                    r="4.5"
-                    fill="none"
-                    stroke="#00FF66"
-                    strokeWidth="0.8"
-                    strokeDasharray="1.2 0.8"
-                    opacity="0.8"
-                    className="animate-reticle-pulse"
-                  />
-                  <circle cx={opticDiscX} cy={opticDiscY} r="2.2" fill="#10B981" opacity="0.4" />
-                </g>
-
-                {/* Vùng Hoàng Điểm (Macula) & Vùng vô mạch FAZ (Foveal Avascular Zone) */}
-                <g className="macula-faz-node">
-                  <circle
-                    cx={maculaX}
-                    cy={maculaY}
-                    r="3.5"
-                    fill="none"
-                    stroke="#00FF66"
-                    strokeWidth="0.5"
-                    strokeDasharray="0.8 0.8"
-                    opacity="0.65"
-                    className="animate-reticle-pulse"
-                  />
-                  <circle cx={maculaX} cy={maculaY} r="1.5" fill="#00FF66" opacity="0.15" />
-                </g>
-
-                {/* CÁC NHÁNH ĐỘNG MẠCH & TĨNH MẠCH CHÍNH TỎA TỪ GAI THỊ TỚI HOÀNG ĐIỂM */}
-                {/* 1. Cung mạch thái dương trên (Superior Temporal Arcade) - Ôm vòm phía trên hoàng điểm */}
-                {!isOS ? (
-                  // Cung thái dương cho MẮT PHẢI (OD): Gai thị ở x=72, uốn sang trái ôm x=36
-                  <g filter="url(#aura-vessel-neon-glow)">
-                    {/* Tĩnh mạch lớn thái dương trên */}
-                    <path
-                      d="M 72 50 C 65 30, 48 24, 34 32 S 22 45, 18 55"
+                <g clipPath="url(#retina-disc-clip)">
+                  {/* Vùng Gai Thị (Optic Disc) */}
+                  <g className="optic-disc-node">
+                    <circle
+                      cx={opticDiscX}
+                      cy={opticDiscY}
+                      r="4.0"
                       fill="none"
                       stroke="#00FF66"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    {/* Động mạch thái dương trên song hành */}
-                    <path
-                      d="M 72 49 C 64 33, 50 28, 36 35 S 25 48, 20 60"
-                      fill="none"
-                      stroke="#10B981"
-                      strokeWidth="1.0"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    {/* Hemodynamic flow pulse along superior temporal arcade */}
-                    <path
-                      d="M 72 50 C 65 30, 48 24, 34 32 S 22 45, 18 55"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      className="vessel-flow-pulse pointer-events-none"
-                      pathLength={100}
+                      strokeWidth="0.8"
+                      strokeDasharray="1.2 0.8"
                       opacity="0.85"
+                      className="animate-reticle-pulse"
                     />
-
-                    {/* Nhánh vi mạch thái dương trên rẽ về hoàng điểm */}
-                    <path
-                      d="M 46 29 C 43 36, 40 42, 38 48"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="0.6"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    <path
-                      d="M 38 33 C 37 39, 36 44, 36 48"
-                      fill="none"
-                      stroke="#6EE7B7"
-                      strokeWidth="0.5"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-
-                    {/* 2. Cung mạch thái dương dưới (Inferior Temporal Arcade) */}
-                    <path
-                      d="M 72 50 C 65 70, 48 76, 34 68 S 22 55, 18 45"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    <path
-                      d="M 72 51 C 64 67, 50 72, 36 65 S 25 52, 20 40"
-                      fill="none"
-                      stroke="#10B981"
-                      strokeWidth="1.0"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    {/* Hemodynamic flow pulse along inferior temporal arcade */}
-                    <path
-                      d="M 72 50 C 65 70, 48 76, 34 68 S 22 55, 18 45"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      className="vessel-flow-pulse pointer-events-none"
-                      pathLength={100}
-                      opacity="0.85"
-                    />
-
-                    {/* Nhánh vi mạch thái dương dưới rẽ về hoàng điểm */}
-                    <path
-                      d="M 46 71 C 43 64, 40 58, 38 56"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="0.6"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-
-                    {/* 3. Cung mạch phía mũi (Nasal Arcades) */}
-                    <path
-                      d="M 72 50 C 78 35, 84 28, 92 24"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="1.1"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    <path
-                      d="M 72 50 C 78 65, 84 72, 92 76"
-                      fill="none"
-                      stroke="#10B981"
-                      strokeWidth="1.1"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    <path
-                      d="M 72 50 C 80 48, 88 50, 96 50"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="0.7"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-
-                    {/* Các tiểu mạch ngoại vi (Capillaries) */}
-                    <path d="M 32 32 C 26 26, 20 22, 12 18" fill="none" stroke="#00FF66" strokeWidth="0.5" className="vessel-path-draw" pathLength={100} />
-                    <path d="M 32 68 C 26 74, 20 78, 12 82" fill="none" stroke="#00FF66" strokeWidth="0.5" className="vessel-path-draw" pathLength={100} />
+                    <circle cx={opticDiscX} cy={opticDiscY} r="2.0" fill="#10B981" opacity="0.35" />
                   </g>
-                ) : (
-                  // Cung thái dương cho MẮT TRÁI (OS): Gai thị ở x=28, uốn sang phải ôm x=64
-                  <g filter="url(#aura-vessel-neon-glow)">
-                    {/* Tĩnh mạch lớn thái dương trên */}
-                    <path
-                      d="M 28 50 C 35 30, 52 24, 66 32 S 78 45, 82 55"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    {/* Động mạch thái dương trên song hành */}
-                    <path
-                      d="M 28 49 C 36 33, 50 28, 64 35 S 75 48, 80 60"
-                      fill="none"
-                      stroke="#10B981"
-                      strokeWidth="1.0"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    {/* Hemodynamic flow pulse along superior temporal arcade */}
-                    <path
-                      d="M 28 50 C 35 30, 52 24, 66 32 S 78 45, 82 55"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      className="vessel-flow-pulse pointer-events-none"
-                      pathLength={100}
-                      opacity="0.85"
-                    />
 
-                    {/* Nhánh vi mạch thái dương trên rẽ về hoàng điểm */}
-                    <path
-                      d="M 54 29 C 57 36, 60 42, 62 48"
+                  {/* Vùng Hoàng Điểm (Macula) & Vùng vô mạch FAZ */}
+                  <g className="macula-faz-node">
+                    <circle
+                      cx={maculaX}
+                      cy={maculaY}
+                      r="3.2"
                       fill="none"
                       stroke="#00FF66"
-                      strokeWidth="0.6"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    <path
-                      d="M 62 33 C 63 39, 64 44, 64 48"
-                      fill="none"
-                      stroke="#6EE7B7"
                       strokeWidth="0.5"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
+                      strokeDasharray="0.8 0.8"
+                      opacity="0.65"
+                      className="animate-reticle-pulse"
                     />
-
-                    {/* 2. Cung mạch thái dương dưới (Inferior Temporal Arcade) */}
-                    <path
-                      d="M 28 50 C 35 70, 52 76, 66 68 S 78 55, 82 45"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    <path
-                      d="M 28 51 C 36 67, 50 72, 64 65 S 75 52, 80 40"
-                      fill="none"
-                      stroke="#10B981"
-                      strokeWidth="1.0"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    {/* Hemodynamic flow pulse along inferior temporal arcade */}
-                    <path
-                      d="M 28 50 C 35 70, 52 76, 66 68 S 78 55, 82 45"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      className="vessel-flow-pulse pointer-events-none"
-                      pathLength={100}
-                      opacity="0.85"
-                    />
-
-                    {/* Nhánh vi mạch thái dương dưới rẽ về hoàng điểm */}
-                    <path
-                      d="M 54 71 C 57 64, 60 58, 62 56"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="0.6"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-
-                    {/* 3. Cung mạch phía mũi (Nasal Arcades) */}
-                    <path
-                      d="M 28 50 C 22 35, 16 28, 8 24"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="1.1"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    <path
-                      d="M 28 50 C 22 65, 16 72, 8 76"
-                      fill="none"
-                      stroke="#10B981"
-                      strokeWidth="1.1"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-                    <path
-                      d="M 28 50 C 20 48, 12 50, 4 50"
-                      fill="none"
-                      stroke="#00FF66"
-                      strokeWidth="0.7"
-                      strokeLinecap="round"
-                      className="vessel-path-draw"
-                      pathLength={100}
-                    />
-
-                    {/* Các tiểu mạch ngoại vi (Capillaries) */}
-                    <path d="M 68 32 C 74 26, 80 22, 88 18" fill="none" stroke="#00FF66" strokeWidth="0.5" className="vessel-path-draw" pathLength={100} />
-                    <path d="M 68 68 C 74 74, 80 78, 88 82" fill="none" stroke="#00FF66" strokeWidth="0.5" className="vessel-path-draw" pathLength={100} />
+                    <circle cx={maculaX} cy={maculaY} r="1.3" fill="#00FF66" opacity="0.15" />
                   </g>
-                )}
+
+                  {/* Cung mạch thái dương & cung mạch phía mũi (Nằm gọn trong r <= 41%) */}
+                  {!isOS ? (
+                    <g filter="url(#aura-vessel-neon-glow)">
+                      {/* Cung thái dương trên Mắt Phải (OD) */}
+                      <path
+                        d="M 72 50 C 66 33, 52 26, 38 32 S 27 44, 24 52"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="1.1"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 72 49 C 65 35, 53 29, 40 35 S 29 46, 26 55"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 46 30 C 43 36, 40 42, 38 48"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="0.5"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+
+                      {/* Cung thái dương dưới Mắt Phải (OD) */}
+                      <path
+                        d="M 72 50 C 66 67, 52 74, 38 68 S 27 56, 24 48"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="1.1"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 72 51 C 65 65, 53 71, 40 65 S 29 54, 26 45"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 46 70 C 43 64, 40 58, 38 56"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="0.5"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+
+                      {/* Cung mạch phía mũi (Nasal Arcades) */}
+                      <path
+                        d="M 72 50 C 76 38, 80 32, 84 29"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 72 50 C 76 62, 80 68, 84 71"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 72 50 C 77 49, 82 50, 86 50"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="0.6"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                    </g>
+                  ) : (
+                    <g filter="url(#aura-vessel-neon-glow)">
+                      {/* Cung thái dương trên Mắt Trái (OS) */}
+                      <path
+                        d="M 28 50 C 34 33, 48 26, 62 32 S 73 44, 76 52"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="1.1"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 28 49 C 35 35, 47 29, 60 35 S 71 46, 74 55"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 54 30 C 57 36, 60 42, 62 48"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="0.5"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+
+                      {/* Cung thái dương dưới Mắt Trái (OS) */}
+                      <path
+                        d="M 28 50 C 34 67, 48 74, 62 68 S 73 56, 76 48"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="1.1"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 28 51 C 35 65, 47 71, 60 65 S 71 54, 74 45"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 54 70 C 57 64, 60 58, 62 56"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="0.5"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+
+                      {/* Cung mạch phía mũi Mắt Trái (OS) */}
+                      <path
+                        d="M 28 50 C 24 38, 20 32, 16 29"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 28 50 C 24 62, 20 68, 16 71"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                      <path
+                        d="M 28 50 C 23 49, 18 50, 14 50"
+                        fill="none"
+                        stroke="#00FF66"
+                        strokeWidth="0.6"
+                        strokeLinecap="round"
+                        className="vessel-path-draw"
+                        pathLength={100}
+                      />
+                    </g>
+                  )}
+                </g>
               </svg>
             </div>
 
             {/* ------------------------------------------------------------- */}
-            {/* LAYER 2: BẢN ĐỒ NHIỆT RỦI RO (Risk Heatmap - Gradient Đỏ/Vàng/Cam) */}
-            {/* Hiệu ứng radial gradient gaussian blur độ phân giải cao        */}
+            {/* LAYER 2: BẢN ĐỒ NHIỆT RỦI RO (Risk Heatmap - Grad-CAM)        */}
+            {/* Giới hạn trong hình tròn đáy mắt, không tràn viền             */}
             {/* ------------------------------------------------------------- */}
             <div
               className={`absolute inset-0 w-full h-full pointer-events-none mix-blend-screen transition-opacity duration-200 ${
                 showHeatmap ? 'opacity-100' : 'opacity-0'
               }`}
-              style={{ opacity: showHeatmap ? heatmapOpacity : 0 }}
+              style={{
+                opacity: showHeatmap ? heatmapOpacity : 0,
+                clipPath: 'circle(44% at 50% 50%)',
+              }}
             >
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full object-contain">
-                <defs>
-                  {/* Bộ lọc Gaussian Blur y tế tiêu chuẩn cao */}
-                  <filter id="aura-heatmap-gaussian-blur" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" />
-                  </filter>
+              {heatmapUrl ? (
+                <img
+                  src={heatmapUrl}
+                  alt="Risk Heatmap Grad-CAM"
+                  className="w-full h-full object-contain pointer-events-none"
+                />
+              ) : (
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full object-contain">
+                  <defs>
+                    <clipPath id="retina-heatmap-clip">
+                      <circle cx="50" cy="50" r="41" />
+                    </clipPath>
+                    <filter id="aura-heatmap-gaussian-blur" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur in="SourceGraphic" stdDeviation="4.0" />
+                    </filter>
 
-                  {/* Gradient Nhiệt Nền Cung Mạch Thái Dương */}
-                  <radialGradient id="heat-arcade-zone" cx={maculaX} cy={maculaY} r="35%" fx={maculaX} fy={maculaY}>
-                    <stop offset="0%" stopColor="#EF4444" stopOpacity="0.75" />
-                    <stop offset="35%" stopColor="#F59E0B" stopOpacity="0.6" />
-                    <stop offset="65%" stopColor="#EAB308" stopOpacity="0.35" />
-                    <stop offset="90%" stopColor="#10B981" stopOpacity="0.12" />
-                    <stop offset="100%" stopColor="transparent" stopOpacity="0" />
-                  </radialGradient>
-
-                  {/* Radial Gradient cho từng điểm nóng tổn thương vi mạch */}
-                  {displayAnomalies.map((anom) => (
-                    <radialGradient
-                      key={`grad-${anom.id}`}
-                      id={`heat-spot-${anom.id}`}
-                      cx="50%"
-                      cy="50%"
-                      r="50%"
-                    >
-                      <stop offset="0%" stopColor="#EF4444" stopOpacity="0.95" />
-                      <stop offset="30%" stopColor="#F97316" stopOpacity="0.8" />
-                      <stop offset="60%" stopColor="#F59E0B" stopOpacity="0.55" />
-                      <stop offset="85%" stopColor="#EAB308" stopOpacity="0.25" />
+                    <radialGradient id="heat-arcade-zone" cx={maculaX} cy={maculaY} r="32%" fx={maculaX} fy={maculaY}>
+                      <stop offset="0%" stopColor="#EF4444" stopOpacity="0.75" />
+                      <stop offset="35%" stopColor="#F59E0B" stopOpacity="0.55" />
+                      <stop offset="65%" stopColor="#EAB308" stopOpacity="0.3" />
+                      <stop offset="90%" stopColor="#10B981" stopOpacity="0.1" />
                       <stop offset="100%" stopColor="transparent" stopOpacity="0" />
                     </radialGradient>
-                  ))}
-                </defs>
 
-                {/* Quầng nhiệt tỏa dọc theo cung mạch thái dương */}
-                <g filter="url(#aura-heatmap-gaussian-blur)">
-                  <circle cx={maculaX} cy={maculaY} r="28" fill="url(#heat-arcade-zone)" />
+                    {displayAnomalies.map((anom) => (
+                      <radialGradient
+                        key={`grad-${anom.id}`}
+                        id={`heat-spot-${anom.id}`}
+                        cx="50%"
+                        cy="50%"
+                        r="50%"
+                      >
+                        <stop offset="0%" stopColor="#EF4444" stopOpacity="0.9" />
+                        <stop offset="30%" stopColor="#F97316" stopOpacity="0.75" />
+                        <stop offset="60%" stopColor="#F59E0B" stopOpacity="0.5" />
+                        <stop offset="85%" stopColor="#EAB308" stopOpacity="0.2" />
+                        <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+                      </radialGradient>
+                    ))}
+                  </defs>
 
-                  {/* Các tâm nhiệt rực rỡ bám chuẩn từng tổn thương vi mạch */}
-                  {displayAnomalies.map((anom) => {
-                    const radius = Math.max(7, (anom.coordinates?.width || 28) * 0.35);
-                    return (
-                      <circle
-                        key={`circle-${anom.id}`}
-                        cx={anom.coordinates.x}
-                        cy={anom.coordinates.y}
-                        r={radius}
-                        fill={`url(#heat-spot-${anom.id})`}
-                      />
-                    );
-                  })}
-                </g>
-              </svg>
+                  <g clipPath="url(#retina-heatmap-clip)" filter="url(#aura-heatmap-gaussian-blur)">
+                    <circle cx={maculaX} cy={maculaY} r="26" fill="url(#heat-arcade-zone)" />
+
+                    {displayAnomalies.map((anom) => {
+                      const radius = Math.max(6, (anom.coordinates?.width || 28) * 0.32);
+                      return (
+                        <circle
+                          key={`circle-${anom.id}`}
+                          cx={anom.coordinates.x}
+                          cy={anom.coordinates.y}
+                          r={radius}
+                          fill={`url(#heat-spot-${anom.id})`}
+                        />
+                      );
+                    })}
+                  </g>
+                </svg>
+              )}
             </div>
 
             {/* ------------------------------------------------------------- */}
-            {/* LAYER 3: BOUNDING BOX VI PHÌNH MẠCH & XUẤT HUYẾT             */}
-            {/* (MA / Hemorrhage Detection - Khung viền vàng #F59E0B)         */}
-            {/* Kèm nhãn: "MA Detected", "Exudate", "Micro-Bleed"            */}
+            {/* LAYER 3: BOUNDING BOXES & CHỐNG ĐÈ NHÃN (ANTI-COLLISION)      */}
+            {/* Viền vàng #F59E0B chuẩn y tế, so le chống va chạm thông minh  */}
             {/* ------------------------------------------------------------- */}
             {showBoundingBoxes &&
-              displayAnomalies.map((anomaly) => {
+              anomalyLayouts.map((anomaly) => {
                 const isSelected = (selectedAnomaly?.id || activeAnomalyId) === anomaly.id;
                 const isHovered = hoveredAnomaly?.id === anomaly.id;
                 const meta = getAnomalyBoundingBoxLabel(anomaly.type);
                 const confidencePct = Math.round((anomaly.confidence || 0.9) * 100);
+                const isAnySelected = Boolean(selectedAnomaly?.id || activeAnomalyId);
+                const isDimmed = isAnySelected && !isSelected;
 
                 return (
                   <div
@@ -824,73 +830,90 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                     onClick={(e) => {
                       if (isMovedRef.current) return;
                       e.stopPropagation();
-                      setSelectedAnomaly(anomaly);
+                      setSelectedAnomaly(isSelected ? null : anomaly);
                       if (onSelectAnomaly) onSelectAnomaly(anomaly);
                     }}
                     onMouseEnter={() => setHoveredAnomaly(anomaly)}
                     onMouseLeave={() => setHoveredAnomaly(null)}
-                    className="absolute z-20 group cursor-pointer transition-all duration-150"
+                    className={`absolute group cursor-pointer transition-all duration-150 ${
+                      isSelected ? 'z-50' : isHovered ? 'z-40' : 'z-20'
+                    } ${isDimmed ? 'opacity-35 hover:opacity-100' : 'opacity-100'}`}
                     style={{
                       left: `${anomaly.coordinates.x}%`,
                       top: `${anomaly.coordinates.y}%`,
                       transform: 'translate(-50%, -50%)',
-                      width: `${Math.max(34, anomaly.coordinates.width || 34)}px`,
-                      height: `${Math.max(34, anomaly.coordinates.height || 34)}px`,
+                      width: `${Math.max(28, anomaly.coordinates.width || 28)}px`,
+                      height: `${Math.max(28, anomaly.coordinates.height || 28)}px`,
                     }}
-                    title={`${meta.label}: ${anomaly.description}`}
+                    title={`#${anomaly.orderIndex} ${meta.label}: ${anomaly.description}`}
                   >
                     {/* Bounding Box với viền vàng chuẩn #F59E0B */}
                     <div
                       className={`w-full h-full relative transition-all duration-150 rounded-xs ${
                         isSelected || isHovered
-                          ? 'ring-2 ring-white shadow-lg shadow-amber-500/50'
+                          ? 'ring-2 ring-white shadow-xl shadow-amber-500/50 scale-105'
                           : ''
                       }`}
                       style={{
-                        border: '2px solid #F59E0B',
-                        backgroundColor: isSelected || isHovered ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.12)',
-                        boxShadow: '0 0 10px rgba(245, 158, 11, 0.5), inset 0 0 6px rgba(245, 158, 11, 0.3)',
+                        border: isSelected ? '2px solid #F59E0B' : '1.5px solid #F59E0B',
+                        backgroundColor: isSelected || isHovered ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.06)',
+                        boxShadow: isSelected ? '0 0 12px rgba(245, 158, 11, 0.6)' : '0 0 6px rgba(245, 158, 11, 0.35)',
                       }}
                     >
                       {/* Corner Target Reticles (Góc ngắm HUD y tế) */}
-                      <span className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-amber-300" />
-                      <span className="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-amber-300" />
-                      <span className="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-amber-300" />
-                      <span className="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-amber-300" />
+                      <span className="absolute -top-1 -left-1 w-1.5 h-1.5 border-t-2 border-l-2 border-amber-300" />
+                      <span className="absolute -top-1 -right-1 w-1.5 h-1.5 border-t-2 border-r-2 border-amber-300" />
+                      <span className="absolute -bottom-1 -left-1 w-1.5 h-1.5 border-b-2 border-l-2 border-amber-300" />
+                      <span className="absolute -bottom-1 -right-1 w-1.5 h-1.5 border-b-2 border-r-2 border-amber-300" />
 
                       {/* Center Crosshair Target Dot */}
                       <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white ring-1 ring-amber-400' : 'bg-amber-400'} animate-pulse`} />
+                      </span>
+
+                      {/* Mini Order Badge on Top-Right Corner */}
+                      <span className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-slate-950 text-amber-300 border border-amber-500 text-[8px] font-mono font-bold flex items-center justify-center pointer-events-none shadow-xs">
+                        {anomaly.orderIndex}
                       </span>
                     </div>
 
-                    {/* Nhãn phân loại trên đỉnh khung viền ("MA Detected", "Exudate", "Micro-Bleed") */}
+                    {/* Anti-Collision Staggered Badge (So le nhãn trên/dưới tránh đè chồng) */}
                     <div
-                      className={`absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded text-[9px] font-mono tracking-tight flex items-center gap-1 shadow-md border border-amber-400/60 pointer-events-none ${meta.badgeColor}`}
+                      className={`absolute ${
+                        anomaly.badgePosition === 'bottom' ? 'top-full mt-1.5' : '-top-5'
+                      } left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded text-[9px] font-mono tracking-tight flex items-center gap-1 shadow-md border border-amber-400/60 pointer-events-none transition-all ${
+                        meta.badgeColor
+                      } ${labelDisplayMode === 'compact' && !isSelected && !isHovered ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}
                     >
                       <Crosshair className="w-2.5 h-2.5 shrink-0" />
-                      <span>{meta.label}</span>
+                      <span className="font-bold">#{anomaly.orderIndex} {meta.label}</span>
                       <span className="opacity-90 font-mono text-[8px]">{confidencePct}%</span>
                     </div>
 
                     {/* Tooltip Hover / Active chi tiết bệnh học lâm sàng */}
                     {(isSelected || isHovered) && (
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-40 w-52 sm:w-60 p-2.5 bg-slate-950/95 border border-amber-500/80 rounded-xl shadow-2xl text-left pointer-events-none animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md">
+                      <div
+                        className={`absolute ${
+                          anomaly.coordinates.y > 65 ? 'bottom-full mb-2' : 'top-full mt-2'
+                        } left-1/2 -translate-x-1/2 z-50 w-56 sm:w-64 p-3 bg-slate-950/95 border border-amber-500 rounded-xl shadow-2xl text-left pointer-events-none animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md`}
+                      >
                         <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
-                          <span className="font-extrabold text-amber-400 text-xs flex items-center gap-1">
-                            <Target className="w-3.5 h-3.5 text-amber-400" />
-                            {meta.label}
+                          <span className="font-extrabold text-amber-400 text-xs flex items-center gap-1.5">
+                            <Target className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span>#{anomaly.orderIndex} {meta.label}</span>
                           </span>
                           <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/40">
                             {confidencePct}% CONF
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-300 leading-relaxed font-sans">
+                        <p className="text-[11px] text-slate-200 leading-relaxed font-sans">
                           {anomaly.description}
                         </p>
-                        <div className="mt-2 pt-1 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono text-slate-400">
+                        <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-between text-[9px] font-mono text-slate-400">
                           <span>X: {anomaly.coordinates.x.toFixed(1)}% | Y: {anomaly.coordinates.y.toFixed(1)}%</span>
-                          <span className="text-cyan-400">{isOS ? 'Quadrant: ST (OS)' : 'Quadrant: ST (OD)'}</span>
+                          <span className="text-cyan-400 font-bold">
+                            {anomaly.coordinates.x < 50 ? 'Nasal' : 'Temporal'} • {anomaly.coordinates.y < 50 ? 'Superior' : 'Inferior'}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -901,21 +924,54 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
         </div>
 
         {/* Retinal Calibration Bar & Watermark (Góc dưới trái) */}
-        <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 bg-slate-950/80 backdrop-blur-xs px-2.5 py-1.5 rounded-lg border border-slate-800 text-[10px] font-mono text-slate-400 pointer-events-none">
+        <div className="absolute bottom-3 left-3 z-20 hidden sm:flex items-center gap-2 bg-slate-950/80 backdrop-blur-xs px-2.5 py-1.5 rounded-lg border border-slate-800 text-[10px] font-mono text-slate-400 pointer-events-none">
           <div className="w-12 h-1 bg-cyan-400 rounded-full" />
           <span>500 µm</span>
           <span className="text-slate-600">|</span>
           <span className="text-slate-300">CLINICAL MATRIX 4K</span>
         </div>
+
+        {/* Interactive Lesion Ribbon (Danh sách tổn thương đánh số có thể click chọn nhanh) */}
+        {showBoundingBoxes && anomalyLayouts.length > 0 && (
+          <div className="absolute bottom-3 left-3 sm:left-48 max-w-[60%] sm:max-w-[50%] z-20 flex items-center gap-1.5 overflow-x-auto py-1 px-2 rounded-xl bg-slate-950/85 backdrop-blur-md border border-slate-850 shadow-lg">
+            <span className="text-[9px] font-mono text-slate-400 font-bold uppercase shrink-0">
+              {isVi ? 'Tổn thương:' : 'Lesions:'}
+            </span>
+            {anomalyLayouts.map((anom) => {
+              const isSelected = (selectedAnomaly?.id || activeAnomalyId) === anom.id;
+              const meta = getAnomalyBoundingBoxLabel(anom.type);
+              return (
+                <button
+                  key={`ribbon-${anom.id}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedAnomaly(isSelected ? null : anom);
+                    if (onSelectAnomaly) onSelectAnomaly(anom);
+                  }}
+                  className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                      : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700/60'
+                  }`}
+                  title={`${meta.label}: ${anom.description}`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: meta.borderColor }} />
+                  <span>#{anom.orderIndex}</span>
+                  <span className="hidden md:inline">{meta.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ========================================================================= */}
       {/* 3. OVERLAY CONTROL PANEL (Bảng điều khiển đa lớp độc lập)                 */}
-      {/* Cho phép Bác sĩ bật/tắt từng lớp: Vessel, Heatmap, Bounding Boxes, Invert */}
+      {/* Cho phép Bác sĩ bật/tắt từng lớp & lọc tổn thương lâm sàng                */}
       {/* ========================================================================= */}
       <div
         className={`absolute bottom-3 right-3 z-30 transition-all duration-300 ${
-          isPanelCollapsed ? 'w-auto' : 'w-72 sm:w-80'
+          isPanelCollapsed ? 'w-auto' : 'w-72 sm:w-84'
         }`}
       >
         <div className="bg-slate-950/90 backdrop-blur-md border border-cyan-500/40 text-slate-100 rounded-2xl shadow-2xl shadow-black/80 overflow-hidden">
@@ -938,7 +994,7 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
             </button>
           </div>
 
-          {/* Panel Content (Visible when not collapsed) */}
+          {/* Panel Content */}
           {!isPanelCollapsed && (
             <div className="p-3.5 space-y-3.5 text-xs">
               {/* TOGGLE 1: VESSEL SEGMENTATION (Lưới Mạch Máu) */}
@@ -1039,34 +1095,110 @@ export const VesselHeatmapOverlay: React.FC<VesselHeatmapOverlayProps> = ({
                 )}
               </div>
 
-              {/* TOGGLE 3: BOUNDING BOXES (Vi Phình Mạch & Xuất Huyết) */}
-              <div className="p-2 rounded-xl bg-slate-900/60 border border-amber-900/40 flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <span
-                    className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${
-                      showBoundingBoxes ? 'bg-amber-500' : 'bg-slate-700'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={showBoundingBoxes}
-                      onChange={(e) => setShowBoundingBoxes(e.target.checked)}
-                      className="sr-only"
-                    />
+              {/* TOGGLE 3: BOUNDING BOXES & LESION FILTER (Vi Phình Mạch & Xuất Huyết) */}
+              <div className="p-2 rounded-xl bg-slate-900/60 border border-amber-900/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
                     <span
-                      className={`inline-block h-3 w-3 transform rounded-full bg-slate-950 transition-transform ${
-                        showBoundingBoxes ? 'translate-x-4' : 'translate-x-1'
+                      className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${
+                        showBoundingBoxes ? 'bg-amber-500' : 'bg-slate-700'
                       }`}
-                    />
+                    >
+                      <input
+                        type="checkbox"
+                        checked={showBoundingBoxes}
+                        onChange={(e) => setShowBoundingBoxes(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`inline-block h-3 w-3 transform rounded-full bg-slate-950 transition-transform ${
+                          showBoundingBoxes ? 'translate-x-4' : 'translate-x-1'
+                        }`}
+                      />
+                    </span>
+                    <span className="font-semibold text-amber-300 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shadow-xs shadow-amber-500" />
+                      MA &amp; Bleed Detection
+                    </span>
+                  </label>
+                  <span className="font-mono text-[10px] text-amber-400 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-800">
+                    {stats.total} found
                   </span>
-                  <span className="font-semibold text-amber-300 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 shadow-xs shadow-amber-500" />
-                    MA & Bleed Detection
-                  </span>
-                </label>
-                <span className="font-mono text-[10px] text-amber-400 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-800">
-                  {stats.total} found
-                </span>
+                </div>
+
+                {/* Filter Chips theo loại tổn thương */}
+                {showBoundingBoxes && stats.total > 0 && (
+                  <div className="pt-1 border-t border-slate-800/80 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                      <span className="flex items-center gap-1">
+                        <Filter className="w-3 h-3 text-amber-400" />
+                        {isVi ? 'Lọc tổn thương:' : 'Filter Type:'}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setLabelDisplayMode(labelDisplayMode === 'smart' ? 'compact' : 'smart')}
+                          className="text-[9px] text-amber-300 hover:underline cursor-pointer"
+                        >
+                          {labelDisplayMode === 'smart' ? (isVi ? 'Thu gọn nhãn' : 'Compact labels') : (isVi ? 'Hiện đủ nhãn' : 'Smart labels')}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setLesionFilter('ALL')}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono cursor-pointer transition-colors ${
+                          lesionFilter === 'ALL'
+                            ? 'bg-amber-500 text-slate-950 font-bold'
+                            : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {isVi ? 'Tất cả' : 'All'} ({stats.total})
+                      </button>
+                      {stats.maCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setLesionFilter('MA')}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono cursor-pointer transition-colors ${
+                            lesionFilter === 'MA'
+                              ? 'bg-amber-500 text-slate-950 font-bold'
+                              : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          MA ({stats.maCount})
+                        </button>
+                      )}
+                      {stats.bleedCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setLesionFilter('BLEED')}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono cursor-pointer transition-colors ${
+                            lesionFilter === 'BLEED'
+                              ? 'bg-rose-500 text-white font-bold'
+                              : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          Bleed ({stats.bleedCount})
+                        </button>
+                      )}
+                      {stats.exudateCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setLesionFilter('EXUDATE')}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono cursor-pointer transition-colors ${
+                            lesionFilter === 'EXUDATE'
+                              ? 'bg-yellow-400 text-slate-950 font-bold'
+                              : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          Exudate ({stats.exudateCount})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* TOGGLE 4: INVERT COLORS (Bộ lọc Đảo màu Quang học) */}

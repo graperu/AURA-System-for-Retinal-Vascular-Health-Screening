@@ -1,6 +1,7 @@
 package com.aura.admin.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -8,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.aura.admin.dto.AiConfigDto;
 import com.aura.admin.dto.AssignmentBoardResponse;
+import com.aura.admin.dto.BatchDeleteUserRequest;
 import com.aura.admin.dto.BulkPatientAssignmentRequest;
 import com.aura.admin.dto.UpdateUserRequest;
 import com.aura.admin.dto.UpdateUserRoleRequest;
@@ -269,6 +271,44 @@ class AdminUserControllerUnitTest {
       assertThat(response).isNotNull();
       assertThat(response.message()).isEqualTo("Hủy phân công bệnh nhân thành công");
       verify(assignmentService).unassign(eq(doctorId), eq(patientId));
+    }
+  }
+
+  @Nested
+  @DisplayName("DELETE /api/v1/admin/users/{userId} & POST /batch-delete - Xóa tài khoản")
+  class DeleteUserControllerTests {
+
+    @Test
+    @DisplayName("Thành công: Xóa tài khoản người dùng")
+    void deleteUser_success() {
+      ApiResponse<Void> response = controller.deleteUser(targetUserId, adminPrincipal);
+
+      assertThat(response).isNotNull();
+      assertThat(response.message()).isEqualTo("Đã xóa tài khoản người dùng thành công");
+      verify(adminUserService).deleteUser(eq(targetUserId));
+    }
+
+    @Test
+    @DisplayName("Thất bại: Không cho phép tự xóa tài khoản của chính mình")
+    void deleteUser_selfDelete_throwsException() {
+      assertThatThrownBy(() -> controller.deleteUser(adminId, adminPrincipal))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("Không thể tự xóa tài khoản của chính mình");
+    }
+
+    @Test
+    @DisplayName("Thành công: Xóa hàng loạt tài khoản người dùng")
+    void batchDeleteUsers_success() {
+      List<UUID> ids = List.of(UUID.randomUUID(), UUID.randomUUID());
+      BatchDeleteUserRequest req = new BatchDeleteUserRequest(ids);
+      when(adminUserService.batchDeleteUsers(eq(ids), eq(adminId))).thenReturn(2);
+
+      ApiResponse<Integer> response = controller.batchDeleteUsers(req, adminPrincipal);
+
+      assertThat(response).isNotNull();
+      assertThat(response.data()).isEqualTo(2);
+      assertThat(response.message()).isEqualTo("Đã xóa thành công 2 tài khoản");
+      verify(adminUserService).batchDeleteUsers(eq(ids), eq(adminId));
     }
   }
 }

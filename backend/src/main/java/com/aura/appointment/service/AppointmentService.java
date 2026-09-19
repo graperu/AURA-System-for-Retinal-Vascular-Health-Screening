@@ -152,14 +152,15 @@ public class AppointmentService {
         .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lịch hẹn với ID: " + appointmentId));
 
     boolean isAdmin = actorRoles != null && actorRoles.stream().anyMatch(r -> r.toUpperCase().contains("ADMIN"));
+    boolean isClinic = actorRoles != null && actorRoles.stream().anyMatch(r -> r.toUpperCase().contains("CLINIC"));
     boolean isAssignedDoctor = appointment.getDoctor() != null && appointment.getDoctor().getId().equals(actorId);
     boolean isOwnerPatient = appointment.getPatient() != null && appointment.getPatient().getId().equals(actorId);
 
-    if (!isAdmin && !isAssignedDoctor && !isOwnerPatient) {
+    if (!isAdmin && !isClinic && !isAssignedDoctor && !isOwnerPatient) {
       throw new AccessDeniedException("Bạn không có quyền cập nhật lịch hẹn này");
     }
 
-    if (isOwnerPatient && !isAssignedDoctor && !isAdmin) {
+    if (isOwnerPatient && !isAssignedDoctor && !isAdmin && !isClinic) {
       if (req.status() != AppointmentStatus.CANCELLED) {
         throw new AccessDeniedException("Bệnh nhân chỉ có thể yêu cầu hủy lịch hẹn");
       }

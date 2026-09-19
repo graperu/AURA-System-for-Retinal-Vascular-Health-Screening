@@ -25,6 +25,20 @@ export const sanitizeCsvCell = (val: any): string => {
 };
 
 /**
+ * Phân biệt Mốc giải phẫu học võng mạc (Optic Disc, Fovea/FAZ)
+ * khỏi các tổn thương vi mạch bệnh lý (Microvascular Lesions).
+ */
+export const isLandmarkAnomaly = (ano: VesselAnomalyRegion | any): boolean => {
+  if (!ano) return false;
+  const t = String(ano.type || '').toUpperCase();
+  const id = String(ano.id || '').toUpperCase();
+  if (id.startsWith('LANDMARK-')) return true;
+  if (t.includes('DISC') || t.includes('GAI_THI')) return true;
+  if (t.includes('FOVEA') || t.includes('FAZ') || t.includes('HOANG_DIEM')) return true;
+  return false;
+};
+
+/**
  * Kích hoạt tải tệp an toàn trên trình duyệt (hỗ trợ cả môi trường browser và fallback kiểm thử)
  */
 export const triggerFileDownload = (content: string, filename: string, mimeType: string): void => {
@@ -368,8 +382,13 @@ export const buildFhirDiagnosticReportBundle = (
     ],
   });
 
-  // 8. Detected Microvascular Anomalies (NFR-22)
-  if (result.annotatedMap?.detectedAnomalies && result.annotatedMap.detectedAnomalies.length > 0) {
+  // 8. Detected Microvascular Anomalies (NFR-22) - Filter out anatomical landmarks
+  const allDetected = result.annotatedMap?.detectedAnomalies || [];
+  const realLesions = allDetected.filter((a: VesselAnomalyRegion) => !isLandmarkAnomaly(a));
+  const detectedLandmarks = allDetected.filter((a: VesselAnomalyRegion) => isLandmarkAnomaly(a));
+
+  if (realLesions.length > 0 || (detectedLandmarks.length === 0 && allDetected.length > 0)) {
+    const targetLesions = realLesions.length > 0 ? realLesions : allDetected;
     observations.push({
       resourceType: 'Observation',
       id: `obs-anomalies-${reportId}`,
@@ -386,8 +405,34 @@ export const buildFhirDiagnosticReportBundle = (
       },
       subject: { reference: `Patient/patient-${patientId}` },
       effectiveDateTime: timestamp,
-      valueInteger: result.annotatedMap.detectedAnomalies.length,
-      component: result.annotatedMap.detectedAnomalies.map((a: VesselAnomalyRegion, i: number) => ({
+      valueInteger: targetLesions.length,
+      component: targetLesions.map((a: VesselAnomalyRegion) => ({
+        code: { text: a.type },
+        valueString: `Coord: (${a.coordinates.x}%, ${a.coordinates.y}%), Confidence: ${(a.confidence * 100).toFixed(0)}%, Desc: ${a.description}`,
+      })),
+    });
+  }
+
+  // 8b. Retinal Anatomical Landmarks (Optic Disc, FAZ)
+  if (detectedLandmarks.length > 0) {
+    observations.push({
+      resourceType: 'Observation',
+      id: `obs-landmarks-${reportId}`,
+      status: 'final',
+      code: {
+        coding: [
+          {
+            system: 'http://aura.health/fhir/observations',
+            code: 'RETINAL_LANDMARKS',
+            display: 'Retinal Anatomical Landmarks',
+          },
+        ],
+        text: 'Localized Retinal Anatomical Landmarks (Optic Disc, Fovea Centralis)',
+      },
+      subject: { reference: `Patient/patient-${patientId}` },
+      effectiveDateTime: timestamp,
+      valueInteger: detectedLandmarks.length,
+      component: detectedLandmarks.map((a: VesselAnomalyRegion) => ({
         code: { text: a.type },
         valueString: `Coord: (${a.coordinates.x}%, ${a.coordinates.y}%), Confidence: ${(a.confidence * 100).toFixed(0)}%, Desc: ${a.description}`,
       })),
@@ -671,8 +716,12 @@ export const buildReportCsvContent = (
     ],
   ];
 
-  // Anomaly regions if present
-  if (result.annotatedMap?.detectedAnomalies && result.annotatedMap.detectedAnomalies.length > 0) {
+  // Microvascular Lesions & Retinal Landmarks separation (Clinical Accuracy)
+  const allDetected = result.annotatedMap?.detectedAnomalies || [];
+  const realLesions = allDetected.filter((a: VesselAnomalyRegion) => !isLandmarkAnomaly(a));
+  const detectedLandmarks = allDetected.filter((a: VesselAnomalyRegion) => isLandmarkAnomaly(a));
+
+  if (realLesions.length > 0) {
     rows.push(['', '', '', '']);
     rows.push([isVi ? 'DANH MỤC TỔN THƯƠNG VI MẠCH KHU TRÚ' : 'LOCALIZED MICROVASCULAR LESIONS', '', '', '']);
     rows.push([
@@ -681,11 +730,40 @@ export const buildReportCsvContent = (
       isVi ? 'Độ tin cậy' : 'Confidence',
       isVi ? 'Mô tả lâm sàng' : 'Clinical Description',
     ]);
-    result.annotatedMap.detectedAnomalies.forEach((a: VesselAnomalyRegion) => {
+    realLesions.forEach((a: VesselAnomalyRegion) => {
       rows.push([
         sanitize(a.type),
         `(${a.coordinates.x}%, ${a.coordinates.y}%)`,
-        `${(a.confidence * 100).toFixed(0)}%`,
+        `${Math.round(a.confidence != null ? (a.confidence <= 1 ? a.confidence * 100 : a.confidence) : 90)}%`,
+        sanitize(a.description),
+      ]);
+    });
+  } else if (allDetected.length > 0) {
+    rows.push(['', '', '', '']);
+    rows.push([
+      isVi ? 'Tổn thương vi mạch khu trú' : 'Focal Microvascular Lesions',
+      isVi ? 'Không phát hiện tổn thương (0 điểm tổn thương)' : 'None detected (0 lesions)',
+      '',
+      '',
+    ]);
+  }
+
+  if (detectedLandmarks.length > 0) {
+    rows.push(['', '', '', '']);
+    rows.push([isVi ? 'MỐC GIẢI PHẪU VÕNG MẠC AI ĐỊNH VỊ' : 'AI-LOCALIZED RETINAL ANATOMICAL LANDMARKS', '', '', '']);
+    rows.push([
+      isVi ? 'Mốc giải phẫu' : 'Landmark',
+      isVi ? 'Tọa độ (% x, y)' : 'Coordinates (% x, y)',
+      isVi ? 'Độ tin cậy' : 'Confidence',
+      isVi ? 'Mô tả giải phẫu' : 'Anatomical Description',
+    ]);
+    detectedLandmarks.forEach((a: VesselAnomalyRegion) => {
+      const isDisc = String(a.type || '').toUpperCase().includes('DISC');
+      const name = isDisc ? (isVi ? 'Gai thị (Optic Disc)' : 'Optic Disc') : (isVi ? 'Hoàng điểm (FAZ)' : 'Fovea Centralis (FAZ)');
+      rows.push([
+        sanitize(name),
+        `(${a.coordinates.x}%, ${a.coordinates.y}%)`,
+        `${Math.round(a.confidence != null ? (a.confidence <= 1 ? a.confidence * 100 : a.confidence) : 98)}%`,
         sanitize(a.description),
       ]);
     });

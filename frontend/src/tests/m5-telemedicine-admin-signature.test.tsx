@@ -348,9 +348,9 @@ runTest('M5-BADGE-5: realtimeBus emits chat events and listeners receive updates
 });
 
 // =============================================================================
-// 3. ADMIN NAVIGATION ITEMS (packages & assignments)
+// 3. ADMIN NAVIGATION ITEMS (packages & assignments RBAC separation)
 // =============================================================================
-runTest('M5-ADMIN-1: Sidebar includes "assignments" and "packages" for ADMIN user', () => {
+runTest('M5-ADMIN-1: Sidebar includes "packages" and hides "assignments" for ADMIN user', () => {
   const html = renderToStaticMarkup(
     <LanguageProvider>
       <AuthProvider>
@@ -363,13 +363,13 @@ runTest('M5-ADMIN-1: Sidebar includes "assignments" and "packages" for ADMIN use
     </LanguageProvider>
   );
 
-  assert.ok(html.includes('Phân công bệnh nhân') || html.includes('Assignments'), 'Expected Phân công bệnh nhân in Sidebar');
+  assert.ok(!html.includes('Phân công bệnh nhân'), 'Should NOT show Phân công bệnh nhân in Sidebar for ADMIN');
   assert.ok(html.includes('Gói dịch vụ') || html.includes('Packages'), 'Expected Gói dịch vụ in Sidebar');
-  assert.ok(html.includes('assignments'), 'Expected assignments section id in Sidebar');
+  assert.ok(!html.includes('id="assignments"'), 'Expected no assignments section id in Sidebar');
   assert.ok(html.includes('packages'), 'Expected packages section id in Sidebar');
 });
 
-runTest('M5-ADMIN-2: SideNavBar includes "assignments" and "packages" for ADMIN user', () => {
+runTest('M5-ADMIN-2: SideNavBar includes "packages" and hides "assignments" for ADMIN user', () => {
   const html = renderToStaticMarkup(
     <LanguageProvider>
       <SideNavBar
@@ -380,9 +380,9 @@ runTest('M5-ADMIN-2: SideNavBar includes "assignments" and "packages" for ADMIN 
     </LanguageProvider>
   );
 
-  assert.ok(html.includes('Phân công bệnh nhân') || html.includes('Assignments'), 'Expected Phân công bệnh nhân in SideNavBar');
+  assert.ok(!html.includes('Phân công bệnh nhân'), 'Should NOT show Phân công bệnh nhân in SideNavBar for ADMIN');
   assert.ok(html.includes('Gói dịch vụ') || html.includes('Packages'), 'Expected Gói dịch vụ in SideNavBar');
-  assert.ok(html.includes('assignments'), 'Expected assignments section id in SideNavBar');
+  assert.ok(!html.includes('data-section="assignments"'), 'Expected no assignments section id in SideNavBar');
   assert.ok(html.includes('packages'), 'Expected packages section id in SideNavBar');
 });
 

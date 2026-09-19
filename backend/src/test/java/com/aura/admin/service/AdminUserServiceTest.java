@@ -388,4 +388,68 @@ class AdminUserServiceTest {
       assertThat(readBack.avrWarningThreshold()).isEqualTo(0.65);
     }
   }
+
+  @Nested
+  @DisplayName("deleteUser & batchDeleteUsers tests")
+  class DeleteUserTests {
+
+    @Test
+    @DisplayName("deleteUser sets deletedAt, active false and deletes user roles")
+    void deleteUser_Success() {
+      when(userRepository.findById(testUserId)).thenReturn(Optional.of(testUser));
+      when(userRoleRepository.existsByUserIdAndRole(testUserId, RoleName.ADMIN)).thenReturn(false);
+
+      adminUserService.deleteUser(testUserId);
+
+      assertThat(testUser.isActive()).isFalse();
+      assertThat(testUser.getDeletedAt()).isNotNull();
+      verify(userRepository).save(testUser);
+      verify(userRoleRepository).deleteAllByUserId(testUserId);
+      verify(userRoleRepository).flush();
+    }
+
+    @Test
+    @DisplayName("deleteUser throws exception when deleting sole active admin")
+    void deleteUser_WhenSoleAdmin_ThrowsException() {
+      when(userRepository.findById(testUserId)).thenReturn(Optional.of(testUser));
+      when(userRoleRepository.existsByUserIdAndRole(testUserId, RoleName.ADMIN)).thenReturn(true);
+      when(userRoleRepository.countByRole_NameAndUser_ActiveTrue(RoleName.ADMIN)).thenReturn(1L);
+
+      assertThatThrownBy(() -> adminUserService.deleteUser(testUserId))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("Không thể xóa quản trị viên đang hoạt động cuối cùng");
+
+      verify(userRepository, never()).save(any());
+      verify(userRoleRepository, never()).deleteAllByUserId(any());
+    }
+
+    @Test
+    @DisplayName("deleteUser throws ResourceNotFoundException when user does not exist")
+    void deleteUser_WhenNotFound_ThrowsException() {
+      UUID unknownId = UUID.randomUUID();
+      when(userRepository.findById(unknownId)).thenReturn(Optional.empty());
+
+      assertThatThrownBy(() -> adminUserService.deleteUser(unknownId))
+          .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("batchDeleteUsers deletes multiple users and skips current admin")
+    void batchDeleteUsers_Success() {
+      UUID otherUserId = UUID.randomUUID();
+      User otherUser = new User("patient@aura.com", "hash", "Bệnh nhân");
+      ReflectionTestUtils.setField(otherUser, "id", otherUserId);
+      otherUser.setActive(true);
+
+      when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
+      when(userRoleRepository.existsByUserIdAndRole(otherUserId, RoleName.ADMIN)).thenReturn(false);
+
+      int deletedCount = adminUserService.batchDeleteUsers(List.of(otherUserId, testUserId), testUserId);
+
+      assertThat(deletedCount).isEqualTo(1);
+      assertThat(otherUser.isActive()).isFalse();
+      assertThat(otherUser.getDeletedAt()).isNotNull();
+      verify(userRepository).save(otherUser);
+    }
+  }
 }

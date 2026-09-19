@@ -24,6 +24,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
       left join UserRole ur on ur.user = u
       left join ur.role r
       where (:role is null or r.name = :role)
+      and u.deletedAt is null
       and (
       :q is null or :q = ' '
       or lower(u.email) like lower(concat('%',:q,'%'))

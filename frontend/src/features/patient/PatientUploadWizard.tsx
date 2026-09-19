@@ -708,7 +708,9 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
                 <div>
                   <span className="text-[#667085] block">{isVi ? 'Huyết áp' : 'Blood Pressure'}:</span>
                   <strong className="text-[#111827] font-mono-data">
-                    {activePatient.systolicBp ? `${activePatient.systolicBp}/${activePatient.diastolicBp}` : '120/80'} mmHg
+                    {activePatient.systolicBp && activePatient.diastolicBp
+                      ? `${activePatient.systolicBp}/${activePatient.diastolicBp} mmHg`
+                      : (isVi ? 'Chưa đo' : 'Not measured')}
                   </strong>
                 </div>
                 <div>
@@ -959,7 +961,9 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
                 <div className="p-3.5 bg-[#F8F9FA] rounded-xl border border-[#EAECF0]">
                   <span className="text-[#667085] block mb-0.5">{isVi ? 'Huyết áp' : 'Blood Pressure'}:</span>
                   <strong className="text-[#111827] text-sm font-mono-data block">
-                    {activePatient.systolicBp ? `${activePatient.systolicBp}/${activePatient.diastolicBp} mmHg` : '120/80 mmHg'}
+                    {activePatient.systolicBp && activePatient.diastolicBp
+                      ? `${activePatient.systolicBp}/${activePatient.diastolicBp} mmHg`
+                      : (isVi ? 'Chưa đo' : 'Not measured')}
                   </strong>
                 </div>
 

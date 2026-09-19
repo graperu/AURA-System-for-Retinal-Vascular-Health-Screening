@@ -20,7 +20,7 @@ import { MedicalDisclaimer, MANDATORY_MEDICAL_DISCLAIMER_VI, MANDATORY_MEDICAL_D
 import { useLanguage } from '../context/LanguageContext';
 import { DynamicHeatmapCanvas } from './DynamicHeatmapCanvas';
 import { getAnomalyName, getAnomalyMedicalTheme } from './InteractiveCDSViewer';
-import { exportToJsonFhir } from '../services/exportService';
+import { exportToJsonFhir, isLandmarkAnomaly } from '../services/exportService';
 
 interface MedicalReportModalProps {
   isOpen: boolean;
@@ -68,18 +68,37 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
   const odData = resultOD || result;
   const osData = resultOS || result;
 
-  // Danh sách các điểm tổn thương vi mạch AI phát hiện
+  // Danh sách các điểm AI phát hiện
   const odAnomalies = (odData.annotatedMap?.detectedAnomalies || (odData as any).anomalies || []) as VesselAnomalyRegion[];
   const osAnomalies = (osData.annotatedMap?.detectedAnomalies || (osData as any).anomalies || []) as VesselAnomalyRegion[];
   const singleAnomalies = (result.annotatedMap?.detectedAnomalies || (result as any).anomalies || []) as VesselAnomalyRegion[];
 
-  // Tổng hợp toàn bộ điểm tổn thương vi mạch phục vụ bảng tra cứu và in ấn
-  const allReportAnomalies = hasDualData
+  // Phân tách tổn thương vi mạch bệnh lý thật sự khỏi mốc giải phẫu học (Optic Disc, FAZ)
+  const odLesions = odAnomalies.filter((a) => !isLandmarkAnomaly(a));
+  const odLandmarks = odAnomalies.filter(isLandmarkAnomaly);
+  const osLesions = osAnomalies.filter((a) => !isLandmarkAnomaly(a));
+  const osLandmarks = osAnomalies.filter(isLandmarkAnomaly);
+  const singleLesions = singleAnomalies.filter((a) => !isLandmarkAnomaly(a));
+  const singleLandmarks = singleAnomalies.filter(isLandmarkAnomaly);
+
+  // Tổng hợp toàn bộ điểm tổn thương vi mạch thực sự phục vụ bảng tra cứu và in ấn
+  const allReportLesions = hasDualData
     ? [
-        ...odAnomalies.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Phải' : 'Right Eye', eyeCode: 'OD', pinIndex: i + 1 })),
-        ...osAnomalies.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Trái' : 'Left Eye', eyeCode: 'OS', pinIndex: i + 1 })),
+        ...odLesions.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Phải' : 'Right Eye', eyeCode: 'OD', pinIndex: i + 1 })),
+        ...osLesions.map((a, i) => ({ ...a, eyeLabel: isVi ? 'Mắt Trái' : 'Left Eye', eyeCode: 'OS', pinIndex: i + 1 })),
       ]
-    : singleAnomalies.map((a, i) => ({ ...a, eyeLabel: result.eyePosition || 'OD', eyeCode: 'OD', pinIndex: i + 1 }));
+    : singleLesions.map((a, i) => ({ ...a, eyeLabel: result.eyePosition || 'OD', eyeCode: 'OD', pinIndex: i + 1 }));
+
+  // Tổng hợp toàn bộ mốc giải phẫu học võng mạc định vị
+  const allReportLandmarks = hasDualData
+    ? [
+        ...odLandmarks.map((a) => ({ ...a, eyeLabel: isVi ? 'Mắt Phải' : 'Right Eye', eyeCode: 'OD' })),
+        ...osLandmarks.map((a) => ({ ...a, eyeLabel: isVi ? 'Mắt Trái' : 'Left Eye', eyeCode: 'OS' })),
+      ]
+    : singleLandmarks.map((a) => ({ ...a, eyeLabel: result.eyePosition || 'OD', eyeCode: 'OD' }));
+
+  // Giữ alias allReportAnomalies để đảm bảo tương thích ngược
+  const allReportAnomalies = allReportLesions;
 
   // Kiểm tra điều kiện thẩm định và chữ ký số bác sĩ
   const isReviewed = result.status === 'REVIEWED' && Boolean(result.digitalSignature);
@@ -205,9 +224,9 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
         ];
 
     // Bổ sung danh sách điểm tổn thương vi mạch AI vào tệp CSV xuất bản
-    if (allReportAnomalies.length > 0) {
+    if (allReportLesions.length > 0) {
       csvContent.push(['']);
-      csvContent.push([isVi ? 'DANH SÁCH ĐIỂM TỔN THƯƠNG VI MẠCH AI ĐỊNH VỊ' : 'AI-DETECTED ANOMALY FINDINGS & COORDINATES']);
+      csvContent.push([isVi ? 'DANH SÁCH ĐIỂM TỔN THƯƠNG VI MẠCH AI ĐỊNH VỊ' : 'AI-DETECTED LESION FINDINGS & COORDINATES']);
       csvContent.push([
         '#',
         isVi ? 'Mắt' : 'Eye',
@@ -217,12 +236,50 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
         isVi ? 'Độ tin cậy' : 'Confidence',
         isVi ? 'Mô tả lâm sàng' : 'Clinical Description',
       ]);
-      allReportAnomalies.forEach((a, idx) => {
+      allReportLesions.forEach((a, idx) => {
         const confText = `${Math.round(a.confidence != null ? (a.confidence <= 1 ? a.confidence * 100 : a.confidence) : 90)}%`;
         csvContent.push([
           (a.pinIndex || idx + 1).toString(),
           a.eyeCode || 'OD',
           sanitizeCsvCell(getAnomalyName(a.type, t)),
+          (a.coordinates?.x ?? 0).toString(),
+          (a.coordinates?.y ?? 0).toString(),
+          confText,
+          sanitizeCsvCell(a.description || ''),
+        ]);
+      });
+    } else {
+      csvContent.push(['']);
+      csvContent.push([
+        isVi ? 'Tổn thương vi mạch khu trú' : 'Focal Microvascular Lesions',
+        isVi ? 'Không phát hiện tổn thương (0 điểm tổn thương)' : 'None detected (0 lesions)',
+        '',
+        '',
+        '',
+      ]);
+    }
+
+    // Bổ sung mốc giải phẫu học võng mạc AI định vị vào CSV
+    if (allReportLandmarks.length > 0) {
+      csvContent.push(['']);
+      csvContent.push([isVi ? 'MỐC GIẢI PHẪU VÕNG MẠC AI ĐỊNH VỊ' : 'AI-LOCALIZED RETINAL ANATOMICAL LANDMARKS']);
+      csvContent.push([
+        '#',
+        isVi ? 'Mắt' : 'Eye',
+        isVi ? 'Mốc giải phẫu' : 'Landmark',
+        isVi ? 'Tọa độ X (%)' : 'Coord X (%)',
+        isVi ? 'Tọa độ Y (%)' : 'Coord Y (%)',
+        isVi ? 'Độ tin cậy' : 'Confidence',
+        isVi ? 'Mô tả giải phẫu' : 'Anatomical Description',
+      ]);
+      allReportLandmarks.forEach((a, idx) => {
+        const isDisc = String(a.type || '').toUpperCase().includes('DISC');
+        const name = isDisc ? (isVi ? 'Gai thị (Optic Disc)' : 'Optic Disc') : (isVi ? 'Hoàng điểm (FAZ)' : 'Fovea Centralis (FAZ)');
+        const confText = `${Math.round(a.confidence != null ? (a.confidence <= 1 ? a.confidence * 100 : a.confidence) : 98)}%`;
+        csvContent.push([
+          (idx + 1).toString(),
+          a.eyeCode || 'OD',
+          sanitizeCsvCell(name),
           (a.coordinates?.x ?? 0).toString(),
           (a.coordinates?.y ?? 0).toString(),
           confText,
@@ -250,7 +307,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-2 sm:p-4 backdrop-blur-md overflow-hidden print:p-0 print:bg-white animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-2 sm:p-4 backdrop-blur-md overflow-hidden print:static print:inset-auto print:overflow-visible print:h-auto print:max-w-none print:w-full print:block print:p-0 print:bg-white animate-fade-in"
     >
       {/* Floating Global Close Button */}
       <button
@@ -265,7 +322,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
       {/* Modal Dialog */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-5xl h-[92vh] flex flex-col rounded-2xl bg-white shadow-medical-modal border border-slate-200 overflow-hidden print:h-auto print:border-none print:shadow-none animate-modal-enter"
+        className="relative w-full max-w-5xl h-[92vh] flex flex-col rounded-2xl bg-white shadow-medical-modal border border-slate-200 overflow-hidden print:static print:overflow-visible print:h-auto print:max-w-none print:w-full print:block print:border-none print:shadow-none animate-modal-enter"
       >
         {/* 1. Top Header Controls */}
         <div className="flex-shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-3.5 print:hidden z-20 shadow-xs">
@@ -380,7 +437,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 rounded-xl bg-slate-50 p-4 border border-slate-200 text-xs">
             <div>
               <span className="text-slate-500 block">{t('doctor.reportModal.fullName', 'Họ và tên:')}</span>
-              <strong className="text-slate-900 text-sm">{patient.fullName || (isVi ? 'Chưa ghi nhận' : 'Not recorded')}</strong>
+              <strong className="text-slate-900 text-sm">{patient.fullName || (isVi ? 'Chưa cập nhật' : 'Unrecorded')}</strong>
             </div>
             <div>
               <span className="text-slate-500 block">{t('doctor.reportModal.patientId', 'Mã bệnh nhân:')}</span>
@@ -389,15 +446,17 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             <div>
               <span className="text-slate-500 block">{t('doctor.reportModal.ageGender', 'Tuổi / Giới tính:')}</span>
               <strong className="text-slate-900">
-                {patient.age != null ? `${patient.age} ${isVi ? 'tuổi' : 'yrs'}` : (isVi ? 'Chưa cập nhật' : 'Unrecorded')} • {patient.gender === 'Male' ? t('common.gender.male', 'Nam') : patient.gender === 'Female' ? t('common.gender.female', 'Nữ') : (isVi ? 'Chưa cập nhật' : 'Unrecorded')}
+                {patient.age != null || (patient.gender && patient.gender !== 'Other')
+                  ? `${patient.age != null ? `${patient.age} ${isVi ? 'tuổi' : 'yrs'}` : (isVi ? 'Chưa rõ tuổi' : 'Age N/A')} • ${patient.gender === 'Male' ? t('common.gender.male', 'Nam') : patient.gender === 'Female' ? t('common.gender.female', 'Nữ') : (isVi ? 'Chưa rõ giới tính' : 'Gender N/A')}`
+                  : (isVi ? 'Chưa cập nhật' : 'Unrecorded')}
               </strong>
             </div>
             <div>
               <span className="text-slate-500 block">{t('doctor.reportModal.bpDiabetes', 'Huyết áp / HbA1c:')}</span>
               <strong className="text-slate-900 font-mono-data">
-                {patient.systolicBp != null && patient.diastolicBp != null
-                  ? `${patient.systolicBp}/${patient.diastolicBp} mmHg`
-                  : (isVi ? 'Chưa cập nhật' : 'Unrecorded')} • {patient.hba1c != null ? `${patient.hba1c}%` : (isVi ? 'Chưa cập nhật' : 'Unrecorded')}
+                {patient.systolicBp != null || patient.hba1c != null
+                  ? `${patient.systolicBp != null && patient.diastolicBp != null ? `${patient.systolicBp}/${patient.diastolicBp} mmHg` : (isVi ? 'HA: Chưa đo' : 'BP: Unrecorded')} • ${patient.hba1c != null ? `HbA1c: ${patient.hba1c}%` : (isVi ? 'HbA1c: Chưa đo' : 'HbA1c: Unrecorded')}`
+                  : (isVi ? 'Chưa cập nhật' : 'Unrecorded')}
               </strong>
             </div>
           </div>
@@ -461,15 +520,15 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                           <DynamicHeatmapCanvas
                             imageSrc={odData.imageUrl || '/assets/images/fundus_original.png'}
                             riskScore={odData.overallVascularRiskScore || 35}
-                            anomalies={odAnomalies}
+                            anomalies={odLesions}
                             selectedEye="OD"
                             opacity={0.85}
                             className="h-full w-full object-cover absolute inset-0"
                           />
                         )}
 
-                        {/* Điểm định vị tổn thương vi mạch AI (OD Pin Markers) */}
-                        {odAnomalies.map((ano, idx) => {
+                        {/* Điểm định vị tổn thương vi mạch AI (OD Pin Markers) - CHỈ CHO TỔN THƯƠNG BỆNH LÝ */}
+                        {odLesions.map((ano, idx) => {
                           const isRed = ['Hemorrhage', 'AV_Nipping', 'Focal_Narrowing'].includes(ano.type);
                           const pinName = getAnomalyName(ano.type, t);
                           return (
@@ -495,6 +554,30 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                                 style={{ width: '20px', height: '20px' }}
                               >
                                 {idx + 1}
+                              </span>
+                            </div>
+                          );
+                        })}
+
+                        {/* Mốc Giải Phẫu Võng Mạc AI Định Vị (OD Landmarks - Cyan Reticles) */}
+                        {odLandmarks.map((lm, idx) => {
+                          const isDisc = String(lm.type || '').toUpperCase().includes('DISC');
+                          const lmName = isDisc ? (isVi ? 'Gai thị' : 'Optic Disc') : (isVi ? 'Hoàng điểm (FAZ)' : 'FAZ');
+                          return (
+                            <div
+                              key={lm.id || `od-lm-${idx}`}
+                              className="absolute z-10 flex flex-col items-center justify-center -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                              style={{
+                                left: `${Math.max(6, Math.min(94, lm.coordinates?.x ?? 50))}%`,
+                                top: `${Math.max(6, Math.min(94, lm.coordinates?.y ?? 50))}%`,
+                              }}
+                              title={`${lmName} (${Math.round((lm.confidence || 0.98) * 100)}%)`}
+                            >
+                              <div className="w-9 h-9 rounded-full border border-dashed border-cyan-300 bg-cyan-500/10 flex items-center justify-center shadow-xs">
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-300" />
+                              </div>
+                              <span className="mt-0.5 text-[9px] font-bold text-cyan-200 bg-slate-950/80 px-1 py-0.2 rounded border border-cyan-500/30 whitespace-nowrap">
+                                {lmName}
                               </span>
                             </div>
                           );
@@ -549,15 +632,15 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                           <DynamicHeatmapCanvas
                             imageSrc={osData.imageUrl || '/assets/images/fundus_original.png'}
                             riskScore={osData.overallVascularRiskScore || 35}
-                            anomalies={osAnomalies}
+                            anomalies={osLesions}
                             selectedEye="OS"
                             opacity={0.85}
                             className="h-full w-full object-cover absolute inset-0"
                           />
                         )}
 
-                        {/* Điểm định vị tổn thương vi mạch AI (OS Pin Markers) */}
-                        {osAnomalies.map((ano, idx) => {
+                        {/* Điểm định vị tổn thương vi mạch AI (OS Pin Markers) - CHỈ CHO TỔN THƯƠNG BỆNH LÝ */}
+                        {osLesions.map((ano, idx) => {
                           const isRed = ['Hemorrhage', 'AV_Nipping', 'Focal_Narrowing'].includes(ano.type);
                           const pinName = getAnomalyName(ano.type, t);
                           return (
@@ -583,6 +666,30 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                                 style={{ width: '20px', height: '20px' }}
                               >
                                 {idx + 1}
+                              </span>
+                            </div>
+                          );
+                        })}
+
+                        {/* Mốc Giải Phẫu Võng Mạc AI Định Vị (OS Landmarks - Cyan Reticles) */}
+                        {osLandmarks.map((lm, idx) => {
+                          const isDisc = String(lm.type || '').toUpperCase().includes('DISC');
+                          const lmName = isDisc ? (isVi ? 'Gai thị' : 'Optic Disc') : (isVi ? 'Hoàng điểm (FAZ)' : 'FAZ');
+                          return (
+                            <div
+                              key={lm.id || `os-lm-${idx}`}
+                              className="absolute z-10 flex flex-col items-center justify-center -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                              style={{
+                                left: `${Math.max(6, Math.min(94, lm.coordinates?.x ?? 50))}%`,
+                                top: `${Math.max(6, Math.min(94, lm.coordinates?.y ?? 50))}%`,
+                              }}
+                              title={`${lmName} (${Math.round((lm.confidence || 0.98) * 100)}%)`}
+                            >
+                              <div className="w-9 h-9 rounded-full border border-dashed border-cyan-300 bg-cyan-500/10 flex items-center justify-center shadow-xs">
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-300" />
+                              </div>
+                              <span className="mt-0.5 text-[9px] font-bold text-cyan-200 bg-slate-950/80 px-1 py-0.2 rounded border border-cyan-500/30 whitespace-nowrap">
+                                {lmName}
                               </span>
                             </div>
                           );
@@ -628,15 +735,15 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                       <DynamicHeatmapCanvas
                         imageSrc={result.imageUrl || '/assets/images/fundus_original.png'}
                         riskScore={result.overallVascularRiskScore ?? result.riskScore ?? 35}
-                        anomalies={singleAnomalies}
+                        anomalies={singleLesions}
                         selectedEye={result.eyePosition || 'OD'}
                         opacity={0.85}
                         className="h-full w-full object-cover absolute inset-0"
                       />
                     )}
 
-                    {/* Điểm định vị tổn thương vi mạch AI (Single Eye Pin Markers) */}
-                    {singleAnomalies.map((ano, idx) => {
+                    {/* Điểm định vị tổn thương vi mạch AI (Single Eye Pin Markers) - CHỈ CHO TỔN THƯƠNG BỆNH LÝ */}
+                    {singleLesions.map((ano, idx) => {
                       const isRed = ['Hemorrhage', 'AV_Nipping', 'Focal_Narrowing'].includes(ano.type);
                       const pinName = getAnomalyName(ano.type, t);
                       return (
@@ -666,6 +773,30 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                         </div>
                       );
                     })}
+
+                    {/* Mốc Giải Phẫu Võng Mạc AI Định Vị (Single Eye Landmarks - Cyan Reticles) */}
+                    {singleLandmarks.map((lm, idx) => {
+                      const isDisc = String(lm.type || '').toUpperCase().includes('DISC');
+                      const lmName = isDisc ? (isVi ? 'Gai thị' : 'Optic Disc') : (isVi ? 'Hoàng điểm (FAZ)' : 'FAZ');
+                      return (
+                        <div
+                          key={lm.id || `single-lm-${idx}`}
+                          className="absolute z-10 flex flex-col items-center justify-center -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                          style={{
+                            left: `${Math.max(6, Math.min(94, lm.coordinates?.x ?? 50))}%`,
+                            top: `${Math.max(6, Math.min(94, lm.coordinates?.y ?? 50))}%`,
+                          }}
+                          title={`${lmName} (${Math.round((lm.confidence || 0.98) * 100)}%)`}
+                        >
+                          <div className="w-9 h-9 rounded-full border border-dashed border-cyan-300 bg-cyan-500/10 flex items-center justify-center shadow-xs">
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-300" />
+                          </div>
+                          <span className="mt-0.5 text-[9px] font-bold text-cyan-200 bg-slate-950/80 px-1 py-0.2 rounded border border-cyan-500/30 whitespace-nowrap">
+                            {lmName}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                   <p className="mt-2 text-[11px] font-semibold text-cyan-200">
                     {isVi ? 'Bản Đồ Nhiệt Grad-CAM' : 'Grad-CAM Attention Heatmap'}
@@ -684,8 +815,12 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                       ? 'Danh Sách Điểm Tổn Thương Vi Mạch AI Định Vị'
                       : 'AI-Detected Microvascular Anomaly Coordinates & Findings'}
                   </span>
-                  <span className="rounded-full bg-cyan-100 text-cyan-900 px-2 py-0.5 text-[10px] font-bold border border-cyan-200 font-mono-data">
-                    {allReportAnomalies.length} {isVi ? 'điểm' : 'points'}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border font-mono-data ${
+                    allReportLesions.length > 0
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                  }`}>
+                    {allReportLesions.length} {isVi ? 'tổn thương' : 'lesions'}
                   </span>
                 </div>
 
@@ -702,7 +837,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                 </div>
               </div>
 
-              {allReportAnomalies.length > 0 ? (
+              {allReportLesions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
@@ -716,7 +851,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200/80 font-normal">
-                      {allReportAnomalies.map((ano, index) => {
+                      {allReportLesions.map((ano, index) => {
                         const isRed = ['Hemorrhage', 'AV_Nipping', 'Focal_Narrowing'].includes(ano.type);
                         const anomalyName = getAnomalyName(ano.type, t);
                         const confVal =
@@ -786,9 +921,46 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                   <p className="leading-snug">
                     {isVi
-                      ? 'Không phát hiện tổn thương vi phình mạch hoặc xuất huyết khu trú đơn độc (0 điểm tổn thương). Hệ thống mạch máu võng mạc không có dấu hiệu dị thường khu trú.'
-                      : 'No isolated focal microaneurysms or hemorrhages detected (0 focal lesion points). Retinal microvasculature shows no isolated focal abnormalities.'}
+                      ? 'Không phát hiện tổn thương vi mạch hoặc xuất huyết khu trú đơn độc (0 điểm tổn thương). Hệ thống mạch máu võng mạc không có dấu hiệu dị thường khu trú.'
+                      : 'No isolated focal microvascular lesions or hemorrhages detected (0 focal lesion points). Retinal microvasculature shows no isolated focal abnormalities.'}
                   </p>
+                </div>
+              )}
+
+              {/* Dải Mốc Giải Phẫu Võng Mạc AI Định Vị (Retinal Landmarks) */}
+              {allReportLandmarks.length > 0 && (
+                <div className="pt-2.5 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                  <div className="flex items-center gap-1.5 font-bold text-cyan-950">
+                    <Target className="h-3.5 w-3.5 text-cyan-700" />
+                    <span>{isVi ? 'Mốc Giải Phẫu Võng Mạc AI Định Vị:' : 'AI-Localized Retinal Landmarks:'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {allReportLandmarks.map((lm, idx) => {
+                      const isDisc = String(lm.type || '').toUpperCase().includes('DISC');
+                      const name = isDisc ? (isVi ? 'Gai thị (Optic Disc)' : 'Optic Disc') : (isVi ? 'Hoàng điểm (FAZ)' : 'Fovea Centralis (FAZ)');
+                      const confVal =
+                        lm.confidence != null
+                          ? lm.confidence <= 1
+                            ? Math.round(lm.confidence * 100)
+                            : Math.round(lm.confidence)
+                          : 98;
+                      return (
+                        <span
+                          key={lm.id || `report-lm-${idx}`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-950 text-xs font-medium"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 text-cyan-600" />
+                          <span className="font-bold">{name}:</span>
+                          <span className="font-mono-data text-slate-700">
+                            X: {lm.coordinates?.x ?? 0}% • Y: {lm.coordinates?.y ?? 0}%
+                          </span>
+                          <span className="text-[10px] font-bold text-cyan-800 bg-cyan-100 px-1.5 py-0.2 rounded-full">
+                            {confVal}%
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

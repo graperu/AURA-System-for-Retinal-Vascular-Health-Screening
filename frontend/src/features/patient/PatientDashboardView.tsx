@@ -883,13 +883,15 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
                         {isVi ? 'Tăng Huyết Áp' : 'Hypertension'}
                       </span>
                       <span className="text-xs font-bold font-mono-data text-[#111827]">
-                        {patient.systolicBp ? `${patient.systolicBp}/${patient.diastolicBp || 80}` : '120/80'}
+                        {patient.systolicBp
+                          ? `${patient.systolicBp}/${patient.diastolicBp || 80}`
+                          : (isVi ? 'Chưa đo' : 'Not measured')}
                       </span>
                     </div>
                     <div className="w-full bg-[#EAECF0] rounded-full h-1.5 overflow-hidden">
                       <div
                         className="bg-[#22C55E] h-full rounded-full transition-all"
-                        style={{ width: `${Math.min(100, (patient.systolicBp || 120) / 1.6)}%` }}
+                        style={{ width: patient.systolicBp ? `${Math.min(100, patient.systolicBp / 1.6)}%` : '0%' }}
                       />
                     </div>
                     <span className="text-[11px] text-[#667085] block truncate">

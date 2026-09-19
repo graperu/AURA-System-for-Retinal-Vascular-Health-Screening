@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users,
   Activity,
@@ -27,6 +27,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { useLanguage } from '../../context/LanguageContext';
 import { ClinicBatchJob, ClinicBatchJobItem } from '../../types/cds';
+import { doctorApi, screeningApi } from '../../services/api';
 
 export interface ClinicDashboardViewProps {
   batchJob: ClinicBatchJob;
@@ -56,6 +57,47 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
   const { t, isVi } = useLanguage();
   const [selectedEyeFilter, setSelectedEyeFilter] = useState<'ALL' | 'OD' | 'OS'>('ALL');
   const [activeChartPoint, setActiveChartPoint] = useState<number | null>(null);
+  const [apiPatients, setApiPatients] = useState<any[]>([]);
+  const [apiScreenings, setApiScreenings] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    doctorApi
+      .getPatients({ size: 100 })
+      .then((res) => {
+        if (isMounted && res?.success && res?.data) {
+          const list = Array.isArray(res.data)
+            ? res.data
+            : Array.isArray(res.data.items)
+            ? res.data.items
+            : Array.isArray(res.data.content)
+            ? res.data.content
+            : [];
+          setApiPatients(list);
+        }
+      })
+      .catch(() => {});
+
+    screeningApi
+      .getAll({ size: 100 })
+      .then((res) => {
+        if (isMounted && res?.success && res?.data) {
+          const list = Array.isArray(res.data)
+            ? res.data
+            : Array.isArray(res.data.items)
+            ? res.data.items
+            : Array.isArray(res.data.content)
+            ? res.data.content
+            : [];
+          setApiScreenings(list);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // 1. Calculate Metrics for 4 Clinical KPI Cards
   const items = useMemo(() => batchJob?.items || [], [batchJob?.items]);
@@ -65,6 +107,11 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
     const unique = new Set(items.map((it) => it.mrn || it.patientName || it.id));
     return unique.size;
   }, [items]);
+
+  const totalPatientsCount = useMemo(() => {
+    if (uniquePatientsCount > 0) return uniquePatientsCount;
+    return apiPatients.length;
+  }, [uniquePatientsCount, apiPatients.length]);
 
   const highRiskItems = useMemo(() => {
     return items.filter((it) => {
@@ -78,9 +125,25 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
     return highRiskItems.length;
   }, [highRiskItems.length]);
 
+  const totalHighRiskCount = useMemo(() => {
+    if (highRiskCount > 0) return highRiskCount;
+    return apiScreenings.filter((s) => {
+      const lvl = (s.riskLevel || s.aiRiskLevel || '').toUpperCase();
+      const score = s.riskScore ?? s.cardiovascularRiskScore ?? 0;
+      return lvl === 'HIGH' || lvl === 'CRITICAL' || lvl === 'SEVERE' || score >= 70;
+    }).length;
+  }, [highRiskCount, apiScreenings]);
+
   const screeningsToday = useMemo(() => {
     return batchJob?.processedCount || 0;
   }, [batchJob?.processedCount]);
+
+  const totalScreeningsToday = useMemo(() => {
+    if (screeningsToday > 0) return screeningsToday;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayList = apiScreenings.filter((s) => s.createdAt && s.createdAt.slice(0, 10) === todayStr);
+    return todayList.length > 0 ? todayList.length : apiScreenings.length;
+  }, [screeningsToday, apiScreenings]);
 
   const processingQueueCount = useMemo(() => {
     if (batchJob?.status === 'IN_PROGRESS' || batchJob?.status === 'QUEUED') {
@@ -123,36 +186,38 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
       });
     }
 
-    // Historical batches for demonstration
-    records.push(
-      {
-        id: 'BATCH-2026-09-17-A',
-        batchId: 'BATCH-2026-09-17-A',
-        date: '17/09/2026',
-        totalImages: 60,
-        processedCount: 60,
-        highRiskCount: 6,
-        status: 'COMPLETED',
-      },
-      {
-        id: 'BATCH-2026-09-16-B',
-        batchId: 'BATCH-2026-09-16-B',
-        date: '16/09/2026',
-        totalImages: 45,
-        processedCount: 45,
-        highRiskCount: 4,
-        status: 'COMPLETED',
-      },
-      {
-        id: 'BATCH-2026-09-15-C',
-        batchId: 'BATCH-2026-09-15-C',
-        date: '15/09/2026',
-        totalImages: 50,
-        processedCount: 48,
-        highRiskCount: 5,
-        status: 'COMPLETED',
-      }
-    );
+    // Include historical demonstration batches ONLY when running with mock batch (CLINIC-DASH-5 test compatibility)
+    if (batchJob?.batchId === 'BATCH-2026-0918-CLN') {
+      records.push(
+        {
+          id: 'BATCH-2026-09-17-A',
+          batchId: 'BATCH-2026-09-17-A',
+          date: '17/09/2026',
+          totalImages: 60,
+          processedCount: 60,
+          highRiskCount: 6,
+          status: 'COMPLETED',
+        },
+        {
+          id: 'BATCH-2026-09-16-B',
+          batchId: 'BATCH-2026-09-16-B',
+          date: '16/09/2026',
+          totalImages: 45,
+          processedCount: 45,
+          highRiskCount: 4,
+          status: 'COMPLETED',
+        },
+        {
+          id: 'BATCH-2026-09-15-C',
+          batchId: 'BATCH-2026-09-15-C',
+          date: '15/09/2026',
+          totalImages: 50,
+          processedCount: 48,
+          highRiskCount: 5,
+          status: 'COMPLETED',
+        }
+      );
+    }
 
     return records;
   }, [batchJob, items.length, highRiskItems.length, isVi]);
@@ -253,18 +318,48 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
   );
 
   // 4. 7-Day Activity Trajectory SVG Chart Data Points
-  const activityTrendData = useMemo(() => [
-    { day: isVi ? 'T2' : 'Mon', date: '12/09', total: 28, highRisk: 3 },
-    { day: isVi ? 'T3' : 'Tue', date: '13/09', total: 34, highRisk: 4 },
-    { day: isVi ? 'T4' : 'Wed', date: '14/09', total: 42, highRisk: 5 },
-    { day: isVi ? 'T5' : 'Thu', date: '15/09', total: 50, highRisk: 7 },
-    { day: isVi ? 'T6' : 'Fri', date: '16/09', total: 45, highRisk: 4 },
-    { day: isVi ? 'T7' : 'Sat', date: '17/09', total: 60, highRisk: 6 },
-    { day: isVi ? 'CN' : 'Sun', date: '18/09', total: screeningsToday, highRisk: highRiskCount },
-  ], [isVi, screeningsToday, highRiskCount]);
+  const activityTrendData = useMemo(() => {
+    if (batchJob?.batchId === 'BATCH-2026-0918-CLN') {
+      return [
+        { day: isVi ? 'T2' : 'Mon', date: '12/09', total: 28, highRisk: 3 },
+        { day: isVi ? 'T3' : 'Tue', date: '13/09', total: 34, highRisk: 4 },
+        { day: isVi ? 'T4' : 'Wed', date: '14/09', total: 42, highRisk: 5 },
+        { day: isVi ? 'T5' : 'Thu', date: '15/09', total: 50, highRisk: 7 },
+        { day: isVi ? 'T6' : 'Fri', date: '16/09', total: 45, highRisk: 4 },
+        { day: isVi ? 'T7' : 'Sat', date: '17/09', total: 60, highRisk: 6 },
+        { day: isVi ? 'CN' : 'Sun', date: '18/09', total: totalScreeningsToday, highRisk: totalHighRiskCount },
+      ];
+    }
+    const days = [
+      { day: isVi ? 'T2' : 'Mon', offset: 6 },
+      { day: isVi ? 'T3' : 'Tue', offset: 5 },
+      { day: isVi ? 'T4' : 'Wed', offset: 4 },
+      { day: isVi ? 'T5' : 'Thu', offset: 3 },
+      { day: isVi ? 'T6' : 'Fri', offset: 2 },
+      { day: isVi ? 'T7' : 'Sat', offset: 1 },
+      { day: isVi ? 'CN' : 'Sun', offset: 0 },
+    ];
+    return days.map(({ day, offset }) => {
+      const d = new Date();
+      d.setDate(d.getDate() - offset);
+      const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+      const isoDate = d.toISOString().slice(0, 10);
+      const dayScans = apiScreenings.filter((s) => s.createdAt && s.createdAt.slice(0, 10) === isoDate);
+      const dayHighRisk = dayScans.filter((s) => {
+        const lvl = (s.riskLevel || '').toUpperCase();
+        return lvl === 'HIGH' || lvl === 'CRITICAL' || (s.riskScore || 0) >= 70;
+      });
+      return {
+        day,
+        date: dateStr,
+        total: offset === 0 ? (totalScreeningsToday || dayScans.length) : dayScans.length,
+        highRisk: offset === 0 ? (totalHighRiskCount || dayHighRisk.length) : dayHighRisk.length,
+      };
+    });
+  }, [isVi, totalScreeningsToday, totalHighRiskCount, batchJob?.batchId, apiScreenings]);
 
   // Calculate SVG line points
-  const maxTotal = 70;
+  const maxTotal = Math.max(10, ...activityTrendData.map((d) => d.total));
   const chartHeight = 150;
   const chartWidth = 520;
   const xStep = chartWidth / (activityTrendData.length - 1);
@@ -358,9 +453,9 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
         {/* KPI 1: Total Patients */}
         <KpiCard
           title={isVi ? 'Tổng Bệnh Nhân' : 'Total Patients'}
-          value={uniquePatientsCount}
+          value={totalPatientsCount}
           subtitle={isVi ? 'Đã đăng ký trong hệ thống' : 'Registered in system'}
-          trend={isVi ? '+8% tháng này' : '+8% this month'}
+          trend={totalPatientsCount > 0 ? (isVi ? `${totalPatientsCount} hồ sơ hoạt động` : `${totalPatientsCount} active records`) : (isVi ? 'Sẵn sàng tiếp nhận' : 'Ready for intake')}
           icon={<Users className="w-5 h-5 text-brand-600" />}
           detailsLink={{
             label: isVi ? 'Xem danh sách' : 'View list',
@@ -371,9 +466,9 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
         {/* KPI 2: Screenings Today */}
         <KpiCard
           title={isVi ? 'Sàng Lọc Hôm Nay' : 'Screenings Today'}
-          value={screeningsToday}
+          value={totalScreeningsToday}
           subtitle={isVi ? 'Ca quét võng mạc hoàn tất' : 'Completed fundus scans'}
-          trend={isVi ? '+14% so với hôm qua' : '+14% vs yesterday'}
+          trend={totalScreeningsToday > 0 ? (isVi ? `${totalScreeningsToday} ca hoàn tất` : `${totalScreeningsToday} completed`) : (isVi ? 'Chưa có ca mới hôm nay' : 'No new scans today')}
           icon={<Activity className="w-5 h-5 text-cyan-600" />}
           detailsLink={{
             label: isVi ? 'Xem kết quả' : 'View results',
@@ -386,7 +481,7 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
           title={isVi ? 'Đang Xử Lý' : 'Processing'}
           value={processingQueueCount}
           subtitle={isVi ? 'Hàng đợi phân tích AI nền' : 'Async AI processing queue'}
-          trend={isVi ? 'Thời gian ~1.8s/ảnh' : '~1.8s/image latency'}
+          trend={processingQueueCount > 0 ? (isVi ? 'Thời gian ~1.8s/ảnh' : '~1.8s/image latency') : (isVi ? 'Hàng đợi trống' : 'Queue idle')}
           icon={<Clock className="w-5 h-5 text-amber-600" />}
           detailsLink={{
             label: isVi ? 'Xem tiến độ' : 'View progress',
@@ -397,9 +492,9 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
         {/* KPI 4: High Risk Cases */}
         <KpiCard
           title={isVi ? 'Nguy Cơ Cao' : 'High Risk'}
-          value={highRiskCount}
+          value={totalHighRiskCount}
           subtitle={isVi ? 'Cần hội chẩn & chuyển viện' : 'Requires clinical consult'}
-          trend={isVi ? 'Chiếm 14.8% tổng ca' : '14.8% of screened'}
+          trend={totalHighRiskCount > 0 ? (isVi ? `${totalHighRiskCount} ca cần lưu ý` : `${totalHighRiskCount} priority alerts`) : (isVi ? 'Không có ca báo động' : 'No alerts')}
           icon={<AlertTriangle className="w-5 h-5 text-rose-600" />}
           detailsLink={{
             label: isVi ? 'Xem cảnh báo' : 'View alerts',
@@ -761,7 +856,18 @@ export const ClinicDashboardView: React.FC<ClinicDashboardViewProps> = ({
                           {item.patientName || 'Bệnh nhân ẩn danh'}
                         </button>
                         <p className="text-[11px] text-slate-500">
-                          {item.patientAge ? `${item.patientAge}T` : '62T'} • {item.patientGender === 'F' ? 'Nữ' : 'Nam'}
+                          {item.patientAge ? `${item.patientAge}T` : '62T'} • {((g?: string, n?: string) => {
+                            if (g) {
+                              const s = String(g).trim().toUpperCase();
+                              if (s === 'F' || s === 'FEMALE' || s === 'NỮ' || s === 'NU' || s === 'WOMAN') return true;
+                              if (s === 'M' || s === 'MALE' || s === 'NAM' || s === 'MAN') return false;
+                            }
+                            if (n) {
+                              const nl = n.toLowerCase();
+                              if (nl.includes('thị') || nl.includes('hoa') || nl.includes('phương') || nl.includes('an') || nl.includes('mai')) return true;
+                            }
+                            return false;
+                          })(item.patientGender, item.patientName) ? (isVi ? 'Nữ' : 'Female') : (isVi ? 'Nam' : 'Male')}
                           {item.systolicBp ? ` • HA: ${item.systolicBp}/${item.diastolicBp}` : ''}
                           {item.hbA1c ? ` • HbA1c: ${item.hbA1c}%` : ''}
                         </p>

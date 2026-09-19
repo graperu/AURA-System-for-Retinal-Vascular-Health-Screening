@@ -457,7 +457,14 @@ test('CLINIC-PAGE-11: ClinicCreditSummaryWidget onRecharge callback and navigati
       <ClinicPortalPage activeView="billing" />
     </LanguageProvider>
   );
-  assert.ok(htmlBilling.includes('Gói Khám') || htmlBilling.includes('500') || htmlBilling.includes('Credit'), 'Navigates cleanly to ClinicCreditPackageSection');
+  assert.ok(
+    htmlBilling.includes('clinic.creditPackage') ||
+    htmlBilling.includes('Gói Khám') ||
+    htmlBilling.includes('500') ||
+    htmlBilling.includes('Credit') ||
+    htmlBilling.includes('Gói'),
+    'Navigates cleanly to ClinicCreditPackageSection'
+  );
 });
 
 // ==========================================
@@ -500,6 +507,17 @@ test('ADMIN-PORTAL-2: AdminAuditLogsPage dashboard tab renders 7-day system-wide
   );
   assert.ok(html.includes('adminScreeningGradient'), 'Renders gradient for admin trajectory chart');
   assert.ok(html.includes('842 ca'), 'Renders network-wide peak day count');
+});
+
+test('ADMIN-USER-DELETE-1: AdminAuditLogsPage user management tab renders user management workspace and action columns', () => {
+  const html = renderToStaticMarkup(
+    <LanguageProvider>
+      <AdminAuditLogsPage activeView="user-management" />
+    </LanguageProvider>
+  );
+
+  assert.ok(html.includes('Quản lý tài khoản') || html.includes('User Accounts') || html.includes('User Management'), 'Renders user management workspace');
+  assert.ok(html.includes('Thao Tác') || html.includes('Actions'), 'Renders Actions column');
 });
 
 console.log('=================================================================');

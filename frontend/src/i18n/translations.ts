@@ -1280,6 +1280,14 @@ export interface ClinicalTranslationSchema {
       changeRoleBtn: string;
       lockAccount: string;
       unlockAccount: string;
+      deleteUser: string;
+      deleteSuccess: string;
+      batchDeleteSuccess: string;
+      deleteModalTitle: string;
+      deleteConfirmMessage: string;
+      batchDeleteModalTitle: string;
+      batchDeleteConfirmMessage: string;
+      cannotDeleteSelf: string;
       activeStatus: string;
       suspendedStatus: string;
       notUpdated: string;
@@ -2769,6 +2777,14 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
         changeRoleBtn: "Đổi Vai Trò",
         lockAccount: "Khóa",
         unlockAccount: "Mở khóa",
+        deleteUser: "Xóa",
+        deleteSuccess: "Đã xóa tài khoản thành công.",
+        batchDeleteSuccess: "Đã xóa thành công các tài khoản đã chọn.",
+        deleteModalTitle: "Xác Nhận Xóa Tài Khoản",
+        deleteConfirmMessage: "Bạn có chắc chắn muốn xóa tài khoản này không? Tài khoản sẽ bị vô hiệu hóa và loại bỏ khỏi hệ thống.",
+        batchDeleteModalTitle: "Xác Nhận Xóa Hàng Loạt",
+        batchDeleteConfirmMessage: "Bạn có chắc chắn muốn xóa tất cả các tài khoản đã chọn không?",
+        cannotDeleteSelf: "Không thể tự xóa tài khoản của chính mình.",
         activeStatus: "HOẠT ĐỘNG",
         suspendedStatus: "ĐÃ KHÓA",
         notUpdated: "Chưa cập nhật",
@@ -4257,6 +4273,14 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
         changeRoleBtn: "Change Role",
         lockAccount: "Suspend",
         unlockAccount: "Activate",
+        deleteUser: "Delete",
+        deleteSuccess: "Account deleted successfully.",
+        batchDeleteSuccess: "Selected accounts deleted successfully.",
+        deleteModalTitle: "Confirm Account Deletion",
+        deleteConfirmMessage: "Are you sure you want to delete this account? The account will be deactivated and removed from the active system.",
+        batchDeleteModalTitle: "Confirm Batch Deletion",
+        batchDeleteConfirmMessage: "Are you sure you want to delete all selected accounts?",
+        cannotDeleteSelf: "You cannot delete your own active account.",
         activeStatus: "ACTIVE",
         suspendedStatus: "SUSPENDED",
         notUpdated: "Not updated",

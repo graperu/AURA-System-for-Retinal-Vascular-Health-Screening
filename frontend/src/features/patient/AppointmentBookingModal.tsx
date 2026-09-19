@@ -26,6 +26,7 @@ export interface AppointmentBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   patient: PatientProfile;
+  initialStep?: 1 | 2 | 3 | 4;
   onSuccess: (appointmentDetails: {
     doctorName: string;
     doctorId: string;
@@ -55,12 +56,13 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   isOpen,
   onClose,
   patient,
+  initialStep = 1,
   onSuccess,
 }) => {
   const { t, isVi } = useLanguage();
 
   // 4-Step Flow: 1. Chọn Bác sĩ -> 2. Chọn Ngày -> 3. Chọn Giờ -> 4. Xác nhận
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(initialStep);
 
   const [doctors, setDoctors] = useState<DoctorOptionDto[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState<boolean>(false);
@@ -660,7 +662,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                       <strong className="text-slate-800 font-mono-data">
                         {patient.systolicBp && patient.diastolicBp
                           ? `${patient.systolicBp}/${patient.diastolicBp} mmHg`
-                          : (isVi ? '120/80 mmHg (Tiêu chuẩn)' : '120/80 mmHg')}
+                          : (isVi ? 'Chưa đo' : 'Not measured')}
                       </strong>
                     </div>
                   </div>

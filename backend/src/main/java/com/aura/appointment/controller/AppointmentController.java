@@ -50,9 +50,10 @@ public class AppointmentController {
 
     boolean isAdmin = hasRole(principal, "ADMIN");
     boolean isDoctor = hasRole(principal, "DOCTOR");
+    boolean isClinic = hasRole(principal, "CLINIC");
 
     List<AppointmentResponse> appointments;
-    if (isAdmin) {
+    if (isAdmin || isClinic) {
       appointments = appointmentService.getAllAppointments();
     } else if (isDoctor) {
       appointments = appointmentService.getAppointmentsForDoctor(principal.id());

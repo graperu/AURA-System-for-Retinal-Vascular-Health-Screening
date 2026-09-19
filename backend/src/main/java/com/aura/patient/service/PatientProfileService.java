@@ -673,9 +673,9 @@ public class PatientProfileService {
       worklistProfile.setGender(savedProfile.getGender() != null ? savedProfile.getGender() : "Other");
       worklistProfile.setPhone(savedProfile.getPhoneNumber());
       worklistProfile.setAddress(savedProfile.getAddress());
-      worklistProfile.setSystolicBp(savedProfile.getSystolicBp() != null ? savedProfile.getSystolicBp() : 120);
-      worklistProfile.setDiastolicBp(savedProfile.getDiastolicBp() != null ? savedProfile.getDiastolicBp() : 80);
-      worklistProfile.setHba1c(savedProfile.getHba1c() != null ? savedProfile.getHba1c() : 5.7);
+      worklistProfile.setSystolicBp(savedProfile.getSystolicBp());
+      worklistProfile.setDiastolicBp(savedProfile.getDiastolicBp());
+      worklistProfile.setHba1c(savedProfile.getHba1c());
       worklistProfile.setHasDiabetes(savedProfile.getHasDiabetes() != null ? savedProfile.getHasDiabetes() : false);
       worklistProfile.setHasHypertension(savedProfile.getHasHypertension() != null ? savedProfile.getHasHypertension() : false);
       worklistProfile.setHistoryOfSmoking(savedProfile.getHistoryOfSmoking() != null ? savedProfile.getHistoryOfSmoking() : false);

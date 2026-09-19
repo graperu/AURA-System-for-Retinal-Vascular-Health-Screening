@@ -125,12 +125,25 @@ export const signInWithGoogleFirebase = async () => {
 
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
+  provider.addScope('email');
+  provider.addScope('profile');
+  provider.addScope('openid');
 
   const result = await signInWithPopup(fb.auth, provider, browserPopupRedirectResolver);
   const user = result.user;
-  const idToken = await user.getIdToken(true);
+
+  // Trích xuất Google OAuth2 ID Token từ OAuth credential (nếu có) và Firebase ID Token
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  const googleIdToken = credential?.idToken;
+  const firebaseIdToken = await user.getIdToken(true);
+
+  // Ưu tiên Google ID Token, fallback sang Firebase ID Token
+  const tokenToSend = googleIdToken || firebaseIdToken;
+
   return {
-    idToken,
+    idToken: tokenToSend,
+    googleIdToken,
+    firebaseIdToken,
     email: user.email || '',
     fullName: user.displayName || '',
     picture: user.photoURL || '',

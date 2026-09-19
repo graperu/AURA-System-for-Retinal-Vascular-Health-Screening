@@ -368,8 +368,8 @@ export const Topbar: React.FC<TopbarProps> = ({
     if (cleanLink === 'notifications' || cleanLink === 'notification-config') {
       return 'notifications';
     }
-    if (cleanLink === 'assignments') {
-      return 'assignments';
+    if (cleanLink === 'assignments' || cleanLink === 'patient-assignments') {
+      return currentUser.role === 'clinic' ? 'patient-assignments' : 'dashboard';
     }
 
     // Match by event type

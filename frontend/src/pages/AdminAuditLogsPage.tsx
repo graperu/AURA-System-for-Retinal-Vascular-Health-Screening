@@ -39,7 +39,6 @@ import {
   Server,
   Database,
   ArrowRight,
-  UserCheck,
 } from "lucide-react";
 import {
   auditApi,
@@ -55,10 +54,10 @@ import { ClinicalSelect, ClinicalSelectOption } from "../components/ui/ClinicalS
 import { Modal } from "../components/ui/Modal";
 import { Pagination } from "../components/ui/Pagination";
 import { useLanguage } from "../context/LanguageContext";
+import { useAuth } from "../context/AuthContext";
 import { useRealtimeSync } from "../hooks/useRealtimeSync";
 import { realtimeBus } from "../services/realtimeService";
 import { eventBus } from "../services/eventBusService";
-import { PatientAssignmentBoard } from "../components/PatientAssignmentBoard";
 import {
   AdminAuditWorkspace,
   AuditLogItem,
@@ -78,7 +77,6 @@ type AdminTab =
   | "rbac"
   | "notifications"
   | "clinics"
-  | "assignments"
   | "screenings"
   | "packages"
   | "ai-config"
@@ -125,7 +123,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     "ai-config": "ai-config",
     "audit-logs": "audit",
     audit: "audit",
-    assignments: "assignments",
+    assignments: "dashboard",
     screenings: "screenings",
   };
 
@@ -212,9 +210,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     phoneNumber: "",
     address: "",
   });
+  const { user: currentUser } = useAuth();
   const [roleChangeUser, setRoleChangeUser] = useState<any | null>(null);
   const [selectedNewRole, setSelectedNewRole] = useState("ROLE_USER");
   const [userActionNotice, setUserActionNotice] = useState<string | null>(null);
+  const [deletingUser, setDeletingUser] = useState<any | null>(null);
+  const [isBatchDeleteModalOpen, setIsBatchDeleteModalOpen] = useState(false);
+  const [isDeleteProcessing, setIsDeleteProcessing] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -331,6 +333,77 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       loadUsers();
     } catch (e) {
       console.warn("Could not batch toggle user status:", e);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return;
+    setIsDeleteProcessing(true);
+    try {
+      const res = await adminUserApi.deleteUser(deletingUser.id);
+      if (res && res.success !== false) {
+        setUserActionNotice(
+          t('admin.userManagement.deleteSuccess', isVi ? "Đã xóa tài khoản thành công." : "Account deleted successfully.")
+        );
+        setUsersList((prev) => prev.filter((u) => u.id !== deletingUser.id));
+        setSelectedUserIds((prev) => {
+          const next = new Set(prev);
+          next.delete(deletingUser.id);
+          return next;
+        });
+        realtimeBus.emit('user:deleted', { userId: deletingUser.id, timestamp: Date.now() });
+        realtimeBus.emit('audit:new', {
+          action: 'USER_DELETE',
+          category: 'SECURITY',
+          resource: `User ${deletingUser.name || deletingUser.email}`,
+          timestamp: Date.now(),
+          status: 'SUCCESS',
+        });
+        eventBus.publish('USER_STATUS_CHANGED', { userId: deletingUser.id, status: 'DELETED' });
+        setTimeout(() => setUserActionNotice(null), 4000);
+        setDeletingUser(null);
+        await loadUsers();
+      } else {
+        setUserActionNotice(res?.message || (isVi ? "Không thể xóa tài khoản." : "Failed to delete account."));
+        setTimeout(() => setUserActionNotice(null), 4000);
+      }
+    } catch (err: any) {
+      console.warn("Could not delete user:", err);
+      setUserActionNotice(err?.message || (isVi ? "Đã xảy ra lỗi khi xóa tài khoản." : "Error deleting account."));
+      setTimeout(() => setUserActionNotice(null), 4000);
+    } finally {
+      setIsDeleteProcessing(false);
+    }
+  };
+
+  const handleBatchDeleteUsers = async () => {
+    const ids = Array.from(selectedUserIds);
+    if (ids.length === 0) return;
+    setIsDeleteProcessing(true);
+    try {
+      const res = await adminUserApi.batchDeleteUsers(ids);
+      if (res && res.success !== false) {
+        const deletedCount = typeof res?.data === 'number' ? res.data : ids.length;
+        setUserActionNotice(
+          isVi
+            ? `Đã xóa thành công ${deletedCount} tài khoản.`
+            : `Deleted ${deletedCount} accounts successfully.`
+        );
+        setUsersList((prev) => prev.filter((u) => !selectedUserIds.has(u.id)));
+        setSelectedUserIds(new Set());
+        setTimeout(() => setUserActionNotice(null), 4000);
+        setIsBatchDeleteModalOpen(false);
+        await loadUsers();
+      } else {
+        setUserActionNotice(res?.message || (isVi ? "Không thể xóa hàng loạt tài khoản." : "Failed to batch delete accounts."));
+        setTimeout(() => setUserActionNotice(null), 4000);
+      }
+    } catch (err: any) {
+      console.warn("Could not batch delete users:", err);
+      setUserActionNotice(err?.message || (isVi ? "Đã xảy ra lỗi khi xóa hàng loạt tài khoản." : "Error batch deleting accounts."));
+      setTimeout(() => setUserActionNotice(null), 4000);
+    } finally {
+      setIsDeleteProcessing(false);
     }
   };
 
@@ -1662,16 +1735,6 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
             <Building2 className="w-4 h-4" /> {t('admin.tabs.clinics', isVi ? 'Duyệt Phòng Khám' : 'Clinic Approvals')}
           </button>
           <button
-            onClick={() => setActiveTab("assignments")}
-            className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-              activeTab === "assignments"
-                ? "bg-white shadow-xs text-brand-700 font-medium"
-                : "text-slate-600 hover:text-slate-900 font-normal hover:bg-slate-200/50"
-            }`}
-          >
-            <UserCheck className="w-4 h-4" /> {isVi ? 'Phân Công' : 'Assignments'}
-          </button>
-          <button
             onClick={() => setActiveTab("screenings")}
             className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === "screenings"
@@ -2284,6 +2347,23 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                                 ? t('admin.userManagement.lockAccount', isVi ? "Khóa" : "Suspend")
                                 : t('admin.userManagement.unlockAccount', isVi ? "Kích hoạt" : "Activate")}
                             </button>
+                            <button
+                              disabled={currentUser?.id === u.id}
+                              onClick={() => setDeletingUser(u)}
+                              className={`px-2.5 py-1.5 font-bold rounded-lg text-xs inline-flex items-center gap-1 transition-colors ${
+                                currentUser?.id === u.id
+                                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                  : "bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                              }`}
+                              title={
+                                currentUser?.id === u.id
+                                  ? t('admin.userManagement.cannotDeleteSelf', isVi ? "Không thể tự xóa tài khoản của bạn" : "Cannot delete your own account")
+                                  : t('admin.userManagement.deleteUser', isVi ? "Xóa" : "Delete")
+                              }
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {t('admin.userManagement.deleteUser', isVi ? 'Xóa' : 'Delete')}
+                            </button>
                           </td>
                         </tr>
                       );
@@ -2342,6 +2422,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               >
                 <Unlock className="w-3.5 h-3.5" />
                 {isVi ? `Kích hoạt (${selectedUserIds.size})` : `Activate (${selectedUserIds.size})`}
+              </button>
+              <button
+                onClick={() => setIsBatchDeleteModalOpen(true)}
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {isVi ? `Xóa (${selectedUserIds.size})` : `Delete (${selectedUserIds.size})`}
               </button>
             </div>
           )}
@@ -2505,6 +2592,136 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                 className="px-5 py-2 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold"
               >
                 {t('admin.userManagement.confirmRoleBtn', isVi ? 'Xác Nhận Đổi' : 'Confirm Change')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE SINGLE USER CONFIRMATION MODAL */}
+      {deletingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2 text-rose-600">
+                <AlertTriangle className="w-5 h-5" />
+                <h3 className="font-bold text-slate-900 text-base">
+                  {t('admin.userManagement.deleteModalTitle', isVi ? 'Xác Nhận Xóa Tài Khoản' : 'Confirm Account Deletion')}
+                </h3>
+              </div>
+              <button
+                onClick={() => setDeletingUser(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                disabled={isDeleteProcessing}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-2xl text-xs space-y-2 text-slate-700">
+              <p className="font-semibold text-rose-800">
+                {t('admin.userManagement.deleteConfirmMessage', isVi ? 'Bạn có chắc chắn muốn xóa tài khoản này không? Tài khoản sẽ bị vô hiệu hóa và loại bỏ khỏi danh sách quản lý.' : 'Are you sure you want to delete this account? The account will be deactivated and removed from active management.')}
+              </p>
+              <div className="mt-2 pt-2 border-t border-rose-200/60 space-y-1 text-slate-600 font-mono text-[11px]">
+                <div><strong>{isVi ? 'Họ tên' : 'Name'}:</strong> {deletingUser.name}</div>
+                <div><strong>Email:</strong> {deletingUser.email}</div>
+                <div><strong>{isVi ? 'Vai trò' : 'Role'}:</strong> {formatRoleLabel(deletingUser.role)}</div>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 italic">
+              {isVi
+                ? '* Lưu ý: Lịch sử khám sàng lọc và chứng từ y tế liên quan sẽ được bảo lưu theo quy chuẩn lưu trữ hồ sơ y tế, nhưng tài khoản sẽ không thể đăng nhập.'
+                : '* Note: Clinical screening records and audit history will be preserved per medical retention compliance, but the account will no longer be accessible.'}
+            </p>
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                disabled={isDeleteProcessing}
+                onClick={() => setDeletingUser(null)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              >
+                {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
+              </button>
+              <button
+                disabled={isDeleteProcessing}
+                onClick={handleDeleteUser}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleteProcessing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{isVi ? 'Đang xóa...' : 'Deleting...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{t('admin.userManagement.deleteUser', isVi ? 'Xác Nhận Xóa' : 'Confirm Delete')}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BATCH DELETE CONFIRMATION MODAL */}
+      {isBatchDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2 text-rose-600">
+                <AlertTriangle className="w-5 h-5" />
+                <h3 className="font-bold text-slate-900 text-base">
+                  {t('admin.userManagement.batchDeleteModalTitle', isVi ? 'Xác Nhận Xóa Hàng Loạt' : 'Confirm Batch Deletion')}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsBatchDeleteModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                disabled={isDeleteProcessing}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-2xl text-xs space-y-2 text-slate-700">
+              <p className="font-semibold text-rose-800">
+                {isVi
+                  ? `Bạn có chắc chắn muốn xóa đồng loạt ${selectedUserIds.size} tài khoản đã chọn không?`
+                  : `Are you sure you want to delete all ${selectedUserIds.size} selected accounts?`}
+              </p>
+              <p className="text-[11px] text-slate-600">
+                {isVi
+                  ? 'Toàn bộ các tài khoản này sẽ bị vô hiệu hóa và loại bỏ khỏi danh sách quản lý. Nếu danh sách có chứa tài khoản của bạn, hệ thống sẽ tự động bỏ qua để bảo vệ an toàn.'
+                  : 'All selected accounts will be deactivated and removed from active management. If your own account is in the selection, it will be automatically skipped for safety.'}
+              </p>
+            </div>
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                disabled={isDeleteProcessing}
+                onClick={() => setIsBatchDeleteModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              >
+                {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
+              </button>
+              <button
+                disabled={isDeleteProcessing}
+                onClick={handleBatchDeleteUsers}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleteProcessing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{isVi ? 'Đang xóa...' : 'Deleting...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isVi ? `Xóa ${selectedUserIds.size} tài khoản` : `Delete ${selectedUserIds.size} accounts`}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -4128,16 +4345,7 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
       )}
 
       {/* =========================================================================
-          TAB 7: PATIENT ASSIGNMENT BOARD (FE-NAV-8)
-      ========================================================================== */}
-      {activeTab === "assignments" && (
-        <div className="space-y-6">
-          <PatientAssignmentBoard />
-        </div>
-      )}
-
-      {/* =========================================================================
-          TAB 8: SYSTEM SCREENINGS (FE-NAV-6)
+          TAB 7: SYSTEM SCREENINGS (FE-NAV-6)
       ========================================================================== */}
       {activeTab === "screenings" && (
         <div className="space-y-6">

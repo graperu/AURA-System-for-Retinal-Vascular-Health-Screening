@@ -920,6 +920,43 @@ export const ClinicBatchProcessing: React.FC<ClinicBatchProcessingProps> = ({
         </div>
       </div>
 
+      {/* Direct Batch Upload / Intake Zone - Prominent at Top */}
+      <div className="bg-white border-2 border-dashed border-brand-300 hover:border-brand-500 rounded-2xl p-6 shadow-sm transition-all text-center bg-gradient-to-b from-blue-50/40 via-white to-white">
+        <div className="max-w-xl mx-auto space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto border border-brand-200 shadow-xs">
+            <UploadCloud className="w-6 h-6 animate-pulse" />
+          </div>
+          <div>
+            <h3 className="font-bold text-base text-slate-900">
+              {isVi ? 'Khu Vực Tiếp Nhận & Tải Lên Đợt Khám Mới' : 'Direct Batch Intake & Photo Upload'}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {isVi
+                ? 'Kéo thả thư mục hoặc nhiều tệp ảnh chụp võng mạc (JPG, PNG) để tự động phân tích AI hàng loạt'
+                : 'Drag and drop image files or a folder of fundus scans to run batch AI microvascular screening'}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="px-5 py-2.5 bg-gradient-to-r from-[#3478F6] to-[#111827] hover:from-[#2563EB] hover:to-[#0F766E] text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <UploadCloud className="w-4 h-4" />
+              <span>{isVi ? '+ Tải Lên Lô Ảnh Mới' : '+ Upload New Batch'}</span>
+            </button>
+
+            <button
+              onClick={() => setIsCreditModalOpen(true)}
+              className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <CreditCard className="w-4 h-4 text-brand-600" />
+              <span>{isVi ? 'Nạp Thêm Lượt Khám' : 'Recharge Credits'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Clinical Triage Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {/* High Risk */}

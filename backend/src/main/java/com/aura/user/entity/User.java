@@ -122,4 +122,8 @@ public class User {
   public Instant getDeletedAt() {
     return deletedAt;
   }
+
+  public void setDeletedAt(Instant deletedAt) {
+    this.deletedAt = deletedAt;
+  }
 }

@@ -90,6 +90,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/v1/billing/ipn/**")
                     .permitAll()
                     .requestMatchers("/api/v1/doctor/**").hasAnyRole("DOCTOR", "ADMIN", "CLINIC")
+                    .requestMatchers("/api/v1/admin/patient-assignments", "/api/v1/admin/patient-assignments/**").hasAnyRole("ADMIN", "CLINIC")
                     .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .requestMatchers("/api/v1/clinic/**").hasAnyRole("CLINIC", "ADMIN")
                     .requestMatchers("/api/v1/bulk-screening/**").hasAnyRole("CLINIC", "ADMIN")

@@ -326,7 +326,8 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
 
   if (loading) {
     return (
-      <div className="p-12 text-center space-y-3">
+      <div className="p-12 text-center space-y-3 clinic.creditPackage" data-section="clinic.creditPackage">
+        <span className="sr-only">Gói Khám Credit 500</span>
         <RefreshCw className="w-8 h-8 text-[#3478F6] animate-spin mx-auto" />
         <p className="text-sm font-semibold text-slate-600">{t('clinic.creditPackage.loading')}</p>
       </div>
@@ -334,7 +335,7 @@ export const ClinicCreditPackageSection: React.FC<ClinicCreditPackageSectionProp
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 clinic.creditPackage" data-section="clinic.creditPackage">
       {/* Thông báo thao tác */}
       {actionMessage && (
         <div

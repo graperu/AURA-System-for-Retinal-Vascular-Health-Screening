@@ -150,6 +150,59 @@ public class AdminUserService {
     return toDto(user);
   }
 
+  @Transactional
+  public void deleteUser(UUID userId) {
+    User user = requireUser(userId);
+    if (isSoleActiveAdmin(user)) {
+      throw new IllegalArgumentException("Không thể xóa quản trị viên đang hoạt động cuối cùng");
+    }
+    user.setDeletedAt(Instant.now());
+    user.setActive(false);
+    userRepository.save(user);
+
+    userRoleRepository.deleteAllByUserId(userId);
+    userRoleRepository.flush();
+
+    if (clinicProfileRepository != null) {
+      clinicProfileRepository.findByUserId(userId).ifPresent(profile -> {
+        profile.setVerificationStatus(com.aura.clinic.entity.VerificationStatus.REJECTED);
+        clinicProfileRepository.save(profile);
+      });
+    }
+
+    if (realtimeEventPublisher != null) {
+      try {
+        Map<String, Object> eventData = Map.of(
+            "userId", userId.toString(),
+            "timestamp", System.currentTimeMillis()
+        );
+        realtimeEventPublisher.publish("/topic/notifications." + userId, "USER_DELETED", eventData);
+        realtimeEventPublisher.publish("/topic/admin.activity", "USER_DELETED", eventData);
+      } catch (Exception ignored) {
+      }
+    }
+  }
+
+  @Transactional
+  public int batchDeleteUsers(List<UUID> userIds, UUID currentAdminId) {
+    if (userIds == null || userIds.isEmpty()) {
+      return 0;
+    }
+    int count = 0;
+    for (UUID id : userIds) {
+      if (id == null) continue;
+      if (currentAdminId != null && id.equals(currentAdminId)) {
+        continue;
+      }
+      try {
+        deleteUser(id);
+        count++;
+      } catch (Exception ignored) {
+      }
+    }
+    return count;
+  }
+
   public AiConfigDto getAiConfig() {
     if (systemConfigService != null) {
       return systemConfigService.getAiConfig();

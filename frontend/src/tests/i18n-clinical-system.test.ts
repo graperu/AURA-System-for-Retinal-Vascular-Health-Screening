@@ -1672,7 +1672,7 @@ runTest('CLINIC-I18N-6: ClinicCreditPackageSection render song ngữ chuẩn (VI
 
 runTest('CLINIC-I18N-7: ClinicPortalPage render song ngữ chuẩn (VI & EN)', () => {
   const viHtml = renderWithLang(
-    React.createElement(ClinicPortalPage, { activeView: 'bulk-batch' }),
+    React.createElement(ClinicPortalPage, { activeView: 'dashboard' }),
     'vi'
   );
 
@@ -1692,7 +1692,7 @@ runTest('CLINIC-I18N-7: ClinicPortalPage render song ngữ chuẩn (VI & EN)', (
   );
 
   const enHtml = renderWithLang(
-    React.createElement(ClinicPortalPage, { activeView: 'bulk-batch' }),
+    React.createElement(ClinicPortalPage, { activeView: 'dashboard' }),
     'en'
   );
 

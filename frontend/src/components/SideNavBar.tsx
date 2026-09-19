@@ -222,6 +222,16 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
                 icon: Users,
               },
               {
+                id: 'appointments',
+                label: isVi ? 'Lịch hẹn & Tiếp nhận' : 'Appointments & Reception',
+                icon: CalendarCheck,
+              },
+              {
+                id: 'patient-assignments',
+                label: isVi ? 'Phân công ca khám' : 'Patient Assignments',
+                icon: UserCheck,
+              },
+              {
                 id: 'bulk-batch',
                 label: t('navigation.bulkScreening', isVi ? 'Sàng lọc theo lô' : 'Batch Screening'),
                 icon: UploadCloud,
@@ -275,11 +285,6 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
                 id: 'user-management',
                 label: t('navigation.userManagement', isVi ? 'Người dùng' : 'Users'),
                 icon: Users,
-              },
-              {
-                id: 'assignments',
-                label: isVi ? 'Phân công bệnh nhân' : 'Patient Assignments',
-                icon: UserCheck,
               },
               {
                 id: 'clinic-approvals',

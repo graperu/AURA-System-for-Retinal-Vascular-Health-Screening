@@ -642,7 +642,13 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
           pageSizeOptions: [5, 10, 20, 50],
           itemLabel: isVi ? 'bệnh nhân' : 'patients',
         }}
-        emptyMessage={t('doctor.worklist.emptyFiltered', 'Không có bệnh nhân nào phù hợp.')}
+        emptyMessage={
+          patients.length === 0
+            ? (isVi
+                ? 'Tài khoản bác sĩ hiện chưa được phân công ca khám nào từ phòng khám.'
+                : 'No patients currently assigned to this doctor by the clinic.')
+            : t('doctor.worklist.emptyFiltered', 'Không có bệnh nhân nào phù hợp.')
+        }
       />
 
       {/* Delete Confirmation Modal */}

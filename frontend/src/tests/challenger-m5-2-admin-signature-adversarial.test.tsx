@@ -100,14 +100,14 @@ for (const { role, expectAdminItems } of testRoles) {
     );
 
     const hasPackages = html.includes('id="packages"') || html.includes('data-section="packages"') || html.includes('Gói dịch vụ') || html.includes('Service Packages');
-    const hasAssignments = html.includes('id="assignments"') || html.includes('data-section="assignments"') || html.includes('Phân công bệnh nhân') || html.includes('Patient Assignments');
+    const hasAdminAssignments = html.includes('id="assignments"') || html.includes('data-section="assignments"') || html.includes('Phân công bệnh nhân');
 
     if (expectAdminItems) {
       assert.ok(hasPackages, `Admin role '${role}' must see packages in Sidebar`);
-      assert.ok(hasAssignments, `Admin role '${role}' must see assignments in Sidebar`);
+      assert.ok(!hasAdminAssignments, `Admin role '${role}' must NOT see assignments in Sidebar (delegated to Clinic portal)`);
     } else {
       assert.ok(!hasPackages, `Non-admin role '${role}' must NOT see packages in Sidebar`);
-      assert.ok(!hasAssignments, `Non-admin role '${role}' must NOT see assignments in Sidebar`);
+      assert.ok(!hasAdminAssignments, `Non-admin role '${role}' must NOT see admin assignments in Sidebar`);
     }
   });
 
@@ -123,14 +123,14 @@ for (const { role, expectAdminItems } of testRoles) {
     );
 
     const hasPackages = html.includes('data-section="packages"') || html.includes('Gói dịch vụ') || html.includes('Service Packages');
-    const hasAssignments = html.includes('data-section="assignments"') || html.includes('Phân công bệnh nhân') || html.includes('Patient Assignments');
+    const hasAdminAssignments = html.includes('data-section="assignments"') || html.includes('Phân công bệnh nhân');
 
     if (expectAdminItems) {
       assert.ok(hasPackages, `Admin role '${role}' must see packages in SideNavBar`);
-      assert.ok(hasAssignments, `Admin role '${role}' must see assignments in SideNavBar`);
+      assert.ok(!hasAdminAssignments, `Admin role '${role}' must NOT see assignments in SideNavBar (delegated to Clinic portal)`);
     } else {
       assert.ok(!hasPackages, `Non-admin role '${role}' must NOT see packages in SideNavBar`);
-      assert.ok(!hasAssignments, `Non-admin role '${role}' must NOT see assignments in SideNavBar`);
+      assert.ok(!hasAdminAssignments, `Non-admin role '${role}' must NOT see admin assignments in SideNavBar`);
     }
   });
 }

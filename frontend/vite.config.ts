@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    envDir: path.resolve(__dirname, '..'),
     envPrefix: ['VITE_', 'FIREBASE_', 'GOOGLE_', 'REACT_APP_'],
     define: {
       'process.env': JSON.stringify(mergedEnv),

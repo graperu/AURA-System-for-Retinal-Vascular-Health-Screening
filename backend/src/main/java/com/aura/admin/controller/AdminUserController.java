@@ -3,6 +3,7 @@ package com.aura.admin.controller;
 import com.aura.admin.dto.AiConfigDto;
 import com.aura.audit.annotation.Audited;
 import com.aura.admin.dto.AssignmentBoardResponse;
+import com.aura.admin.dto.BatchDeleteUserRequest;
 import com.aura.admin.dto.BulkPatientAssignmentRequest;
 import com.aura.admin.dto.UpdateUserRequest;
 import com.aura.admin.dto.UpdateUserRoleRequest;
@@ -26,6 +27,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -89,6 +91,32 @@ public class AdminUserController {
     return ApiResponse.success("Đã cập nhật vai trò người dùng", adminUserService.updateUserRole(userId, request));
   }
 
+  @Audited(action = "ADMIN_USER_DELETE", module = "ADMIN", resourceType = "USER", description = "Quản trị viên xóa tài khoản người dùng")
+  @DeleteMapping("/users/{userId}")
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Delete user account (soft delete)")
+  public ApiResponse<Void> deleteUser(
+      @PathVariable UUID userId,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    if (principal != null && userId.equals(principal.id())) {
+      throw new IllegalArgumentException("Không thể tự xóa tài khoản của chính mình");
+    }
+    adminUserService.deleteUser(userId);
+    return ApiResponse.success("Đã xóa tài khoản người dùng thành công", null);
+  }
+
+  @Audited(action = "ADMIN_USER_BATCH_DELETE", module = "ADMIN", resourceType = "USER", description = "Quản trị viên xóa hàng loạt tài khoản người dùng")
+  @PostMapping("/users/batch-delete")
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Batch delete user accounts")
+  public ApiResponse<Integer> batchDeleteUsers(
+      @RequestBody BatchDeleteUserRequest request,
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    UUID currentAdminId = principal != null ? principal.id() : null;
+    int count = adminUserService.batchDeleteUsers(request.userIds(), currentAdminId);
+    return ApiResponse.success("Đã xóa thành công " + count + " tài khoản", count);
+  }
+
   @Audited(action = "ADMIN_CLINIC_APPROVE", module = "ADMIN", resourceType = "CLINIC", description = "Quản trị viên phê duyệt phòng khám")
   @PutMapping("/clinics/{clinicId}/approve")
   @PreAuthorize("hasRole('ADMIN')")
@@ -132,26 +160,27 @@ public class AdminUserController {
   }
 
   @GetMapping("/patient-assignments")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN', 'CLINIC')")
   @Operation(summary = "Get the doctor-patient assignment board")
   public ApiResponse<AssignmentBoardResponse> getPatientAssignments() {
     return ApiResponse.success(assignmentService.getBoard());
   }
 
-  @Audited(action = "ADMIN_PATIENT_ASSIGN", module = "ADMIN", resourceType = "ASSIGNMENT", description = "Quản trị viên phân công bệnh nhân cho bác sĩ")
+  @Audited(action = "PATIENT_ASSIGN", module = "CLINIC_ADMIN", resourceType = "ASSIGNMENT", description = "Phòng khám hoặc Quản trị viên phân công bệnh nhân cho bác sĩ")
   @PutMapping("/patient-assignments")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN', 'CLINIC')")
   @Operation(summary = "Assign one or more patients to a doctor")
   public ApiResponse<AssignmentBoardResponse> assignPatients(
       @AuthenticationPrincipal AuraUserPrincipal principal,
       @Valid @RequestBody BulkPatientAssignmentRequest request) {
+    UUID assignedBy = principal != null ? principal.id() : null;
     return ApiResponse.success("Phân công bệnh nhân thành công",
-        assignmentService.assign(request, principal.id()));
+        assignmentService.assign(request, assignedBy));
   }
 
-  @Audited(action = "ADMIN_PATIENT_UNASSIGN", module = "ADMIN", resourceType = "ASSIGNMENT", description = "Quản trị viên hủy phân công bệnh nhân")
+  @Audited(action = "PATIENT_UNASSIGN", module = "CLINIC_ADMIN", resourceType = "ASSIGNMENT", description = "Phòng khám hoặc Quản trị viên hủy phân công bệnh nhân")
   @DeleteMapping("/patient-assignments/{doctorId}/{patientId}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN', 'CLINIC')")
   @Operation(summary = "Remove a patient from a doctor's active worklist")
   public ApiResponse<AssignmentBoardResponse> unassignPatient(
       @PathVariable UUID doctorId,

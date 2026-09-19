@@ -70,14 +70,21 @@ const formatDoctorName = (doc: any, fallback: string = ''): string => {
 interface PatientPortalPageProps {
   user: UserSession;
   activeView?: string;
+  activeSection?: string;
   onNavigate?: (viewId: string) => void;
+  initialPatient?: PatientProfile;
+  initialProfileLoading?: boolean;
 }
 
 export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   user,
-  activeView: rawActiveView = "dashboard",
+  activeView: rawActiveView,
+  activeSection,
   onNavigate = () => undefined,
+  initialPatient,
+  initialProfileLoading,
 }) => {
+  const effectiveActiveView = rawActiveView || activeSection || "dashboard";
   const KNOWN_VIEWS = [
     'dashboard',
     'upload-scan',
@@ -92,11 +99,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     'billing',
     'notifications',
   ];
-  const activeView = KNOWN_VIEWS.includes(rawActiveView) ? rawActiveView : 'dashboard';
+  const activeView = KNOWN_VIEWS.includes(effectiveActiveView) ? effectiveActiveView : 'dashboard';
   const { t, isVi } = useLanguage();
   const { updateUser } = useAuth();
   const prefersReducedMotion = useAuraReducedMotion();
-  const [patient, setPatient] = useState<PatientProfile>({
+  const [patient, setPatient] = useState<PatientProfile>(() => initialPatient || {
     fullName: user.name || (isVi ? "Bệnh nhân" : "Patient"),
     mrn: user.mrn || "",
     gender: "Other",
@@ -114,7 +121,9 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     updatedAt: null,
   });
 
-  const [isProfileLoading, setIsProfileLoading] = useState<boolean>(true);
+  const [isProfileLoading, setIsProfileLoading] = useState<boolean>(
+    initialProfileLoading !== undefined ? initialProfileLoading : !initialPatient
+  );
   const [isProfileError, setIsProfileError] = useState<boolean>(false);
 
   const [analysisResult, setAnalysisResult] = useState<AIRiskResult | null>(() => {
@@ -1473,25 +1482,45 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     <div className="p-4 bg-teal-50/50 rounded-xl border border-teal-100 space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-600 font-semibold">{isVi ? "Huyết áp động mạch" : "Blood Pressure"}</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          (patient.systolicBp || 0) >= 140 ? "bg-red-100 text-red-700" : (patient.systolicBp || 0) >= 130 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-                        }`}>
-                          {(patient.systolicBp || 0) >= 140 ? (isVi ? "Tăng HA" : "Stage 2") : (patient.systolicBp || 0) >= 130 ? (isVi ? "Tiền tăng HA" : "Stage 1") : (isVi ? "Bình thường" : "Normal")}
-                        </span>
+                        {patient.systolicBp != null && patient.diastolicBp != null ? (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            patient.systolicBp >= 140 ? "bg-red-100 text-red-700" : patient.systolicBp >= 130 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                          }`}>
+                            {patient.systolicBp >= 140 ? (isVi ? "Tăng HA" : "Stage 2") : patient.systolicBp >= 130 ? (isVi ? "Tiền tăng HA" : "Stage 1") : (isVi ? "Bình thường" : "Normal")}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                            {isVi ? "Chưa đo" : "Not measured"}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-2xl font-extrabold font-mono-data text-slate-900">
-                          {patient.systolicBp != null && patient.diastolicBp != null ? `${patient.systolicBp}/${patient.diastolicBp}` : "120/80"}
-                        </span>
-                        <span className="text-xs text-slate-500 font-mono-data">mmHg</span>
+                        {patient.systolicBp != null && patient.diastolicBp != null ? (
+                          <>
+                            <span className="text-2xl font-extrabold font-mono-data text-slate-900">
+                              {patient.systolicBp}/{patient.diastolicBp}
+                            </span>
+                            <span className="text-xs text-slate-500 font-mono-data">mmHg</span>
+                          </>
+                        ) : (
+                          <span className="text-xl font-bold font-mono-data text-slate-400">
+                            {isVi ? "Chưa cập nhật" : "Not updated"}
+                          </span>
+                        )}
                       </div>
                       {/* Range gauge bar */}
                       <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${
-                            (patient.systolicBp || 120) >= 140 ? "bg-red-500" : (patient.systolicBp || 120) >= 130 ? "bg-amber-500" : "bg-emerald-500"
+                          className={`h-full rounded-full transition-all ${
+                            patient.systolicBp != null && patient.diastolicBp != null
+                              ? patient.systolicBp >= 140 ? "bg-red-500" : patient.systolicBp >= 130 ? "bg-amber-500" : "bg-emerald-500"
+                              : "bg-slate-300"
                           }`}
-                          style={{ width: `${Math.min(100, Math.max(10, ((patient.systolicBp || 120) / 180) * 100))}%` }}
+                          style={{
+                            width: patient.systolicBp != null
+                              ? `${Math.min(100, Math.max(10, (patient.systolicBp / 180) * 100))}%`
+                              : '0%'
+                          }}
                         />
                       </div>
                     </div>
@@ -1500,24 +1529,47 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     <div className="p-4 bg-amber-50/40 rounded-xl border border-amber-100 space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-600 font-semibold">{isVi ? "Đường huyết HbA1c" : "Glycated Hemoglobin (HbA1c)"}</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          (patient.hba1c || 0) >= 6.5 ? "bg-red-100 text-red-700" : (patient.hba1c || 0) >= 5.7 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-                        }`}>
-                          {(patient.hba1c || 0) >= 6.5 ? (isVi ? "Đái tháo đường" : "Diabetic") : (patient.hba1c || 0) >= 5.7 ? (isVi ? "Tiền ĐTĐ" : "Prediabetic") : (isVi ? "Tối ưu" : "Normal")}
-                        </span>
+                        {patient.hba1c != null ? (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            patient.hba1c >= 6.5 ? "bg-red-100 text-red-700" : patient.hba1c >= 5.7 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                          }`}>
+                            {patient.hba1c >= 6.5 ? (isVi ? "Đái tháo đường" : "Diabetic") : patient.hba1c >= 5.7 ? (isVi ? "Tiền ĐTĐ" : "Prediabetic") : (isVi ? "Tối ưu" : "Normal")}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                            {isVi ? "Chưa đo" : "Not measured"}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-2xl font-extrabold font-mono-data text-slate-900">
-                          {patient.hba1c != null ? `${patient.hba1c}%` : "5.8%"}
-                        </span>
-                        <span className="text-xs text-slate-500 font-mono-data">{isVi ? "Mục tiêu: < 6.5%" : "Target: < 6.5%"}</span>
+                        {patient.hba1c != null ? (
+                          <>
+                            <span className="text-2xl font-extrabold font-mono-data text-slate-900">
+                              {patient.hba1c}%
+                            </span>
+                            <span className="text-xs text-slate-500 font-mono-data">{isVi ? "Mục tiêu: < 6.5%" : "Target: < 6.5%"}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-xl font-bold font-mono-data text-slate-400">
+                              {isVi ? "Chưa cập nhật" : "Not updated"}
+                            </span>
+                            <span className="text-xs text-slate-400 font-mono-data">({isVi ? "Mục tiêu: < 6.5%" : "Target: < 6.5%"})</span>
+                          </>
+                        )}
                       </div>
                       <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${
-                            (patient.hba1c || 5.8) >= 6.5 ? "bg-red-500" : (patient.hba1c || 5.8) >= 5.7 ? "bg-amber-500" : "bg-emerald-500"
+                          className={`h-full rounded-full transition-all ${
+                            patient.hba1c != null
+                              ? patient.hba1c >= 6.5 ? "bg-red-500" : patient.hba1c >= 5.7 ? "bg-amber-500" : "bg-emerald-500"
+                              : "bg-slate-300"
                           }`}
-                          style={{ width: `${Math.min(100, Math.max(10, ((patient.hba1c || 5.8) / 12) * 100))}%` }}
+                          style={{
+                            width: patient.hba1c != null
+                              ? `${Math.min(100, Math.max(10, (patient.hba1c / 12) * 100))}%`
+                              : '0%'
+                          }}
                         />
                       </div>
                     </div>
@@ -1932,7 +1984,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
                       <span className="text-slate-600">{isVi ? "Chỉ số BMI:" : "BMI:"}</span>
                       <strong className="font-mono text-slate-900">
-                        {patient.bmi ? `${patient.bmi}` : "22.4"}
+                        {patient.bmi ? `${patient.bmi}` : (isVi ? "Chưa đo" : "Not measured")}
                       </strong>
                     </div>
                   </div>

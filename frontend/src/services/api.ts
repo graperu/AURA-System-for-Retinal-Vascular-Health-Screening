@@ -448,6 +448,17 @@ export const adminUserApi = {
     });
   },
 
+  deleteUser: (userId: string) =>
+    apiFetch<any>(`/api/v1/admin/users/${userId}`, {
+      method: "DELETE",
+    }),
+
+  batchDeleteUsers: (userIds: string[]) =>
+    apiFetch<any>("/api/v1/admin/users/batch-delete", {
+      method: "POST",
+      body: JSON.stringify({ userIds }),
+    }),
+
   getAiConfig: () =>
     apiFetch<any>("/api/v1/admin/ai-config", { method: "GET" }),
 

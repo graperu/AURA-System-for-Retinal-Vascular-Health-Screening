@@ -538,9 +538,18 @@ html,
     color-adjust: exact !important;
   }
 
+  html,
   body {
     background-color: #FFFFFF !important;
     color: #111827 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  /* Ensure modal container does not clip or restrict multi-page printing */
+  body:has(#printable-report) {
+    overflow: visible !important;
   }
 
   #printable-report {
@@ -563,3 +572,4 @@ html,
     page-break-inside: avoid;
   }
 }
+
