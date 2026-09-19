@@ -86,6 +86,20 @@ export const App: React.FC = () => {
     }
   }, [currentUser?.role, getRouteForSection]);
 
+  const handleLogout = useCallback(async () => {
+    try {
+      sessionStorage.removeItem('aura_active_section');
+      sessionStorage.removeItem('aura_patient_analysis_result');
+      sessionStorage.removeItem('aura_doctor_selected_patient_id');
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith('aura_scroll_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    } catch {}
+    await logout();
+  }, [logout]);
+
   useEffect(() => {
     const onAuraNavigate = (e: Event) => {
       const detail = (e as CustomEvent<{ url?: string; section?: string }>).detail;
@@ -183,20 +197,6 @@ export const App: React.FC = () => {
   }
 
   if (!currentUser) return <LoginPage />;
-
-  const handleLogout = useCallback(async () => {
-    try {
-      sessionStorage.removeItem('aura_active_section');
-      sessionStorage.removeItem('aura_patient_analysis_result');
-      sessionStorage.removeItem('aura_doctor_selected_patient_id');
-      Object.keys(sessionStorage).forEach((key) => {
-        if (key.startsWith('aura_scroll_')) {
-          sessionStorage.removeItem(key);
-        }
-      });
-    } catch {}
-    await logout();
-  }, [logout]);
 
   const portalContent = (() => {
     switch (currentUser.role) {
