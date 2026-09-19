@@ -346,7 +346,54 @@ public class BillingService {
         );
     }
 
+    @Transactional
+    public void grantTrialCreditsIfEligible(UUID ownerId) {
+        if (ownerId == null) return;
+        try {
+            List<Subscription> existing = subscriptionRepository.findByOwnerId(ownerId);
+            if (!existing.isEmpty()) return;
+
+            User owner = userRepository.findById(ownerId).orElse(null);
+            if (owner == null) return;
+
+            List<RoleName> roles = userRoleRepository.findAllByUserId(ownerId).stream()
+                    .map(ur -> ur.getRole().getName())
+                    .toList();
+
+            if (!roles.contains(RoleName.USER)) {
+                return;
+            }
+
+            ServicePackage trialPkg = null;
+            try {
+                trialPkg = servicePackageService.findOrThrow(2L);
+            } catch (Exception e) {
+                try {
+                    trialPkg = servicePackageService.findOrThrow(1L);
+                } catch (Exception ignored) {}
+            }
+
+            if (trialPkg != null) {
+                Subscription trialSub = Subscription.builder()
+                        .owner(owner)
+                        .servicePackage(trialPkg)
+                        .remainingCredits(5)
+                        .expiresAt(LocalDateTime.now().plusDays(90))
+                        .status(SubscriptionStatus.ACTIVE)
+                        .build();
+                subscriptionRepository.save(trialSub);
+                log.info("Cấp 5 lượt khám trải nghiệm ban đầu (Trial Credits) cho bệnh nhân {}", ownerId);
+            }
+        } catch (Exception e) {
+            log.warn("Không thể cấp lượt khám trải nghiệm cho người dùng {}: {}", ownerId, e.getMessage());
+        }
+    }
+
+    @Transactional
     public List<SubscriptionResponse> mySubscriptions(UUID ownerId) {
+        if (ownerId != null) {
+            grantTrialCreditsIfEligible(ownerId);
+        }
         return subscriptionRepository.findByOwnerId(ownerId).stream()
                 .map(this::expireIfPast)
                 .map(SubscriptionResponse::from)
@@ -359,7 +406,11 @@ public class BillingService {
                 PaymentTransactionResponse::from);
     }
 
+    @Transactional
     public int getRemainingCredits(UUID ownerId) {
+        if (ownerId != null) {
+            grantTrialCreditsIfEligible(ownerId);
+        }
         return subscriptionRepository.findByOwnerId(ownerId).stream()
                 .map(this::expireIfPast)
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
@@ -372,6 +423,7 @@ public class BillingService {
         if (ownerId == null || amount <= 0) {
             return true;
         }
+        grantTrialCreditsIfEligible(ownerId);
         List<Subscription> activeSubs = subscriptionRepository.findByOwnerIdForUpdate(ownerId).stream()
                 .map(this::expireIfPast)
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE && s.getRemainingCredits() > 0)
