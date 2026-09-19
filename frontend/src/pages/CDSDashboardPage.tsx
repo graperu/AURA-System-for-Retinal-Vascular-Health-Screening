@@ -793,7 +793,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         animate="animate"
         exit="exit"
       >
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="w-full max-w-7xl mx-auto space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3">

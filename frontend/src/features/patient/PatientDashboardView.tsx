@@ -19,6 +19,7 @@ import {
   TrendingUp,
   TrendingDown,
   UserCheck,
+  BarChart3,
 } from 'lucide-react';
 import { AIRiskResult, PatientProfile } from '../../types/cds';
 import { PatientHistoryItem } from './PatientHistoryView';
@@ -81,57 +82,92 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
   const [selectedEyeFilter, setSelectedEyeFilter] = useState<'ALL' | 'OD' | 'OS'>('ALL');
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
 
-  // Derive historical trend points
-  const sortedHistory = [...scanHistory].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
+  // Derive historical trend points - STRICT ZERO MOCK DATA POLICY
+  const sortedHistory = React.useMemo(() => {
+    return [...scanHistory]
+      .filter((item) => item && item.status !== 'FAILED' && typeof item.riskScore === 'number' && item.riskScore > 0)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [scanHistory]);
 
   const trendPoints = React.useMemo(() => {
     let source = sortedHistory;
     if (selectedEyeFilter === 'OD') {
-      source = sortedHistory.filter((item) => !item.eyePosition?.includes('OS') && item.eyePosition !== 'Left');
+      source = sortedHistory.filter(
+        (item) => !item.eyePosition?.includes('OS') && item.eyePosition !== 'Left'
+      );
     } else if (selectedEyeFilter === 'OS') {
-      source = sortedHistory.filter((item) => item.eyePosition?.includes('OS') || item.eyePosition === 'Left');
+      source = sortedHistory.filter(
+        (item) => item.eyePosition?.includes('OS') || item.eyePosition === 'Left'
+      );
     }
 
-    if (source.length >= 2) {
-      return source.map((item) => ({
-        id: item.id,
-        date: new Date(item.createdAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US', {
-          day: '2-digit',
-          month: '2-digit',
-        }),
-        score: item.riskScore,
-        eye: item.eyePosition?.includes('OS') ? 'OS' : 'OD',
-        level: item.riskLevel,
-      }));
+    // If source is empty, but latestResult exists with valid score > 0
+    if (source.length === 0 && latestResult && riskScore > 0 && latestResult.status !== 'FAILED') {
+      const isOS = latestResult.eyePosition?.includes('OS') || latestResult.eyePosition === 'Left';
+      const matchesEye =
+        selectedEyeFilter === 'ALL' ||
+        (selectedEyeFilter === 'OS' && isOS) ||
+        (selectedEyeFilter === 'OD' && !isOS);
+      if (matchesEye) {
+        source = [
+          {
+            id: latestResult.analysisId || 'current-scan',
+            createdAt: latestResult.createdAt || new Date().toISOString(),
+            riskScore: riskScore,
+            eyePosition: latestResult.eyePosition || 'OD',
+            riskLevel:
+              latestResult.cardiovascularRisk?.level ||
+              (riskScore >= 80 ? 'Critical' : riskScore >= 65 ? 'High' : riskScore >= 40 ? 'Moderate' : 'Low'),
+            status: latestResult.status || 'ANALYZED',
+            scanType: 'Fundus_Macula',
+          } as PatientHistoryItem,
+        ];
+      }
     }
 
-    // Default reference trend when 0 or 1 historical screenings exist
-    const baseScore = latestResult ? riskScore : 45;
-    if (selectedEyeFilter === 'OD') {
-      return [
-        { id: 'od-1', date: '18/03', score: Math.min(100, Math.max(15, baseScore + 12)), eye: 'OD', level: 'Moderate' },
-        { id: 'od-2', date: '22/05', score: Math.min(100, Math.max(15, baseScore + 7)), eye: 'OD', level: 'Moderate' },
-        { id: 'od-3', date: '14/07', score: Math.min(100, Math.max(15, baseScore + 3)), eye: 'OD', level: 'Low' },
-        { id: 'od-4', date: isVi ? 'Hiện tại' : 'Today', score: baseScore, eye: 'OD', level: baseScore < 40 ? 'Low' : baseScore < 65 ? 'Moderate' : 'High' },
-      ];
-    }
-    if (selectedEyeFilter === 'OS') {
-      return [
-        { id: 'os-1', date: '18/03', score: Math.min(100, Math.max(15, baseScore + 16)), eye: 'OS', level: 'Moderate' },
-        { id: 'os-2', date: '22/05', score: Math.min(100, Math.max(15, baseScore + 10)), eye: 'OS', level: 'Moderate' },
-        { id: 'os-3', date: '14/07', score: Math.min(100, Math.max(15, baseScore + 5)), eye: 'OS', level: 'Moderate' },
-        { id: 'os-4', date: isVi ? 'Hiện tại' : 'Today', score: Math.min(100, baseScore + 2), eye: 'OS', level: baseScore < 40 ? 'Low' : baseScore < 65 ? 'Moderate' : 'High' },
-      ];
+    // STRICT ZERO-MOCK: If no real screening exists, return [] for authentic clinical empty state
+    if (source.length === 0) {
+      return [];
     }
 
-    return [
-      { id: 'all-1', date: '18/03', score: Math.min(100, Math.max(15, baseScore + 14)), eye: 'OD', level: 'Moderate' },
-      { id: 'all-2', date: '22/05', score: Math.min(100, Math.max(15, baseScore + 8)), eye: 'OS', level: 'Moderate' },
-      { id: 'all-3', date: '14/07', score: Math.min(100, Math.max(15, baseScore + 4)), eye: 'OD', level: 'Low' },
-      { id: 'all-4', date: isVi ? 'Hiện tại' : 'Today', score: baseScore, eye: latestResult?.eyePosition?.includes('OS') ? 'OS' : 'OD', level: baseScore < 40 ? 'Low' : baseScore < 65 ? 'Moderate' : 'High' },
-    ];
+    // Disambiguate same-day scans so labels don't collide
+    const dayMap = new Map<string, number>();
+    source.forEach((item) => {
+      const dayKey = new Date(item.createdAt).toDateString();
+      dayMap.set(dayKey, (dayMap.get(dayKey) || 0) + 1);
+    });
+    const hasMultiplePerDay = Array.from(dayMap.values()).some((count) => count > 1);
+
+    return source.map((item, idx) => {
+      const dateObj = new Date(item.createdAt);
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const dateStr = `${day}/${month}`;
+      const hours = String(dateObj.getHours()).padStart(2, '0');
+      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+      const timeStr = `${hours}:${minutes}`;
+      const eyePos = item.eyePosition?.includes('OS') || item.eyePosition === 'Left' ? 'OS' : 'OD';
+
+      return {
+        id: item.id || `pt-${idx}`,
+        createdAt: item.createdAt,
+        date: dateStr,
+        time: timeStr,
+        dateLabel: hasMultiplePerDay ? `${dateStr} ${timeStr}` : dateStr,
+        score: Math.round(item.riskScore),
+        eye: eyePos as 'OD' | 'OS',
+        level:
+          item.riskLevel ||
+          (item.riskScore >= 80
+            ? 'Critical'
+            : item.riskScore >= 65
+            ? 'High'
+            : item.riskScore >= 40
+            ? 'Moderate'
+            : 'Low'),
+        doctorReviewed: Boolean(item.doctorReviewed || item.status === 'REVIEWED'),
+      };
+    });
   }, [sortedHistory, selectedEyeFilter, isVi, latestResult, riskScore]);
 
   // Determine OD/OS for latest result
@@ -344,132 +380,357 @@ export const PatientDashboardView: React.FC<PatientDashboardViewProps> = ({
             }
           >
             <div className="space-y-4">
-              {/* SVG Trend Line & Area Chart */}
-              <div className="relative w-full h-[220px] bg-[#FAFBFD] rounded-xl p-4 border border-[#EAECF0] overflow-hidden">
-                <svg
-                  viewBox="0 0 540 180"
-                  className="w-full h-full overflow-visible"
-                  preserveAspectRatio="none"
-                >
-                  <defs>
-                    <linearGradient id="auraRiskGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3478F6" stopOpacity="0.28" />
-                      <stop offset="100%" stopColor="#3478F6" stopOpacity="0.01" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Horizontal Guide Lines */}
-                  <line x1="40" y1="20" x2="520" y2="20" stroke="#EAECF0" strokeDasharray="3 3" />
-                  <line x1="40" y1="65" x2="520" y2="65" stroke="#EAECF0" strokeDasharray="3 3" />
-                  <line x1="40" y1="110" x2="520" y2="110" stroke="#EAECF0" strokeDasharray="3 3" />
-                  <line x1="40" y1="155" x2="520" y2="155" stroke="#EAECF0" />
-
-                  {/* Y-axis Labels */}
-                  <text x="32" y="24" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">100</text>
-                  <text x="32" y="69" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">65</text>
-                  <text x="32" y="114" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">40</text>
-                  <text x="32" y="159" textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data">0</text>
-
-                  {/* Normal Zone Safe Line (40 threshold) */}
-                  <line x1="40" y1="110" x2="520" y2="110" stroke="#22C55E" strokeWidth="1" strokeDasharray="4 4" opacity="0.6" />
-
-                  {/* Path Calculation */}
-                  {(() => {
-                    const startX = 60;
-                    const endX = 500;
-                    const stepX = (endX - startX) / Math.max(1, trendPoints.length - 1);
-                    const getY = (score: number) => 155 - (score / 100) * 135;
-
-                    const points = trendPoints.map((pt, i) => ({
-                      x: startX + i * stepX,
-                      y: getY(pt.score),
-                      ...pt,
-                    }));
-
-                    const pathD = points.reduce((acc, pt, idx) => {
-                      if (idx === 0) return `M ${pt.x} ${pt.y}`;
-                      const prev = points[idx - 1];
-                      const cpX1 = prev.x + (pt.x - prev.x) / 2;
-                      const cpX2 = cpX1;
-                      return `${acc} C ${cpX1} ${prev.y}, ${cpX2} ${pt.y}, ${pt.x} ${pt.y}`;
-                    }, '');
-
-                    const areaD = `${pathD} L ${points[points.length - 1].x} 155 L ${points[0].x} 155 Z`;
-
-                    return (
-                      <>
-                        <path d={areaD} fill="url(#auraRiskGradient)" />
-                        <path d={pathD} fill="none" stroke="#3478F6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-
-                        {/* Interactive Data Point Markers */}
-                        {points.map((pt, i) => {
-                          const isHovered = hoveredPointIndex === i;
-                          return (
-                            <g
-                              key={pt.id}
-                              onMouseEnter={() => setHoveredPointIndex(i)}
-                              onMouseLeave={() => setHoveredPointIndex(null)}
-                              className="cursor-pointer"
-                            >
-                              <circle
-                                cx={pt.x}
-                                cy={pt.y}
-                                r={isHovered ? 6 : 4.5}
-                                fill="#FFFFFF"
-                                stroke="#3478F6"
-                                strokeWidth="2.5"
-                                className="transition-all"
-                              />
-                              <text
-                                x={pt.x}
-                                y="172"
-                                textAnchor="middle"
-                                className="text-[10px] fill-[#667085] font-semibold"
-                              >
-                                {pt.date}
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </>
-                    );
-                  })()}
-                </svg>
-
-                {/* Tooltip Overlay */}
-                {hoveredPointIndex !== null && trendPoints[hoveredPointIndex] && (
-                  <div
-                    className="absolute z-20 top-3 right-4 bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-[#EAECF0] shadow-sm text-xs pointer-events-none animate-fade-in"
-                  >
-                    <span className="text-[#667085] font-medium">
-                      {trendPoints[hoveredPointIndex].date} ({trendPoints[hoveredPointIndex].eye}):
-                    </span>{' '}
-                    <strong className="text-[#111827] font-mono-data font-bold">
-                      {trendPoints[hoveredPointIndex].score}/100
-                    </strong>{' '}
-                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                      trendPoints[hoveredPointIndex].score < 40 ? 'bg-[#ECFDF3] text-[#22C55E]' : 'bg-[#FFFAEB] text-[#F59E0B]'
-                    }`}>
-                      {trendPoints[hoveredPointIndex].level}
-                    </span>
+              {trendPoints.length === 0 ? (
+                /* Clinical Empty State when 0 screenings exist - ZERO MOCK POLICY */
+                <div className="w-full h-[220px] bg-[#FAFBFD] rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mb-3">
+                    <BarChart3 className="w-6 h-6" />
                   </div>
-                )}
-              </div>
+                  <h4 className="text-sm font-bold text-slate-800 mb-1">
+                    {isVi ? 'Chưa Có Dữ Liệu Xu Hướng' : 'No Trend Data Available'}
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-md mb-4 leading-relaxed">
+                    {selectedEyeFilter !== 'ALL'
+                      ? (isVi
+                          ? `Chưa ghi nhận ca khám hoàn tất cho ${selectedEyeFilter === 'OD' ? 'Mắt phải (OD)' : 'Mắt trái (OS)'}. Vui lòng tải ảnh chụp để xây dựng biểu đồ theo dõi.`
+                          : `No completed screenings recorded for ${selectedEyeFilter === 'OD' ? 'Right Eye (OD)' : 'Left Eye (OS)'}. Upload an image to start tracking.`)
+                      : (isVi
+                          ? 'Hệ thống chưa ghi nhận ca khám hoàn tất nào để dựng đồ thị diễn tiến. Hãy chụp và phân tích ảnh đáy mắt để bắt đầu theo dõi sức khỏe vi mạch.'
+                          : 'No completed screenings recorded yet. Upload and analyze a fundus image to begin longitudinal vascular tracking.')}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => onNavigate('upload-scan')}
+                    icon={<UploadCloud className="w-3.5 h-3.5" />}
+                  >
+                    {isVi ? 'Tải Ảnh Phân Tích Ngay' : 'Upload & Analyze Now'}
+                  </Button>
+                </div>
+              ) : (
+                /* Combo Bar & Line Chart (Biểu Đồ Cột + Đường) */
+                <div className="relative w-full h-[250px] bg-gradient-to-b from-[#FAFBFD] to-[#F7F9FC] rounded-2xl p-4 border border-[#EAECF0] overflow-hidden">
+                  <svg
+                    viewBox="0 0 600 200"
+                    className="w-full h-full overflow-visible"
+                    preserveAspectRatio="none"
+                  >
+                    <defs>
+                      {/* Bar Gradients for 4 Risk Tiers */}
+                      <linearGradient id="barGradLow" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#34D399" />
+                        <stop offset="100%" stopColor="#059669" />
+                      </linearGradient>
+                      <linearGradient id="barGradMod" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#FBBF24" />
+                        <stop offset="100%" stopColor="#D97706" />
+                      </linearGradient>
+                      <linearGradient id="barGradHigh" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#FB923C" />
+                        <stop offset="100%" stopColor="#EA580C" />
+                      </linearGradient>
+                      <linearGradient id="barGradCrit" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#F87171" />
+                        <stop offset="100%" stopColor="#DC2626" />
+                      </linearGradient>
+                      {/* Line Area Gradient */}
+                      <linearGradient id="comboAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.22" />
+                        <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.01" />
+                      </linearGradient>
+                    </defs>
 
-              {/* Chart Legend & Indicators */}
-              <div className="flex flex-wrap items-center justify-between text-xs text-[#667085] pt-1">
-                <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-[#3478F6]" />
-                    <span>{isVi ? 'Chỉ số nguy cơ tổng thể' : 'Vascular risk trajectory'}</span>
+                    {/* Horizontal Grid & Safe Boundary Lines */}
+                    {(() => {
+                      const paddingLeft = 50;
+                      const paddingRight = 35;
+                      const paddingTop = 25;
+                      const baselineY = 160;
+                      const plotHeight = 135;
+                      const plotWidth = 600 - paddingLeft - paddingRight;
+                      const safeY = baselineY - (40 / 100) * plotHeight;
+                      const highY = baselineY - (65 / 100) * plotHeight;
+                      const topY = paddingTop;
+
+                      return (
+                        <>
+                          {/* Reference Guide Lines */}
+                          <line x1={paddingLeft} y1={topY} x2={600 - paddingRight} y2={topY} stroke="#EAECF0" strokeDasharray="3 3" />
+                          <line x1={paddingLeft} y1={highY} x2={600 - paddingRight} y2={highY} stroke="#EAECF0" strokeDasharray="3 3" />
+                          <line x1={paddingLeft} y1={safeY} x2={600 - paddingRight} y2={safeY} stroke="#10B981" strokeWidth="1.5" strokeDasharray="4 4" opacity="0.85" />
+                          <line x1={paddingLeft} y1={baselineY} x2={600 - paddingRight} y2={baselineY} stroke="#CBD5E1" strokeWidth="1.5" />
+
+                          {/* Y-axis Labels */}
+                          <text x={paddingLeft - 8} y={topY + 4} textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data font-semibold">100</text>
+                          <text x={paddingLeft - 8} y={highY + 4} textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data font-semibold">65</text>
+                          <text x={paddingLeft - 8} y={safeY + 4} textAnchor="end" className="text-[10px] fill-[#10B981] font-mono-data font-bold">40</text>
+                          <text x={paddingLeft - 8} y={baselineY + 4} textAnchor="end" className="text-[10px] fill-[#98A2B3] font-mono-data font-semibold">0</text>
+
+                          {/* Safe boundary badge */}
+                          <text x={600 - paddingRight + 5} y={safeY + 3} textAnchor="start" className="text-[9px] fill-[#10B981] font-bold">
+                            ≤40
+                          </text>
+                        </>
+                      );
+                    })()}
+
+                    {/* Bars & Line Path Calculation */}
+                    {(() => {
+                      const paddingLeft = 50;
+                      const paddingRight = 35;
+                      const paddingTop = 25;
+                      const baselineY = 160;
+                      const plotHeight = 135;
+                      const plotWidth = 600 - paddingLeft - paddingRight;
+
+                      const points = trendPoints.map((pt, i) => {
+                        let x: number;
+                        if (trendPoints.length === 1) {
+                          x = paddingLeft + plotWidth / 2;
+                        } else {
+                          const sideMargin = Math.min(45, plotWidth / (trendPoints.length * 2.5));
+                          const usableWidth = plotWidth - 2 * sideMargin;
+                          x = paddingLeft + sideMargin + (i / (trendPoints.length - 1)) * usableWidth;
+                        }
+
+                        const scoreVal = Math.min(100, Math.max(0, pt.score));
+                        const y = baselineY - (scoreVal / 100) * plotHeight;
+                        const barWidth = Math.min(44, Math.max(18, (plotWidth / Math.max(trendPoints.length, 3)) * 0.42));
+                        const barX = x - barWidth / 2;
+                        const barHeight = Math.max(4, baselineY - y);
+
+                        return {
+                          ...pt,
+                          x,
+                          y,
+                          barX,
+                          barWidth,
+                          barHeight,
+                        };
+                      });
+
+                      // Spline Line Path (for 2+ points)
+                      const pathD = points.reduce((acc, pt, idx) => {
+                        if (idx === 0) return `M ${pt.x} ${pt.y}`;
+                        const prev = points[idx - 1];
+                        const cpX1 = prev.x + (pt.x - prev.x) / 2;
+                        const cpX2 = cpX1;
+                        return `${acc} C ${cpX1} ${prev.y}, ${cpX2} ${pt.y}, ${pt.x} ${pt.y}`;
+                      }, '');
+
+                      const areaD =
+                        points.length > 1
+                          ? `${pathD} L ${points[points.length - 1].x} ${baselineY} L ${points[0].x} ${baselineY} Z`
+                          : '';
+
+                      return (
+                        <>
+                          {/* Translucent Area Fill Under Trend Curve */}
+                          {areaD && <path d={areaD} fill="url(#comboAreaGrad)" />}
+
+                          {/* 1. CỘT (BARS) - Render for each screening */}
+                          {points.map((pt, i) => {
+                            const isHovered = hoveredPointIndex === i;
+                            const barFill =
+                              pt.score < 40
+                                ? 'url(#barGradLow)'
+                                : pt.score < 65
+                                ? 'url(#barGradMod)'
+                                : pt.score < 80
+                                ? 'url(#barGradHigh)'
+                                : 'url(#barGradCrit)';
+
+                            return (
+                              <g
+                                key={`bar-${pt.id}`}
+                                onMouseEnter={() => setHoveredPointIndex(i)}
+                                onMouseLeave={() => setHoveredPointIndex(null)}
+                                className="cursor-pointer"
+                              >
+                                {/* Vertical Bar */}
+                                <rect
+                                  x={pt.barX}
+                                  y={pt.y}
+                                  width={pt.barWidth}
+                                  height={pt.barHeight}
+                                  rx="6"
+                                  ry="6"
+                                  fill={barFill}
+                                  opacity={isHovered ? 1 : 0.88}
+                                  stroke={isHovered ? '#1E293B' : 'none'}
+                                  strokeWidth={isHovered ? 1.5 : 0}
+                                  className="transition-all duration-200"
+                                />
+
+                                {/* Score Value Text on Top of Bar */}
+                                <text
+                                  x={pt.x}
+                                  y={pt.y - 7}
+                                  textAnchor="middle"
+                                  className="text-[10px] font-bold font-mono-data fill-slate-700"
+                                >
+                                  {pt.score}
+                                </text>
+
+                                {/* X-axis Primary Date */}
+                                <text
+                                  x={pt.x}
+                                  y={baselineY + 16}
+                                  textAnchor="middle"
+                                  className="text-[10px] font-semibold fill-slate-600"
+                                >
+                                  {pt.date}
+                                </text>
+
+                                {/* X-axis Secondary Time (Disambiguation) */}
+                                {pt.time && (
+                                  <text
+                                    x={pt.x}
+                                    y={baselineY + 28}
+                                    textAnchor="middle"
+                                    className="text-[9px] font-mono-data fill-slate-400"
+                                  >
+                                    {pt.time}
+                                  </text>
+                                )}
+                              </g>
+                            );
+                          })}
+
+                          {/* 2. ĐƯỜNG (LINE) - Spline trend trajectory traversing bars */}
+                          {points.length > 1 && (
+                            <path
+                              d={pathD}
+                              fill="none"
+                              stroke="#2563EB"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          )}
+
+                          {/* Single Point Horizontal Indicator if only 1 scan */}
+                          {points.length === 1 && (
+                            <line
+                              x1={points[0].x - 45}
+                              y1={points[0].y}
+                              x2={points[0].x + 45}
+                              y2={points[0].y}
+                              stroke="#2563EB"
+                              strokeWidth="2"
+                              strokeDasharray="4 3"
+                            />
+                          )}
+
+                          {/* 3. ĐIỂM NÚT (DATA NODES) */}
+                          {points.map((pt, i) => {
+                            const isHovered = hoveredPointIndex === i;
+                            return (
+                              <g
+                                key={`node-${pt.id}`}
+                                onMouseEnter={() => setHoveredPointIndex(i)}
+                                onMouseLeave={() => setHoveredPointIndex(null)}
+                                className="cursor-pointer"
+                              >
+                                {isHovered && (
+                                  <circle
+                                    cx={pt.x}
+                                    cy={pt.y}
+                                    r={11}
+                                    fill="#2563EB"
+                                    opacity="0.2"
+                                    className="animate-pulse"
+                                  />
+                                )}
+                                <circle
+                                  cx={pt.x}
+                                  cy={pt.y}
+                                  r={isHovered ? 6.5 : 4.5}
+                                  fill="#FFFFFF"
+                                  stroke="#2563EB"
+                                  strokeWidth="2.5"
+                                  className="transition-all"
+                                />
+                              </g>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
+                  </svg>
+
+                  {/* Interactive Tooltip Overlay */}
+                  {hoveredPointIndex !== null && trendPoints[hoveredPointIndex] && (
+                    <div
+                      className="absolute z-20 top-3 right-4 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-md text-xs pointer-events-none transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-1.5 mb-1.5">
+                        <span className="font-semibold text-slate-700">
+                          {trendPoints[hoveredPointIndex].date} {trendPoints[hoveredPointIndex].time}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                          {trendPoints[hoveredPointIndex].eye === 'OS'
+                            ? (isVi ? 'Mắt trái (OS)' : 'Left Eye (OS)')
+                            : (isVi ? 'Mắt phải (OD)' : 'Right Eye (OD)')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-500">{isVi ? 'Điểm nguy cơ:' : 'Risk score:'}</span>
+                        <strong className="text-slate-900 font-mono-data font-bold text-sm">
+                          {trendPoints[hoveredPointIndex].score}/100
+                        </strong>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            trendPoints[hoveredPointIndex].score < 40
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : trendPoints[hoveredPointIndex].score < 65
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : trendPoints[hoveredPointIndex].score < 80
+                              ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}
+                        >
+                          {trendPoints[hoveredPointIndex].level}
+                        </span>
+                      </div>
+                      {trendPoints[hoveredPointIndex].doctorReviewed && (
+                        <div className="mt-1.5 text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{isVi ? 'Đã được bác sĩ xác nhận' : 'Clinician verified'}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Chart Legend & Clinical Indicators */}
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 pt-1 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* Cột legend */}
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-3 h-3 rounded-xs bg-gradient-to-t from-emerald-600 to-amber-500 border border-slate-300" />
+                    <span>{isVi ? 'Cột: Điểm nguy cơ ca khám' : 'Bars: Screening risk score'}</span>
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-3 h-0.5 bg-[#22C55E] border-t border-dashed border-[#22C55E]" />
-                    <span>{isVi ? 'Ngưỡng an toàn (< 40)' : 'Safe boundary (< 40)'}</span>
+                  {/* Đường legend */}
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-4 h-0.5 bg-blue-600 relative inline-flex items-center justify-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white border border-blue-600 absolute" />
+                    </span>
+                    <span>{isVi ? 'Đường: Xu hướng diễn tiến' : 'Line: Risk trajectory'}</span>
+                  </span>
+                  {/* Ngưỡng an toàn legend */}
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-4 h-0.5 border-t-2 border-dashed border-emerald-500" />
+                    <span>{isVi ? 'Ngưỡng an toàn (< 40)' : 'Safe limit (< 40)'}</span>
                   </span>
                 </div>
-                <span className="text-[11px] text-[#98A2B3]">
-                  {isVi ? 'Chuẩn hóa theo phân tầng nhãn khoa quốc tế' : 'Normalized clinical scale'}
+                <span className="text-[11px] text-slate-400 font-mono-data">
+                  {trendPoints.length > 0
+                    ? (isVi
+                        ? `${trendPoints.length} ca khám được ghi nhận`
+                        : `${trendPoints.length} recorded screening(s)`)
+                    : (isVi ? 'Chưa có ca khám' : '0 screenings')}
                 </span>
               </div>
             </div>

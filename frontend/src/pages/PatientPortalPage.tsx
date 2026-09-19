@@ -1693,7 +1693,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">{isVi ? "Cơ sở y tế:" : "Hospital:"}</span>
                       <span className="font-semibold text-slate-700 truncate max-w-[140px] text-right">
-                        {patient.assignedDoctor?.organization || (isVi ? "Bệnh viện AURA Clinic" : "AURA Clinic Hospital")}
+                        {(typeof patient.assignedDoctor === 'object' ? patient.assignedDoctor?.organization : null) || (isVi ? "Bệnh viện AURA Clinic" : "AURA Clinic Hospital")}
                       </span>
                     </div>
                   </div>

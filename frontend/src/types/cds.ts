@@ -37,8 +37,11 @@ export interface PatientProfile {
   allergies?: string | null;
   emergencyContactName?: string | null;
   emergencyContactPhone?: string | null;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  bmi?: number | null;
   lastExamDate?: string | null;
-  assignedDoctor?: string | null;
+  assignedDoctor?: string | any | null;
   updatedAt?: string | null;
   riskLevel?: RiskLevel | 'Alarm' | 'Normal';
   riskScore?: number;

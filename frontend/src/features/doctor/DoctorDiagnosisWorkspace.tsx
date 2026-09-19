@@ -25,6 +25,7 @@ import {
   Check,
   RotateCcw,
   SlidersHorizontal,
+  UploadCloud,
 } from 'lucide-react';
 import { PatientProfile, AIRiskResult, DoctorFeedback, RiskLevel } from '../../types/cds';
 import { useAuth } from '../../context/AuthContext';
@@ -34,12 +35,13 @@ import { InteractiveCDSViewer } from '../../components/InteractiveCDSViewer';
 export interface DoctorDiagnosisWorkspaceProps {
   activePatient: PatientProfile;
   analysisResult: AIRiskResult;
-  assignedPatients?: PatientProfile[];
-  onSelectPatient?: (patient: PatientProfile) => void;
+  assignedPatients?: any[];
+  onSelectPatient?: (patient: any) => void;
   onSaveFeedback: (feedback: DoctorFeedback) => Promise<void>;
   onOpenReportModal?: () => void;
   onOpenChatModal?: () => void;
   onOpenProfileModal?: () => void;
+  onNewScanClick?: () => void;
 }
 
 const COMMON_ICD10_CODES = [
@@ -81,6 +83,7 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
   onOpenReportModal,
   onOpenChatModal,
   onOpenProfileModal,
+  onNewScanClick,
 }) => {
   const { user } = useAuth();
   const { t, isVi } = useLanguage();
@@ -278,6 +281,17 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
 
         {/* Action Icons */}
         <div className="flex items-center gap-2 shrink-0">
+          {onNewScanClick && (
+            <button
+              type="button"
+              onClick={onNewScanClick}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] hover:bg-[#DBEAFE] transition-colors cursor-pointer shadow-2xs"
+              title={isVi ? "Tải ảnh sàng lọc mới cho bệnh nhân này" : "Upload new scan for this patient"}
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{isVi ? "Tải ảnh mới" : "New Scan"}</span>
+            </button>
+          )}
           {onOpenChatModal && (
             <button
               type="button"
@@ -349,13 +363,15 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
           {/* Patient list */}
           <div className="flex-1 overflow-y-auto py-2 space-y-1">
             {assignedPatients.map((p) => {
-              const isSelected = p.id === activePatient.id || p.mrn === activePatient.mrn;
+              const pId = p.id || p.patientId || p.userId;
+              const isSelected = (pId && (pId === activePatient.id || pId === activePatient.userId)) || (p.mrn && p.mrn === activePatient.mrn);
               const initials = (p.fullName || 'P').charAt(0).toUpperCase();
+              const riskStr = String(p.riskLevel || p.latestRiskLevel || '').toUpperCase();
 
               if (isSidebarCollapsed) {
                 return (
                   <button
-                    key={p.id || p.mrn}
+                    key={pId || p.mrn}
                     type="button"
                     onClick={() => onSelectPatient?.(p)}
                     className={`w-9 h-9 mx-auto rounded-xl flex items-center justify-center font-bold text-xs transition-all relative ${
@@ -366,17 +382,16 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
                     title={`${p.fullName || 'Bệnh nhân'} (${p.mrn || 'N/A'})`}
                   >
                     {initials}
-                    {String(p.riskLevel).toUpperCase() === 'CRITICAL' || String(p.riskLevel).toUpperCase() === 'HIGH' || String(p.riskLevel).toUpperCase() === 'SEVERE' ? (
+                    {riskStr === 'CRITICAL' || riskStr === 'HIGH' || riskStr === 'SEVERE' ? (
                       <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
                     ) : null}
                   </button>
                 );
               }
 
-              const upperRisk = String(p.riskLevel || '').toUpperCase();
               return (
                 <button
-                  key={p.id || p.mrn}
+                  key={pId || p.mrn}
                   type="button"
                   onClick={() => onSelectPatient?.(p)}
                   className={`w-full px-3 py-2 text-left transition-colors flex items-center justify-between text-xs ${
@@ -391,14 +406,14 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
                   </div>
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                      upperRisk === 'CRITICAL' || upperRisk === 'SEVERE'
+                      riskStr === 'CRITICAL' || riskStr === 'SEVERE'
                         ? 'bg-rose-100 text-rose-700'
-                        : upperRisk === 'HIGH'
+                        : riskStr === 'HIGH'
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-emerald-100 text-emerald-800'
                     }`}
                   >
-                    {p.riskLevel || 'Normal'}
+                    {p.riskLevel || p.latestRiskLevel || 'Normal'}
                   </span>
                 </button>
               );

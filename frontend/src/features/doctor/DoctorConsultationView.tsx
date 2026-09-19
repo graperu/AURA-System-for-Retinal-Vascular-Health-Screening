@@ -315,13 +315,14 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                 {t('doctor.consultation.noPatients', 'Không tìm thấy bệnh nhân nào.')}
               </div>
             ) : (
-              filteredPatients.map((p) => {
-                const isSelected = p.patientId === selectedPatientId;
+              filteredPatients.map((p, idx) => {
+                const pId = p.patientId || (p as any).id || (p as any).userId;
+                const isSelected = pId === selectedPatientId;
                 return (
                   <button
-                    key={p.patientId}
+                    key={pId || `pat-${idx}`}
                     type="button"
-                    onClick={() => setSelectedPatientId(p.patientId)}
+                    onClick={() => setSelectedPatientId(pId)}
                     className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
                       isSelected
                         ? 'bg-[#EEF5FF] border-l-4 border-l-[#3478F6] shadow-xs'
