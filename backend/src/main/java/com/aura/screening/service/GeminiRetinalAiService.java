@@ -106,8 +106,16 @@ public class GeminiRetinalAiService {
              - Xuất tiết cứng (Hard_Exudate): các mảng/đốm màu vàng sáng có bờ sắc nét quanh hoàng điểm hoặc cung mạch.
              - Bắt chéo động - tĩnh mạch (AV_Nipping): co thắt hoặc đè bẹp tĩnh mạch tại vị trí bắt chéo.
              - Co thắt khu trú (Focal_Narrowing): lòng tiểu động mạch bị thu hẹp cục bộ.
-          5. Bản đồ tọa độ tổn thương vi mạch (detectedAnomalies):
-             - ĐỊNH VỊ CHÍNH XÁC tọa độ (x, y theo % từ 0 - 100) của TỪNG tổn thương nhìn thấy trên ảnh.
+          5. Định vị chính xác mốc giải phẫu học đáy mắt (anatomicalLandmarks):
+             - Gai thị (opticDisc): Vùng đĩa thị sáng tròn/bầu dục hội tụ các thân mạch máu chính.
+               + Với Mắt Phải (OD): Gai thị nằm ở phía mũi (bên phải ảnh, x: 62.0% - 76.0%, y: 46.0% - 56.0%).
+               + Với Mắt Trái (OS): Gai thị nằm ở phía mũi (bên trái ảnh, x: 24.0% - 38.0%, y: 46.0% - 56.0%).
+             - Hố hoàng điểm (fovea): Vùng vô mạch sắc tố sẫm trung tâm hoàng điểm, nằm về phía thái dương so với gai thị:
+               + Với Mắt Phải (OD): Nằm bên trái gai thị (x: 38.0% - 48.0%, y: 48.0% - 55.0%).
+               + Với Mắt Trái (OS): Nằm bên phải gai thị (x: 52.0% - 62.0%, y: 48.0% - 55.0%).
+          6. Bản đồ tọa độ tổn thương vi mạch (detectedAnomalies):
+             - ĐỊNH VỊ CHÍNH XÁC tọa độ (x, y theo % từ 0 - 100) của TỪNG tổn thương bệnh lý nhìn thấy trên ảnh.
+             - Tuyệt đối KHÔNG gắn gai thị hay hoàng điểm thành tổn thương (anomaly).
              - Ví dụ:
                "detectedAnomalies": [
                  {
@@ -169,6 +177,10 @@ public class GeminiRetinalAiService {
                 "clinicalNote": "Không phát hiện vi phình mạch hoặc xuất huyết võng mạc, vùng hoàng điểm phẳng và sáng."
               }
             ],
+            "anatomicalLandmarks": {
+              "opticDisc": { "x": 65.4, "y": 52.8, "diameter": 14.0 },
+              "fovea": { "x": 42.1, "y": 51.5 }
+            },
             "detectedAnomalies": [],
             "biomarkers": {
               "avRatio": 0.66,

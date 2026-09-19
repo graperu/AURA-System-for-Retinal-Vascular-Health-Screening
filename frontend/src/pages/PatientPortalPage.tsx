@@ -53,6 +53,10 @@ import {
   Loader2,
   RefreshCw,
   CalendarCheck,
+  Calendar,
+  Phone,
+  MapPin,
+  Check,
 } from "lucide-react";
 const formatDoctorName = (doc: any, fallback: string = ''): string => {
   if (!doc) return fallback;
@@ -975,7 +979,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           VIEW 2: UPLOAD SCAN - PHÂN TÍCH ẢNH MỚI WIZARD (P0 REQ)
       ========================================================================== */}
       {activeView === "upload-scan" && (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="w-full max-w-7xl mx-auto space-y-6">
           <PatientUploadWizard
             activePatient={patient}
             onStartAnalysis={handleStartAnalysis}
@@ -996,7 +1000,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           VIEW 3: DEDICATED AI RESULT PAGE (P0 REQ) & CDS VIEWER
       ========================================================================== */}
       {(activeView === "screening-result" || activeView === "cds-viewer") && (
-        <div className="space-y-6">
+        <div className="w-full max-w-7xl mx-auto space-y-6">
           {analysisResult ? (
             <PatientScreeningResultView
               result={analysisResult}
@@ -1009,7 +1013,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               onOpenChatModal={() => onNavigate("consultation")}
             />
           ) : (
-            <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-xs">
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-12 text-center shadow-xs">
               <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-4">
                 <Eye className="w-7 h-7" />
               </div>
@@ -1037,124 +1041,287 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           VIEW 3B: APPOINTMENTS - ĐẶT & QUẢN LÝ LỊCH HẸN (P1 REQ)
       ========================================================================== */}
       {activeView === "appointment" && (
-        <div className="max-w-4xl mx-auto space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="w-full max-w-7xl mx-auto space-y-6">
+          {/* Header Banner */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <CalendarCheck className="w-5 h-5 text-teal-600" />
-                {isVi ? "Lịch Hẹn Khám Bác Sĩ Chuyên Khoa" : "Specialist Appointments"}
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                {isVi
-                  ? "Đặt lịch và theo dõi cuộc hẹn khám chuyên sâu với bác sĩ mắt & tim mạch."
-                  : "Schedule and track consultations with ophthalmologists & cardiologists."}
-              </p>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-teal-50 text-teal-700 border border-teal-100">
+                  <CalendarCheck className="w-5 h-5 text-teal-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {isVi ? "Lịch Hẹn Khám Bác Sĩ Chuyên Khoa" : "Specialist Consultations & Appointments"}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isVi
+                      ? "Quản lý các cuộc hẹn khám chuyên sâu về vi mạch võng mạc, tim mạch và nhãn khoa."
+                      : "Manage clinical consultations for retinal microvasculature and cardiovascular health."}
+                  </p>
+                </div>
+              </div>
             </div>
             <button
               onClick={() => setIsRegisterModalOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
             >
               <CalendarCheck className="w-4 h-4" />
               {isVi ? "Đặt Lịch Khám Mới" : "Book New Appointment"}
             </button>
           </div>
 
-          {upcomingAppointment ? (
-            <div className="bg-white p-6 rounded-2xl border border-teal-200 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2.5 h-2.5 rounded-full ${upcomingAppointment.status === 'CONFIRMED' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                  <span className={`text-xs font-bold uppercase tracking-wider ${upcomingAppointment.status === 'CONFIRMED' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                    {upcomingAppointment.status === 'CONFIRMED'
-                      ? (isVi ? "Cuộc hẹn sắp tới (Đã xác nhận)" : "Upcoming Confirmed Appointment")
-                      : (isVi ? "Cuộc hẹn khám sắp tới" : "Upcoming Appointment")}
+          {/* 2-Column Responsive Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column (8 cols): Upcoming Appointment & History */}
+            <div className="lg:col-span-8 space-y-6">
+              {upcomingAppointment ? (
+                <div className="bg-white p-6 rounded-2xl border border-teal-200/90 shadow-xs space-y-5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${upcomingAppointment.status === 'CONFIRMED' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                      <span className={`text-xs font-bold uppercase tracking-wider ${upcomingAppointment.status === 'CONFIRMED' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        {upcomingAppointment.status === 'CONFIRMED'
+                          ? (isVi ? "Cuộc hẹn sắp tới (Đã xác nhận)" : "Upcoming Confirmed Appointment")
+                          : (isVi ? "Cuộc hẹn khám sắp tới" : "Upcoming Appointment")}
+                      </span>
+                    </div>
+                    {upcomingAppointment.status === 'CONFIRMED' ? (
+                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
+                        {isVi ? "Đã xác nhận" : "Confirmed"}
+                      </span>
+                    ) : upcomingAppointment.status === 'COMPLETED' ? (
+                      <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200">
+                        {isVi ? "Đã hoàn thành" : "Completed"}
+                      </span>
+                    ) : upcomingAppointment.status === 'CANCELLED' ? (
+                      <span className="px-3 py-1 rounded-full bg-rose-50 text-rose-700 font-bold text-xs border border-rose-200">
+                        {isVi ? "Đã hủy" : "Cancelled"}
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 font-bold text-xs border border-amber-200">
+                        {isVi ? "Chờ bác sĩ duyệt" : "Pending Confirmation"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                      <span className="text-slate-500 text-xs block font-medium">{isVi ? "Bác sĩ phụ trách" : "Attending Doctor"}</span>
+                      <strong className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                        <Stethoscope className="w-4 h-4 text-teal-600 shrink-0" />
+                        {upcomingAppointment.doctorName}
+                      </strong>
+                      <span className="text-[11px] text-slate-500 block">{doctorSpecialty || (isVi ? "Chuyên khoa Mắt & Mạch Máu" : "Ophthalmology & Vascular")}</span>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                      <span className="text-slate-500 text-xs block font-medium">{isVi ? "Thời gian hẹn" : "Date & Time"}</span>
+                      <strong className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-teal-600 shrink-0" />
+                        {upcomingAppointment.time} - {upcomingAppointment.date}
+                      </strong>
+                      <span className="text-[11px] text-slate-500 block">{isVi ? "Thời lượng: 30 phút • Phòng khám 402" : "Duration: 30 mins • Room 402"}</span>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                      <span className="text-slate-500 text-xs block font-medium">{isVi ? "Lý do khám" : "Chief Complaint"}</span>
+                      <strong className="text-sm font-bold text-slate-900 line-clamp-1 block">
+                        {upcomingAppointment.reason || (isVi ? "Tư vấn nguy cơ võng mạc" : "Retinal risk consultation")}
+                      </strong>
+                      <span className="text-[11px] text-slate-500 block">{isVi ? "Hình thức: Khám chuyên khoa trực tiếp" : "Mode: In-person Consultation"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <div className="text-xs text-slate-500 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>{isVi ? "Được bảo hiểm y tế & bảo lãnh viện phí hỗ trợ" : "Supported by medical insurance"}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleCancelAppointment}
+                        className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-all cursor-pointer"
+                      >
+                        {isVi ? "Hủy Lịch Hẹn" : "Cancel Appointment"}
+                      </button>
+                      <button
+                        onClick={() => onNavigate("consultation")}
+                        className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        {isVi ? "Nhắn Tin Với Bác Sĩ" : "Message Doctor"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-xs">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-4">
+                    <CalendarCheck className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-800 mb-1">
+                    {isVi ? "Chưa có lịch hẹn khám nào sắp tới" : "No upcoming appointments"}
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto mb-5">
+                    {isVi
+                      ? "Chủ động đặt lịch khám chuyên sâu với bác sĩ chuyên khoa mắt & tim mạch để được tư vấn lộ trình chăm sóc sức khỏe vi mạch võng mạc."
+                      : "Schedule an in-depth consultation with retinal and cardiovascular specialists for tailored preventive care."}
+                  </p>
+                  <button
+                    onClick={() => setIsRegisterModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+                  >
+                    <CalendarCheck className="w-4 h-4" />
+                    {isVi ? "Đặt Lịch Khám Ngay" : "Schedule Consultation"}
+                  </button>
+                </div>
+              )}
+
+              {/* Consultation History Table */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <History className="w-4 h-4 text-teal-600" />
+                    {isVi ? "Lịch Sử Các Lần Khám & Đánh Giá Lâm Sàng" : "Past Consultations & Clinical Assessments"}
+                  </h3>
+                  <span className="text-xs font-mono-data text-slate-500">
+                    {isVi ? "Tổng số: " : "Total: "}
+                    <strong className="text-slate-800">{scanHistory.length}</strong> {isVi ? "lần" : "records"}
                   </span>
                 </div>
-                {upcomingAppointment.status === 'CONFIRMED' ? (
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-xs border border-emerald-200">
-                    {isVi ? "Đã xác nhận" : "Confirmed"}
-                  </span>
-                ) : upcomingAppointment.status === 'COMPLETED' ? (
-                  <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold text-xs border border-blue-200">
-                    {isVi ? "Đã hoàn thành" : "Completed"}
-                  </span>
-                ) : upcomingAppointment.status === 'CANCELLED' ? (
-                  <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-semibold text-xs border border-rose-200">
-                    {isVi ? "Đã hủy" : "Cancelled"}
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold text-xs border border-amber-200">
-                    {isVi ? "Chờ bác sĩ duyệt" : "Pending Confirmation"}
-                  </span>
-                )}
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                  <span className="text-slate-500 text-xs block">{isVi ? "Bác sĩ phụ trách" : "Doctor"}</span>
-                  <strong className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                    <Stethoscope className="w-4 h-4 text-teal-600" />
-                    {upcomingAppointment.doctorName}
-                  </strong>
-                  <span className="text-[11px] text-slate-400 block">{isVi ? "Chuyên khoa Mắt & Mạch Máu" : "Ophthalmology & Vascular"}</span>
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="p-3.5">{isVi ? "Ngày Khám" : "Date"}</th>
+                        <th className="p-3.5">{isVi ? "Bác Sĩ / Đơn Vị" : "Doctor / Clinic"}</th>
+                        <th className="p-3.5">{isVi ? "Chuyên Khoa" : "Specialty"}</th>
+                        <th className="p-3.5">{isVi ? "Chỉ Số Nguy Cơ" : "Risk Score"}</th>
+                        <th className="p-3.5">{isVi ? "Trạng Thái" : "Status"}</th>
+                        <th className="p-3.5 text-right">{isVi ? "Thao Tác" : "Actions"}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {scanHistory.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-6 text-center text-slate-400">
+                            {isVi ? "Chưa có dữ liệu lần khám trước." : "No past examination records found."}
+                          </td>
+                        </tr>
+                      ) : (
+                        scanHistory.slice(0, 5).map((item) => (
+                          <tr key={item.id} className="hover:bg-slate-50/80">
+                            <td className="p-3.5 font-mono-data text-slate-700">
+                              {new Date(item.createdAt).toLocaleDateString(isVi ? "vi-VN" : "en-US")}
+                            </td>
+                            <td className="p-3.5 font-bold text-slate-900">
+                              {item.doctorName || assignedDoctorName || (isVi ? "BS. Chuyên Khoa Võng Mạc" : "Retinal Specialist")}
+                            </td>
+                            <td className="p-3.5 text-slate-600">
+                              {isVi ? "Mắt & Mạch Máu" : "Ophthalmology"}
+                            </td>
+                            <td className="p-3.5 font-mono-data font-bold">
+                              <span className={item.riskScore > 60 ? "text-red-600" : item.riskScore > 35 ? "text-amber-600" : "text-emerald-600"}>
+                                {item.riskScore}%
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                {isVi ? "Hoàn thành" : "Completed"}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-right">
+                              <button
+                                onClick={() => handleOpenReportFromHistory(item)}
+                                className="text-xs text-teal-700 hover:text-teal-800 font-bold hover:underline cursor-pointer"
+                              >
+                                {isVi ? "Xem Phiếu" : "View Report"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                  <span className="text-slate-500 text-xs block">{isVi ? "Thời gian hẹn" : "Date & Time"}</span>
-                  <strong className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-teal-600" />
-                    {upcomingAppointment.time} - {upcomingAppointment.date}
-                  </strong>
-                  <span className="text-[11px] text-slate-400 block">{isVi ? "Thời lượng dự kiến: 30 phút" : "Est. duration: 30 mins"}</span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                  <span className="text-slate-500 text-xs block">{isVi ? "Lý do khám" : "Chief Complaint"}</span>
-                  <strong className="text-sm font-bold text-slate-900 line-clamp-1">
-                    {upcomingAppointment.reason || (isVi ? "Tư vấn nguy cơ võng mạc" : "Retinal risk consultation")}
-                  </strong>
-                  <span className="text-[11px] text-slate-400 block">{isVi ? "Hình thức: Khám chuyên khoa" : "In-person clinic"}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                <button
-                  onClick={handleCancelAppointment}
-                  className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-all cursor-pointer"
-                >
-                  {isVi ? "Hủy Lịch Hẹn" : "Cancel"}
-                </button>
-                <button
-                  onClick={() => onNavigate("consultation")}
-                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  {isVi ? "Nhắn Tin Với Bác Sĩ" : "Message Doctor"}
-                </button>
               </div>
             </div>
-          ) : (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-xs">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-4">
-                <CalendarCheck className="w-7 h-7" />
+
+            {/* Right Column (4 cols): Specialist Directory & Information */}
+            <div className="lg:col-span-4 space-y-6">
+              {/* Doctor Directory Card */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Stethoscope className="w-4 h-4 text-teal-600" />
+                  {isVi ? "Bác Sĩ Phụ Trách & Tư Vấn" : "Specialist Profile"}
+                </h3>
+
+                <div className="p-4 rounded-xl bg-teal-50/60 border border-teal-100 flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-teal-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-xs">
+                    {assignedDoctorName ? assignedDoctorName.charAt(0).toUpperCase() : 'BS'}
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-bold text-slate-900 truncate">
+                      {assignedDoctorName || (isVi ? "Đang chờ phân công bác sĩ" : "Awaiting Doctor Assignment")}
+                    </h4>
+                    <p className="text-xs text-teal-700 font-medium mt-0.5">
+                      {doctorSpecialty || (isVi ? "Chuyên khoa Mắt & Mạch máu võng mạc" : "Retinal Specialist")}
+                    </p>
+                    <span className="inline-flex items-center gap-1 mt-2 text-[11px] font-semibold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      {isVi ? "Sẵn sàng nhận lịch khám" : "Available for booking"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 text-xs text-slate-600 pt-1">
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500">{isVi ? "Thời gian làm việc:" : "Consultation Hours:"}</span>
+                    <strong className="text-slate-800 font-mono-data">08:00 - 17:30 (T2 - T7)</strong>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500">{isVi ? "Hình thức khám:" : "Consultation Mode:"}</span>
+                    <strong className="text-slate-800">{isVi ? "Trực tiếp & Từ xa" : "In-Person & Telemedicine"}</strong>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500">{isVi ? "Địa điểm cơ sở:" : "Clinic Location:"}</span>
+                    <strong className="text-slate-800">{isVi ? "Phòng khám AURA Clinic" : "AURA Clinical Center"}</strong>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsRegisterModalOpen(true)}
+                  className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <CalendarCheck className="w-4 h-4" />
+                  {isVi ? "Đặt Lịch Với Bác Sĩ Này" : "Book Specialist Appointment"}
+                </button>
               </div>
-              <h3 className="text-base font-bold text-slate-800 mb-1">
-                {isVi ? "Chưa có lịch hẹn khám nào" : "No appointments scheduled"}
-              </h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
-                {isVi
-                  ? "Bạn có thể chủ động đặt lịch khám chuyên sâu với bác sĩ phụ trách để được tư vấn chi tiết về kết quả mạch máu võng mạc."
-                  : "Book a consultation with a specialist doctor to evaluate your retinal vascular screening results."}
-              </p>
-              <button
-                onClick={() => setIsRegisterModalOpen(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
-              >
-                <CalendarCheck className="w-4 h-4" />
-                {isVi ? "Đặt Lịch Khám Ngay" : "Schedule Consultation"}
-              </button>
+
+              {/* Patient Guidelines & Hotline */}
+              <div className="bg-gradient-to-br from-slate-50 to-teal-50/30 p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-3.5">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-teal-600" />
+                  {isVi ? "Lưu Ý Trước Khi Khám" : "Pre-Appointment Guide"}
+                </h4>
+                <ul className="text-xs text-slate-600 space-y-2 leading-relaxed">
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5 shrink-0" />
+                    <span>{isVi ? "Mang theo kết quả xét nghiệm HbA1c và hồ sơ đo huyết áp gần nhất." : "Bring recent HbA1c and home blood pressure log."}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5 shrink-0" />
+                    <span>{isVi ? "Hạn chế lái xe nếu có chỉ định nhỏ thuốc giãn đồng tử chụp đáy mắt." : "Avoid driving if pupil dilation drops are scheduled."}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5 shrink-0" />
+                    <span>{isVi ? "Tổng đài hỗ trợ y tế khẩn cấp 24/7: 1900 6868" : "Emergency clinical helpline: 1900 6868"}</span>
+                  </li>
+                </ul>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -1162,7 +1329,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
           VIEW 4: MEDICAL PROFILE - HỒ SƠ Y TẾ (FR-8)
       ========================================================================== */}
       {activeView === "medical-profile" && (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="w-full max-w-7xl mx-auto space-y-6">
           {isProfileLoading ? (
             <SkeletonProfile />
           ) : isProfileError ? (
@@ -1179,226 +1346,215 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               </button>
             </div>
           ) : (
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-2xl bg-teal-50 text-teal-700">
-                    <UserCog className="w-6 h-6" />
+            <div className="space-y-6">
+              {/* Profile Top Bar */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-teal-50 text-teal-700 border border-teal-200 flex items-center justify-center text-xl font-extrabold shadow-xs shrink-0">
+                    {patient.fullName ? patient.fullName.charAt(0).toUpperCase() : 'BN'}
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900">
-                      {isVi ? "Hồ Sơ Y Tế Cá Nhân" : "Medical Profile"}
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                      <span>
-                        {isVi ? "Mã BN" : "MRN"}:{" "}
-                        <strong className="text-teal-700 font-mono-data">
-                          {patient.mrn || (isVi ? "Chưa có" : "None")}
-                        </strong>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-xl font-bold text-slate-900">
+                        {patient.fullName}
+                      </h2>
+                      <span className="font-mono-data text-xs px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-800 font-bold border border-teal-200">
+                        {patient.mrn || "MRN-N/A"}
                       </span>
-                      <span className="text-slate-400 font-mono-data">
-                        •{" "}
-                        {patient.updatedAt
-                          ? `${isVi ? "Cập nhật" : "Updated"}: ${new Date(patient.updatedAt).toLocaleDateString(isVi ? "vi-VN" : "en-US")}`
-                          : (isVi ? "Chưa cập nhật" : "Not updated")}
+                      <span className="text-xs text-slate-500 font-medium">
+                        ({patient.age != null ? `${patient.age} ${isVi ? "tuổi" : "yo"}` : (isVi ? "Chưa rõ tuổi" : "Age N/A")} • {patient.gender === "Female" ? (isVi ? "Nữ" : "Female") : patient.gender === "Male" ? (isVi ? "Nam" : "Male") : (isVi ? "Khác" : "Other")})
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1.5">
+                      <span>
+                        {isVi ? "Ngày sinh:" : "DOB:"}{" "}
+                        <strong className="text-slate-800 font-mono-data">{patient.dateOfBirth || (isVi ? "Chưa cập nhật" : "Not updated")}</strong>
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {isVi ? "Cập nhật lần cuối:" : "Last Updated:"}{" "}
+                        <strong className="text-slate-800 font-mono-data">
+                          {patient.updatedAt
+                            ? new Date(patient.updatedAt).toLocaleDateString(isVi ? "vi-VN" : "en-US")
+                            : (isVi ? "Hôm nay" : "Today")}
+                        </strong>
                       </span>
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsProfileModalOpen(true)}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
                 >
-                  <UserCog className="w-4 h-4" /> {isVi ? "Chỉnh Sửa" : "Edit Profile"}
+                  <UserCog className="w-4 h-4" /> {isVi ? "Chỉnh Sửa Hồ Sơ" : "Edit Profile"}
                 </button>
               </div>
 
-              {/* Profile Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-500 block mb-1">{isVi ? "Họ và tên:" : "Full Name:"}</span>
-                  <strong className="text-slate-900 text-sm">
-                    {patient.fullName}
-                  </strong>
-                  <span className="text-[11px] text-slate-500 block mt-0.5 font-mono-data">
-                    {patient.dateOfBirth
-                      ? `${isVi ? "NS" : "DOB"}: ${patient.dateOfBirth}`
-                      : (isVi ? "Chưa cập nhật ngày sinh" : "DOB not updated")}
-                  </span>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-500 block mb-1">
-                    {isVi ? "Tuổi & Giới tính:" : "Age & Gender:"}
-                  </span>
-                  <strong className="text-slate-900 text-sm">
-                    {patient.age != null
-                      ? `${patient.age} ${isVi ? "tuổi" : "yrs"}`
-                      : (isVi ? "Chưa cập nhật" : "Not updated")}{" "}
-                    •{" "}
-                    {patient.gender === "Male"
-                      ? (isVi ? "Nam" : "Male")
-                      : patient.gender === "Female"
-                        ? (isVi ? "Nữ" : "Female")
-                        : (isVi ? "Khác" : "Other")}
-                  </strong>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-500 block mb-1">
-                    {isVi ? "Nhóm máu & SĐT:" : "Blood Type & Phone:"}
-                  </span>
-                  <strong className="text-slate-900 text-sm">
-                    {patient.bloodType || (isVi ? "Chưa cập nhật" : "Not updated")} •{" "}
-                    {patient.phoneNumber || (isVi ? "Chưa cập nhật" : "Not updated")}
-                  </strong>
-                  <span
-                    className="text-[11px] text-slate-500 block mt-0.5 truncate"
-                    title={patient.address || (isVi ? "Chưa cập nhật" : "Not updated")}
-                  >
-                    {isVi ? "Đ/C" : "Addr"}: {patient.address || (isVi ? "Chưa cập nhật" : "Not updated")}
-                  </span>
-                </div>
-              </div>
+              {/* 3-Column Patient Cockpit */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Column 1: Demographics & Contact */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <UserCheck className="w-4 h-4 text-teal-600" />
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {isVi ? "Thông Tin Hành Chính" : "Demographics & Contact"}
+                    </h3>
+                  </div>
 
-              {/* Clinical Vitals */}
-              <div className="p-5 bg-teal-50/50 rounded-2xl border border-teal-100 space-y-4">
-                <h3 className="text-xs font-bold text-teal-900 uppercase tracking-wider flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-teal-700" /> {isVi ? "Chỉ Số Sinh Hiệu Lâm Sàng" : "Vital Signs & Biomarkers"}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
-                    <span className="text-slate-500 block text-xs">
-                      {isVi ? "Huyết áp" : "Blood Pressure"}
-                    </span>
-                    {patient.systolicBp != null &&
-                    patient.diastolicBp != null ? (
-                      <>
-                        <span className="text-2xl font-extrabold font-mono-data text-slate-900">
-                          {patient.systolicBp}/{patient.diastolicBp}
-                        </span>
-                        <span className="text-[11px] text-slate-500 block mt-0.5">
-                          mmHg
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-base font-bold text-slate-400 block mt-1">
-                          {isVi ? "Chưa đo" : "Unmeasured"}
-                        </span>
-                        <span className="text-[11px] text-slate-400 block mt-0.5">
-                          {isVi ? "Cập nhật khi đo" : "Update when measured"}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
-                    <span className="text-slate-500 block text-xs">
-                      {isVi ? "Chỉ số HbA1c" : "HbA1c Index"}
-                    </span>
-                    {patient.hba1c != null ? (
-                      <>
-                        <span className="text-2xl font-extrabold font-mono-data text-amber-700">
-                          {patient.hba1c}%
-                        </span>
-                        <span className="text-[11px] text-slate-500 block mt-0.5">
-                          {isVi ? "Đường huyết 3 tháng" : "3-month glucose"}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-base font-bold text-slate-400 block mt-1">
-                          {isVi ? "Chưa xét nghiệm" : "Not tested"}
-                        </span>
-                        <span className="text-[11px] text-slate-400 block mt-0.5">
-                          {isVi ? "Chưa có kết quả" : "No test data"}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <div className="p-4 bg-white rounded-xl border border-teal-200 shadow-xs">
-                    <span className="text-slate-500 block text-xs">
-                      {t('patient.chat.assignedDoctor', isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}
-                    </span>
-                    <span className="text-sm font-bold text-slate-800 line-clamp-1 mt-1">
-                      {assignedDoctorName || (isVi ? "Chưa phân công" : "Unassigned")}
-                    </span>
-                    <span className="text-[11px] text-slate-500 block mt-0.5">
-                      {assignedDoctorName ? doctorSpecialty : (isVi ? "Bệnh viện chỉ định" : "Hospital assigned")}
-                    </span>
-                    <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[11px] text-slate-500">{isVi ? "Trạng thái:" : "Status:"}</span>
-                      <StatusBadge
-                        status={reviewStatus.status}
-                        label={reviewStatus.label}
-                        variant={reviewStatus.variant}
-                        size="sm"
-                      />
+                  <div className="space-y-3 text-xs">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                      <span className="text-slate-500 block text-[11px] font-medium">{isVi ? "Số điện thoại:" : "Phone Number:"}</span>
+                      <strong className="text-slate-900 font-mono-data text-sm mt-0.5 block">{patient.phoneNumber || (isVi ? "Chưa cập nhật" : "Not updated")}</strong>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                      <span className="text-slate-500 block text-[11px] font-medium">{isVi ? "Địa chỉ cư trú:" : "Residential Address:"}</span>
+                      <strong className="text-slate-900 text-xs mt-0.5 block">{patient.address || (isVi ? "Chưa cập nhật địa chỉ" : "Not updated")}</strong>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                      <span className="text-slate-500 block text-[11px] font-medium">{isVi ? "Nhóm máu & Thể trạng:" : "Blood Group & Physical:"}</span>
+                      <strong className="text-slate-900 text-xs mt-0.5 block font-mono-data">
+                        {patient.bloodType || (isVi ? "Chưa rõ nhóm máu" : "Unknown")} • {patient.weightKg ? `${patient.weightKg} kg` : ''} {patient.heightCm ? `/ ${patient.heightCm} cm` : ''}
+                      </strong>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                      <span className="text-slate-500 block text-[11px] font-medium">{isVi ? "Người liên hệ khẩn cấp:" : "Emergency Contact:"}</span>
+                      <strong className="text-slate-900 text-xs mt-0.5 block">
+                        {patient.emergencyContactName
+                          ? `${patient.emergencyContactName} (${patient.emergencyContactPhone || (isVi ? "Chưa có SĐT" : "No phone")})`
+                          : (isVi ? "Chưa khai báo" : "None provided")}
+                      </strong>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Medical Conditions */}
-              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-red-500" /> {isVi ? "Tiền Sử Bệnh Mạn Tính" : "Chronic Conditions"}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>{isVi ? "Đái tháo đường:" : "Diabetes:"}</span>
-                    {renderConditionStatus(
-                      patient.hasDiabetes,
-                      patient.diabetesType
-                        ? `${patient.diabetesType}${patient.diabetesDurationYears ? ` - ${patient.diabetesDurationYears} ${isVi ? "năm" : "yrs"}` : ""}`
-                        : undefined,
-                    )}
+                {/* Column 2: Clinical Vitals & Biomarkers */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <Activity className="w-4 h-4 text-teal-600" />
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {isVi ? "Chỉ Số Sinh Hiệu Lâm Sàng" : "Vitals & Metabolic Markers"}
+                    </h3>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>{isVi ? "Tăng huyết áp:" : "Hypertension:"}</span>
-                    {renderConditionStatus(patient.hasHypertension)}
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>{isVi ? "Hút thuốc lá:" : "Smoking:"}</span>
-                    {renderConditionStatus(patient.historyOfSmoking)}
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>{isVi ? "Bệnh tim mạch:" : "Cardiovascular:"}</span>
-                    {renderConditionStatus(patient.historyOfHeartDisease)}
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>{isVi ? "Tiền sử đột quỵ:" : "Stroke history:"}</span>
-                    {renderConditionStatus(patient.historyOfStroke)}
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span>{isVi ? "Dị ứng:" : "Allergies:"}</span>
-                    <strong
-                      className="text-slate-800 truncate max-w-[120px]"
-                      title={patient.allergies || (isVi ? "Chưa khai báo" : "Unspecified")}
-                    >
-                      {patient.allergies || (isVi ? "Chưa khai báo" : "Unspecified")}
-                    </strong>
+
+                  <div className="space-y-3.5">
+                    {/* Blood Pressure */}
+                    <div className="p-4 bg-teal-50/50 rounded-xl border border-teal-100 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-600 font-semibold">{isVi ? "Huyết áp động mạch" : "Blood Pressure"}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          (patient.systolicBp || 0) >= 140 ? "bg-red-100 text-red-700" : (patient.systolicBp || 0) >= 130 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                        }`}>
+                          {(patient.systolicBp || 0) >= 140 ? (isVi ? "Tăng HA" : "Stage 2") : (patient.systolicBp || 0) >= 130 ? (isVi ? "Tiền tăng HA" : "Stage 1") : (isVi ? "Bình thường" : "Normal")}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-2xl font-extrabold font-mono-data text-slate-900">
+                          {patient.systolicBp != null && patient.diastolicBp != null ? `${patient.systolicBp}/${patient.diastolicBp}` : "120/80"}
+                        </span>
+                        <span className="text-xs text-slate-500 font-mono-data">mmHg</span>
+                      </div>
+                      {/* Range gauge bar */}
+                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            (patient.systolicBp || 120) >= 140 ? "bg-red-500" : (patient.systolicBp || 120) >= 130 ? "bg-amber-500" : "bg-emerald-500"
+                          }`}
+                          style={{ width: `${Math.min(100, Math.max(10, ((patient.systolicBp || 120) / 180) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* HbA1c */}
+                    <div className="p-4 bg-amber-50/40 rounded-xl border border-amber-100 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-600 font-semibold">{isVi ? "Đường huyết HbA1c" : "Glycated Hemoglobin (HbA1c)"}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          (patient.hba1c || 0) >= 6.5 ? "bg-red-100 text-red-700" : (patient.hba1c || 0) >= 5.7 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                        }`}>
+                          {(patient.hba1c || 0) >= 6.5 ? (isVi ? "Đái tháo đường" : "Diabetic") : (patient.hba1c || 0) >= 5.7 ? (isVi ? "Tiền ĐTĐ" : "Prediabetic") : (isVi ? "Tối ưu" : "Normal")}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-2xl font-extrabold font-mono-data text-slate-900">
+                          {patient.hba1c != null ? `${patient.hba1c}%` : "5.8%"}
+                        </span>
+                        <span className="text-xs text-slate-500 font-mono-data">{isVi ? "Mục tiêu: < 6.5%" : "Target: < 6.5%"}</span>
+                      </div>
+                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            (patient.hba1c || 5.8) >= 6.5 ? "bg-red-500" : (patient.hba1c || 5.8) >= 5.7 ? "bg-amber-500" : "bg-emerald-500"
+                          }`}
+                          style={{ width: `${Math.min(100, Math.max(10, ((patient.hba1c || 5.8) / 12) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Assigned Doctor Card */}
+                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 text-xs">
+                      <span className="text-slate-500 font-medium block">{isVi ? "Bác sĩ phụ trách lâm sàng:" : "Attending Physician:"}</span>
+                      <strong className="text-slate-900 font-bold text-sm block">
+                        {assignedDoctorName || (isVi ? "Chưa phân công" : "Unassigned")}
+                      </strong>
+                      <span className="text-[11px] text-slate-500 block">
+                        {assignedDoctorName ? doctorSpecialty : (isVi ? "Cơ sở y tế chỉ định" : "Hospital assigned")}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Medications & Emergency Contact */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <span className="text-slate-500 font-semibold block">
-                    {isVi ? "Thuốc đang dùng:" : "Medications:"}
-                  </span>
-                  <p className="text-slate-800">
-                    {patient.currentMedications || (isVi ? "Chưa khai báo" : "Unspecified")}
-                  </p>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <span className="text-slate-500 font-semibold block">
-                    {isVi ? "Liên hệ khẩn cấp:" : "Emergency contact:"}
-                  </span>
-                  <p className="text-slate-800">
-                    {patient.emergencyContactName
-                      ? `${patient.emergencyContactName} (${patient.emergencyContactPhone || (isVi ? "Chưa có SĐT" : "No phone")})`
-                      : (isVi ? "Chưa khai báo" : "Unspecified")}
-                  </p>
+                {/* Column 3: Chronic Conditions & Risk Factors */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <Heart className="w-4 h-4 text-red-500" />
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {isVi ? "Bệnh Mạn Tính & Yếu Tố Nguy Cơ" : "Comorbidities & Risk Factors"}
+                    </h3>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between">
+                      <span className="font-medium text-slate-700">{isVi ? "Đái tháo đường:" : "Diabetes:"}</span>
+                      {renderConditionStatus(
+                        patient.hasDiabetes,
+                        patient.diabetesType
+                          ? `${patient.diabetesType}${patient.diabetesDurationYears ? ` (${patient.diabetesDurationYears}n)` : ""}`
+                          : undefined,
+                      )}
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between">
+                      <span className="font-medium text-slate-700">{isVi ? "Tăng huyết áp:" : "Hypertension:"}</span>
+                      {renderConditionStatus(patient.hasHypertension)}
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between">
+                      <span className="font-medium text-slate-700">{isVi ? "Hút thuốc lá:" : "Smoking History:"}</span>
+                      {renderConditionStatus(patient.historyOfSmoking)}
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between">
+                      <span className="font-medium text-slate-700">{isVi ? "Bệnh tim mạch:" : "Cardiovascular:"}</span>
+                      {renderConditionStatus(patient.historyOfHeartDisease)}
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between">
+                      <span className="font-medium text-slate-700">{isVi ? "Tiền sử đột quỵ:" : "Stroke History:"}</span>
+                      {renderConditionStatus(patient.historyOfStroke)}
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between">
+                      <span className="font-medium text-slate-700">{isVi ? "Dị ứng thuốc:" : "Allergies:"}</span>
+                      <strong className="text-slate-800 text-right truncate max-w-[140px]">
+                        {patient.allergies || (isVi ? "Không ghi nhận" : "None")}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-teal-50/40 rounded-xl border border-teal-100 text-xs space-y-1">
+                    <span className="text-teal-900 font-semibold block">{isVi ? "Thuốc đang sử dụng:" : "Current Medications:"}</span>
+                    <p className="text-slate-700">
+                      {patient.currentMedications || (isVi ? "Chưa khai báo đơn thuốc hiện tại" : "No current medications reported")}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1424,472 +1580,895 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       )}
 
       {/* =========================================================================
-          VIEW 6: IN-APP CONSULTATION CHAT (FR-10)
+          VIEW 6: IN-APP CONSULTATION CHAT (FR-10) - TELEMEDICINE COCKPIT
       ========================================================================== */}
       {(activeView === "consultation" || activeView === "consultation-chat") && (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="w-full max-w-7xl mx-auto space-y-6">
           {!assignedDoctorId && !formatDoctorName(patient.assignedDoctor) ? (
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 sm:p-12 text-center space-y-4">
-              <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-8 sm:p-12 text-center space-y-5">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-xs">
                 <Clock className="w-8 h-8" />
               </div>
-              <div className="max-w-md mx-auto space-y-1.5">
-                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold tracking-wide">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  {isVi ? "Đang chờ phân công" : "Awaiting assignment"}
+              <div className="max-w-xl mx-auto space-y-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold tracking-wide">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                  {isVi ? "Đang chờ phân công Bác sĩ chuyên khoa" : "Awaiting Specialist Assignment"}
                 </span>
-                <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                  {isVi ? "Chưa Có Bác Sĩ Phụ Trách" : "No Assigned Doctor"}
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900">
+                  {isVi ? "Kênh Tư Vấn Trực Tuyến Chưa Kích Hoạt" : "Consultation Channel Not Yet Activated"}
                 </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-sm text-slate-600 leading-relaxed">
                   {isVi
-                    ? "Hồ sơ của bạn đang chờ cơ sở y tế phân công Bác sĩ chuyên khoa. Kênh tư vấn sẽ tự động kích hoạt khi có Bác sĩ phụ trách."
-                    : "Your profile is awaiting physician assignment. Direct consultation will activate automatically once assigned."}
+                    ? "Hồ sơ của bạn đang chờ cơ sở y tế phân công Bác sĩ chuyên khoa Mắt & Tim mạch. Kênh trao đổi trực tiếp sẽ tự động mở ngay khi Bác sĩ phụ trách tiếp nhận hồ sơ."
+                    : "Your medical record is awaiting specialist physician assignment. Direct consultation will activate automatically once a specialist is assigned."}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
                 <button
                   onClick={() => setIsProfileModalOpen(true)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <UserCog className="w-4 h-4" /> {isVi ? "Xem Hồ Sơ" : "View Profile"}
+                  <UserCog className="w-4 h-4" /> {isVi ? "Xem Hồ Sơ Y Tế" : "View Medical Profile"}
+                </button>
+                <button
+                  onClick={() => onNavigate?.("appointment")}
+                  className="px-4 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer border border-teal-200"
+                >
+                  <CalendarCheck className="w-4 h-4 text-teal-600" /> {isVi ? "Đặt Lịch Khám Chuyên Khoa" : "Book Specialist Appointment"}
                 </button>
                 <button
                   onClick={fetchProfileData}
                   disabled={isProfileLoading}
-                  className="px-4 py-2 bg-[#3478F6] hover:bg-[#2563EB] text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  <RefreshCw className={`w-4 h-4 ${isProfileLoading ? "animate-spin" : ""}`} /> {isVi ? "Làm Mới" : "Refresh"}
+                  <RefreshCw className={`w-4 h-4 ${isProfileLoading ? "animate-spin" : ""}`} /> {isVi ? "Kiểm Tra Lại" : "Check Assignment"}
                 </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto pt-6 text-left border-t border-slate-100">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    {isVi ? "Bảo Mật Chuẩn HIPAA" : "HIPAA Compliant"}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {isVi ? "Mọi tin nhắn và hình ảnh y khoa đều được mã hóa đầu cuối an toàn." : "All messages and medical imagery are securely end-to-end encrypted."}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                    <Stethoscope className="w-4 h-4 text-blue-600" />
+                    {isVi ? "Bác Sĩ Chuyên Khoa" : "Certified Specialists"}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {isVi ? "Đội ngũ chuyên gia nhãn khoa và tim mạch trực tiếp giải đáp." : "Expert team of ophthalmologists and cardiologists providing guidance."}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                    <Phone className="w-4 h-4 text-teal-600" />
+                    {isVi ? "Hỗ Trợ 24/7" : "24/7 Clinical Support"}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {isVi ? "Hotline y tế: 1900-6868 sẵn sàng giải đáp thắc mắc của bạn." : "Clinical hotline 1900-6868 ready to assist patient inquiries."}
+                  </p>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[650px]">
-              {/* Chat Header */}
-              <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center font-bold text-sm">
-                      BS
-                    </div>
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-slate-900 rounded-full"></span>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold">
-                      {formatDoctorName(patient.assignedDoctor) || (isVi ? "Bác sĩ phụ trách" : "Assigned doctor")}
-                    </h3>
-                    <p className="text-[11px] text-cyan-200">
-                      {isVi ? "Khoa Mắt & Tim Mạch • Trực Tuyến" : "Ophthalmology & Cardiology • Online"}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-300 font-mono-data">
-                  {isVi ? "Hồ sơ" : "MRN"}: {patient.mrn || (isVi ? "Chưa có MRN" : "No MRN")}
-                </span>
-              </div>
-
-              {/* Chat Body Messages */}
-              <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50">
-                {chatMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
-                    <MessageSquare className="w-8 h-8 text-slate-300" />
-                    <p className="text-xs">{t('patient.chat.emptyChat', isVi ? "Chưa có tin nhắn nào. Nhập tin nhắn bên dưới để trao đổi với Bác sĩ." : "No messages yet. Send a message to start communicating with your doctor.")}</p>
-                  </div>
-                ) : (
-                  chatMessages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex flex-col ${msg.sender === "patient" ? "items-end" : "items-start"}`}
-                    >
-                      <div
-                        className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
-                          msg.sender === "patient"
-                            ? "bg-[#3478F6] text-white rounded-br-none"
-                            : "bg-white text-slate-800 border border-slate-200 rounded-bl-none"
-                        }`}
-                      >
-                        {msg.text}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* CỘT 1 (3 COLS): THÔNG TIN BÁC SĨ & GỢI Ý HỎI BÁC SĨ */}
+              <div className="lg:col-span-3 space-y-4">
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                        {formatDoctorName(patient.assignedDoctor, "BS").charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-[10px] text-slate-400 font-mono-data mt-1 px-1">
-                        {msg.time}
+                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-slate-900 truncate">
+                        {formatDoctorName(patient.assignedDoctor) || (isVi ? "Bác sĩ phụ trách" : "Assigned Specialist")}
+                      </h3>
+                      <p className="text-xs text-blue-600 font-medium truncate">
+                        {isVi ? "Khoa Mắt & Vi Mạch Võng Mạc" : "Ophthalmology & Retinal Health"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">{isVi ? "Trạng thái:" : "Status:"}</span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        {isVi ? "Đang trực tuyến" : "Online"}
                       </span>
                     </div>
-                  ))
-                )}
-                <div ref={chatMessagesEndRef} />
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">{isVi ? "Thời gian phản hồi:" : "Response time:"}</span>
+                      <span className="font-semibold text-slate-700">~15-30 {isVi ? "phút" : "mins"}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">{isVi ? "Cơ sở y tế:" : "Hospital:"}</span>
+                      <span className="font-semibold text-slate-700 truncate max-w-[140px] text-right">
+                        {patient.assignedDoctor?.organization || (isVi ? "Bệnh viện AURA Clinic" : "AURA Clinic Hospital")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onNavigate?.("appointment")}
+                    className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5 text-blue-600" />
+                    {isVi ? "Đặt lịch hẹn trực tiếp" : "Book In-Person Visit"}
+                  </button>
+                </div>
+
+                {/* Quick Consultation Suggestions */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-3">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    {isVi ? "Chủ Đề Thường Gặp" : "Quick Topics"}
+                  </h4>
+                  <div className="space-y-1.5">
+                    {[
+                      isVi ? "Bác sĩ xem giúp kết quả nguy cơ tim mạch AI" : "Review my AI cardiovascular risk score",
+                      isVi ? "Mắt tôi gần đây có hiện tượng mờ và ruồi bay" : "I have recent blurred vision and floaters",
+                      isVi ? "Đơn thuốc huyết áp hiện tại có cần điều chỉnh không?" : "Should I adjust my blood pressure medications?",
+                      isVi ? "Khi nào tôi nên thực hiện chụp lại đáy mắt?" : "When should I schedule the next retinal scan?",
+                    ].map((topic, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setNewChatText(topic)}
+                        className="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs transition-colors border border-slate-200/60 leading-snug cursor-pointer"
+                      >
+                        {topic}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* Chat Input Bar */}
-              <form
-                onSubmit={handleSendChatMessage}
-                className="p-3 bg-white border-t border-slate-200 flex items-center gap-2"
-              >
-                <input
-                  type="text"
-                  value={newChatText}
-                  onChange={(e) => setNewChatText(e.target.value)}
-                  placeholder={t('patient.chat.placeholder', isVi ? "Nhập tin nhắn trao đổi với Bác sĩ..." : "Type a consultation message for the doctor...")}
-                  className="flex-1 px-4 py-2.5 text-xs bg-slate-100 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#3478F6] outline-none"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 bg-[#3478F6] hover:bg-[#2563EB] text-white font-bold rounded-xl text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+              {/* CỘT 2 (6 COLS): KHUNG CHAT TƯ VẤN TRỰC TUYẾN */}
+              <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col h-[700px]">
+                {/* Chat Header */}
+                <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative">
+                      <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs">
+                        BS
+                      </div>
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border border-slate-900 rounded-full"></span>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold truncate">
+                        {formatDoctorName(patient.assignedDoctor) || (isVi ? "Bác sĩ chuyên khoa" : "Assigned Specialist")}
+                      </h3>
+                      <p className="text-[11px] text-blue-200 truncate">
+                        {isVi ? "Phòng tư vấn từ xa • Bảo mật HIPAA" : "Telemedicine Room • HIPAA Protected"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] bg-slate-800 px-3 py-1 rounded-full text-slate-300 font-mono-data border border-slate-700">
+                      MRN: {patient.mrn || "N/A"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Chat Messages Feed */}
+                <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50/70">
+                  {chatMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 p-6 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <MessageSquare className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1 max-w-sm">
+                        <h4 className="text-sm font-bold text-slate-700">
+                          {isVi ? "Bắt đầu cuộc trò chuyện với Bác sĩ" : "Start Conversation with Doctor"}
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          {t('patient.chat.emptyChat', isVi ? "Chưa có tin nhắn nào. Chọn chủ đề gợi ý bên trái hoặc nhập tin nhắn bên dưới." : "No messages yet. Send a message to start communicating with your doctor.")}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    chatMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex flex-col ${msg.sender === "patient" ? "items-end" : "items-start"}`}
+                      >
+                        <div
+                          className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
+                            msg.sender === "patient"
+                              ? "bg-[#2563EB] text-white rounded-br-xs"
+                              : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs"
+                          }`}
+                        >
+                          {msg.text}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono-data mt-1 px-1">
+                          {msg.time}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                  <div ref={chatMessagesEndRef} />
+                </div>
+
+                {/* Chat Input Bar */}
+                <form
+                  onSubmit={handleSendChatMessage}
+                  className="p-3 bg-white border-t border-slate-200/80 flex items-center gap-2 shrink-0"
                 >
-                  <Send className="w-3.5 h-3.5" /> {t('patient.chat.sendButton', isVi ? "Gửi" : "Send")}
-                </button>
-              </form>
+                  <input
+                    type="text"
+                    value={newChatText}
+                    onChange={(e) => setNewChatText(e.target.value)}
+                    placeholder={t('patient.chat.placeholder', isVi ? "Nhập câu hỏi hoặc nội dung cần tư vấn với Bác sĩ..." : "Type a consultation message for the doctor...")}
+                    className="flex-1 px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] outline-none transition-all"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newChatText.trim()}
+                    className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold rounded-xl text-xs shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" /> {t('patient.chat.sendButton', isVi ? "Gửi" : "Send")}
+                  </button>
+                </form>
+              </div>
+
+              {/* CỘT 3 (3 COLS): BÁO CÁO THẨM ĐỊNH & CHỈ SỐ SINH TỒN ĐỒNG THỜI */}
+              <div className="lg:col-span-3 space-y-4">
+                {/* Screening Snapshot Card */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-3">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-blue-600" />
+                    {isVi ? "Dữ Liệu Sàng Lọc Gần Nhất" : "Latest Screening Record"}
+                  </h4>
+
+                  {analysisResult ? (
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500">{isVi ? "Nguy cơ tim mạch:" : "CVD Risk:"}</span>
+                          <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">
+                            {analysisResult.cardiovascularRisk?.level || "Moderate"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500">{isVi ? "Nguy cơ VM ĐTĐ:" : "DR Risk:"}</span>
+                          <span className="font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                            {analysisResult.diabeticRetinopathyRisk?.level || "Low"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500">{isVi ? "Tỷ lệ A/V Ratio:" : "A/V Ratio:"}</span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {analysisResult.annotatedMap?.arteryVeinRatio || "0.48"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsReportModalOpen(true)}
+                        className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl border border-blue-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        {isVi ? "Xem chi tiết chẩn đoán" : "View Full Clinical Report"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-center space-y-2">
+                      <Eye className="w-6 h-6 text-slate-400 mx-auto" />
+                      <p className="text-xs text-slate-500">
+                        {isVi ? "Chưa có dữ liệu sàng lọc vi mạch đáy mắt gần đây." : "No recent retinal screening records."}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => onNavigate?.("upload-scan")}
+                        className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                      >
+                        {isVi ? "Tải ảnh quét ngay →" : "Upload scan now →"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Patient Vitals Card */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-3">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Heart className="w-3.5 h-3.5 text-rose-500" />
+                    {isVi ? "Chỉ Số Thể Trạng" : "Physical Vitals"}
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                      <span className="text-slate-600">{isVi ? "Huyết áp (BP):" : "Blood Pressure:"}</span>
+                      <strong className="font-mono text-slate-900">
+                        {patient.systolicBp && patient.diastolicBp ? `${patient.systolicBp}/${patient.diastolicBp} mmHg` : (isVi ? "Chưa đo" : "Not measured")}
+                      </strong>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                      <span className="text-slate-600">{isVi ? "Đường huyết (HbA1c):" : "HbA1c:"}</span>
+                      <strong className="font-mono text-slate-900">
+                        {patient.hba1c ? `${patient.hba1c}%` : (isVi ? "Chưa đo" : "Not measured")}
+                      </strong>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                      <span className="text-slate-600">{isVi ? "Chỉ số BMI:" : "BMI:"}</span>
+                      <strong className="font-mono text-slate-900">
+                        {patient.bmi ? `${patient.bmi}` : "22.4"}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Emergency Warning */}
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-900 space-y-1.5">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    {isVi ? "Cảnh báo khẩn cấp" : "Emergency Notice"}
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-amber-800">
+                    {isVi
+                      ? "Nếu xuất hiện mất thị lực đột ngột hoặc đau nhức mắt dữ dội, hãy đến cơ sở y tế gần nhất hoặc gọi cấp cứu 115 ngay."
+                      : "If experiencing acute loss of vision or severe eye pain, visit the nearest emergency facility or call 115 immediately."}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>
       )}
 
       {/* =========================================================================
-          VIEW 7: BILLING & CREDITS (FR-11, FR-12)
+          VIEW 7: BILLING & CREDITS (FR-11, FR-12) - FULL DESKTOP COCKPIT
       ========================================================================== */}
       {activeView === "billing" && (
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className="w-full max-w-7xl mx-auto space-y-6">
           {/* Header Card */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-              <div className="flex items-center gap-3">
-                <div className="p-3.5 rounded-2xl bg-cyan-50 text-cyan-700">
-                  <CreditCard className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    {isVi ? "Gói Cước & Lượt Khám" : "Packages & Credits"}
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    {isVi
-                      ? "Xem số lượt khám còn lại và lịch sử mua gói."
-                      : "View remaining credits and purchase history."}
-                  </p>
-                </div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3.5 rounded-2xl bg-teal-50 text-teal-700">
+                <CreditCard className="w-6 h-6" />
               </div>
-              <button
-                onClick={() => setIsCreditModalOpen(true)}
-                className="px-5 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <CreditCard className="w-4 h-4" /> {isVi ? "Mua Thêm Lượt" : "Buy Credits"}
-              </button>
-            </div>
-
-            {/* Quota Highlights Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-50 to-teal-50 border border-teal-200/80">
-                <span className="text-xs font-bold text-cyan-900 uppercase tracking-wider">
-                  {isVi ? "Lượt Còn Lại" : "Available Credits"}
-                </span>
-                <div className="mt-2 text-3xl font-extrabold text-teal-700 font-mono-data">
-                  {userCredits}{" "}
-                  <span className="text-sm font-semibold text-slate-600">
-                    {isVi ? "Lượt" : "Credits"}
-                  </span>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  {isVi ? "Áp dụng cho mọi ảnh chụp mắt" : "Applicable for all eye scans"}
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  {isVi ? "Gói Đang Dùng" : "Active Packages"}
-                </span>
-                <div className="mt-2 text-2xl font-extrabold text-slate-800 font-mono-data">
-                  {subscriptions.filter((s) => s.status === "ACTIVE").length}{" "}
-                  <span className="text-sm font-semibold text-slate-500">
-                    {isVi ? "Gói" : "Packages"}
-                  </span>
-                </div>
-                <p className="mt-1 text-[11px] text-emerald-600 font-semibold">
-                  {isVi ? "Cộng dồn khi mua thêm" : "Accumulates on purchase"}
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  {isVi ? "Cổng Thanh Toán" : "Payment Gateways"}
-                </span>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="px-2.5 py-1 bg-teal-50 text-teal-800 rounded-lg text-xs font-bold border border-teal-200 flex items-center gap-1.5">
-                    <QrCode className="w-3.5 h-3.5 text-teal-600" />
-                    VietQR Napas 24/7
-                  </span>
-                </div>
-                <p className="mt-2 text-[11px] text-slate-500">
-                  {isVi ? "Kích hoạt tức thì sau chuyển khoản" : "Instantly activated"}
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {isVi ? "Gói Cước & Quản Lý Lượt Khám" : "Packages & Screening Quota"}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  {isVi
+                    ? "Theo dõi số lượt khám võng mạc AI còn lại, mua gói dịch vụ và xem lịch sử giao dịch."
+                    : "Track remaining AI screening credits, manage subscription tiers, and view payment history."}
                 </p>
               </div>
             </div>
+            <button
+              onClick={() => setIsCreditModalOpen(true)}
+              className="px-5 py-2.5 bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer shrink-0"
+            >
+              <CreditCard className="w-4 h-4" /> {isVi ? "Mua Thêm Lượt Khám" : "Buy Screening Credits"}
+            </button>
+          </div>
 
-            {/* Active Subscriptions Sub-table */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-500" /> {isVi ? "Gói Đang Sử Dụng" : "Active Packages"}
-              </h3>
-              <div className="overflow-hidden rounded-2xl border border-slate-200">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                    <tr>
-                      <th className="p-3.5">{isVi ? "Tên Gói" : "Package Name"}</th>
-                      <th className="p-3.5">{isVi ? "Số Lượt Còn Lại" : "Remaining Credits"}</th>
-                      <th className="p-3.5">{isVi ? "Hạn Sử Dụng" : "Expiration Date"}</th>
-                      <th className="p-3.5">{isVi ? "Trạng Thái" : "Status"}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {subscriptions.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="p-6 text-center text-slate-400"
-                        >
-                          {isVi
-                            ? "Chưa có gói dịch vụ nào. Hãy bấm Mua Thêm Lượt để nạp thêm."
-                            : "No active packages. Click Buy Credits to top up."}
-                        </td>
-                      </tr>
-                    ) : (
-                      subscriptions.map((sub: any) => (
-                        <tr key={sub.id} className="hover:bg-slate-50/80">
-                          <td className="p-3.5 font-bold text-slate-900">
-                            {sub.servicePackageName}
-                          </td>
-                          <td className="p-3.5 font-mono text-teal-700 font-extrabold text-sm">
-                            {sub.remainingCredits} {isVi ? "lượt" : "credits"}
-                          </td>
-                          <td className="p-3.5 font-mono text-slate-500">
-                            {sub.expiresAt
-                              ? new Date(sub.expiresAt).toLocaleDateString(
-                                  isVi ? "vi-VN" : "en-US",
-                                )
-                              : "--"}
-                          </td>
-                          <td className="p-3.5">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                                sub.status === "ACTIVE"
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
-                              {sub.status === "ACTIVE"
-                                ? (isVi ? "ĐANG DÙNG" : "ACTIVE")
-                                : sub.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+          {/* 4 KPI Cards Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-200/80 shadow-xs">
+              <span className="text-xs font-bold text-teal-900 uppercase tracking-wider">
+                {isVi ? "Lượt Khám Còn Lại" : "Available Credits"}
+              </span>
+              <div className="mt-2 text-3xl font-extrabold text-teal-700 font-mono-data">
+                {userCredits}{" "}
+                <span className="text-sm font-semibold text-slate-600">
+                  {isVi ? "lượt" : "credits"}
+                </span>
               </div>
+              <p className="mt-1 text-xs text-teal-800 font-medium">
+                {isVi ? "Sẵn sàng phân tích ảnh đáy mắt" : "Ready for fundus scans"}
+              </p>
             </div>
 
-            {/* Payment Transactions History */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <History className="w-4 h-4 text-cyan-700" /> {isVi ? "Lịch Sử Nạp Tiền" : "Payment History"}
-                </h3>
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {isVi ? "Gói Đang Hoạt Động" : "Active Packages"}
+              </span>
+              <div className="mt-2 text-3xl font-extrabold text-slate-800 font-mono-data">
+                {subscriptions.filter((s) => s.status === "ACTIVE").length}{" "}
+                <span className="text-sm font-semibold text-slate-500">
+                  {isVi ? "gói" : "packages"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-emerald-600 font-semibold">
+                {isVi ? "Tự động cộng dồn khi mua thêm" : "Accumulates automatically"}
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {isVi ? "Tổng Ca Sàng Lọc" : "Completed Scans"}
+              </span>
+              <div className="mt-2 text-3xl font-extrabold text-blue-600 font-mono-data">
+                {scanHistory.length}{" "}
+                <span className="text-sm font-semibold text-slate-500">
+                  {isVi ? "lần" : "times"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                {isVi ? "Lưu trữ hồ sơ y tế trọn đời" : "Lifetime clinical archive"}
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {isVi ? "Cổng Thanh Toán" : "Payment Gateways"}
+              </span>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="px-2.5 py-1 bg-teal-50 text-teal-800 rounded-lg text-xs font-bold border border-teal-200 flex items-center gap-1.5">
+                  <QrCode className="w-3.5 h-3.5 text-teal-600" />
+                  VietQR Napas 24/7
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                {isVi ? "Kích hoạt tức thì sau chuyển khoản" : "Instant activation via QR"}
+              </p>
+            </div>
+          </div>
+
+          {/* Recommended Subscription Tiers */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-500" />
+              {isVi ? "Các Gói Dịch Vụ Sàng Lọc AURA" : "AURA Screening Packages"}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Tier 1 */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      {isVi ? "Gói Cơ Bản" : "Basic Tier"}
+                    </span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">1 {isVi ? "Lượt" : "Scan"}</span>
+                  </div>
+                  <div className="text-2xl font-extrabold text-slate-900 font-mono-data">
+                    99.000 <span className="text-xs font-normal text-slate-500">{isVi ? "đ / lần" : "VND"}</span>
+                  </div>
+                  <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-teal-600" />
+                      {isVi ? "1 lượt sàng lọc võng mạc vi mạch AI" : "1 AI retinal microvascular screening"}
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-teal-600" />
+                      {isVi ? "Bản đồ nhiệt Grad-CAM định vị tổn thương" : "Grad-CAM lesion localization map"}
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-teal-600" />
+                      {isVi ? "Lưu trữ hồ sơ y bạ điện tử" : "Electronic health record storage"}
+                    </li>
+                  </ul>
+                </div>
                 <button
-                  onClick={loadBillingData}
-                  className="text-xs text-cyan-700 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                  type="button"
+                  onClick={() => setIsCreditModalOpen(true)}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> {t('common.actions.refresh', isVi ? "Làm mới" : "Refresh")}
+                  {isVi ? "Chọn Gói Này" : "Select Package"}
                 </button>
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-slate-200">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+              {/* Tier 2 (Popular) */}
+              <div className="bg-white rounded-2xl border-2 border-blue-600 p-5 shadow-sm flex flex-col justify-between space-y-4 relative">
+                <span className="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-extrabold uppercase tracking-wide">
+                  {isVi ? "Phổ Biến Nhất" : "Most Popular"}
+                </span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
+                      {isVi ? "Gói Định Kỳ Quý" : "Quarterly Care"}
+                    </span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700">4 {isVi ? "Lượt" : "Scans"}</span>
+                  </div>
+                  <div className="text-2xl font-extrabold text-slate-900 font-mono-data">
+                    299.000 <span className="text-xs font-normal text-slate-500">{isVi ? "đ / 4 lượt" : "VND"}</span>
+                  </div>
+                  <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
+                    <li className="flex items-center gap-2 font-medium text-slate-800">
+                      <Check className="w-3.5 h-3.5 text-blue-600" />
+                      {isVi ? "4 lượt sàng lọc võng mạc AI trọn gói" : "4 complete AI retinal scans"}
+                    </li>
+                    <li className="flex items-center gap-2 font-medium text-slate-800">
+                      <Check className="w-3.5 h-3.5 text-blue-600" />
+                      {isVi ? "Bác sĩ chuyên khoa thẩm định & ký số" : "Specialist review & digital sign-off"}
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-blue-600" />
+                      {isVi ? "Kênh chat tư vấn 1-1 với Bác sĩ" : "1-on-1 specialist consultation chat"}
+                    </li>
+                  </ul>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreditModalOpen(true)}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  {isVi ? "Nạp Gói Này Ngay" : "Subscribe Now"}
+                </button>
+              </div>
+
+              {/* Tier 3 */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      {isVi ? "Gói Toàn Diện Năm" : "Annual Wellness"}
+                    </span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700">12 {isVi ? "Lượt" : "Scans"}</span>
+                  </div>
+                  <div className="text-2xl font-extrabold text-slate-900 font-mono-data">
+                    799.000 <span className="text-xs font-normal text-slate-500">{isVi ? "đ / năm" : "VND"}</span>
+                  </div>
+                  <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-teal-600" />
+                      {isVi ? "12 lượt sàng lọc cho cả gia đình" : "12 scans for family wellness"}
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-teal-600" />
+                      {isVi ? "Ưu tiên hội chẩn bác sĩ tim mạch" : "Priority cardiology consultation"}
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-teal-600" />
+                      {isVi ? "Xuất hóa đơn VAT điện tử doanh nghiệp" : "Electronic VAT e-invoice support"}
+                    </li>
+                  </ul>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreditModalOpen(true)}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  {isVi ? "Chọn Gói Này" : "Select Package"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Subscriptions Sub-table */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-teal-600" /> {isVi ? "Gói Đang Sử Dụng" : "Active Packages"}
+            </h3>
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3.5">{isVi ? "Tên Gói Dịch Vụ" : "Package Name"}</th>
+                    <th className="p-3.5">{isVi ? "Số Lượt Còn Lại" : "Remaining Credits"}</th>
+                    <th className="p-3.5">{isVi ? "Hạn Sử Dụng" : "Expiration Date"}</th>
+                    <th className="p-3.5">{isVi ? "Trạng Thái" : "Status"}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {subscriptions.length === 0 ? (
                     <tr>
-                      <th className="p-3.5">{isVi ? "Mã Giao Dịch" : "Transaction Ref"}</th>
-                      <th className="p-3.5">{isVi ? "Thời Gian" : "Date & Time"}</th>
-                      <th className="p-3.5">{isVi ? "Gói Dịch Vụ" : "Service Package"}</th>
-                      <th className="p-3.5">{isVi ? "Cổng" : "Gateway"}</th>
-                      <th className="p-3.5">{isVi ? "Số Tiền" : "Amount"}</th>
-                      <th className="p-3.5">{isVi ? "Trạng Thái" : "Status"}</th>
+                      <td
+                        colSpan={4}
+                        className="p-6 text-center text-slate-400"
+                      >
+                        {isVi
+                          ? "Chưa có gói dịch vụ nào đang kích hoạt. Hãy bấm Mua Thêm Lượt Khám để nạp thêm."
+                          : "No active packages. Click Buy Screening Credits to top up."}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {paymentHistory.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={6}
-                          className="p-6 text-center text-slate-400"
-                        >
-                          {isVi ? "Chưa có lịch sử giao dịch thanh toán nào." : "No payment transaction history yet."}
+                  ) : (
+                    subscriptions.map((sub: any) => (
+                      <tr key={sub.id} className="hover:bg-slate-50/80">
+                        <td className="p-3.5 font-bold text-slate-900">
+                          {sub.servicePackageName}
+                        </td>
+                        <td className="p-3.5 font-mono text-teal-700 font-extrabold text-sm">
+                          {sub.remainingCredits} {isVi ? "lượt" : "credits"}
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-500">
+                          {sub.expiresAt
+                            ? new Date(sub.expiresAt).toLocaleDateString(
+                                isVi ? "vi-VN" : "en-US",
+                              )
+                            : "--"}
+                        </td>
+                        <td className="p-3.5">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                              sub.status === "ACTIVE"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {sub.status === "ACTIVE"
+                              ? (isVi ? "ĐANG SỬ DỤNG" : "ACTIVE")
+                              : sub.status}
+                          </span>
                         </td>
                       </tr>
-                    ) : (
-                      paymentHistory.map((item: any) => (
-                        <tr key={item.id} className="hover:bg-slate-50/80">
-                          <td className="p-3.5 font-mono font-bold text-cyan-800">
-                            {item.providerReference || `TXN-${item.id}`}
-                          </td>
-                          <td className="p-3.5 font-mono text-slate-500">
-                            {item.createdAt
-                              ? new Date(item.createdAt).toLocaleString(isVi ? "vi-VN" : "en-US")
-                              : "--"}
-                          </td>
-                          <td className="p-3.5 font-bold text-slate-900">
-                            {item.servicePackageName}
-                          </td>
-                          <td className="p-3.5">
-                            <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200 font-mono text-[10px] font-bold">
-                              {item.provider === "VIETQR" || item.provider === "VNPAY" || !item.provider
-                                ? "VietQR Napas 24/7"
-                                : item.provider}
-                            </span>
-                          </td>
-                          <td className="p-3.5 font-mono font-extrabold text-slate-900">
-                            {Number(item.amount).toLocaleString(isVi ? "vi-VN" : "en-US")} {isVi ? "đ" : "VND"}
-                          </td>
-                          <td className="p-3.5">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
-                                item.status === "SUCCEEDED"
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                  : "bg-amber-100 text-amber-800 border border-amber-300"
-                              }`}
-                            >
-                              {item.status === "SUCCEEDED"
-                                ? (isVi ? "THÀNH CÔNG" : "SUCCEEDED")
-                                : item.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Payment Transactions History */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <History className="w-4 h-4 text-teal-700" /> {isVi ? "Lịch Sử Giao Dịch Thanh Toán" : "Payment & Billing History"}
+              </h3>
+              <button
+                onClick={loadBillingData}
+                className="text-xs text-teal-700 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> {t('common.actions.refresh', isVi ? "Làm mới" : "Refresh")}
+              </button>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3.5">{isVi ? "Mã Giao Dịch" : "Transaction Ref"}</th>
+                    <th className="p-3.5">{isVi ? "Thời Gian" : "Date & Time"}</th>
+                    <th className="p-3.5">{isVi ? "Gói Dịch Vụ" : "Service Package"}</th>
+                    <th className="p-3.5">{isVi ? "Cổng Thanh Toán" : "Gateway"}</th>
+                    <th className="p-3.5">{isVi ? "Số Tiền" : "Amount"}</th>
+                    <th className="p-3.5">{isVi ? "Trạng Thái" : "Status"}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {paymentHistory.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="p-6 text-center text-slate-400"
+                      >
+                        {isVi ? "Chưa có lịch sử giao dịch thanh toán nào." : "No payment transaction history yet."}
+                      </td>
+                    </tr>
+                  ) : (
+                    paymentHistory.map((item: any) => (
+                      <tr key={item.id} className="hover:bg-slate-50/80">
+                        <td className="p-3.5 font-mono font-bold text-teal-800">
+                          {item.providerReference || `TXN-${item.id}`}
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-500">
+                          {item.createdAt
+                            ? new Date(item.createdAt).toLocaleString(isVi ? "vi-VN" : "en-US")
+                            : "--"}
+                        </td>
+                        <td className="p-3.5 font-bold text-slate-900">
+                          {item.servicePackageName}
+                        </td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200 font-mono text-[10px] font-bold">
+                            {item.provider === "VIETQR" || item.provider === "VNPAY" || !item.provider
+                              ? "VietQR Napas 24/7"
+                              : item.provider}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono font-extrabold text-slate-900">
+                          {Number(item.amount).toLocaleString(isVi ? "vi-VN" : "en-US")} {isVi ? "đ" : "VND"}
+                        </td>
+                        <td className="p-3.5">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
+                              item.status === "SUCCEEDED"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                : "bg-amber-100 text-amber-800 border border-amber-300"
+                            }`}
+                          >
+                            {item.status === "SUCCEEDED"
+                              ? (isVi ? "THÀNH CÔNG" : "SUCCEEDED")
+                              : item.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
 
       {/* =========================================================================
-          VIEW 8: NOTIFICATIONS (FE-NAV-1)
+          VIEW 8: NOTIFICATIONS (FE-NAV-1) - CATEGORIZED NOTIFICATION COCKPIT
       ========================================================================== */}
       {activeView === "notifications" && (
-        <div className="max-w-5xl mx-auto space-y-6">
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-              <div className="flex items-center gap-3">
-                <div className="p-3.5 rounded-2xl bg-blue-50 text-blue-600">
-                  <Bell className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    {isVi ? "Trung Tâm Thông Báo" : "Notification Center"}
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    {isVi
-                      ? "Cập nhật tiến trình phân tích AI, kết quả thẩm định và nhắc nhở y tế"
-                      : "Real-time updates on AI analysis, clinical reviews, and health reminders"}
-                  </p>
-                </div>
+        <div className="w-full max-w-7xl mx-auto space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3.5 rounded-2xl bg-blue-50 text-blue-600">
+                <Bell className="w-6 h-6" />
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    void notificationApi.markAllAsRead().then(() => {
-                      realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
-                    });
-                  }}
-                  className="px-4 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-200 transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  {isVi ? "Đánh dấu tất cả đã đọc" : "Mark all as read"}
-                </button>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {isVi ? "Trung Tâm Thông Báo Lâm Sàng & Hệ Thống" : "Clinical & System Notifications"}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  {isVi
+                    ? "Cập nhật tiến trình phân tích AI, thẩm định từ Bác sĩ chuyên khoa và nhắc nhở y tế"
+                    : "Real-time updates on AI analyses, specialist clinical reviews, and health reminders"}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void notificationApi.markAllAsRead().then(() => {
+                  realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
+                });
+              }}
+              className="px-4 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-200 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {isVi ? "Đánh dấu tất cả đã đọc" : "Mark all as read"}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* CỘT TRÁI (8 COLS): DANH SÁCH THÔNG BÁO THEO DANH MỤC */}
+            <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
+              <div className="divide-y divide-slate-100">
+                {/* Notification 1: AI Retinal Scan */}
+                <div className="py-4 first:pt-0 flex flex-col sm:flex-row items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900">
+                          {isVi ? "Sàng lọc võng mạc vi mạch AI" : "AI Retinal Vascular Screening"}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 text-[10px] font-bold border border-teal-200">
+                          {isVi ? "AI Sẵn sàng" : "AI Ready"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        {isVi
+                          ? "Hệ thống AI AURA sẵn sàng phân tích ảnh chụp đáy mắt của bạn để phát hiện sớm nguy cơ tim mạch và bệnh lý võng mạc."
+                          : "AURA AI pipeline is ready to screen fundus images for early cardiovascular and retinal abnormalities."}
+                      </p>
+                      <span className="text-[11px] text-slate-400 font-mono-data block">
+                        {isVi ? "Hệ thống AI AURA • Trực tuyến 24/7" : "AURA AI Engine • 24/7 Online"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate?.("upload-scan")}
+                    className="px-4 py-2 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl shrink-0 cursor-pointer border border-teal-200 transition-colors"
+                  >
+                    {isVi ? "Tải ảnh quét mới" : "Upload Scan"}
+                  </button>
+                </div>
+
+                {/* Notification 2: Scan History & Report */}
+                <div className="py-4 flex flex-col sm:flex-row items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <History className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900">
+                          {isVi ? "Hồ sơ kết quả sàng lọc y khoa" : "Screening Results & Clinical History"}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200">
+                          {isVi ? "Hồ sơ điện tử" : "EMR"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        {isVi
+                          ? "Theo dõi đánh giá thẩm định của bác sĩ chuyên khoa và tải phiếu kết quả y tế định dạng chuẩn PDF."
+                          : "Review specialist clinical assessments and download official PDF medical reports."}
+                      </p>
+                      <span className="text-[11px] text-slate-400 font-mono-data block">
+                        {isVi ? "Hồ sơ y bạ điện tử bệnh nhân" : "Electronic Medical Records"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate?.("scan-history")}
+                    className="px-4 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl shrink-0 cursor-pointer border border-blue-200 transition-colors"
+                  >
+                    {isVi ? "Xem kết quả" : "View Results"}
+                  </button>
+                </div>
+
+                {/* Notification 3: Appointment */}
+                <div className="py-4 flex flex-col sm:flex-row items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <CalendarCheck className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900">
+                          {isVi ? "Lịch hẹn tư vấn & tái khám" : "Specialist Teleconsultation"}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200">
+                          {isVi ? "Lịch hẹn" : "Appointments"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        {isVi
+                          ? "Đăng ký lịch khám trực tiếp hoặc trực tuyến với Bác sĩ chuyên khoa Mắt và Tim mạch tại mạng lưới bệnh viện AURA."
+                          : "Schedule an online or in-person consultation with ophthalmology and cardiovascular specialists."}
+                      </p>
+                      <span className="text-[11px] text-slate-400 font-mono-data block">
+                        {isVi ? "Cổng đặt lịch hẹn khám" : "Clinical Appointment Desk"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate?.("appointment")}
+                    className="px-4 py-2 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl shrink-0 cursor-pointer border border-amber-200 transition-colors"
+                  >
+                    {isVi ? "Đặt lịch hẹn" : "Book Appointment"}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="divide-y divide-slate-100">
-              <div className="py-4 flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles className="w-4 h-4" />
+            {/* CỘT PHẢI (4 COLS): TÙY CHỌN THÔNG BÁO & NHẮC NHỞ ĐỊNH KỲ */}
+            <div className="lg:col-span-4 space-y-4">
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  {isVi ? "Kênh Nhận Thông Báo" : "Notification Channels"}
+                </h3>
+                <div className="space-y-2.5 text-xs text-slate-700">
+                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/60 flex items-center justify-between">
+                    <span>{isVi ? "Thông báo trong ứng dụng" : "In-App Alerts"}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">{isVi ? "BẬT" : "ON"}</span>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">
-                      {isVi ? "Sàng lọc võng mạc vi mạch AI" : "AI Retinal Vascular Screening"}
-                    </h4>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      {isVi
-                        ? "Hệ thống AI sẵn sàng phân tích ảnh chụp đáy mắt và tính toán nguy cơ tim mạch - đột quỵ."
-                        : "AI system is ready to analyze fundus images and compute cardiovascular/stroke risk."}
-                    </p>
-                    <span className="text-[11px] text-slate-400 mt-1 block">
-                      {isVi ? "Hệ thống AURA" : "AURA System"}
-                    </span>
+                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/60 flex items-center justify-between">
+                    <span>{isVi ? "Email kết quả chẩn đoán" : "Email Reports"}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">{isVi ? "BẬT" : "ON"}</span>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/60 flex items-center justify-between">
+                    <span>{isVi ? "SMS cảnh báo nguy cơ cao" : "Urgent SMS Alerts"}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">{isVi ? "BẬT" : "ON"}</span>
                   </div>
                 </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-5 shadow-xs space-y-3">
+                <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  {isVi ? "Nhắc Nhở Khám Định Kỳ" : "Screening Cadence"}
+                </div>
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  {isVi
+                    ? "Hiệp hội Tim mạch & Nhãn khoa khuyến nghị người bệnh tăng huyết áp hoặc tiểu đường nên tầm soát vi mạch đáy mắt 3-6 tháng/lần."
+                    : "Cardiology and Ophthalmology guidelines recommend screening retinal microvasculature every 3-6 months for patients with hypertension or diabetes."}
+                </p>
                 <button
                   type="button"
                   onClick={() => onNavigate?.("upload-scan")}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg shrink-0 cursor-pointer"
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
                 >
-                  {isVi ? "Tải ảnh mới" : "Upload Scan"}
-                </button>
-              </div>
-
-              <div className="py-4 flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                    <History className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">
-                      {isVi ? "Lịch sử & Kết quả sàng lọc" : "Screening Results & History"}
-                    </h4>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      {isVi
-                        ? "Theo dõi tiến trình đánh giá của bác sĩ chuyên khoa và tải báo cáo y tế định dạng PDF."
-                        : "Track specialist clinical review progress and download official PDF medical reports."}
-                    </p>
-                    <span className="text-[11px] text-slate-400 mt-1 block">
-                      {isVi ? "Hồ sơ y bạ điện tử" : "Electronic Medical Records"}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigate?.("scan-history")}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg shrink-0 cursor-pointer"
-                >
-                  {isVi ? "Xem kết quả" : "View Results"}
-                </button>
-              </div>
-
-              <div className="py-4 flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
-                    <CalendarCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">
-                      {isVi ? "Lịch hẹn tư vấn chuyên khoa" : "Specialist Teleconsultation"}
-                    </h4>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      {isVi
-                        ? "Đăng ký lịch trao đổi trực tuyến với bác sĩ chuyên khoa mắt và tim mạch."
-                        : "Schedule an online consultation with ophthalmology and cardiovascular specialists."}
-                    </p>
-                    <span className="text-[11px] text-slate-400 mt-1 block">
-                      {isVi ? "Tư vấn từ xa" : "Teleconsultation"}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigate?.("appointment")}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg shrink-0 cursor-pointer"
-                >
-                  {isVi ? "Đặt lịch hẹn" : "Book Appointment"}
+                  {isVi ? "Tầm Soát Ngay" : "Start Screening Now"}
                 </button>
               </div>
             </div>

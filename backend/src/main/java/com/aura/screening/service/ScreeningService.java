@@ -641,27 +641,63 @@ public class ScreeningService {
           screening.setHeatmapBase64(heatmapBase64);
         }
 
-        // --- Retinal vascular anomalies localization (detectedAnomalies) ---
+        // --- Retinal anatomical landmarks & vascular anomalies localization (detectedAnomalies) ---
+        Object landmarksObj = body.get("anatomicalLandmarks");
         Object anomaliesObj = body.get("detectedAnomalies");
+        List<Map<String, Object>> anomalyList = new ArrayList<>();
         if (anomaliesObj != null) {
           try {
-            if (anomaliesObj instanceof String anomaliesStr) {
-              String trimmed = anomaliesStr.trim();
-              if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                screening.setDetectedAnomalies(trimmed);
-              } else {
-                screening.setDetectedAnomalies("[]");
+            if (anomaliesObj instanceof List<?> list) {
+              for (Object item : list) {
+                if (item instanceof Map<?, ?> m) {
+                  anomalyList.add(new HashMap<>((Map<String, Object>) m));
+                }
               }
-            } else if (anomaliesObj instanceof List<?> list) {
-              screening.setDetectedAnomalies(objectMapper.writeValueAsString(list));
-            } else {
-              screening.setDetectedAnomalies(objectMapper.writeValueAsString(anomaliesObj));
+            } else if (anomaliesObj instanceof String s && s.trim().startsWith("[")) {
+              List<Map<String, Object>> parsed = objectMapper.readValue(s, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+              if (parsed != null) anomalyList.addAll(parsed);
             }
           } catch (Exception ex) {
-            log.warn("Không thể serialize detectedAnomalies: {}", ex.getMessage());
-            screening.setDetectedAnomalies("[]");
+            log.warn("Không thể parse detectedAnomalies: {}", ex.getMessage());
           }
-        } else {
+        }
+
+        // Bổ sung các mốc giải phẫu học định vị từ AI (LANDMARK-DISC, LANDMARK-FAZ)
+        if (landmarksObj instanceof Map<?, ?> landmarksMap) {
+          Object disc = landmarksMap.get("opticDisc");
+          if (disc instanceof Map<?, ?> discMap) {
+            Number dx = (Number) discMap.get("x");
+            Number dy = (Number) discMap.get("y");
+            if (dx != null && dy != null) {
+              Map<String, Object> discEntry = new HashMap<>();
+              discEntry.put("id", "LANDMARK-DISC");
+              discEntry.put("type", "Optic_Disc");
+              discEntry.put("coordinates", Map.of("x", dx.doubleValue(), "y", dy.doubleValue(), "width", 56, "height", 56));
+              discEntry.put("confidence", 0.98);
+              discEntry.put("description", "Đĩa thần kinh thị giác (Gai thị)");
+              anomalyList.add(discEntry);
+            }
+          }
+          Object fovea = landmarksMap.get("fovea");
+          if (fovea instanceof Map<?, ?> foveaMap) {
+            Number fx = (Number) foveaMap.get("x");
+            Number fy = (Number) foveaMap.get("y");
+            if (fx != null && fy != null) {
+              Map<String, Object> foveaEntry = new HashMap<>();
+              foveaEntry.put("id", "LANDMARK-FAZ");
+              foveaEntry.put("type", "Fovea_Centralis");
+              foveaEntry.put("coordinates", Map.of("x", fx.doubleValue(), "y", fy.doubleValue(), "width", 44, "height", 44));
+              foveaEntry.put("confidence", 0.98);
+              foveaEntry.put("description", "Vùng vô mạch hoàng điểm (FAZ)");
+              anomalyList.add(foveaEntry);
+            }
+          }
+        }
+
+        try {
+          screening.setDetectedAnomalies(objectMapper.writeValueAsString(anomalyList));
+        } catch (Exception ex) {
+          log.warn("Không thể serialize detectedAnomalies: {}", ex.getMessage());
           screening.setDetectedAnomalies("[]");
         }
 
