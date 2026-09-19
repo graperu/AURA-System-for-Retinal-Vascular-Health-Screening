@@ -154,7 +154,26 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
-  const [userCredits, setUserCredits] = useState(0);
+  const [userCredits, setUserCredits] = useState<number>(() => {
+    try {
+      const cached = localStorage.getItem("aura_patient_credits");
+      if (cached !== null) {
+        const parsed = parseInt(cached, 10);
+        if (!isNaN(parsed) && parsed >= 0) return parsed;
+      }
+    } catch {}
+    return 10; // Giữ giá trị khởi tạo an toàn trong lúc đợi API tải, tránh giật banner đỏ
+  });
+  const [isCreditsLoading, setIsCreditsLoading] = useState<boolean>(true);
+
+  const updateCreditsSafely = (credits: number) => {
+    setUserCredits(credits);
+    setIsCreditsLoading(false);
+    try {
+      localStorage.setItem("aura_patient_credits", String(credits));
+    } catch {}
+  };
+
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [upcomingAppointment, setUpcomingAppointment] = useState<{
@@ -283,13 +302,15 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         const total = subRes.data
           .filter((s: any) => s.status === "ACTIVE")
           .reduce((sum: number, s: any) => sum + (s.remainingCredits || 0), 0);
-        setUserCredits(total);
+        updateCreditsSafely(total);
       }
       if (payRes.success && Array.isArray(payRes.data)) {
         setPaymentHistory(payRes.data);
       }
     } catch (e) {
       console.warn("Could not load billing data:", e);
+    } finally {
+      setIsCreditsLoading(false);
     }
   };
 
@@ -534,17 +555,20 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
         fetchUpcomingAppointment(),
         billingApi.mySubscriptions().then((subscriptions) => {
           if (subscriptions.success && Array.isArray(subscriptions.data)) {
-            setUserCredits(
-              subscriptions.data.reduce(
-                (total: number, item: any) =>
-                  total +
-                  (item.status === "ACTIVE"
-                    ? Number(item.remainingCredits || 0)
-                    : 0),
-                0,
-              ),
+            const total = subscriptions.data.reduce(
+              (total: number, item: any) =>
+                total +
+                (item.status === "ACTIVE"
+                  ? Number(item.remainingCredits || 0)
+                  : 0),
+              0,
             );
+            updateCreditsSafely(total);
+          } else {
+            setIsCreditsLoading(false);
           }
+        }).catch(() => {
+          setIsCreditsLoading(false);
         }),
       ]);
     };
@@ -991,6 +1015,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             analysisProgress={analysisProgress}
             analysisError={analysisErrorMsg}
             userCredits={userCredits}
+            isCreditsLoading={isCreditsLoading}
             onOpenCreditModal={() => setIsCreditModalOpen(true)}
             onRetry={() => {
               setAnalysisErrorMsg(null);

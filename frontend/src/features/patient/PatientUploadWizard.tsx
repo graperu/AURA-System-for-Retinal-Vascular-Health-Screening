@@ -47,6 +47,7 @@ export interface PatientUploadWizardProps {
   analysisError?: string | null;
   onRetry?: () => void;
   userCredits?: number;
+  isCreditsLoading?: boolean;
   onOpenCreditModal?: () => void;
 }
 
@@ -61,6 +62,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
   analysisError,
   onRetry,
   userCredits = 10,
+  isCreditsLoading = false,
   onOpenCreditModal,
 }) => {
   const { t, isVi } = useLanguage();
@@ -509,7 +511,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
       </div>
 
       {/* ⚠️ Low / Zero Credits Warning Banner */}
-      {!isAnalyzing && (
+      {!isAnalyzing && !isCreditsLoading && (
         <>
           {userCredits <= 0 ? (
             <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
@@ -961,10 +963,10 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
                   </strong>
                 </div>
 
-                <div className={`p-3.5 rounded-xl border ${userCredits <= 0 ? 'bg-rose-50/70 border-rose-200' : 'bg-[#F8F9FA] border-[#EAECF0]'}`}>
+                <div className={`p-3.5 rounded-xl border ${!isCreditsLoading && userCredits <= 0 ? 'bg-rose-50/70 border-rose-200' : 'bg-[#F8F9FA] border-[#EAECF0]'}`}>
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="text-[#667085] block">{isVi ? 'Số lượt khả dụng' : 'Credits'}:</span>
-                    {userCredits <= 0 && onOpenCreditModal && (
+                    {!isCreditsLoading && userCredits <= 0 && onOpenCreditModal && (
                       <button
                         type="button"
                         onClick={onOpenCreditModal}
@@ -975,9 +977,9 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
                       </button>
                     )}
                   </div>
-                  <strong className={`text-sm font-mono-data block ${userCredits <= 0 ? 'text-rose-600 font-bold' : 'text-[#3478F6]'}`}>
-                    {userCredits} {isVi ? 'lượt' : 'credits'}
-                    {userCredits <= 0 && (
+                  <strong className={`text-sm font-mono-data block ${!isCreditsLoading && userCredits <= 0 ? 'text-rose-600 font-bold' : 'text-[#3478F6]'}`}>
+                    {isCreditsLoading ? '...' : `${userCredits} ${isVi ? 'lượt' : 'credits'}`}
+                    {!isCreditsLoading && userCredits <= 0 && (
                       <span className="ml-1.5 text-xs font-normal text-rose-500">
                         ({isVi ? 'Hết lượt' : 'Exhausted'})
                       </span>
@@ -987,7 +989,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
               </div>
 
               {/* Zero Credits Alert Box inside Step 3 */}
-              {userCredits <= 0 && (
+              {!isCreditsLoading && userCredits <= 0 && (
                 <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                   <div className="flex items-start gap-2.5">
                     <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
@@ -1006,7 +1008,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
                     <button
                       type="button"
                       onClick={onOpenCreditModal}
-                      className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
                     >
                       <CreditCard className="w-4 h-4" />
                       {isVi ? 'Nạp Lượt Khám' : 'Buy Credits'}
@@ -1037,7 +1039,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
               {isVi ? 'Quay lại Tải ảnh' : 'Back to Upload'}
             </Button>
 
-            {userCredits <= 0 ? (
+            {!isCreditsLoading && userCredits <= 0 ? (
               <Button
                 variant="primary"
                 size="lg"
