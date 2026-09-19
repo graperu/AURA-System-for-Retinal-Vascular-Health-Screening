@@ -440,32 +440,36 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   };
 
   const handleDeleteScreening = async (id: string) => {
-    setScanHistory((prev) => prev.filter((s) => s.id !== id && s.rawId !== id));
     try {
       const res = await screeningApi.delete(id);
       if (res && res.success === false && res.code !== "NOT_FOUND") {
         console.warn("Screening delete API response:", res.message);
         throw new Error(res.message || (isVi ? "Không thể xóa ca khám" : "Failed to delete screening"));
       }
+      setScanHistory((prev) => prev.filter((s) => s.id !== id && s.rawId !== id));
       realtimeBus.emit('screening:deleted', { id });
+      await loadScreeningHistory(true, true);
     } catch (err) {
       console.warn("Screening delete error:", err);
+      await loadScreeningHistory(true, false);
       throw err;
     }
   };
 
   const handleBatchDeleteScreenings = async (ids: string[]) => {
-    const idSet = new Set(ids);
-    setScanHistory((prev) => prev.filter((s) => !idSet.has(s.id) && !idSet.has(s.rawId || "")));
     try {
       const res = await screeningApi.batchDelete(ids);
       if (res && res.success === false) {
         console.warn("Screening batch delete API response:", res.message);
         throw new Error(res.message || (isVi ? "Không thể xóa các ca khám đã chọn" : "Failed to delete selected screenings"));
       }
+      const idSet = new Set(ids);
+      setScanHistory((prev) => prev.filter((s) => !idSet.has(s.id) && !idSet.has(s.rawId || "")));
       realtimeBus.emit('screening:deleted', { ids });
+      await loadScreeningHistory(true, true);
     } catch (err) {
       console.warn("Screening batch delete error:", err);
+      await loadScreeningHistory(true, false);
       throw err;
     }
   };

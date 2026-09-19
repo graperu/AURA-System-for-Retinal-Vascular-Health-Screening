@@ -241,7 +241,7 @@ public class ScreeningController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN', 'USER', 'DOCTOR', 'CLINIC')")
   public ApiResponse<Void> deleteScreening(
       @PathVariable UUID id,
       @AuthenticationPrincipal AuraUserPrincipal principal) {
@@ -254,7 +254,7 @@ public class ScreeningController {
   }
 
   @PostMapping("/batch-delete")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN', 'USER', 'DOCTOR', 'CLINIC')")
   public ApiResponse<Integer> batchDeleteScreenings(
       @Valid @RequestBody BatchDeleteScreeningsRequest request,
       @AuthenticationPrincipal AuraUserPrincipal principal) {

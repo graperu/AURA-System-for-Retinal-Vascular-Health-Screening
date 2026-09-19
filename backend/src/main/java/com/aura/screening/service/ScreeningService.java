@@ -17,6 +17,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -1490,21 +1491,19 @@ public class ScreeningService {
           .anyMatch(m -> m.getClinic() != null && m.getClinic().getId().equals(screening.getClinicId()));
     }
 
-    if (isOwner && !isAdmin) {
-      throw new AuthException(
-          ErrorCode.ACCESS_DENIED,
-          "Bệnh nhân không được phép xóa kết quả sàng lọc y tế nhằm đảm bảo tính toàn vẹn hồ sơ bệnh án.");
-    }
-
-    if (!isAdmin && !isDoctorAssigned && !isClinicMember) {
+    if (!isAdmin && !isOwner && !isDoctorAssigned && !isClinicMember) {
       throw new AuthException(
           ErrorCode.ACCESS_DENIED,
           "Bạn không có quyền xóa ca sàng lọc này");
     }
+
+    UUID patientId = screening.getPatientId();
     screeningRepository.delete(screening);
     screeningRepository.flush();
     log.info("Đã xóa ca sàng lọc {} bởi người dùng {} (isAdmin={}, isOwner={}, isDoctorAssigned={})", screeningId,
         userId, isAdmin, isOwner, isDoctorAssigned);
+
+    syncPatientProfileAfterDeletion(patientId);
   }
 
   @Transactional
@@ -1526,6 +1525,7 @@ public class ScreeningService {
       return 0;
     }
     List<Screening> toDelete = new ArrayList<>();
+    Set<UUID> affectedPatientIds = new java.util.HashSet<>();
     for (UUID id : validUuids) {
       screeningRepository.findById(id).ifPresent(screening -> {
         boolean isOwner = isUserScreeningOwner(screening, userId);
@@ -1538,6 +1538,9 @@ public class ScreeningService {
 
         if (isAdmin || isOwner || isDoctorAssigned || isClinicMember) {
           toDelete.add(screening);
+          if (screening.getPatientId() != null) {
+            affectedPatientIds.add(screening.getPatientId());
+          }
         } else {
           log.warn("Người dùng {} không có quyền xóa ca sàng lọc {}", userId, id);
         }
@@ -1547,7 +1550,45 @@ public class ScreeningService {
       screeningRepository.deleteAll(toDelete);
       screeningRepository.flush();
       log.info("Đã xóa hàng loạt {} ca sàng lọc bởi người dùng {} (isAdmin={})", toDelete.size(), userId, isAdmin);
+      for (UUID pId : affectedPatientIds) {
+        syncPatientProfileAfterDeletion(pId);
+      }
     }
     return toDelete.size();
+  }
+
+  private void syncPatientProfileAfterDeletion(UUID patientId) {
+    if (patientProfileRepository == null || patientId == null) {
+      return;
+    }
+    try {
+      var profileOpt = patientProfileRepository.findByUserId(patientId)
+          .or(() -> patientProfileRepository.findById(patientId));
+      if (profileOpt.isPresent()) {
+        var profile = profileOpt.get();
+        List<Screening> remaining = screeningRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
+        Screening latestValid = remaining.stream()
+            .filter(s -> s.getRiskScore() != null && s.getRiskScore() > 0 && s.getStatus() != ScreeningStatus.FAILED)
+            .findFirst()
+            .orElse(null);
+        if (latestValid != null) {
+          profile.setRiskScore(latestValid.getRiskScore());
+          profile.setRiskLevel(latestValid.getRiskLevel() != null ? latestValid.getRiskLevel().name() : "LOW");
+          profile.setReviewStatus(latestValid.getStatus() != null ? latestValid.getStatus().name() : "PENDING");
+          if (latestValid.getCreatedAt() != null) {
+            String dateStr = latestValid.getCreatedAt().toString();
+            profile.setLastExamDate(dateStr.length() >= 10 ? dateStr.substring(0, 10) : dateStr);
+          }
+        } else {
+          profile.setRiskScore(0);
+          profile.setRiskLevel("LOW");
+          profile.setReviewStatus("PENDING");
+          profile.setLastExamDate(null);
+        }
+        patientProfileRepository.save(profile);
+      }
+    } catch (Exception e) {
+      log.warn("Không thể đồng bộ patient_profile sau khi xóa ca sàng lọc cho bệnh nhân {}: {}", patientId, e.getMessage());
+    }
   }
 }

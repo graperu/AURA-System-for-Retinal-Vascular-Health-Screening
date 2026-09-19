@@ -1042,8 +1042,8 @@ class ScreeningServiceOptimizedTest {
   }
 
   @Test
-  @DisplayName("Delete Screening: Bệnh nhân chủ sở hữu không được phép xóa (bảo vệ audit trail)")
-  void testDeleteScreening_patientOwner_throwsAccessDenied() {
+  @DisplayName("Delete Screening: Bệnh nhân chủ sở hữu được phép xóa ca khám của chính mình")
+  void testDeleteScreening_patientOwner_success() {
     UUID patientUserId = UUID.randomUUID();
     UUID screeningId = UUID.randomUUID();
 
@@ -1052,9 +1052,27 @@ class ScreeningServiceOptimizedTest {
 
     when(screeningRepository.findById(screeningId)).thenReturn(Optional.of(s));
 
-    assertThatThrownBy(() -> screeningService.deleteScreening(screeningId, patientUserId, false))
+    screeningService.deleteScreening(screeningId, patientUserId, false);
+
+    verify(screeningRepository).delete(s);
+    verify(screeningRepository).flush();
+  }
+
+  @Test
+  @DisplayName("Delete Screening: Bệnh nhân khác không có quyền xóa ca khám của người khác")
+  void testDeleteScreening_otherUser_throwsAccessDenied() {
+    UUID ownerId = UUID.randomUUID();
+    UUID strangerId = UUID.randomUUID();
+    UUID screeningId = UUID.randomUUID();
+
+    Screening s = new Screening(ownerId, "https://cdn.aura.test/s_patient.png");
+    ReflectionTestUtils.setField(s, "id", screeningId);
+
+    when(screeningRepository.findById(screeningId)).thenReturn(Optional.of(s));
+
+    assertThatThrownBy(() -> screeningService.deleteScreening(screeningId, strangerId, false))
         .isInstanceOf(com.aura.auth.exception.AuthException.class)
-        .hasMessageContaining("Bệnh nhân không được phép xóa kết quả sàng lọc y tế");
+        .hasMessageContaining("Bạn không có quyền xóa ca sàng lọc này");
   }
 
   @Test
