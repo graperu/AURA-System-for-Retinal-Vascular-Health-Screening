@@ -75,7 +75,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const { isVi } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>(
-    propNotifications || MOCK_NOTIFICATIONS
+    propNotifications || []
   );
   const dropdownRef = useRef<HTMLDivElement>(null);
 

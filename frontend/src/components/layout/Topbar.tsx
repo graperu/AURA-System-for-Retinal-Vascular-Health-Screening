@@ -62,12 +62,8 @@ export const Topbar: React.FC<TopbarProps> = ({
   const { t, language, setLanguage, isVi } = useLanguage();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    return getAccessToken() ? [] : MOCK_NOTIFICATIONS;
-  });
-  const [unreadCount, setUnreadCount] = useState<number>(() => {
-    return getAccessToken() ? 0 : MOCK_NOTIFICATIONS.filter((n) => !n.read && !n.isRead).length;
-  });
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [activeToast, setActiveToast] = useState<any | null>(null);
   const [internalOnlineStatus, setInternalOnlineStatus] = useState<OnlinePresenceStatus>(() => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {

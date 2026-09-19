@@ -190,10 +190,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     const docName =
       selectedDoctor?.fullName ||
       doctors.find((d) => d.id === effectiveDoctorId)?.fullName ||
-      (selectedDoctorId === 'doc_1' ? 'BS. CKII Nguyễn Thị Thanh' : '') ||
-      (selectedDoctorId === 'doc_2' ? 'ThS. BS Trần Đình Trọng' : '') ||
-      (selectedDoctorId === 'doc_3' ? 'TS. BS Lê Hoàng Mai' : '') ||
-      (isVi ? 'BS. CKII Nguyễn Thị Thanh' : 'Dr. Nguyen Thi Thanh');
+      (isVi ? 'Bác sĩ chuyên khoa phụ trách' : 'Attending Specialist');
 
     const appointmentData = {
       doctorId: effectiveDoctorId,
