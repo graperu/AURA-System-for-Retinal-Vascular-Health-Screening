@@ -240,7 +240,7 @@ public class GeminiRetinalAiService {
         log.warn("Gemini API returned status code {}: {}", response.statusCode(), response.body());
       }
     } catch (Exception e) {
-      log.error("Gemini AI API Call failed: {}", e.getMessage());
+      log.error("Gemini AI API Call failed: {}", e.getMessage(), e);
     }
 
     return null;
@@ -285,13 +285,21 @@ public class GeminiRetinalAiService {
         return mapper.readValue(cleanJson, Map.class);
       }
     } catch (Exception e) {
-      log.error("Error parsing Gemini AI response: {}", e.getMessage());
+      log.error("Error parsing Gemini AI response: {}", e.getMessage(), e);
     }
     return null;
   }
 
   private String cleanJsonContent(String raw) {
+    if (raw == null) {
+      return "";
+    }
     String cleaned = raw.trim();
+    int firstBrace = cleaned.indexOf('{');
+    int lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      return cleaned.substring(firstBrace, lastBrace + 1).trim();
+    }
     if (cleaned.startsWith("```json")) {
       cleaned = cleaned.substring(7);
     } else if (cleaned.startsWith("```")) {
