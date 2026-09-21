@@ -19,6 +19,7 @@ import { SearchField } from '../common/SearchField';
 import { NotificationCenterDrawer } from '../NotificationCenterDrawer';
 import { notificationApi, getAccessToken } from '../../services/api';
 import { realtimeBus } from '../../services/realtimeService';
+import { stompClient } from '../../services/websocketService';
 import { playNotificationChime } from '../../utils/soundEffects';
 import { SyncIndicator } from '../../context/DataSyncContext';
 import {
@@ -193,6 +194,45 @@ export const Topbar: React.FC<TopbarProps> = ({
       console.warn('SSE stream setup error:', e);
     }
 
+    // STOMP WebSocket notification subscription
+    let unsubStomp: (() => void) | undefined;
+    if (currentUser?.id) {
+      try {
+        stompClient.connect();
+        unsubStomp = stompClient.subscribe(`/topic/notifications.${currentUser.id}`, (envelope: any) => {
+          const payload = envelope?.data || envelope?.payload || envelope;
+          if (payload && (payload.title || payload.message)) {
+            const notifId = String(payload.id || Date.now());
+            setNotifications((prev) => {
+              if (prev.some((n) => n.id === notifId)) return prev;
+              const newNotif: NotificationItem = {
+                id: notifId,
+                type: payload.type || 'SYSTEM',
+                title: payload.title || (isVi ? 'Thông báo mới' : 'New notification'),
+                titleEn: payload.titleEn || payload.title,
+                message: payload.message || '',
+                messageEn: payload.messageEn || payload.message,
+                timestamp: payload.timestamp || payload.createdAt || Date.now(),
+                read: false,
+                link: payload.linkUrl || payload.link || '/dashboard',
+                isRead: false,
+                linkUrl: payload.linkUrl || payload.link || '/dashboard',
+              };
+              return [newNotif, ...prev];
+            });
+            setUnreadCount((prev) => prev + 1);
+            setActiveToast(payload);
+            playNotificationChime();
+            setTimeout(() => {
+              setActiveToast((curr: any) => (curr?.id === payload.id ? null : curr));
+            }, 6000);
+          }
+        });
+      } catch (err) {
+        console.warn('STOMP notification subscription error in Topbar:', err);
+      }
+    }
+
     const unsubBusNotif = realtimeBus.subscribe('NOTIFICATION_CREATED', (evtPayload) => {
       const data = (evtPayload?.data || evtPayload?.payload || evtPayload) as any;
       if (data && (data.title || data.message)) {
@@ -223,9 +263,37 @@ export const Topbar: React.FC<TopbarProps> = ({
       }
     });
 
+    const unsubRead = realtimeBus.subscribe('NOTIFICATION_READ', (evt) => {
+      const id = evt?.data?.id;
+      if (id) {
+        setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true, isRead: true } : n)));
+      }
+      if (typeof evt?.data?.remainingUnread === 'number') {
+        setUnreadCount(evt.data.remainingUnread);
+      } else {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    });
+
+    const unsubCleared = realtimeBus.subscribe(['NOTIFICATION_CLEARED', 'NOTIFICATION_ALL_READ'], () => {
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true, isRead: true })));
+      setUnreadCount(0);
+    });
+
+    const unsubApptSync = realtimeBus.subscribe(
+      ['appointment:created', 'appointment:updated', 'APPOINTMENT_CREATED', 'APPOINTMENT_UPDATED', 'screening:new', 'screening:reviewed', 'DOCTOR_REVIEWED'],
+      () => {
+        void loadNotifications();
+      }
+    );
+
     return () => {
       if (eventSource) eventSource.close();
+      if (unsubStomp) unsubStomp();
       unsubBusNotif();
+      unsubRead();
+      unsubCleared();
+      unsubApptSync();
     };
   }, [currentUser, isVi]);
 

@@ -30,17 +30,28 @@ public class AppointmentService {
   private final UserRepository userRepository;
   private final PatientProfileRepository patientProfileRepository;
   private final RealtimeEventPublisher realtimeEventPublisher;
+  private final com.aura.notification.service.UserNotificationService userNotificationService;
 
   @Autowired
   public AppointmentService(
       AppointmentRepository appointmentRepository,
       UserRepository userRepository,
       @Autowired(required = false) PatientProfileRepository patientProfileRepository,
-      @Autowired(required = false) RealtimeEventPublisher realtimeEventPublisher) {
+      @Autowired(required = false) RealtimeEventPublisher realtimeEventPublisher,
+      @Autowired(required = false) com.aura.notification.service.UserNotificationService userNotificationService) {
     this.appointmentRepository = appointmentRepository;
     this.userRepository = userRepository;
     this.patientProfileRepository = patientProfileRepository;
     this.realtimeEventPublisher = realtimeEventPublisher;
+    this.userNotificationService = userNotificationService;
+  }
+
+  public AppointmentService(
+      AppointmentRepository appointmentRepository,
+      UserRepository userRepository,
+      PatientProfileRepository patientProfileRepository,
+      RealtimeEventPublisher realtimeEventPublisher) {
+    this(appointmentRepository, userRepository, patientProfileRepository, realtimeEventPublisher, null);
   }
 
   @Transactional
@@ -77,6 +88,36 @@ public class AppointmentService {
 
     String mrn = resolvePatientMrn(patientId);
     AppointmentResponse response = AppointmentResponse.fromEntity(saved, mrn);
+
+    // Send in-app user notifications
+    if (userNotificationService != null) {
+      try {
+        String patientDisplayName = patient.getFullName() != null && !patient.getFullName().isBlank() ? patient.getFullName() : "Bệnh nhân";
+        String doctorDisplayName = doctor.getFullName() != null && !doctor.getFullName().isBlank() ? doctor.getFullName() : "Bác sĩ chuyên khoa";
+
+        // Notify Doctor
+        userNotificationService.sendNotificationToUser(
+            doctor.getId(),
+            "Yêu cầu lịch hẹn mới",
+            "Bệnh nhân " + patientDisplayName + " đã đặt lịch hẹn khám vào ngày " + req.appointmentDate() + " (" + req.timeSlot() + ").",
+            "APPOINTMENT",
+            "INFO",
+            "/doctor/appointments"
+        );
+
+        // Notify Patient
+        userNotificationService.sendNotificationToUser(
+            patient.getId(),
+            "Đã gửi yêu cầu đặt lịch hẹn",
+            "Yêu cầu đặt lịch hẹn với " + doctorDisplayName + " vào ngày " + req.appointmentDate() + " (" + req.timeSlot() + ") đang chờ xác nhận.",
+            "APPOINTMENT",
+            "INFO",
+            "/patient/appointment"
+        );
+      } catch (Exception e) {
+        log.warn("[AppointmentService] Failed to send creation notification: {}", e.getMessage());
+      }
+    }
 
     // Realtime STOMP notification dispatch
     if (realtimeEventPublisher != null) {
@@ -191,6 +232,66 @@ public class AppointmentService {
     Appointment updated = appointmentRepository.save(appointment);
     String mrn = resolvePatientMrn(updated.getPatient() != null ? updated.getPatient().getId() : null);
     AppointmentResponse response = AppointmentResponse.fromEntity(updated, mrn);
+
+    // Send in-app user notifications based on new status
+    if (userNotificationService != null) {
+      try {
+        String docName = updated.getDoctor() != null && updated.getDoctor().getFullName() != null && !updated.getDoctor().getFullName().isBlank()
+            ? updated.getDoctor().getFullName()
+            : "Bác sĩ chuyên khoa";
+        String patName = updated.getPatient() != null && updated.getPatient().getFullName() != null && !updated.getPatient().getFullName().isBlank()
+            ? updated.getPatient().getFullName()
+            : "Bệnh nhân";
+
+        if (req.status() == AppointmentStatus.CONFIRMED) {
+          userNotificationService.sendNotificationToUser(
+              updated.getPatient().getId(),
+              "Lịch hẹn khám đã được xác nhận",
+              "Phòng khám & Bác sĩ " + docName + " đã xác nhận lịch hẹn của bạn vào ngày " + updated.getAppointmentDate() + " (" + updated.getTimeSlot() + "). Vui lòng đến đúng giờ.",
+              "APPOINTMENT",
+              "SUCCESS",
+              "/patient/appointment"
+          );
+          userNotificationService.sendNotificationToUser(
+              updated.getDoctor().getId(),
+              "Lịch hẹn khám đã được xác nhận",
+              "Lịch hẹn với bệnh nhân " + patName + " vào ngày " + updated.getAppointmentDate() + " (" + updated.getTimeSlot() + ") đã được xác nhận.",
+              "APPOINTMENT",
+              "SUCCESS",
+              "/doctor/appointments"
+          );
+        } else if (req.status() == AppointmentStatus.CANCELLED) {
+          String reasonNote = req.notes() != null && !req.notes().isBlank() ? " (" + req.notes().trim() + ")" : "";
+          userNotificationService.sendNotificationToUser(
+              updated.getPatient().getId(),
+              "Lịch hẹn khám đã bị hủy / từ chối",
+              "Lịch hẹn với Bác sĩ " + docName + " vào ngày " + updated.getAppointmentDate() + " đã bị hủy." + reasonNote,
+              "APPOINTMENT",
+              "WARNING",
+              "/patient/appointment"
+          );
+          userNotificationService.sendNotificationToUser(
+              updated.getDoctor().getId(),
+              "Lịch hẹn khám đã bị hủy",
+              "Lịch hẹn với bệnh nhân " + patName + " vào ngày " + updated.getAppointmentDate() + " (" + updated.getTimeSlot() + ") đã bị hủy." + reasonNote,
+              "APPOINTMENT",
+              "WARNING",
+              "/doctor/appointments"
+          );
+        } else if (req.status() == AppointmentStatus.COMPLETED) {
+          userNotificationService.sendNotificationToUser(
+              updated.getPatient().getId(),
+              "Hoàn tất ca khám",
+              "Ca khám sàng lọc võng mạc với " + docName + " đã hoàn tất thành công. Kết quả chẩn đoán đã được cập nhật vào hồ sơ bệnh án.",
+              "APPOINTMENT",
+              "SUCCESS",
+              "/patient/scan-history"
+          );
+        }
+      } catch (Exception e) {
+        log.warn("[AppointmentService] Failed to send status update notification: {}", e.getMessage());
+      }
+    }
 
     if (realtimeEventPublisher != null) {
       if (updated.getDoctor() != null) {

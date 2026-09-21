@@ -5,7 +5,8 @@ import { ClinicCreditPackageSection } from '../components/ClinicCreditPackageSec
 import { PatientAssignmentBoard } from '../components/PatientAssignmentBoard';
 import { ClinicBatchJob } from '../types/cds';
 import { clinicApi, notificationApi, billingApi, doctorApi, screeningApi, appointmentApi, Appointment } from '../services/api';
-import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard, Eye, FileSpreadsheet, ArrowRight, Stethoscope, Bell, UploadCloud, AlertTriangle, Users, Calendar, CalendarCheck, CheckCircle2, Clock, Phone, User, FileText, Camera, Sparkles, Plus, Check } from 'lucide-react';
+import { realtimeBus } from '../services/realtimeService';
+import { ShieldCheck, Activity, RotateCcw, Search, Loader2, Layers, Building2, UserPlus, Trash2, CreditCard, Eye, FileSpreadsheet, ArrowRight, Stethoscope, Bell, UploadCloud, AlertTriangle, Users, Calendar, CalendarCheck, CheckCircle2, Clock, Phone, User, FileText, Camera, Sparkles, Plus, Check, XCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -1360,6 +1361,10 @@ const ClinicAppointmentsSection: React.FC<{
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [search, setSearch] = useState('');
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [declineModalAppt, setDeclineModalAppt] = useState<Appointment | null>(null);
+  const [declineReason, setDeclineReason] = useState<string>('');
 
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
@@ -1377,18 +1382,115 @@ const ClinicAppointmentsSection: React.FC<{
 
   useEffect(() => {
     fetchAppointments();
+    const unsub = realtimeBus.subscribe(
+      ['appointment:created', 'appointment:updated', 'APPOINTMENT_CREATED', 'APPOINTMENT_UPDATED'],
+      () => {
+        fetchAppointments();
+      }
+    );
+    return unsub;
   }, [fetchAppointments]);
 
-  const handleUpdateStatus = async (id: string, status: string) => {
+  const handleConfirmAppointment = async (appt: Appointment, note?: string) => {
+    setActionLoadingId(appt.id);
     try {
-      const res = await appointmentApi.updateStatus(id, status);
+      const noteText = note || (isVi ? 'Phòng khám đã thẩm định và xác nhận lịch hẹn với Bác sĩ chuyên khoa' : 'Clinic verified and confirmed appointment with specialist physician');
+      const res = await appointmentApi.updateStatus(appt.id, 'CONFIRMED', noteText);
       if (res && res.success) {
         setAppointments((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, status: status as any } : a))
+          prev.map((a) => (a.id === appt.id ? { ...a, status: 'CONFIRMED', notes: a.notes ? `${a.notes}\n${noteText}` : noteText } : a))
         );
+        if (selectedAppt && selectedAppt.id === appt.id) {
+          setSelectedAppt((prev) => prev ? { ...prev, status: 'CONFIRMED' } : null);
+        }
+        realtimeBus.emit('appointment:updated', { id: appt.id, status: 'CONFIRMED', doctorName: appt.doctorName });
+        realtimeBus.emit('APPOINTMENT_UPDATED', { id: appt.id, status: 'CONFIRMED' });
+        setActionFeedback({
+          type: 'success',
+          text: isVi
+            ? `Đã xác nhận lịch hẹn của bệnh nhân ${appt.patientName || ''} với ${appt.doctorName || 'Bác sĩ chuyên khoa'}.`
+            : `Confirmed appointment for ${appt.patientName || 'patient'} with ${appt.doctorName || 'Specialist'}.`,
+        });
       }
-    } catch (e) {
-      console.error('Error updating appointment status:', e);
+    } catch (e: any) {
+      console.error('Error confirming appointment:', e);
+      setActionFeedback({
+        type: 'error',
+        text: e?.message || (isVi ? 'Không thể xác nhận lịch hẹn' : 'Failed to confirm appointment'),
+      });
+    } finally {
+      setActionLoadingId(null);
+      setTimeout(() => setActionFeedback(null), 5000);
+    }
+  };
+
+  const handleDeclineAppointment = async () => {
+    if (!declineModalAppt) return;
+    const appt = declineModalAppt;
+    setActionLoadingId(appt.id);
+    try {
+      const noteText = declineReason.trim()
+        ? (isVi ? `Phòng khám từ chối/hủy hẹn: ${declineReason.trim()}` : `Clinic declined/cancelled: ${declineReason.trim()}`)
+        : (isVi ? 'Phòng khám đã từ chối lịch hẹn do lịch khám của bác sĩ thay đổi' : 'Clinic cancelled appointment due to doctor schedule update');
+      const res = await appointmentApi.updateStatus(appt.id, 'CANCELLED', noteText);
+      if (res && res.success) {
+        setAppointments((prev) =>
+          prev.map((a) => (a.id === appt.id ? { ...a, status: 'CANCELLED', notes: a.notes ? `${a.notes}\n${noteText}` : noteText } : a))
+        );
+        if (selectedAppt && selectedAppt.id === appt.id) {
+          setSelectedAppt((prev) => prev ? { ...prev, status: 'CANCELLED' } : null);
+        }
+        realtimeBus.emit('appointment:updated', { id: appt.id, status: 'CANCELLED' });
+        realtimeBus.emit('APPOINTMENT_UPDATED', { id: appt.id, status: 'CANCELLED' });
+        setActionFeedback({
+          type: 'success',
+          text: isVi
+            ? `Đã từ chối/hủy lịch hẹn của bệnh nhân ${appt.patientName || ''}.`
+            : `Cancelled appointment for ${appt.patientName || 'patient'}.`,
+        });
+      }
+    } catch (e: any) {
+      console.error('Error declining appointment:', e);
+      setActionFeedback({
+        type: 'error',
+        text: e?.message || (isVi ? 'Không thể hủy lịch hẹn' : 'Failed to cancel appointment'),
+      });
+    } finally {
+      setActionLoadingId(null);
+      setDeclineModalAppt(null);
+      setDeclineReason('');
+      setTimeout(() => setActionFeedback(null), 5000);
+    }
+  };
+
+  const handleCompleteAppointment = async (appt: Appointment) => {
+    setActionLoadingId(appt.id);
+    try {
+      const noteText = isVi ? 'Đã hoàn tất ca khám lâm sàng tại cơ sở y tế' : 'Completed on-site clinical consultation';
+      const res = await appointmentApi.updateStatus(appt.id, 'COMPLETED', noteText);
+      if (res && res.success) {
+        setAppointments((prev) =>
+          prev.map((a) => (a.id === appt.id ? { ...a, status: 'COMPLETED', notes: a.notes ? `${a.notes}\n${noteText}` : noteText } : a))
+        );
+        if (selectedAppt && selectedAppt.id === appt.id) {
+          setSelectedAppt((prev) => prev ? { ...prev, status: 'COMPLETED' } : null);
+        }
+        realtimeBus.emit('appointment:updated', { id: appt.id, status: 'COMPLETED' });
+        realtimeBus.emit('APPOINTMENT_UPDATED', { id: appt.id, status: 'COMPLETED' });
+        setActionFeedback({
+          type: 'success',
+          text: isVi ? 'Đã hoàn tất ca khám cho bệnh nhân.' : 'Appointment marked as completed.',
+        });
+      }
+    } catch (e: any) {
+      console.error('Error completing appointment:', e);
+      setActionFeedback({
+        type: 'error',
+        text: e?.message || (isVi ? 'Không thể hoàn tất ca khám' : 'Failed to complete appointment'),
+      });
+    } finally {
+      setActionLoadingId(null);
+      setTimeout(() => setActionFeedback(null), 5000);
     }
   };
 
@@ -1403,6 +1505,11 @@ const ClinicAppointmentsSection: React.FC<{
       return matchSearch && matchStatus;
     });
   }, [appointments, search, statusFilter]);
+
+  const pendingCount = useMemo(() => appointments.filter((a) => a.status === 'PENDING').length, [appointments]);
+  const confirmedCount = useMemo(() => appointments.filter((a) => a.status === 'CONFIRMED').length, [appointments]);
+  const completedCount = useMemo(() => appointments.filter((a) => a.status === 'COMPLETED').length, [appointments]);
+  const cancelledCount = useMemo(() => appointments.filter((a) => a.status === 'CANCELLED').length, [appointments]);
 
   const columns: DataTableColumn<Appointment>[] = [
     {
@@ -1424,7 +1531,7 @@ const ClinicAppointmentsSection: React.FC<{
             {a.patientName || `Bệnh nhân #${a.patientId.slice(0, 6)}`}
           </span>
           <div className="flex items-center gap-2 text-[11px] text-slate-500">
-            {a.patientMrn && <span className="font-mono-data text-brand-600">{a.patientMrn}</span>}
+            {a.patientMrn && <span className="font-mono-data text-brand-600 font-semibold">{a.patientMrn}</span>}
             {a.patientPhone && <span>{a.patientPhone}</span>}
           </div>
         </div>
@@ -1434,18 +1541,35 @@ const ClinicAppointmentsSection: React.FC<{
       key: 'doctorName',
       header: isVi ? 'Bác Sĩ Khám' : 'Assigned Doctor',
       render: (a) => (
-        <span className="text-xs text-slate-700 font-medium">
-          {a.doctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Specialist')}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <Stethoscope className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-900 block">
+              {a.doctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Specialist')}
+            </span>
+            <span className="text-[10px] text-slate-400 block">
+              {isVi ? 'Chuyên khoa Mắt & Mạch Máu' : 'Ophthalmology Specialist'}
+            </span>
+          </div>
+        </div>
       ),
     },
     {
       key: 'reason',
       header: isVi ? 'Lý Do Khám' : 'Reason for Visit',
       render: (a) => (
-        <span className="text-xs text-slate-600 truncate max-w-[200px] block" title={a.reason}>
-          {a.reason || (isVi ? 'Sàng lọc vi mạch võng mạc định kỳ' : 'Retinal checkup')}
-        </span>
+        <div>
+          <span className="text-xs text-slate-700 font-medium truncate max-w-[220px] block" title={a.reason}>
+            {a.reason || (isVi ? 'Sàng lọc vi mạch võng mạc định kỳ' : 'Retinal checkup')}
+          </span>
+          {a.notes && (
+            <span className="text-[11px] text-slate-400 italic truncate max-w-[220px] block" title={a.notes}>
+              {a.notes}
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -1453,60 +1577,198 @@ const ClinicAppointmentsSection: React.FC<{
       header: isVi ? 'Trạng Thái' : 'Status',
       render: (a) => {
         const s = (a.status || 'PENDING').toUpperCase();
-        let label = isVi ? 'Chờ tiếp nhận' : 'Pending';
-        if (s === 'CONFIRMED') label = isVi ? 'Đã check-in' : 'Checked-in';
-        if (s === 'COMPLETED') label = isVi ? 'Đã khám xong' : 'Completed';
-        if (s === 'CANCELLED') label = isVi ? 'Đã hủy' : 'Cancelled';
-        return <StatusBadge status={s} label={label} />;
+        if (s === 'PENDING') {
+          return (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              {isVi ? 'Chờ xác nhận' : 'Pending Confirmation'}
+            </span>
+          );
+        }
+        if (s === 'CONFIRMED') {
+          return (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              {isVi ? 'Đã xác nhận với BS' : 'Confirmed with Doctor'}
+            </span>
+          );
+        }
+        if (s === 'COMPLETED') {
+          return (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              {isVi ? 'Đã khám xong' : 'Completed'}
+            </span>
+          );
+        }
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+            {isVi ? 'Đã hủy / Từ chối' : 'Cancelled'}
+          </span>
+        );
       },
     },
     {
       key: 'actions',
-      header: isVi ? 'Thao Tác Tiếp Nhận' : 'Intake Action',
+      header: isVi ? 'Thao Tác Xác Nhận' : 'Confirmation Action',
       align: 'right',
       className: 'text-right',
-      render: (a) => (
-        <div className="flex items-center justify-end gap-1.5">
-          {a.status === 'PENDING' && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => handleUpdateStatus(a.id, 'CONFIRMED')}
-              icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+      render: (a) => {
+        const isCurrentLoading = actionLoadingId === a.id;
+        return (
+          <div className="flex items-center justify-end gap-1.5">
+            {a.status === 'PENDING' && (
+              <>
+                <button
+                  type="button"
+                  disabled={isCurrentLoading}
+                  onClick={() => handleConfirmAppointment(a)}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                  title={isVi ? `Xác nhận lịch hẹn với ${a.doctorName || 'Bác sĩ'}` : 'Confirm appointment'}
+                >
+                  {isCurrentLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {isVi ? 'Xác nhận lịch' : 'Confirm'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isCurrentLoading}
+                  onClick={() => {
+                    setDeclineModalAppt(a);
+                    setDeclineReason('');
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                  title={isVi ? 'Từ chối hoặc hủy lịch hẹn' : 'Decline appointment'}
+                >
+                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                  {isVi ? 'Từ chối' : 'Decline'}
+                </button>
+              </>
+            )}
+            {a.status === 'CONFIRMED' && (
+              <>
+                <button
+                  type="button"
+                  disabled={isCurrentLoading}
+                  onClick={() => handleCompleteAppointment(a)}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-xs flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                  title={isVi ? 'Đánh dấu đã hoàn thành ca khám' : 'Complete appointment'}
+                >
+                  {isCurrentLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  {isVi ? 'Hoàn tất khám' : 'Complete'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isCurrentLoading}
+                  onClick={() => {
+                    setDeclineModalAppt(a);
+                    setDeclineReason('');
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                  title={isVi ? 'Hủy lịch hẹn đã xác nhận' : 'Cancel confirmed appointment'}
+                >
+                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                  {isVi ? 'Hủy hẹn' : 'Cancel'}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedAppt(a)}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer"
             >
-              {isVi ? 'Check-in' : 'Check-in'}
-            </Button>
-          )}
-          {a.status === 'CONFIRMED' && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleUpdateStatus(a.id, 'COMPLETED')}
-              icon={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
-            >
-              {isVi ? 'Hoàn tất' : 'Complete'}
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedAppt(a)}
-          >
-            {isVi ? 'Chi tiết' : 'Details'}
-          </Button>
-        </div>
-      ),
+              {isVi ? 'Chi tiết' : 'Details'}
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
   return (
-    <>
+    <div className="space-y-6 animate-fadeIn">
+      {/* 4 Summary Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-medium block">
+              {isVi ? 'Tổng số lịch hẹn' : 'Total Appointments'}
+            </span>
+            <span className="text-xl font-bold font-mono-data text-slate-900 mt-1 block">
+              {appointments.length}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700">
+            <Calendar className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-amber-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-amber-700 font-medium block">
+              {isVi ? 'Chờ xác nhận' : 'Pending Confirmation'}
+            </span>
+            <span className="text-xl font-bold font-mono-data text-amber-900 mt-1 block">
+              {pendingCount}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+            <Clock className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-blue-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-blue-700 font-medium block">
+              {isVi ? 'Đã xác nhận với Bác sĩ' : 'Confirmed with Doctor'}
+            </span>
+            <span className="text-xl font-bold font-mono-data text-blue-900 mt-1 block">
+              {confirmedCount}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-emerald-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-emerald-700 font-medium block">
+              {isVi ? 'Đã hoàn tất khám' : 'Completed Visits'}
+            </span>
+            <span className="text-xl font-bold font-mono-data text-emerald-900 mt-1 block">
+              {completedCount}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+            <Check className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {actionFeedback && (
+        <div
+          className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 animate-in fade-in ${
+            actionFeedback.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          }`}
+        >
+          {actionFeedback.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+          )}
+          <span>{actionFeedback.text}</span>
+        </div>
+      )}
+
       <SectionCard
-        title={isVi ? 'Quản Lý Lịch Hẹn & Tiếp Nhận Bệnh Nhân' : 'Appointments & Patient Reception'}
+        title={isVi ? 'Quản Lý & Xác Nhận Lịch Hẹn Khám Bác Sĩ' : 'Appointments & Doctor Booking Confirmation'}
         subtitle={
           isVi
-            ? 'Theo dõi danh sách bệnh nhân đặt lịch hẹn khám võng mạc và thực hiện check-in tiếp nhận tại cơ sở'
-            : 'Track patient appointments for retinal examination and perform on-site intake check-in'
+            ? 'Tiếp nhận, xác nhận lịch hẹn của bệnh nhân với bác sĩ chuyên khoa và điều phối lượt khám tại phòng khám'
+            : 'Review, confirm patient appointments with specialists, and manage clinical check-ins'
         }
         headerAction={
           <div className="flex flex-wrap items-center gap-2">
@@ -1514,7 +1776,7 @@ const ClinicAppointmentsSection: React.FC<{
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder={isVi ? 'Tìm tên, mã MRN, bác sĩ...' : 'Search name, MRN, doctor...'}
+                placeholder={isVi ? 'Tìm tên bệnh nhân, bác sĩ, MRN...' : 'Search patient, doctor, MRN...'}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-clinical-border bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 w-52 transition-all"
@@ -1524,27 +1786,43 @@ const ClinicAppointmentsSection: React.FC<{
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
               <button
                 onClick={() => setStatusFilter('ALL')}
-                className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
+                className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                  statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
+                }`}
               >
-                {isVi ? 'Tất cả' : 'All'}
+                {isVi ? `Tất cả (${appointments.length})` : `All (${appointments.length})`}
               </button>
               <button
                 onClick={() => setStatusFilter('PENDING')}
-                className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${statusFilter === 'PENDING' ? 'bg-white text-amber-700 shadow-xs' : 'text-slate-600'}`}
+                className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                  statusFilter === 'PENDING' ? 'bg-white text-amber-800 shadow-xs font-bold' : 'text-slate-600'
+                }`}
               >
-                {isVi ? 'Chờ check-in' : 'Pending'}
+                {isVi ? `Chờ xác nhận (${pendingCount})` : `Pending (${pendingCount})`}
               </button>
               <button
                 onClick={() => setStatusFilter('CONFIRMED')}
-                className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${statusFilter === 'CONFIRMED' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+                className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                  statusFilter === 'CONFIRMED' ? 'bg-white text-blue-800 shadow-xs font-bold' : 'text-slate-600'
+                }`}
               >
-                {isVi ? 'Đã check-in' : 'Checked-in'}
+                {isVi ? `Đã xác nhận (${confirmedCount})` : `Confirmed (${confirmedCount})`}
               </button>
               <button
                 onClick={() => setStatusFilter('COMPLETED')}
-                className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${statusFilter === 'COMPLETED' ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600'}`}
+                className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                  statusFilter === 'COMPLETED' ? 'bg-white text-emerald-800 shadow-xs font-bold' : 'text-slate-600'
+                }`}
               >
-                {isVi ? 'Hoàn thành' : 'Done'}
+                {isVi ? `Hoàn thành (${completedCount})` : `Done (${completedCount})`}
+              </button>
+              <button
+                onClick={() => setStatusFilter('CANCELLED')}
+                className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                  statusFilter === 'CANCELLED' ? 'bg-white text-rose-800 shadow-xs font-bold' : 'text-slate-600'
+                }`}
+              >
+                {isVi ? `Đã hủy (${cancelledCount})` : `Cancelled (${cancelledCount})`}
               </button>
             </div>
           </div>
@@ -1557,7 +1835,9 @@ const ClinicAppointmentsSection: React.FC<{
               {isVi ? 'Không có lịch hẹn nào phù hợp' : 'No appointments found'}
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              {isVi ? 'Bệnh nhân đặt lịch khám trực tuyến sẽ được hiển thị ngay tại bảng tiếp nhận này' : 'Patients booking online appointments will appear here'}
+              {isVi
+                ? 'Bệnh nhân đăng ký lịch khám với Bác sĩ chuyên khoa sẽ được hiển thị ngay tại bảng tiếp nhận này để phòng khám xác nhận.'
+                : 'Patients booking appointments with specialist physicians will appear here for clinic confirmation.'}
             </p>
           </div>
         ) : (
@@ -1576,47 +1856,122 @@ const ClinicAppointmentsSection: React.FC<{
         <Modal
           isOpen={Boolean(selectedAppt)}
           onClose={() => setSelectedAppt(null)}
-          title={isVi ? 'Chi Tiết Lịch Hẹn Khám' : 'Appointment Details'}
+          title={isVi ? 'Chi Tiết Lịch Hẹn Khám Bác Sĩ' : 'Appointment Details'}
         >
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-[11px] text-slate-400 block">{isVi ? 'Bệnh nhân' : 'Patient'}</span>
-                <span className="font-bold text-xs text-slate-800">{selectedAppt.patientName}</span>
-                {selectedAppt.patientPhone && <span className="text-[11px] text-slate-500 block">{selectedAppt.patientPhone}</span>}
+                <span className="font-bold text-xs text-slate-900 block">{selectedAppt.patientName}</span>
+                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
+                  {selectedAppt.patientMrn && <span className="font-mono-data text-brand-600 font-semibold">{selectedAppt.patientMrn}</span>}
+                  {selectedAppt.patientPhone && <span>{selectedAppt.patientPhone}</span>}
+                </div>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[11px] text-slate-400 block">{isVi ? 'Bác sĩ phụ trách' : 'Assigned Doctor'}</span>
-                <span className="font-bold text-xs text-slate-800">{selectedAppt.doctorName || 'BS Chuyên khoa'}</span>
+                <span className="text-[11px] text-slate-400 block">{isVi ? 'Bác sĩ chuyên khoa khám' : 'Assigned Specialist'}</span>
+                <span className="font-bold text-xs text-slate-900 block">{selectedAppt.doctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Specialist')}</span>
+                <span className="text-[11px] text-slate-500 block">{isVi ? 'Chuyên khoa Mắt & Mạch Máu' : 'Ophthalmology & Vascular'}</span>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-[11px] text-slate-400 block">{isVi ? 'Ngày hẹn & Khung giờ' : 'Date & Time'}</span>
-                <span className="font-mono-data font-bold text-xs text-brand-700">{selectedAppt.timeSlot} - {selectedAppt.appointmentDate}</span>
+                <span className="font-mono-data font-bold text-xs text-brand-700 block">
+                  {selectedAppt.timeSlot} • {selectedAppt.appointmentDate}
+                </span>
+                <span className="text-[11px] text-slate-500 block">{isVi ? 'Phòng khám đa khoa quốc tế AURA' : 'AURA Medical Center'}</span>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[11px] text-slate-400 block">{isVi ? 'Trạng thái' : 'Status'}</span>
-                <StatusBadge status={selectedAppt.status} />
+                <span className="text-[11px] text-slate-400 block mb-1">{isVi ? 'Trạng thái hiện tại' : 'Status'}</span>
+                {selectedAppt.status === 'PENDING' ? (
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    {isVi ? 'Chờ phòng khám xác nhận' : 'Pending Confirmation'}
+                  </span>
+                ) : selectedAppt.status === 'CONFIRMED' ? (
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    {isVi ? 'Đã xác nhận với Bác sĩ' : 'Confirmed'}
+                  </span>
+                ) : selectedAppt.status === 'COMPLETED' ? (
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    {isVi ? 'Đã hoàn tất ca khám' : 'Completed'}
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    {isVi ? 'Đã hủy / Từ chối' : 'Cancelled'}
+                  </span>
+                )}
               </div>
             </div>
 
-            <div className="p-3 bg-white rounded-xl border border-slate-200">
-              <span className="text-[11px] text-slate-400 block mb-1">{isVi ? 'Lý do khám' : 'Reason for Visit'}</span>
-              <p className="text-xs text-slate-700">{selectedAppt.reason || (isVi ? 'Sàng lọc sức khỏe vi mạch võng mạc định kỳ' : 'Routine retinal checkup')}</p>
+            <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 block">{isVi ? 'Lý do khám' : 'Reason for Visit'}</span>
+              <p className="text-xs text-slate-800">{selectedAppt.reason || (isVi ? 'Sàng lọc sức khỏe vi mạch võng mạc định kỳ' : 'Routine retinal checkup')}</p>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            {selectedAppt.notes && (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-[11px] font-bold text-slate-500 block">{isVi ? 'Ghi chú lâm sàng / Lịch sử trao đổi' : 'Clinical Notes'}</span>
+                <p className="text-xs text-slate-700 whitespace-pre-line">{selectedAppt.notes}</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               {selectedAppt.status === 'PENDING' && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    handleUpdateStatus(selectedAppt.id, 'CONFIRMED');
-                    setSelectedAppt(null);
-                  }}
-                  icon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                >
-                  {isVi ? 'Tiếp nhận (Check-in)' : 'Check-in'}
-                </Button>
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={actionLoadingId === selectedAppt.id}
+                    onClick={() => {
+                      handleConfirmAppointment(selectedAppt);
+                    }}
+                    icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                  >
+                    {isVi ? 'Xác nhận lịch hẹn với Bác sĩ' : 'Confirm with Doctor'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={actionLoadingId === selectedAppt.id}
+                    onClick={() => {
+                      setDeclineModalAppt(selectedAppt);
+                      setDeclineReason('');
+                    }}
+                    icon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
+                  >
+                    {isVi ? 'Từ chối lịch hẹn' : 'Decline'}
+                  </Button>
+                </>
+              )}
+              {selectedAppt.status === 'CONFIRMED' && (
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={actionLoadingId === selectedAppt.id}
+                    onClick={() => {
+                      handleCompleteAppointment(selectedAppt);
+                    }}
+                    icon={<Check className="w-3.5 h-3.5" />}
+                  >
+                    {isVi ? 'Hoàn tất ca khám' : 'Complete Visit'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={actionLoadingId === selectedAppt.id}
+                    onClick={() => {
+                      setDeclineModalAppt(selectedAppt);
+                      setDeclineReason('');
+                    }}
+                    icon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
+                  >
+                    {isVi ? 'Hủy hẹn' : 'Cancel'}
+                  </Button>
+                </>
               )}
               <Button
                 variant="secondary"
@@ -1629,7 +1984,74 @@ const ClinicAppointmentsSection: React.FC<{
           </div>
         </Modal>
       )}
-    </>
+
+      {/* Decline / Cancel Appointment Modal */}
+      {declineModalAppt && (
+        <Modal
+          isOpen={Boolean(declineModalAppt)}
+          onClose={() => {
+            setDeclineModalAppt(null);
+            setDeclineReason('');
+          }}
+          title={isVi ? 'Từ Chối / Hủy Lịch Hẹn Khám' : 'Decline / Cancel Appointment'}
+        >
+          <div className="space-y-4">
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                {isVi
+                  ? `Xác nhận từ chối lịch hẹn của bệnh nhân ${declineModalAppt.patientName || ''}`
+                  : `Confirm cancellation for ${declineModalAppt.patientName || 'patient'}`}
+              </p>
+              <p className="text-amber-800">
+                {isVi
+                  ? `Lịch hẹn với Bác sĩ ${declineModalAppt.doctorName || 'chuyên khoa'} vào ngày ${declineModalAppt.appointmentDate} (${declineModalAppt.timeSlot}) sẽ được chuyển sang trạng thái Đã hủy.`
+                  : `Appointment with Dr. ${declineModalAppt.doctorName || 'Specialist'} on ${declineModalAppt.appointmentDate} (${declineModalAppt.timeSlot}) will be cancelled.`}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                {isVi ? 'Lý do từ chối / hủy lịch hẹn (gửi thông báo đến bệnh nhân):' : 'Reason for cancellation (will notify patient):'}
+              </label>
+              <textarea
+                rows={3}
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                placeholder={
+                  isVi
+                    ? 'Ví dụ: Bác sĩ có ca phẫu thuật đột xuất, phòng khám kính đề nghị bệnh nhân dời lịch sang khung giờ khác...'
+                    : 'e.g., Doctor has an urgent surgery scheduled, please choose an alternative time...'
+                }
+                className="w-full text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-1 focus:ring-brand-500 bg-white text-slate-900"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setDeclineModalAppt(null);
+                  setDeclineReason('');
+                }}
+              >
+                {isVi ? 'Quay lại' : 'Back'}
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={actionLoadingId === declineModalAppt.id}
+                onClick={handleDeclineAppointment}
+                icon={actionLoadingId === declineModalAppt.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+              >
+                {isVi ? 'Xác nhận hủy hẹn' : 'Confirm Cancel'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 };
 
@@ -2363,7 +2785,9 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      void notificationApi.markAllAsRead();
+                      void notificationApi.markAllAsRead().then(() => {
+                        realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
+                      });
                     }}
                     className="px-3.5 py-1.5 text-xs font-semibold text-[#3478F6] hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors cursor-pointer"
                   >

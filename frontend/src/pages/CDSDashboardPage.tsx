@@ -1091,7 +1091,9 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
             <button
               type="button"
               onClick={() => {
-                void notificationApi.markAllAsRead();
+                void notificationApi.markAllAsRead().then(() => {
+                  realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
+                });
               }}
               className="px-3.5 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors cursor-pointer"
             >
