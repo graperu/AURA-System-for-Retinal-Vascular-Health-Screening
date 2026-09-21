@@ -28,4 +28,8 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Subscription s WHERE s.owner.id = :ownerId")
     List<Subscription> findByOwnerIdForUpdate(@Param("ownerId") UUID ownerId);
+
+    boolean existsByServicePackageId(Long servicePackageId);
+
+    void deleteAllByServicePackageId(Long servicePackageId);
 }

@@ -1285,6 +1285,10 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
   const [isPackagesLoading, setIsPackagesLoading] = useState(false);
   const [packageActionNotice, setPackageActionNotice] = useState<string | null>(null);
   const [editingPackage, setEditingPackage] = useState<any | null>(null);
+  const [deletingPackage, setDeletingPackage] = useState<any | null>(null);
+  const [isDeletingPackage, setIsDeletingPackage] = useState(false);
+  const [isBatchDeletePackageModalOpen, setIsBatchDeletePackageModalOpen] = useState(false);
+  const [isBatchDeletingPackages, setIsBatchDeletingPackages] = useState(false);
   const [isCreatePackageModalOpen, setIsCreatePackageModalOpen] = useState(false);
   const [packageFilterScope, setPackageFilterScope] = useState<"ALL" | "USER" | "CLINIC">("ALL");
   const [packageSearchQuery, setPackageSearchQuery] = useState("");
@@ -1366,6 +1370,59 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
     } catch (e) {
       console.warn("Could not toggle package status:", e);
       setPackageActionNotice(isVi ? "Lỗi hệ thống khi cập nhật trạng thái gói dịch vụ." : "System error while updating service package status.");
+      setTimeout(() => setPackageActionNotice(null), 4000);
+    }
+  };
+
+  const handleConfirmDeletePackage = async () => {
+    if (!deletingPackage) return;
+    setIsDeletingPackage(true);
+    try {
+      const res = await adminServicePackageApi.delete(deletingPackage.id);
+      if (res.success) {
+        setPackageActionNotice(
+          t('admin.packages.deleteSuccess', isVi ? `Đã xóa gói "${deletingPackage.name}" thành công.` : `Package "${deletingPackage.name}" deleted successfully.`)
+        );
+        setSelectedPackageIds((prev) => {
+          const next = new Set(prev);
+          next.delete(String(deletingPackage.id));
+          return next;
+        });
+        await loadPackages();
+      } else {
+        setPackageActionNotice(res.message || (isVi ? "Không thể xóa gói dịch vụ." : "Could not delete service package."));
+      }
+    } catch (e: any) {
+      console.warn("Could not delete package:", e);
+      setPackageActionNotice(e?.message || (isVi ? "Lỗi khi xóa gói dịch vụ." : "Error deleting service package."));
+    } finally {
+      setIsDeletingPackage(false);
+      setDeletingPackage(null);
+      setTimeout(() => setPackageActionNotice(null), 4000);
+    }
+  };
+
+  const handleBatchDeletePackages = async () => {
+    if (selectedPackageIds.size === 0) return;
+    setIsBatchDeletingPackages(true);
+    try {
+      const ids = Array.from(selectedPackageIds).map((id) => Number(id));
+      const res = await adminServicePackageApi.batchDelete(ids);
+      if (res.success) {
+        setPackageActionNotice(
+          t('admin.packages.batchDeleteSuccess', isVi ? `Đã xóa thành công ${res.data ?? selectedPackageIds.size} gói dịch vụ.` : `Successfully deleted ${res.data ?? selectedPackageIds.size} packages.`)
+        );
+        setSelectedPackageIds(new Set());
+        await loadPackages();
+      } else {
+        setPackageActionNotice(res.message || (isVi ? "Không thể xóa các gói dịch vụ đã chọn." : "Could not delete selected packages."));
+      }
+    } catch (e: any) {
+      console.warn("Could not batch delete packages:", e);
+      setPackageActionNotice(e?.message || (isVi ? "Lỗi khi xóa gói dịch vụ." : "Error deleting service packages."));
+    } finally {
+      setIsBatchDeletingPackages(false);
+      setIsBatchDeletePackageModalOpen(false);
       setTimeout(() => setPackageActionNotice(null), 4000);
     }
   };
@@ -3971,6 +4028,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                                   </>
                                 )}
                               </button>
+                              <button
+                                onClick={() => setDeletingPackage(pkg)}
+                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg font-bold text-xs flex items-center gap-1 transition-all border border-rose-200 cursor-pointer"
+                                title={isVi ? "Xóa gói dịch vụ" : "Delete package"}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-600" /> {isVi ? 'Xóa' : 'Delete'}
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -4030,6 +4094,13 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
               >
                 <Unlock className="w-3.5 h-3.5" />
                 {isVi ? `Mở bán (${selectedPackageIds.size})` : `Activate (${selectedPackageIds.size})`}
+              </button>
+              <button
+                onClick={() => setIsBatchDeletePackageModalOpen(true)}
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {isVi ? `Xóa (${selectedPackageIds.size})` : `Delete (${selectedPackageIds.size})`}
               </button>
             </div>
           )}
@@ -4217,6 +4288,104 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* DELETE SINGLE PACKAGE CONFIRMATION MODAL */}
+          {deletingPackage && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
+              <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center gap-2 text-rose-600">
+                    <AlertTriangle className="w-5 h-5" />
+                    <h3 className="font-bold text-slate-900 text-base">
+                      {t('admin.packages.deleteModalTitle', isVi ? 'Xác Nhận Xóa Gói Dịch Vụ' : 'Confirm Package Deletion')}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setDeletingPackage(null)}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-sm text-slate-600">
+                  {isVi
+                    ? `Bạn có chắc chắn muốn xóa gói dịch vụ "${deletingPackage.name}" (${Number(deletingPackage.price || 0).toLocaleString("vi-VN")} ₫ - ${deletingPackage.credits} lượt)?`
+                    : `Are you sure you want to delete service package "${deletingPackage.name}" (${Number(deletingPackage.price || 0).toLocaleString("en-US")} ₫ - ${deletingPackage.credits} credits)?`}
+                </p>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800">
+                  {isVi
+                    ? 'Lưu ý: Nếu gói cước đã có lịch sử giao dịch thanh toán từ khách hàng, hệ thống sẽ tự động chuyển sang trạng thái "Ngưng bán" vĩnh viễn để bảo đảm tính toàn vẹn của dữ liệu tài chính.'
+                    : 'Note: If this package already has payment transactions, the system will automatically deactivate it to preserve financial audit history.'}
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => setDeletingPackage(null)}
+                    disabled={isDeletingPackage}
+                    className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
+                  </button>
+                  <button
+                    onClick={handleConfirmDeletePackage}
+                    disabled={isDeletingPackage}
+                    className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isDeletingPackage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    {isVi ? 'Xác Nhận Xóa' : 'Confirm Delete'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BATCH DELETE PACKAGES CONFIRMATION MODAL */}
+          {isBatchDeletePackageModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
+              <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center gap-2 text-rose-600">
+                    <AlertTriangle className="w-5 h-5" />
+                    <h3 className="font-bold text-slate-900 text-base">
+                      {isVi ? 'Xác Nhận Xóa Hàng Loạt Gói' : 'Confirm Batch Package Deletion'}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setIsBatchDeletePackageModalOpen(false)}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-sm text-slate-600">
+                  {isVi
+                    ? `Bạn có chắc chắn muốn xóa ${selectedPackageIds.size} gói dịch vụ đã chọn?`
+                    : `Are you sure you want to delete ${selectedPackageIds.size} selected packages?`}
+                </p>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800">
+                  {isVi
+                    ? 'Lưu ý: Các gói đã có lịch sử giao dịch thanh toán sẽ được tự động chuyển sang trạng thái "Ngưng bán" vĩnh viễn.'
+                    : 'Note: Packages with existing transaction history will be permanently deactivated instead.'}
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => setIsBatchDeletePackageModalOpen(false)}
+                    disabled={isBatchDeletingPackages}
+                    className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    {t('common.cancel', isVi ? 'Hủy' : 'Cancel')}
+                  </button>
+                  <button
+                    onClick={handleBatchDeletePackages}
+                    disabled={isBatchDeletingPackages}
+                    className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isBatchDeletingPackages ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    {isVi ? `Xóa (${selectedPackageIds.size})` : `Delete (${selectedPackageIds.size})`}
+                  </button>
+                </div>
               </div>
             </div>
           )}

@@ -36,4 +36,6 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
 
     @Query("SELECT p FROM PaymentTransaction p WHERE LOWER(TRIM(p.transferContent)) = LOWER(TRIM(:transferContent))")
     Optional<PaymentTransaction> findByTransferContentIgnoreCase(@Param("transferContent") String transferContent);
+
+    boolean existsByServicePackageId(Long servicePackageId);
 }

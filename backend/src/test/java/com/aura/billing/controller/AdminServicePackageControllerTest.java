@@ -217,6 +217,32 @@ class AdminServicePackageControllerTest {
     }
   }
 
+  @Nested
+  @DisplayName("DELETE /api/v1/admin/packages/{id} & POST /batch-delete")
+  class DeletePackageTests {
+
+    @Test
+    @DisplayName("Xóa thành công một gói dịch vụ -> HTTP 200")
+    void delete_success() {
+      ApiResponse<Void> res = controller.delete(packageId);
+      assertThat(res.success()).isTrue();
+      assertThat(res.message()).contains("xóa");
+      verify(servicePackageService).delete(packageId);
+    }
+
+    @Test
+    @DisplayName("Xóa hàng loạt gói dịch vụ thành công -> HTTP 200")
+    void batchDelete_success() {
+      List<Long> ids = List.of(packageId, 99L);
+      when(servicePackageService.batchDelete(ids)).thenReturn(2);
+
+      ApiResponse<Integer> res = controller.batchDelete(ids);
+      assertThat(res.success()).isTrue();
+      assertThat(res.data()).isEqualTo(2);
+      verify(servicePackageService).batchDelete(ids);
+    }
+  }
+
   @Test
   @DisplayName("Direct method invocation coverage")
   void directMethodCoverage_test() {

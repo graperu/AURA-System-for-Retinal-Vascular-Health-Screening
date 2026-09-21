@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 public interface UserRoleRepository extends JpaRepository<UserRole, UUID> {
   List<UserRole> findAllByUserId(UUID userId);
 
+  @Query("select ur from UserRole ur join fetch ur.role where ur.user.id = :userId")
+  List<UserRole> findAllByUserIdWithRole(@Param("userId") UUID userId);
+
   List<UserRole> findAllByUserIdIn(List<UUID> userIds);
 
   @Query("select count(ur) > 0 from UserRole ur where ur.user.id = :userId and ur.role.name = :role")

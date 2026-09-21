@@ -460,7 +460,7 @@ export const adminUserApi = {
     if (cleanRole === "PATIENT") cleanRole = "USER";
     return apiFetch<any>(`/api/v1/admin/users/${userId}/role`, {
       method: "PUT",
-      body: JSON.stringify({ role: cleanRole, roleName: cleanRole }),
+      body: JSON.stringify({ role: cleanRole }),
     });
   },
 
@@ -924,6 +924,15 @@ export const adminServicePackageApi = {
     apiFetch<any>(`/api/v1/admin/packages/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ active }),
+    }),
+  delete: (id: number | string) =>
+    apiFetch<any>(`/api/v1/admin/packages/${id}`, {
+      method: 'DELETE',
+    }),
+  batchDelete: (ids: (number | string)[]) =>
+    apiFetch<any>('/api/v1/admin/packages/batch-delete', {
+      method: 'POST',
+      body: JSON.stringify(ids),
     }),
 };
 

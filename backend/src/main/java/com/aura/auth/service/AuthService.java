@@ -256,10 +256,11 @@ public class AuthService {
     return result(user, names);
   }
 
+  @Transactional
   public LoginResult refresh(String raw) {
     var r = refresh.rotate(raw);
     var names =
-        userRoles.findAllByUserId(r.user().getId()).stream()
+        userRoles.findAllByUserIdWithRole(r.user().getId()).stream()
             .map(x -> x.getRole().getName().name())
             .toList();
     return result(r.user(), names, r.issued());
@@ -269,9 +270,17 @@ public class AuthService {
     if (raw != null) refresh.revoke(raw);
   }
 
+  @Transactional(readOnly = true)
   public UserResponse me(AuraUserPrincipal p) {
     var u = users.findById(p.id()).orElseThrow();
-    return view(u, p.roles());
+    var names =
+        userRoles.findAllByUserIdWithRole(u.getId()).stream()
+            .map(x -> x.getRole().getName().name())
+            .toList();
+    if (names.isEmpty()) {
+      names = p.roles();
+    }
+    return view(u, names);
   }
 
   private LoginResult result(com.aura.user.entity.User u, List<String> names) {

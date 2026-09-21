@@ -46,4 +46,16 @@ public class AdminServicePackageController {
     public ApiResponse<ServicePackageResponse> setActive(@PathVariable Long id, @Valid @RequestBody UpdateServicePackageStatusRequest request) {
         return ApiResponse.success("Cập nhật trạng thái gói dịch vụ thành công", servicePackageService.setActive(id, request.active()));
     }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        servicePackageService.delete(id);
+        return ApiResponse.success("Đã xóa gói dịch vụ thành công", null);
+    }
+
+    @PostMapping("/batch-delete")
+    public ApiResponse<Integer> batchDelete(@RequestBody List<Long> ids) {
+        int count = servicePackageService.batchDelete(ids);
+        return ApiResponse.success("Đã xóa thành công " + count + " gói dịch vụ", count);
+    }
 }

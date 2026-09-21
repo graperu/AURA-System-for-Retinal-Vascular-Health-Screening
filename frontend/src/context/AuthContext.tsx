@@ -98,9 +98,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const mappedRole = String(data.newRole).toLowerCase().replace('role_', '');
           setUser((prev) => (prev ? { ...prev, role: mappedRole as any, roles: [data.newRole] } : null));
         }
-        void fetchCurrentUser();
+        void refreshUser();
       } else if (!data?.userId) {
-        void fetchCurrentUser();
+        void refreshUser();
       }
     });
     return unsub;
@@ -246,6 +246,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshUser = async () => {
+    try {
+      const refreshed = await apiFetch<LoginResponse>('/api/v1/auth/refresh', { method: 'POST' });
+      if (refreshed.success && refreshed.data) {
+        setAccessToken(refreshed.data.accessToken);
+        setUser(toSession(refreshed.data.user, refreshed.data.accessToken));
+        return;
+      }
+    } catch {
+      // ignore
+    }
     await fetchCurrentUser();
   };
 

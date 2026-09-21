@@ -157,6 +157,27 @@ class AdminUserControllerUnitTest {
       assertThat(response.data().roles()).contains("ROLE_DOCTOR");
       verify(adminUserService).updateUserRole(eq(targetUserId), eq(req));
     }
+
+    @Test
+    @DisplayName("Thành công: Jackson deserialization hỗ trợ cả role và roleName đồng thời")
+    void updateUserRole_jacksonDeserializationSupport() throws Exception {
+      com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+      
+      // Case 1: Both role and roleName present
+      String jsonBoth = "{\"role\":\"DOCTOR\",\"roleName\":\"DOCTOR\"}";
+      UpdateUserRoleRequest reqBoth = mapper.readValue(jsonBoth, UpdateUserRoleRequest.class);
+      assertThat(reqBoth.role()).isEqualTo(RoleName.DOCTOR);
+
+      // Case 2: Only role
+      String jsonRole = "{\"role\":\"DOCTOR\"}";
+      UpdateUserRoleRequest reqRole = mapper.readValue(jsonRole, UpdateUserRoleRequest.class);
+      assertThat(reqRole.role()).isEqualTo(RoleName.DOCTOR);
+
+      // Case 3: Only roleName
+      String jsonRoleName = "{\"roleName\":\"DOCTOR\"}";
+      UpdateUserRoleRequest reqRoleName = mapper.readValue(jsonRoleName, UpdateUserRoleRequest.class);
+      assertThat(reqRoleName.role()).isEqualTo(RoleName.DOCTOR);
+    }
   }
 
   @Nested

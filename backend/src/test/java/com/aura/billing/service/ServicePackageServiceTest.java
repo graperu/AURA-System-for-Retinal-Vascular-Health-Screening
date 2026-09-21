@@ -33,6 +33,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 class ServicePackageServiceTest {
 
   @Mock private ServicePackageRepository servicePackageRepository;
+  @Mock private com.aura.billing.repository.SubscriptionRepository subscriptionRepository;
+  @Mock private com.aura.billing.repository.PaymentTransactionRepository paymentTransactionRepository;
 
   @InjectMocks private ServicePackageService servicePackageService;
 
@@ -289,6 +291,50 @@ class ServicePackageServiceTest {
 
       assertThatThrownBy(() -> servicePackageService.findOrThrow(888L))
           .isInstanceOf(ServicePackageNotFoundException.class);
+    }
+  }
+
+  @Nested
+  @DisplayName("delete & batchDelete Tests")
+  class DeleteTests {
+
+    @Test
+    @DisplayName("Xóa thành công gói dịch vụ chưa có giao dịch")
+    void delete_success() {
+      when(servicePackageRepository.findById(1L)).thenReturn(Optional.of(package1));
+      when(paymentTransactionRepository.existsByServicePackageId(1L)).thenReturn(false);
+      when(subscriptionRepository.existsByServicePackageId(1L)).thenReturn(true);
+
+      servicePackageService.delete(1L);
+
+      verify(subscriptionRepository).deleteAllByServicePackageId(1L);
+      verify(servicePackageRepository).delete(package1);
+    }
+
+    @Test
+    @DisplayName("Xóa gói đã có lịch sử giao dịch -> Ngưng bán và ném IllegalStateException")
+    void delete_hasTransactions_deactivatesAndThrows() {
+      when(servicePackageRepository.findById(1L)).thenReturn(Optional.of(package1));
+      when(paymentTransactionRepository.existsByServicePackageId(1L)).thenReturn(true);
+
+      assertThatThrownBy(() -> servicePackageService.delete(1L))
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("giao dịch");
+
+      assertThat(package1.isActive()).isFalse();
+      verify(servicePackageRepository).save(package1);
+      verify(servicePackageRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("batchDelete xóa danh sách các gói")
+    void batchDelete_success() {
+      when(servicePackageRepository.findById(1L)).thenReturn(Optional.of(package1));
+      when(paymentTransactionRepository.existsByServicePackageId(1L)).thenReturn(false);
+
+      int count = servicePackageService.batchDelete(List.of(1L));
+      assertThat(count).isEqualTo(1);
+      verify(servicePackageRepository).delete(package1);
     }
   }
 }
