@@ -132,7 +132,20 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
             <div className="grid grid-cols-3 gap-3">
               <button
                 type="button"
-                onClick={() => setDecision('APPROVED')}
+                onClick={() => {
+                  setDecision('APPROVED');
+                  if (
+                    !clinicalNotes ||
+                    clinicalNotes.includes('bác bỏ kết quả phân tích') ||
+                    clinicalNotes.includes('rejected preliminary AI')
+                  ) {
+                    setClinicalNotes(
+                      isVi
+                        ? 'Bác sĩ chuyên khoa đã thẩm định và xác nhận kết quả phân tích sơ bộ từ hệ thống AURA AI.'
+                        : 'Specialist has validated and confirmed preliminary findings from AURA AI.'
+                    );
+                  }
+                }}
                 className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   decision === 'APPROVED'
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-500 ring-2 ring-emerald-300/60 shadow-xs'
@@ -158,7 +171,20 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setDecision('REJECTED')}
+                onClick={() => {
+                  setDecision('REJECTED');
+                  if (
+                    !clinicalNotes ||
+                    clinicalNotes.includes('xác nhận kết quả phân tích') ||
+                    clinicalNotes.includes('validated and confirmed')
+                  ) {
+                    setClinicalNotes(
+                      isVi
+                        ? 'Bác sĩ chuyên khoa đã thẩm định và bác bỏ kết quả phân tích sơ bộ từ AI do chất lượng ảnh hoặc bất tương đồng lâm sàng.'
+                        : 'Specialist has reviewed and rejected preliminary AI findings due to image quality or clinical discordance.'
+                    );
+                  }
+                }}
                 className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   decision === 'REJECTED'
                     ? 'bg-red-50 text-red-900 border-red-500 ring-2 ring-red-300/60 shadow-xs'
@@ -257,9 +283,18 @@ export const DoctorDiagnosisModal: React.FC<DoctorDiagnosisModalProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+                className={`px-5 py-2.5 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-2 transition-all active:scale-95 cursor-pointer ${
+                  decision === 'REJECTED'
+                    ? 'bg-rose-600 hover:bg-rose-700 ring-2 ring-rose-300/60'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
               >
-                <CheckCircle2 className="w-4 h-4" /> {t('doctor.diagnosisModal.saveButton', 'Lưu và Ký duyệt hồ sơ')}
+                {decision === 'REJECTED' ? <XCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                <span>
+                  {decision === 'REJECTED'
+                    ? (isVi ? 'Lưu và Ký Bác Bỏ Kết Quả' : 'Save & Sign Rejection')
+                    : t('doctor.diagnosisModal.saveButton', 'Lưu và Ký duyệt hồ sơ')}
+                </span>
               </button>
             </div>
           </div>

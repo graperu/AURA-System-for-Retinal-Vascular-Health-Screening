@@ -57,7 +57,13 @@ import {
   Phone,
   MapPin,
   Check,
+  CheckCheck,
+  Trash2,
+  Mail,
+  MailCheck,
+  ExternalLink,
 } from "lucide-react";
+import { formatRelativeTime } from "../components/layout/NotificationBell";
 const formatDoctorName = (doc: any, fallback: string = ''): string => {
   if (!doc) return fallback;
   if (typeof doc === 'string') return doc;
@@ -273,6 +279,194 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [scanHistory, setScanHistory] = useState<PatientHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState<boolean>(false);
 
+  // Real-time notifications state & synchronization (FR-9)
+  const [portalNotifications, setPortalNotifications] = useState<any[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState<boolean>(false);
+  const [notifFilterTab, setNotifFilterTab] = useState<'ALL' | 'UNREAD' | 'AI' | 'DOCTOR' | 'SYSTEM'>('ALL');
+
+  const loadPortalNotifications = React.useCallback(async () => {
+    setIsLoadingNotifications(true);
+    try {
+      const res = await notificationApi.getNotifications();
+      if (res && res.success && Array.isArray(res.data)) {
+        setPortalNotifications(res.data);
+      }
+    } catch (e) {
+      console.warn("Could not load notifications in PatientPortalPage:", e);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (effectiveActiveView === "notifications" || rawActiveView === "notifications") {
+      void loadPortalNotifications();
+    }
+  }, [effectiveActiveView, rawActiveView, loadPortalNotifications]);
+
+  useEffect(() => {
+    const unsubCreated = realtimeBus.subscribe('NOTIFICATION_CREATED', (evt) => {
+      const data = evt?.data || evt?.payload || evt;
+      if (data && (data.title || data.message)) {
+        setPortalNotifications((prev) => {
+          const id = String(data.id || Date.now());
+          if (prev.some((n) => String(n.id) === id)) return prev;
+          return [data, ...prev];
+        });
+      }
+    });
+
+    const unsubRead = realtimeBus.subscribe('NOTIFICATION_READ', (evt) => {
+      const id = evt?.data?.id;
+      if (id) {
+        setPortalNotifications((prev) =>
+          prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: true, read: true } : n))
+        );
+      }
+    });
+
+    const unsubUnread = realtimeBus.subscribe('NOTIFICATION_UNREAD', (evt) => {
+      const id = evt?.data?.id;
+      if (id) {
+        setPortalNotifications((prev) =>
+          prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: false, read: false } : n))
+        );
+      }
+    });
+
+    const unsubCleared = realtimeBus.subscribe(['NOTIFICATION_CLEARED', 'NOTIFICATION_ALL_READ'], () => {
+      setPortalNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, read: true })));
+    });
+
+    return () => {
+      unsubCreated();
+      unsubRead();
+      unsubUnread();
+      unsubCleared();
+    };
+  }, []);
+
+  const handleMarkNotifAsRead = async (id: string) => {
+    setPortalNotifications((prev) =>
+      prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: true, read: true } : n))
+    );
+    try {
+      await notificationApi.markAsRead(id);
+      realtimeBus.emit('NOTIFICATION_READ', { id });
+    } catch (e) {
+      console.warn("Error marking notification as read:", e);
+    }
+  };
+
+  const handleMarkNotifAsUnread = async (id: string) => {
+    setPortalNotifications((prev) =>
+      prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: false, read: false } : n))
+    );
+    try {
+      await notificationApi.markAsUnread(id);
+      realtimeBus.emit('NOTIFICATION_UNREAD', { id });
+    } catch (e) {
+      console.warn("Error marking notification as unread:", e);
+    }
+  };
+
+  const handleMarkAllNotifsAsRead = async () => {
+    setPortalNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, read: true })));
+    try {
+      await notificationApi.markAllAsRead();
+      realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
+    } catch (e) {
+      console.warn("Error marking all notifications as read:", e);
+    }
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    const target = portalNotifications.find((n) => String(n.id) === String(id));
+    const wasUnread = target ? !target.isRead && !target.read : false;
+    setPortalNotifications((prev) => prev.filter((n) => String(n.id) !== String(id)));
+    try {
+      await notificationApi.deleteNotification(id);
+      if (wasUnread) {
+        realtimeBus.emit('NOTIFICATION_READ', { id });
+      }
+    } catch (e) {
+      console.warn("Error deleting notification:", e);
+    }
+  };
+
+  const resolveTargetSectionFromNotif = (notif: any): string => {
+    const rawLink = String(notif?.linkUrl || notif?.link || '').trim();
+    const cleanLink = rawLink.replace(/^\//, '').toLowerCase();
+
+    if (cleanLink.includes('scan-history') || cleanLink.includes('history') || cleanLink.includes('reports')) {
+      return 'scan-history';
+    }
+    if (cleanLink.includes('upload') || cleanLink.includes('retinal-upload')) {
+      return 'upload-scan';
+    }
+    if (cleanLink.includes('appointment')) {
+      return 'appointment';
+    }
+    if (cleanLink.includes('consultation') || cleanLink.includes('chat')) {
+      return 'consultation';
+    }
+    if (cleanLink.includes('profile')) {
+      return 'medical-profile';
+    }
+    if (cleanLink.includes('billing') || cleanLink.includes('credit')) {
+      return 'billing';
+    }
+
+    const typeUpper = String(notif?.type || '').toUpperCase();
+    if (typeUpper.includes('AI') || typeUpper.includes('SCAN') || typeUpper.includes('REVIEW')) {
+      return 'scan-history';
+    }
+    if (typeUpper.includes('APPOINTMENT')) {
+      return 'appointment';
+    }
+    if (typeUpper.includes('CHAT') || typeUpper.includes('CONSULT')) {
+      return 'consultation';
+    }
+    if (typeUpper.includes('BILLING') || typeUpper.includes('CREDIT')) {
+      return 'billing';
+    }
+
+    return 'dashboard';
+  };
+
+  const handleNotifClick = (notif: any) => {
+    if (!notif) return;
+    const isUnread = !notif.isRead && !notif.read;
+    if (isUnread && notif.id) {
+      void handleMarkNotifAsRead(String(notif.id));
+    }
+    const targetSection = resolveTargetSectionFromNotif(notif);
+    onNavigate(targetSection);
+  };
+
+  const unreadNotifCount = React.useMemo(() => {
+    return portalNotifications.filter((n) => !n.isRead && !n.read).length;
+  }, [portalNotifications]);
+
+  const filteredPortalNotifications = React.useMemo(() => {
+    return portalNotifications.filter((n) => {
+      const isUnread = !n.isRead && !n.read;
+      if (notifFilterTab === 'UNREAD') return isUnread;
+      const tUpper = String(n.type || '').toUpperCase();
+      const titleUpper = String(n.title || '').toUpperCase();
+      if (notifFilterTab === 'AI') {
+        return tUpper.includes('AI') || tUpper.includes('SCAN') || titleUpper.includes('AI') || titleUpper.includes('SÀNG LỌC');
+      }
+      if (notifFilterTab === 'DOCTOR') {
+        return tUpper.includes('DOCTOR') || tUpper.includes('REVIEW') || titleUpper.includes('BÁC SĨ') || titleUpper.includes('THẨM ĐỊNH');
+      }
+      if (notifFilterTab === 'SYSTEM') {
+        return tUpper.includes('SYSTEM') || tUpper.includes('APPOINTMENT') || tUpper.includes('BILLING') || tUpper.includes('ALERT');
+      }
+      return true;
+    });
+  }, [portalNotifications, notifFilterTab]);
+
   const assignedDoctorName = formatDoctorName(patient.assignedDoctor);
   const doctorSpecialty = isVi ? "Chuyên khoa Mắt & Tim Mạch" : "Ophthalmology & Cardiology";
 
@@ -420,7 +614,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             riskScore: score,
             riskLevel: item.riskLevel || computedLevel,
             status: item.status || "ANALYZED",
-            doctorReviewed: item.status === "REVIEWED",
+            doctorReviewed: item.status === "REVIEWED" || Boolean(item.reviewDecision),
+            reviewDecision: item.reviewDecision || (item.status === 'REJECTED' ? 'REJECTED' : undefined),
             doctorName: item.doctorName || (item.doctorId ? (isVi ? "Bác sĩ phụ trách" : "Assigned Doctor") : undefined),
             doctorNotes: item.doctorNotes || item.notes,
             digitalSignature: item.digitalSignature,
@@ -2371,7 +2566,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       {/* =========================================================================
           VIEW 8: NOTIFICATIONS (FE-NAV-1) - CATEGORIZED NOTIFICATION COCKPIT
       ========================================================================== */}
-      {activeView === "notifications" && (
+      {(activeView === "notifications" || effectiveActiveView === "notifications") && (
         <div className="w-full max-w-7xl mx-auto space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -2379,135 +2574,282 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 <Bell className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  {isVi ? "Trung Tâm Thông Báo Lâm Sàng & Hệ Thống" : "Clinical & System Notifications"}
-                </h2>
-                <p className="text-xs text-slate-500">
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {isVi ? "Trung Tâm Thông Báo Lâm Sàng & Hệ Thống" : "Clinical & System Notifications"}
+                  </h2>
+                  {unreadNotifCount > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold font-mono-data">
+                      {unreadNotifCount} {isVi ? "chưa đọc" : "unread"}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
                   {isVi
                     ? "Cập nhật tiến trình phân tích AI, thẩm định từ Bác sĩ chuyên khoa và nhắc nhở y tế"
                     : "Real-time updates on AI analyses, specialist clinical reviews, and health reminders"}
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                void notificationApi.markAllAsRead().then(() => {
-                  realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
-                });
-              }}
-              className="px-4 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-200 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              {isVi ? "Đánh dấu tất cả đã đọc" : "Mark all as read"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void loadPortalNotifications()}
+                className="px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                title={isVi ? "Làm mới" : "Refresh"}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingNotifications ? "animate-spin" : ""}`} />
+                <span>{isVi ? "Làm mới" : "Refresh"}</span>
+              </button>
+              {unreadNotifCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllNotifsAsRead}
+                  className="px-4 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-200 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  {isVi ? "Đánh dấu tất cả đã đọc" : "Mark all as read"}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* CỘT TRÁI (8 COLS): DANH SÁCH THÔNG BÁO THEO DANH MỤC */}
             <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
+              {/* Category Filter Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-100 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => setNotifFilterTab('ALL')}
+                  className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                    notifFilterTab === 'ALL'
+                      ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {isVi ? "Tất cả" : "All"} ({portalNotifications.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNotifFilterTab('UNREAD')}
+                  className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                    notifFilterTab === 'UNREAD'
+                      ? 'bg-rose-50 text-rose-700 font-bold border border-rose-200'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {isVi ? "Chưa đọc" : "Unread"} ({unreadNotifCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNotifFilterTab('AI')}
+                  className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                    notifFilterTab === 'AI'
+                      ? 'bg-teal-50 text-teal-700 font-bold border border-teal-200'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {isVi ? "Kết quả AI" : "AI Results"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNotifFilterTab('DOCTOR')}
+                  className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                    notifFilterTab === 'DOCTOR'
+                      ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {isVi ? "Bác sĩ thẩm định" : "Doctor Reviews"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNotifFilterTab('SYSTEM')}
+                  className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                    notifFilterTab === 'SYSTEM'
+                      ? 'bg-purple-50 text-purple-700 font-bold border border-purple-200'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {isVi ? "Hệ thống & Lịch hẹn" : "System & Appts"}
+                </button>
+              </div>
+
+              {/* Notification List */}
               <div className="divide-y divide-slate-100">
-                {/* Notification 1: AI Retinal Scan */}
-                <div className="py-4 first:pt-0 flex flex-col sm:flex-row items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <Sparkles className="w-5 h-5" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-slate-900">
-                          {isVi ? "Sàng lọc võng mạc vi mạch AI" : "AI Retinal Vascular Screening"}
-                        </h4>
-                        <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 text-[10px] font-bold border border-teal-200">
-                          {isVi ? "AI Sẵn sàng" : "AI Ready"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600">
-                        {isVi
-                          ? "Hệ thống AI AURA sẵn sàng phân tích ảnh chụp đáy mắt của bạn để phát hiện sớm nguy cơ tim mạch và bệnh lý võng mạc."
-                          : "AURA AI pipeline is ready to screen fundus images for early cardiovascular and retinal abnormalities."}
-                      </p>
-                      <span className="text-[11px] text-slate-400 font-mono-data block">
-                        {isVi ? "Hệ thống AI AURA • Trực tuyến 24/7" : "AURA AI Engine • 24/7 Online"}
-                      </span>
-                    </div>
+                {isLoadingNotifications ? (
+                  <div className="py-12 text-center text-slate-400 space-y-2">
+                    <Loader2 className="w-7 h-7 text-blue-500 animate-spin mx-auto" />
+                    <p className="text-xs font-medium">
+                      {isVi ? "Đang đồng bộ thông báo từ hệ thống..." : "Synchronizing notifications..."}
+                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.("upload-scan")}
-                    className="px-4 py-2 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl shrink-0 cursor-pointer border border-teal-200 transition-colors"
-                  >
-                    {isVi ? "Tải ảnh quét mới" : "Upload Scan"}
-                  </button>
-                </div>
+                ) : filteredPortalNotifications.length === 0 ? (
+                  <div className="py-12 text-center text-slate-500 space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                      <Bell className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700">
+                      {isVi ? "Không có thông báo nào" : "No notifications found"}
+                    </p>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      {isVi
+                        ? "Bạn sẽ nhận được thông báo tức thời khi kết quả phân tích AI sẵn sàng hoặc bác sĩ chuyên khoa gửi đánh giá."
+                        : "You will receive real-time updates when AI analysis completes or clinical reviews are issued."}
+                    </p>
+                  </div>
+                ) : (
+                  filteredPortalNotifications.map((notif) => {
+                    const isUnread = !notif.isRead && !notif.read;
+                    const notifId = String(notif.id || "");
+                    const timeStr = formatRelativeTime(notif.createdAt || notif.timestamp || Date.now(), isVi);
+                    const displayTitle = notif.title || (isVi ? "Thông báo hệ thống" : "System Notification");
+                    const displayMsg = notif.message || "";
 
-                {/* Notification 2: Scan History & Report */}
-                <div className="py-4 flex flex-col sm:flex-row items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <History className="w-5 h-5" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-slate-900">
-                          {isVi ? "Hồ sơ kết quả sàng lọc y khoa" : "Screening Results & Clinical History"}
-                        </h4>
-                        <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200">
-                          {isVi ? "Hồ sơ điện tử" : "EMR"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600">
-                        {isVi
-                          ? "Theo dõi đánh giá thẩm định của bác sĩ chuyên khoa và tải phiếu kết quả y tế định dạng chuẩn PDF."
-                          : "Review specialist clinical assessments and download official PDF medical reports."}
-                      </p>
-                      <span className="text-[11px] text-slate-400 font-mono-data block">
-                        {isVi ? "Hồ sơ y bạ điện tử bệnh nhân" : "Electronic Medical Records"}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.("scan-history")}
-                    className="px-4 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl shrink-0 cursor-pointer border border-blue-200 transition-colors"
-                  >
-                    {isVi ? "Xem kết quả" : "View Results"}
-                  </button>
-                </div>
+                    const getNotifIcon = (type?: string, severity?: string) => {
+                      const tUpper = String(type || '').toUpperCase();
+                      const sUpper = String(severity || '').toUpperCase();
 
-                {/* Notification 3: Appointment */}
-                <div className="py-4 flex flex-col sm:flex-row items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <CalendarCheck className="w-5 h-5" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-slate-900">
-                          {isVi ? "Lịch hẹn tư vấn & tái khám" : "Specialist Teleconsultation"}
-                        </h4>
-                        <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200">
-                          {isVi ? "Lịch hẹn" : "Appointments"}
-                        </span>
+                      if (sUpper === 'CRITICAL' || tUpper.includes('ALERT') || tUpper.includes('CRITICAL')) {
+                        return (
+                          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 border border-rose-200">
+                            <AlertTriangle className="w-5 h-5" />
+                          </div>
+                        );
+                      }
+                      if (tUpper.includes('AI') || tUpper.includes('SCAN') || tUpper.includes('ANALYSIS')) {
+                        return (
+                          <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 mt-0.5 border border-teal-200">
+                            <Sparkles className="w-5 h-5" />
+                          </div>
+                        );
+                      }
+                      if (tUpper.includes('DOCTOR') || tUpper.includes('REVIEW')) {
+                        return (
+                          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200">
+                            <ShieldCheck className="w-5 h-5" />
+                          </div>
+                        );
+                      }
+                      if (tUpper.includes('APPOINTMENT')) {
+                        return (
+                          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200">
+                            <CalendarCheck className="w-5 h-5" />
+                          </div>
+                        );
+                      }
+                      if (tUpper.includes('CHAT') || tUpper.includes('CONSULT') || tUpper.includes('MESSAGE')) {
+                        return (
+                          <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0 mt-0.5 border border-cyan-200">
+                            <MessageSquare className="w-5 h-5" />
+                          </div>
+                        );
+                      }
+                      if (tUpper.includes('BILLING') || tUpper.includes('CREDIT')) {
+                        return (
+                          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 mt-0.5 border border-purple-200">
+                            <CreditCard className="w-5 h-5" />
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 border border-blue-200">
+                          <Bell className="w-5 h-5" />
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <div
+                        key={notifId || Math.random()}
+                        onClick={() => handleNotifClick(notif)}
+                        className={`py-4 first:pt-0 flex flex-col sm:flex-row items-start justify-between gap-4 p-3 rounded-xl transition-all cursor-pointer ${
+                          isUnread
+                            ? "bg-blue-50/50 hover:bg-blue-50/80 border border-blue-100"
+                            : "hover:bg-slate-50 border border-transparent"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          {getNotifIcon(notif.type, notif.severity)}
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className={`text-sm ${isUnread ? "font-bold text-slate-900" : "font-medium text-slate-700"}`}>
+                                {displayTitle}
+                              </h4>
+                              {isUnread && (
+                                <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                  {isVi ? "Mới" : "New"}
+                                </span>
+                              )}
+                              {notif.type && (
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-mono-data">
+                                  {notif.type}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              {displayMsg}
+                            </p>
+                            <span className="text-[11px] text-slate-400 font-mono-data block">
+                              {timeStr}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleNotifClick(notif);
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>{isVi ? "Xem chi tiết" : "View"}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </button>
+                          {isUnread ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleMarkNotifAsRead(notifId);
+                              }}
+                              title={isVi ? "Đánh dấu đã đọc" : "Mark as read"}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleMarkNotifAsUnread(notifId);
+                              }}
+                              title={isVi ? "Đánh dấu chưa đọc" : "Mark as unread"}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
+                            >
+                              <Mail className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDeleteNotif(notifId);
+                            }}
+                            title={isVi ? "Xóa thông báo" : "Delete notification"}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-600">
-                        {isVi
-                          ? "Đăng ký lịch khám trực tiếp hoặc trực tuyến với Bác sĩ chuyên khoa Mắt và Tim mạch tại mạng lưới bệnh viện AURA."
-                          : "Schedule an online or in-person consultation with ophthalmology and cardiovascular specialists."}
-                      </p>
-                      <span className="text-[11px] text-slate-400 font-mono-data block">
-                        {isVi ? "Cổng đặt lịch hẹn khám" : "Clinical Appointment Desk"}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.("appointment")}
-                    className="px-4 py-2 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl shrink-0 cursor-pointer border border-amber-200 transition-colors"
-                  >
-                    {isVi ? "Đặt lịch hẹn" : "Book Appointment"}
-                  </button>
-                </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 

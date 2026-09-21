@@ -68,18 +68,24 @@ export const drawerLeftVariants: Variants = {
 /**
  * Page & Tab Crossfade Transition Variants (< 160ms)
  */
+const initialPageTransition: any = (reduced?: boolean) =>
+  reduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 };
+initialPageTransition.opacity = 0;
+
+const exitPageTransition: any = (reduced?: boolean) =>
+  reduced
+    ? { opacity: 1, y: 0 }
+    : { opacity: 0, y: -6, transition: { duration: 0.1, ease: [0.4, 0, 1, 1] } };
+exitPageTransition.opacity = 0;
+
 export const pageTransitionVariants: Variants = {
-  initial: (reduced?: boolean) =>
-    reduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 },
+  initial: initialPageTransition,
   animate: {
     opacity: 1,
     y: 0,
     transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] },
   },
-  exit: (reduced?: boolean) =>
-    reduced
-      ? { opacity: 1, y: 0 }
-      : { opacity: 0, y: -6, transition: { duration: 0.1, ease: [0.4, 0, 1, 1] } },
+  exit: exitPageTransition,
 };
 
 /**

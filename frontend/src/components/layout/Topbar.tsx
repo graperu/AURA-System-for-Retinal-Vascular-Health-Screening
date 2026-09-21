@@ -437,22 +437,22 @@ export const Topbar: React.FC<TopbarProps> = ({
       return 'notifications';
     }
     if (cleanLink === 'assignments' || cleanLink === 'patient-assignments') {
-      return currentUser.role === 'clinic' ? 'patient-assignments' : 'dashboard';
+      return currentUser?.role === 'clinic' ? 'patient-assignments' : 'dashboard';
     }
 
     // Match by event type
     const type = String(notif?.type || '').toUpperCase();
     if (type === 'AI_READY' || type === 'SCREENING_COMPLETED') {
-      return currentUser.role === 'doctor' ? 'cds-viewer' : 'scan-history';
+      return currentUser?.role === 'doctor' ? 'cds-viewer' : 'scan-history';
     }
     if (type === 'DOCTOR_REVIEW' || type === 'DOCTOR_REVIEWED' || type === 'RESULT_REVIEWED') {
-      return currentUser.role === 'doctor' ? 'reports' : 'scan-history';
+      return currentUser?.role === 'doctor' ? 'reports' : 'scan-history';
     }
     if (type === 'APPOINTMENT' || type === 'APPOINTMENT_CREATED' || type === 'APPOINTMENT_UPDATED') {
       return 'appointment';
     }
     if (type === 'BILLING') {
-      return currentUser.role === 'clinic' ? 'credit-package' : 'billing';
+      return currentUser?.role === 'clinic' ? 'credit-package' : 'billing';
     }
     if (type === 'CONSULTATION' || type === 'MESSAGE_RECEIVED') {
       return 'consultation';
@@ -484,10 +484,11 @@ export const Topbar: React.FC<TopbarProps> = ({
   const pageTitle = title || (isVi ? 'Tổng quan' : 'Dashboard');
 
   const roleText =
-    roleLabels[currentUser.role]?.[language] ||
-    currentUser.role;
+    (currentUser?.role && roleLabels[currentUser.role]?.[language]) ||
+    currentUser?.role ||
+    '';
 
-  const initials = currentUser.name
+  const initials = currentUser?.name
     ? currentUser.name
         .split(' ')
         .map((n) => n[0])
@@ -580,7 +581,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         <SearchField
           onSearch={onSearch}
           placeholder={
-            currentUser.role === 'patient'
+            currentUser?.role === 'patient'
               ? (isVi ? 'Tìm kiếm lịch sử khám, chỉ số võng mạc...' : 'Search exam history, retinal metrics...')
               : (isVi ? 'Tìm kiếm bệnh nhân, mã MRN, hồ sơ...' : 'Search patients, MRN, records...')
           }
@@ -645,7 +646,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           >
             {/* Avatar thumbnail with Online Presence indicator */}
             <div className="relative shrink-0">
-              {currentUser.avatarUrl ? (
+              {currentUser?.avatarUrl ? (
                 <img
                   src={currentUser.avatarUrl}
                   alt={currentUser.name || 'User avatar'}
@@ -669,7 +670,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             <div className="hidden sm:block text-left">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-[#111827] truncate max-w-[130px]">
-                  {currentUser.name || (isVi ? 'Người dùng' : 'User')}
+                  {currentUser?.name || (isVi ? 'Người dùng' : 'User')}
                 </span>
                 {/* Online Status Indicator Dot beside username */}
                 <span
@@ -695,10 +696,10 @@ export const Topbar: React.FC<TopbarProps> = ({
             <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-[#EAECF0] bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150 z-50">
               <div className="px-3 py-2 border-b border-[#EAECF0] mb-1">
                 <p className="text-xs font-bold text-[#111827] truncate">
-                  {currentUser.name || (isVi ? 'Người dùng' : 'User')}
+                  {currentUser?.name || (isVi ? 'Người dùng' : 'User')}
                 </p>
                 <p className="text-[11px] text-[#667085] truncate">
-                  {currentUser.email || roleText}
+                  {currentUser?.email || roleText}
                 </p>
               </div>
 
@@ -720,22 +721,22 @@ export const Topbar: React.FC<TopbarProps> = ({
                     type="button"
                     onClick={() => {
                       setIsProfileOpen(false);
-                      if (currentUser.role === 'admin') onNavigate('ai-thresholds');
-                      else if (currentUser.role === 'clinic') onNavigate('credit-package');
-                      else if (currentUser.role === 'doctor') onNavigate('risk-analytics');
+                      if (currentUser?.role === 'admin') onNavigate('ai-thresholds');
+                      else if (currentUser?.role === 'clinic') onNavigate('credit-package');
+                      else if (currentUser?.role === 'doctor') onNavigate('risk-analytics');
                       else onNavigate('billing');
                     }}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-[#4B5563] hover:bg-[#F4F6F8] hover:text-[#111827] transition-colors cursor-pointer"
                   >
-                    {currentUser.role === 'patient' || currentUser.role === 'clinic' ? (
+                    {currentUser?.role === 'patient' || currentUser?.role === 'clinic' ? (
                       <CreditCard className="h-4 w-4 text-[#3478F6]" />
-                    ) : currentUser.role === 'doctor' ? (
+                    ) : currentUser?.role === 'doctor' ? (
                       <BarChart3 className="h-4 w-4 text-[#3478F6]" />
                     ) : (
                       <Settings className="h-4 w-4 text-[#667085]" />
                     )}
                     <span>
-                      {currentUser.role === 'admin'
+                      {currentUser?.role === 'admin'
                         ? (isVi ? 'Cài đặt hệ thống' : 'System Settings')
                         : currentUser.role === 'clinic'
                         ? (isVi ? 'Gói cước & Hạn mức' : 'Quota & Packages')

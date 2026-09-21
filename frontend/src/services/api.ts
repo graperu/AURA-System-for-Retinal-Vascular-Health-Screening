@@ -274,6 +274,11 @@ export const chatApi = {
     apiFetch<void>(`/api/v1/chat/read/${senderId}`, {
       method: "PUT",
     }),
+
+  getUnreadCount: () =>
+    apiFetch<{ unreadCount: number }>("/api/v1/chat/unread-count", {
+      method: "GET",
+    }),
 };
 
 export const notificationApi = {

@@ -251,6 +251,8 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
     scanType: screening.scanType || 'Fundus_Macula',
     icd10Codes: parsedIcd10,
     doctorNotes: screening.doctorNotes || screening.notes || undefined,
+    reviewDecision: screening.reviewDecision || (screening.status === 'REJECTED' ? 'REJECTED' : undefined),
+    rejectionReason: screening.rejectionReason || (screening.reviewDecision === 'REJECTED' ? (screening.doctorNotes || screening.notes) : undefined),
     digitalSignature: screening.digitalSignature || undefined,
     signedAt: screening.signedAt || undefined,
     createdAt: screening.createdAt || undefined,

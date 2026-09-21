@@ -131,6 +131,20 @@ export class StompChatClient {
                 console.warn('Error routing STOMP message to realtimeBus:', busErr);
               }
 
+              // Special routing for consultation chat topics
+              if (
+                dest.startsWith('/topic/chat.') ||
+                dest.startsWith('/topic/messages.') ||
+                dest.startsWith('/topic/screening-chat.')
+              ) {
+                try {
+                  realtimeBus.emit('chat:message', data, 'websocket');
+                  realtimeBus.emit('chat:new', data, 'websocket');
+                } catch (busErr) {
+                  console.warn('Error routing chat event to realtimeBus:', busErr);
+                }
+              }
+
               // 2. Dispatch to specific topic subscribers
               const handlers = this.subscriptions.get(dest);
               if (handlers && handlers.size > 0) {

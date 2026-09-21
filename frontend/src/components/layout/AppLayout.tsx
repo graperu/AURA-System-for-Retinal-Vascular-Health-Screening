@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { UserSession } from '../../types/auth';
-import { notificationApi } from '../../services/api';
+import { notificationApi, chatApi } from '../../services/api';
 import { realtimeBus } from '../../services/realtimeService';
 import { stompClient } from '../../services/websocketService';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -46,24 +46,41 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       })
       .catch(() => {});
 
+    chatApi
+      .getUnreadCount()
+      .then((res) => {
+        if (isMounted && res.success && res.data && typeof res.data.unreadCount === 'number') {
+          setUnreadChatCount(res.data.unreadCount);
+        }
+      })
+      .catch(() => {});
+
     // STOMP WebSocket Chat Subscription for current user (R5, AC-5)
     let unsubStompChat: (() => void) | undefined;
     let unsubStompMsg: (() => void) | undefined;
     if (currentUser?.id) {
       try {
         stompClient.connect();
-        unsubStompChat = stompClient.subscribe(`/topic/chat.${currentUser.id}`, () => {
-          if (isMounted) setUnreadChatCount((prev) => prev + 1);
+        unsubStompChat = stompClient.subscribe(`/topic/chat.${currentUser.id}`, (data: any) => {
+          if (isMounted && data?.senderId !== currentUser.id) {
+            setUnreadChatCount((prev) => prev + 1);
+          }
         });
-        unsubStompMsg = stompClient.subscribe(`/topic/messages.${currentUser.id}`, () => {
-          if (isMounted) setUnreadChatCount((prev) => prev + 1);
+        unsubStompMsg = stompClient.subscribe(`/topic/messages.${currentUser.id}`, (data: any) => {
+          if (isMounted && data?.senderId !== currentUser.id) {
+            setUnreadChatCount((prev) => prev + 1);
+          }
         });
       } catch (err) {
         console.warn('STOMP chat subscription error:', err);
       }
     }
 
-    const unsubChatBus = realtimeBus.subscribe(['chat:new', 'chat:message', 'MESSAGE_RECEIVED'], () => {
+    const unsubChatBus = realtimeBus.subscribe(['chat:new', 'chat:message', 'MESSAGE_RECEIVED'], (event: any) => {
+      const payload = event?.data || event?.payload || event;
+      if (isMounted && payload?.senderId && payload?.senderId === currentUser?.id) {
+        return;
+      }
       if (isMounted) setUnreadChatCount((prev) => prev + 1);
     });
     const unsubChatRead = realtimeBus.subscribe(['chat:read', 'CHAT_READ'], (event) => {

@@ -530,6 +530,11 @@ html,
    PRINT & CLINICAL PDF EXPORT RULES
    ========================================================================== */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
   *,
   *::before,
   *::after {
@@ -545,11 +550,36 @@ html,
     overflow: visible !important;
     height: auto !important;
     min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  /* Ensure modal container does not clip or restrict multi-page printing */
+  /* When #printable-report exists, hide all background application layouts */
+  body:has(#printable-report) > #root > *:not([role="dialog"]) {
+    display: none !important;
+  }
+
+  /* In case modal is rendered in DOM, make sure outer backgrounds and non-modal contents are hidden */
   body:has(#printable-report) {
+    background: #FFFFFF !important;
+  }
+
+  /* Reset fixed overlays and backgrounds for clean page printing */
+  body:has(#printable-report) .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    backdrop-filter: none !important;
     overflow: visible !important;
+  }
+
+  body:has(#printable-report) .shadow-medical-modal,
+  body:has(#printable-report) .shadow-2xl {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+    height: auto !important;
   }
 
   #printable-report {
@@ -558,18 +588,24 @@ html,
     max-height: none !important;
     padding: 0 !important;
     margin: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
   }
 
-  /* Prevent awkward page cuts on cards and charts */
-  .space-y-3,
-  .space-y-4,
-  .space-y-6,
-  table,
-  tr,
+  /* Prevent awkward page cuts on individual atomic cards, table rows, and images */
+  .avoid-page-break,
+  table tr,
   img,
   canvas {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  table {
+    break-inside: auto;
+    page-break-inside: auto;
   }
 }
 

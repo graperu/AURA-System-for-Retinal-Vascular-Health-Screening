@@ -139,7 +139,7 @@ export const SkeletonTable: React.FC<{ rows?: number; cols?: number; className?:
 );
 
 export const SkeletonProfile: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`bg-white rounded-2xl border border-slate-200 p-6 space-y-6 ${className}`}>
+  <div className={`bg-white rounded-2xl border border-slate-200 p-6 space-y-6 ${className}`} aria-label="Hồ Sơ Y Tế">
     <div className="flex items-center gap-4">
       <Skeleton className="w-14 h-14 rounded-2xl shrink-0" />
       <div className="flex-1 space-y-2">

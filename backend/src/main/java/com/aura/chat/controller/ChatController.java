@@ -69,4 +69,13 @@ public class ChatController {
     chatService.markMessagesAsRead(principal.getId(), senderId);
     return ApiResponse.success(null);
   }
+
+  @GetMapping("/unread-count")
+  @PreAuthorize("isAuthenticated()")
+  @Operation(summary = "Get total unread consultation message count for current user")
+  public ApiResponse<java.util.Map<String, Long>> getUnreadCount(
+      @AuthenticationPrincipal AuraUserPrincipal principal) {
+    long count = chatService.getUnreadCount(principal.getId());
+    return ApiResponse.success(java.util.Map.of("unreadCount", count));
+  }
 }

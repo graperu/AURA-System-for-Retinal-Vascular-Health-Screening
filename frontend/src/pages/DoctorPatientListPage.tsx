@@ -183,7 +183,7 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-label="Danh Sách Bệnh Nhân">
       <DoctorWorklistView
         patients={patients}
         loading={loading}

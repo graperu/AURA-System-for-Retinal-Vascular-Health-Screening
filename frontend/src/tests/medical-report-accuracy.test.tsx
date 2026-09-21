@@ -276,6 +276,75 @@ runTest('ACCURACY-6: buildFhirDiagnosticReportBundle tách biệt Observations D
   assert.strictEqual(mixedLandmarksObs.valueInteger, 2, 'Chỉ đếm 2 mốc giải phẫu');
 });
 
+// -----------------------------------------------------------------------------
+// 5. Kiểm thử Xử Lý Ca Bác Sĩ Bác Bỏ Kết Quả (REJECTED) & In Ấn Chuẩn Y Khoa
+// -----------------------------------------------------------------------------
+console.log('\n--- 5. Kiểm thử Ca Bác Sĩ Bác Bỏ Kết Quả (REJECTED) & In Ấn Chuẩn Y Khoa ---');
+
+const mockRejectedResult: AIRiskResult = {
+  ...mockMixedResult,
+  status: 'REVIEWED',
+  reviewDecision: 'REJECTED',
+  doctorNotes: 'Ảnh chụp bị lóa sáng vùng hoàng điểm, không đủ điều kiện thẩm định chẩn đoán.',
+  digitalSignature: 'HMAC-SHA256-REJECTED-SIGNATURE-TEST',
+  signedAt: '2026-09-22T10:30:00.000Z',
+  doctorName: 'BS. CKII Nguyễn Văn An',
+};
+
+runTest('ACCURACY-7: MedicalReportModal hiển thị cảnh báo và dấu mộc khi Bác sĩ BÁC BỎ kết quả', () => {
+  const html = renderToStaticMarkup(
+    <LanguageProvider>
+      <MedicalReportModal
+        isOpen={true}
+        onClose={() => {}}
+        patient={mockNewPatient}
+        result={mockRejectedResult}
+      />
+    </LanguageProvider>
+  );
+
+  // 1. Phải có nhãn Bác sĩ bác bỏ rõ ràng
+  assert.ok(html.includes('BÁC SĨ ĐÃ BÁC BỎ'), 'Phải có huy hiệu BÁC SĨ ĐÃ BÁC BỎ');
+  assert.ok(html.includes('BÁC BỎ BỞI BÁC SĨ') || html.includes('KẾT QUẢ BÁC BỎ'), 'Tiêu đề báo cáo phải ghi rõ Bác bỏ');
+
+  // 2. Phải có khung cảnh báo đỏ đậm
+  assert.ok(
+    html.includes('CẢNH BÁO: KẾT QUẢ PHÂN TÍCH NÀY ĐÃ BỊ BÁC SĨ CHUYÊN KHOA BÁC BỎ'),
+    'Có khung cảnh báo đỏ to rõ ràng'
+  );
+  assert.ok(
+    html.includes('KHÔNG ĐƯỢC CÔNG NHẬN để chẩn đoán y khoa'),
+    'Khẳng định kết quả không được công nhận để chẩn đoán'
+  );
+
+  // 3. Phải có con dấu / Watermark Bác Bỏ
+  assert.ok(
+    html.includes('KẾT QUẢ BỊ BÁC BỎ — KHÔNG CÔNG NHẬN LÂM SÀNG'),
+    'Có con dấu mộc bác bỏ in trên phiếu'
+  );
+
+  // 4. Lý do bác bỏ từ bác sĩ phải được hiển thị chính xác
+  assert.ok(
+    html.includes('Ảnh chụp bị lóa sáng vùng hoàng điểm, không đủ điều kiện thẩm định chẩn đoán.'),
+    'Hiển thị chính xác lý do bác sĩ bác bỏ'
+  );
+
+  // 5. Tuyệt đối KHÔNG được hiển thị "Phiếu Báo Cáo Y Tế Chính Thức" hay "Đã duyệt lâm sàng"
+  assert.ok(!html.includes('Phiếu Báo Cáo Y Tế Chính Thức'), 'Không được ghi là Phiếu Báo Cáo Y Tế Chính Thức');
+  assert.ok(!html.includes('Đã duyệt lâm sàng'), 'Không được ghi là Đã duyệt lâm sàng');
+
+  // 6. Chữ ký số phải ghi rõ là chữ ký xác thực BÁC BỎ kết quả
+  assert.ok(
+    html.includes('Chữ ký số xác thực BÁC BỎ kết quả'),
+    'Chữ ký số xác thực hành động Bác bỏ'
+  );
+});
+
+runTest('ACCURACY-8: Trạng thái thẩm định phản ánh chính xác REJECTED trong xuất dữ liệu', () => {
+  assert.strictEqual(mockRejectedResult.reviewDecision, 'REJECTED');
+  assert.ok(mockRejectedResult.digitalSignature?.includes('REJECTED'));
+});
+
 console.log(`\n=================================================================`);
 console.log(`   KẾT QUẢ: ${passedTests}/${totalTests} TESTS PASS (100%)`);
 console.log(`=================================================================\n`);

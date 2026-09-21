@@ -246,8 +246,8 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900">
-                    {t('header.notificationCenter')}
+                  <h3 className="text-sm font-bold text-slate-900" title={isVi ? "Trung Tâm Thông Báo" : "Notification Center"}>
+                    {t('header.notificationCenter', isVi ? 'Trung Tâm Thông Báo' : 'Notification Center')}
                   </h3>
                   {unreadCount > 0 && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white font-mono-data">
@@ -283,19 +283,20 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                {t('header.all')} ({notifications.length})
+                {t('header.all', isVi ? 'Tất cả' : 'All')} ({notifications.length})
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('SCAN_RESULTS')}
+                title={isVi ? "Kết quả chụp" : "Scan Results"}
                 className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
                   activeTab === 'SCAN_RESULTS'
                     ? 'bg-teal-50 text-teal-700 font-bold border border-teal-200 shadow-2xs'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                {t('header.scanResults')}
+                {t('header.scanResults', isVi ? 'Kết quả chụp' : 'Scan Results')}
               </button>
 
               <button
@@ -307,7 +308,7 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                {t('header.doctorReviews')}
+                {t('header.doctorReviews', isVi ? 'Bác sĩ thẩm định' : 'Doctor Reviews')}
               </button>
 
               <button
@@ -319,7 +320,7 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                {t('header.systemAlerts')}
+                {t('header.systemAlerts', isVi ? 'Cảnh báo hệ thống' : 'System Alerts')}
               </button>
             </div>
 

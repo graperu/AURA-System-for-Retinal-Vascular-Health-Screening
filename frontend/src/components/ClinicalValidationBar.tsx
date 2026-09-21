@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
+  XCircle,
   AlertTriangle,
   FileSignature,
   Save,
@@ -89,7 +90,11 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       adjustedCardioRisk: decision === 'MODIFIED' ? adjustedCardioRisk : undefined,
       adjustedDrRisk: decision === 'MODIFIED' ? adjustedDrRisk : undefined,
       icd10Codes: icd10Input.split(',').map((c) => c.trim()).filter(Boolean),
-      clinicalNotes: doctorNotes,
+      clinicalNotes: doctorNotes.trim()
+        ? doctorNotes.trim()
+        : decision === 'REJECTED'
+        ? (isVi ? 'Bác sĩ chuyên khoa đã bác bỏ kết quả phân tích của AI.' : 'Specialist rejected AI analysis findings.')
+        : (isVi ? 'Bác sĩ đã xác nhận kết quả chẩn đoán.' : 'Doctor confirmed diagnosis.'),
       overrideReason: decision === 'MODIFIED' ? overrideReason.trim() : undefined,
       recommendations: recommendations.trim() || undefined,
       reviewedAt: new Date().toISOString(),
@@ -101,6 +106,8 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
       setSuccessMessage(
         isDraft
           ? (isVi ? 'Đã lưu bản nháp đánh giá lâm sàng thành công!' : 'Draft clinical assessment saved successfully!')
+          : decision === 'REJECTED'
+          ? (isVi ? 'Đã ký số và ghi nhận quyết định BÁC BỎ kết quả thành công!' : 'Screening rejection recorded and signed successfully!')
           : (isVi ? 'Đã ký số và phê duyệt kết quả chẩn đoán thành công!' : 'Screening validated and signed successfully!')
       );
       setSaveSuccess(true);
@@ -440,14 +447,16 @@ export const ClinicalValidationBar: React.FC<ClinicalValidationBarProps> = ({
             </Button>
             <Button
               type="button"
-              variant="primary"
+              variant={decision === 'REJECTED' ? 'danger' : 'primary'}
               size="sm"
               loading={saving || isSubmitting}
               onClick={() => handleSave(false)}
-              icon={<Save className="w-4 h-4" />}
+              icon={decision === 'REJECTED' ? <XCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
             >
               {saving || isSubmitting
                 ? t('doctor.validationBar.savingButton', 'Đang lưu và ký số...')
+                : decision === 'REJECTED'
+                ? (isVi ? 'Ký Số & Bác Bỏ Kết Quả' : 'Sign & Reject Result')
                 : t('doctor.validationBar.saveButton', 'Ký Số & Phê Duyệt')}
             </Button>
           </div>

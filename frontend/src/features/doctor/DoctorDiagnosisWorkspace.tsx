@@ -178,7 +178,11 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
       adjustedCardioRisk: decision === 'MODIFIED' ? adjustedCardioRisk : undefined,
       adjustedDrRisk: decision === 'MODIFIED' ? adjustedDrRisk : undefined,
       icd10Codes: selectedIcd10,
-      clinicalNotes: doctorNotes,
+      clinicalNotes: doctorNotes.trim()
+        ? doctorNotes.trim()
+        : decision === 'REJECTED'
+        ? (isVi ? 'Bác sĩ chuyên khoa đã bác bỏ kết quả phân tích của AI.' : 'Specialist rejected AI analysis findings.')
+        : (isVi ? 'Bác sĩ đã xác nhận kết quả chẩn đoán.' : 'Doctor confirmed diagnosis.'),
       overrideReason: decision === 'MODIFIED' ? overrideReason.trim() : undefined,
       recommendations: `${carePlanNotes} [Tái khám: ${followUpInterval}]`,
       reviewedAt: new Date().toISOString(),
@@ -192,6 +196,8 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
           ? isVi
             ? 'Đã lưu bản nháp thẩm định thành công.'
             : 'Draft assessment saved successfully.'
+          : decision === 'REJECTED'
+          ? (isVi ? 'Đã ký số điện tử và ghi nhận BÁC BỎ kết quả AI thành công!' : 'Screening rejection electronically signed and finalized!')
           : isVi
           ? 'Đã ký số điện tử và lưu hồ sơ chẩn đoán thành công!'
           : 'Record electronically signed and finalized!'
@@ -768,10 +774,20 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
                 type="button"
                 onClick={() => handleSignAndSave(false)}
                 disabled={isSubmitting}
-                className="flex-1 py-2.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-sm transition-all shadow-[0_2px_4px_rgba(37,99,235,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                className={`flex-1 py-2.5 rounded-xl text-white font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99] ${
+                  decision === 'REJECTED'
+                    ? 'bg-rose-600 hover:bg-rose-700 shadow-[0_2px_4px_rgba(225,29,72,0.25)]'
+                    : 'bg-[#2563EB] hover:bg-[#1D4ED8] shadow-[0_2px_4px_rgba(37,99,235,0.25)]'
+                }`}
               >
                 <FileSignature className="w-4 h-4" />
-                <span>{isSubmitting ? (isVi ? 'Đang ký số...' : 'Signing...') : (isVi ? 'Ký & Lưu Kết Quả' : 'Sign & Finalize')}</span>
+                <span>
+                  {isSubmitting
+                    ? (isVi ? 'Đang ký số...' : 'Signing...')
+                    : decision === 'REJECTED'
+                    ? (isVi ? 'Ký Bác Bỏ Kết Quả' : 'Sign & Reject Result')
+                    : (isVi ? 'Ký & Lưu Kết Quả' : 'Sign & Finalize')}
+                </span>
               </button>
             </div>
           </footer>

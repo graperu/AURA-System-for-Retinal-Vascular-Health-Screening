@@ -120,6 +120,8 @@ export interface AIRiskResult {
   scanType?: string;
   icd10Codes?: string[];
   doctorNotes?: string;
+  reviewDecision?: 'APPROVED' | 'MODIFIED' | 'REJECTED' | string;
+  rejectionReason?: string;
   digitalSignature?: string;
   signedAt?: string;
   createdAt?: string;

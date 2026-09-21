@@ -197,15 +197,14 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
       }
     };
 
+    let unsubDoctorTopic: (() => void) | undefined;
     if (doctorTopic) {
-      stompClient.subscribe(doctorTopic, handleIncomingMessage);
+      unsubDoctorTopic = stompClient.subscribe(doctorTopic, handleIncomingMessage);
     }
 
     return () => {
       isMounted = false;
-      if (doctorTopic) {
-        stompClient.unsubscribe(doctorTopic);
-      }
+      unsubDoctorTopic?.();
     };
   }, [selectedPatientId, currentUserId, activePatient, currentDoctorName, isVi]);
 

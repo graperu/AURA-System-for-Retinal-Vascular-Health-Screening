@@ -3,6 +3,7 @@ import {
   FileSpreadsheet,
   Search,
   CheckCircle2,
+  XCircle,
   Clock,
   Eye,
   Printer,
@@ -233,7 +234,16 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
     {
       header: t('doctor.reportsView.columns.status', 'Trạng Thái Duyệt'),
       accessor: (row) => {
-        const isReviewed = row.status === 'REVIEWED' || row.reviewDecision != null || row.digitalSignature != null;
+        const isRejected = row.reviewDecision === 'REJECTED' || row.status === 'REJECTED';
+        const isReviewed = !isRejected && (row.status === 'REVIEWED' || row.reviewDecision != null || row.digitalSignature != null);
+        if (isRejected) {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border select-none bg-rose-50 text-rose-800 border-rose-200/80">
+              <XCircle className="w-3.5 h-3.5 text-rose-600" />
+              {isVi ? 'Bác sĩ bác bỏ' : 'Rejected'}
+            </span>
+          );
+        }
         return (
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border select-none ${
@@ -574,8 +584,16 @@ export const DoctorReportsView: React.FC<DoctorReportsViewProps> = ({
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
                   <span className="text-slate-500 font-medium">{t('doctor.reportsView.clinicalDecisionLabel', 'Quyết định lâm sàng')}:</span>
-                  <span className="font-bold text-emerald-700">
-                    {selectedSignature.decision === 'APPROVED'
+                  <span className={`font-bold ${
+                    selectedSignature.decision === 'REJECTED'
+                      ? 'text-rose-700'
+                      : selectedSignature.decision === 'MODIFIED'
+                      ? 'text-amber-700'
+                      : 'text-emerald-700'
+                  }`}>
+                    {selectedSignature.decision === 'REJECTED'
+                      ? (isVi ? 'Bác sĩ bác bỏ kết quả' : 'Rejected by Specialist')
+                      : selectedSignature.decision === 'APPROVED'
                       ? t('doctor.reportsView.approvedDecision', 'Đồng thuận chẩn đoán AI')
                       : t('doctor.reportsView.modifiedDecision', 'Hiệu chỉnh chuyên môn')}
                   </span>

@@ -62,6 +62,7 @@ export interface PatientHistoryItem {
   riskLevel: string;
   status: string;
   doctorReviewed: boolean;
+  reviewDecision?: string;
   doctorName?: string;
   doctorNotes?: string;
   digitalSignature?: string;
@@ -450,8 +451,17 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     return 'bg-rose-50 text-rose-700 border-rose-200/80 font-extrabold';
   };
 
-  const renderStatusBadge = (status: string, doctorReviewed: boolean) => {
+  const renderStatusBadge = (status: string, doctorReviewed: boolean, reviewDecision?: string) => {
     const s = (status || '').toUpperCase();
+    const dec = (reviewDecision || '').toUpperCase();
+    if (dec === 'REJECTED' || s === 'REJECTED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200/80 select-none">
+          <XCircle className="w-3 h-3 text-rose-600" />
+          {isVi ? 'Bác sĩ bác bỏ' : 'Doctor Rejected'}
+        </span>
+      );
+    }
     if (s === 'REVIEWED' || doctorReviewed) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 select-none">
@@ -587,7 +597,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
     // Cột 6: Trạng thái ca khám
     {
       header: t('patient.history.columns.status', isVi ? 'Trạng Thái Ca Khám' : 'Status'),
-      accessor: (row) => renderStatusBadge(row.status, row.doctorReviewed),
+      accessor: (row) => renderStatusBadge(row.status, row.doctorReviewed, row.reviewDecision || (row.rawScreening as any)?.reviewDecision),
     },
     // Cột 7: Thao tác
     {
@@ -765,7 +775,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2.5">
           <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            {isVi ? 'Lịch sử khám sàng lọc' : 'Retinal screening history'}
+            {isVi ? 'Lịch Sử Khám Sàng Lọc' : 'Retinal screening history'}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200/80">
             ({filteredData.length})

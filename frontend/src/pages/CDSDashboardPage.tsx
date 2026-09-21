@@ -36,7 +36,13 @@ import {
   Search,
   Maximize2,
   Minimize2,
+  Trash2,
+  Check,
+  CheckCheck,
+  Mail,
+  ExternalLink,
 } from 'lucide-react';
+import { formatRelativeTime } from '../components/layout/NotificationBell';
 import { doctorApi, screeningApi, notificationApi, appointmentApi, Appointment } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
 import { useAnalysisProgress } from '../hooks/useAnalysisProgress';
@@ -171,6 +177,141 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
   const [isLoadingAppointments, setIsLoadingAppointments] = useState<boolean>(false);
   const [appointmentActionLoading, setAppointmentActionLoading] = useState<string | null>(null);
   const [appointmentSuccessMsg, setAppointmentSuccessMsg] = useState<string | null>(null);
+
+  // Real-time notifications state & synchronization (Doctor Portal - FR-9)
+  const [doctorNotifications, setDoctorNotifications] = useState<any[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState<boolean>(false);
+  const [notifFilterTab, setNotifFilterTab] = useState<'ALL' | 'UNREAD' | 'CRITICAL' | 'CONSULT'>('ALL');
+
+  const loadDoctorNotifications = useCallback(async () => {
+    setIsLoadingNotifications(true);
+    try {
+      const res = await notificationApi.getNotifications();
+      if (res && res.success && Array.isArray(res.data)) {
+        setDoctorNotifications(res.data);
+      }
+    } catch (e) {
+      console.warn("Could not load notifications in CDSDashboardPage:", e);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === 'notifications') {
+      void loadDoctorNotifications();
+    }
+  }, [activeSection, loadDoctorNotifications]);
+
+  useEffect(() => {
+    const unsubCreated = realtimeBus.subscribe('NOTIFICATION_CREATED', (evt) => {
+      const data = evt?.data || evt?.payload || evt;
+      if (data && (data.title || data.message)) {
+        setDoctorNotifications((prev) => {
+          const id = String(data.id || Date.now());
+          if (prev.some((n) => String(n.id) === id)) return prev;
+          return [data, ...prev];
+        });
+      }
+    });
+
+    const unsubRead = realtimeBus.subscribe('NOTIFICATION_READ', (evt) => {
+      const id = evt?.data?.id;
+      if (id) {
+        setDoctorNotifications((prev) =>
+          prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: true, read: true } : n))
+        );
+      }
+    });
+
+    const unsubUnread = realtimeBus.subscribe('NOTIFICATION_UNREAD', (evt) => {
+      const id = evt?.data?.id;
+      if (id) {
+        setDoctorNotifications((prev) =>
+          prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: false, read: false } : n))
+        );
+      }
+    });
+
+    const unsubCleared = realtimeBus.subscribe(['NOTIFICATION_CLEARED', 'NOTIFICATION_ALL_READ'], () => {
+      setDoctorNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, read: true })));
+    });
+
+    return () => {
+      unsubCreated();
+      unsubRead();
+      unsubUnread();
+      unsubCleared();
+    };
+  }, []);
+
+  const handleMarkNotifAsRead = async (id: string) => {
+    setDoctorNotifications((prev) =>
+      prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: true, read: true } : n))
+    );
+    try {
+      await notificationApi.markAsRead(id);
+      realtimeBus.emit('NOTIFICATION_READ', { id });
+    } catch (e) {
+      console.warn("Error marking notification as read:", e);
+    }
+  };
+
+  const handleMarkNotifAsUnread = async (id: string) => {
+    setDoctorNotifications((prev) =>
+      prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: false, read: false } : n))
+    );
+    try {
+      await notificationApi.markAsUnread(id);
+      realtimeBus.emit('NOTIFICATION_UNREAD', { id });
+    } catch (e) {
+      console.warn("Error marking notification as unread:", e);
+    }
+  };
+
+  const handleMarkAllNotifsAsRead = async () => {
+    setDoctorNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, read: true })));
+    try {
+      await notificationApi.markAllAsRead();
+      realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
+    } catch (e) {
+      console.warn("Error marking all notifications as read:", e);
+    }
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    const target = doctorNotifications.find((n) => String(n.id) === String(id));
+    const wasUnread = target ? !target.isRead && !target.read : false;
+    setDoctorNotifications((prev) => prev.filter((n) => String(n.id) !== String(id)));
+    try {
+      await notificationApi.deleteNotification(id);
+      if (wasUnread) {
+        realtimeBus.emit('NOTIFICATION_READ', { id });
+      }
+    } catch (e) {
+      console.warn("Error deleting notification:", e);
+    }
+  };
+
+  const unreadDoctorNotifCount = React.useMemo(() => {
+    return doctorNotifications.filter((n) => !n.isRead && !n.read).length;
+  }, [doctorNotifications]);
+
+  const filteredDoctorNotifications = React.useMemo(() => {
+    return doctorNotifications.filter((n) => {
+      const isUnread = !n.isRead && !n.read;
+      if (notifFilterTab === 'UNREAD') return isUnread;
+      const tUpper = String(n.type || '').toUpperCase();
+      const titleUpper = String(n.title || '').toUpperCase();
+      if (notifFilterTab === 'CRITICAL') {
+        return tUpper.includes('ALERT') || tUpper.includes('HIGH_RISK') || tUpper.includes('CRITICAL') || titleUpper.includes('NGUY CƠ CAO') || titleUpper.includes('CẢNH BÁO');
+      }
+      if (notifFilterTab === 'CONSULT') {
+        return tUpper.includes('CHAT') || tUpper.includes('CONSULT') || tUpper.includes('MESSAGE') || titleUpper.includes('TIN NHẮN') || titleUpper.includes('TƯ VẤN');
+      }
+      return true;
+    });
+  }, [doctorNotifications, notifFilterTab]);
 
   // Maximize Canvas & Collapsible Patient Queue States (R4, AC-4)
   const [isMaximizedCanvas, setIsMaximizedCanvas] = useState<boolean>(initialMaximized);
@@ -622,9 +763,14 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         );
       }
 
+      const defaultNotes = feedback.decision === 'REJECTED'
+        ? (isVi ? 'Bác sĩ chuyên khoa đã thẩm định và bác bỏ kết quả phân tích của AI.' : 'Specialist reviewed and rejected AI analysis findings.')
+        : (isVi ? 'Bác sĩ đã xác nhận kết quả chẩn đoán' : 'Doctor confirmed diagnosis');
+      const resolvedNotes = feedback.clinicalNotes?.trim() ? feedback.clinicalNotes : defaultNotes;
+
       const res = await screeningApi.doctorReview(feedback.analysisId, {
         decision: feedback.decision,
-        doctorNotes: feedback.clinicalNotes || (isVi ? 'Bác sĩ đã xác nhận kết quả chẩn đoán' : 'Doctor confirmed diagnosis'),
+        doctorNotes: resolvedNotes,
         adjustedCardioRisk: toApiRiskLevel(feedback.adjustedCardioRisk),
         adjustedDrRisk: toApiRiskLevel(feedback.adjustedDrRisk),
         icd10Codes: feedback.icd10Codes,
@@ -638,14 +784,33 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         );
       }
 
+      // Cập nhật trạng thái cục bộ của ca phân tích hiện tại để phản ánh ngay lập tức trên Bàn chẩn đoán và Báo cáo in
+      setAnalysisResult((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: 'REVIEWED',
+          reviewDecision: feedback.decision,
+          doctorNotes: resolvedNotes,
+          digitalSignature: (res.data as any)?.digitalSignature || prev.digitalSignature || `SHA256-${feedback.doctorId}-${Date.now()}`,
+          signedAt: (res.data as any)?.signedAt || new Date().toISOString(),
+          doctorName: feedback.doctorName || prev.doctorName,
+        };
+      });
+
       // Broadcast review event in real time to patient and analytics ONLY after server confirms success
-      realtimeBus.emit('screening:reviewed', feedback);
+      realtimeBus.emit('screening:reviewed', {
+        ...feedback,
+        clinicalNotes: resolvedNotes,
+      });
 
       setFeedbackSuccessMsg(
-        t(
-          'doctor.cds.feedbackSuccess',
-          'Đã lưu đánh giá chuyên môn và cập nhật hồ sơ sàng lọc của bệnh nhân'
-        )
+        feedback.decision === 'REJECTED'
+          ? (isVi ? 'Đã ghi nhận quyết định BÁC BỎ kết quả sàng lọc của bác sĩ' : 'Screening rejection recorded successfully')
+          : t(
+              'doctor.cds.feedbackSuccess',
+              'Đã lưu đánh giá chuyên môn và cập nhật hồ sơ sàng lọc của bệnh nhân'
+            )
       );
       setFeedbackSuccessToast(true);
       setTimeout(() => setFeedbackSuccessToast(false), 3500);
@@ -1059,7 +1224,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
     );
   }
 
-  // 7. Phân hệ Thông báo Bác sĩ (FE-NAV-4)
+  // 7. Phân hệ Thông báo Bác sĩ (FE-NAV-4, FR-9)
   if (activeSection === 'notifications') {
     return (
       <motion.div
@@ -1078,92 +1243,257 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                 <Bell className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  {isVi ? 'Thông Báo Chuyên Môn Bác Sĩ' : 'Clinical Notifications'}
-                </h2>
-                <p className="text-xs text-slate-500">
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {isVi ? 'Thông Báo Chuyên Môn Bác Sĩ' : 'Clinical Notifications'}
+                  </h2>
+                  {unreadDoctorNotifCount > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold font-mono-data">
+                      {unreadDoctorNotifCount} {isVi ? 'chưa đọc' : 'unread'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
                   {isVi
                     ? 'Các ca chờ thẩm định lâm sàng, ca nguy cơ cao và trao đổi chuyên môn'
                     : 'Pending reviews, critical alerts, and specialist consultations'}
                 </p>
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void loadDoctorNotifications()}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                title={isVi ? 'Làm mới' : 'Refresh'}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
+                <span>{isVi ? 'Làm mới' : 'Refresh'}</span>
+              </button>
+              {unreadDoctorNotifCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllNotifsAsRead}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  {isVi ? 'Đánh dấu tất cả đã đọc' : 'Mark all as read'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-100 scrollbar-none">
             <button
               type="button"
-              onClick={() => {
-                void notificationApi.markAllAsRead().then(() => {
-                  realtimeBus.emit('NOTIFICATION_CLEARED', { remainingUnread: 0 });
-                });
-              }}
-              className="px-3.5 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors cursor-pointer"
+              onClick={() => setNotifFilterTab('ALL')}
+              className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                notifFilterTab === 'ALL'
+                  ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
             >
-              {isVi ? 'Đánh dấu tất cả đã đọc' : 'Mark all as read'}
+              {isVi ? 'Tất cả' : 'All'} ({doctorNotifications.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setNotifFilterTab('UNREAD')}
+              className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                notifFilterTab === 'UNREAD'
+                  ? 'bg-rose-50 text-rose-700 font-bold border border-rose-200'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {isVi ? 'Chưa đọc' : 'Unread'} ({unreadDoctorNotifCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setNotifFilterTab('CRITICAL')}
+              className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                notifFilterTab === 'CRITICAL'
+                  ? 'bg-amber-50 text-amber-800 font-bold border border-amber-200'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {isVi ? 'Nguy cơ cao / Khẩn' : 'Critical Alerts'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setNotifFilterTab('CONSULT')}
+              className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                notifFilterTab === 'CONSULT'
+                  ? 'bg-cyan-50 text-cyan-700 font-bold border border-cyan-200'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {isVi ? 'Tư vấn / Tin nhắn' : 'Consultations'}
             </button>
           </div>
 
           <div className="divide-y divide-slate-100">
-            <div className="py-4 flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
-                  <AlertTriangle className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-amber-900">
-                    {isVi ? 'Ca bệnh nguy cơ cao cần thẩm định lâm sàng' : 'High-risk case requires clinical review'}
-                  </h4>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    {isVi
-                      ? 'Phát hiện tổn thương vi phình mạch và dấu hiệu bệnh lý võng mạc đái tháo đường.'
-                      : 'Microaneurysms and signs of diabetic retinopathy detected by AI pipeline.'}
-                  </p>
-                  <span className="text-[11px] text-slate-400 mt-1 block">
-                    {isVi ? 'Mức độ: Nguy cấp' : 'Severity: Critical'}
-                  </span>
-                </div>
+            {isLoadingNotifications ? (
+              <div className="py-12 text-center text-slate-400 space-y-2">
+                <Loader2 className="w-7 h-7 text-blue-500 animate-spin mx-auto" />
+                <p className="text-xs font-medium">
+                  {isVi ? 'Đang đồng bộ thông báo từ hệ thống...' : 'Synchronizing notifications...'}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => onNavigate?.('cds-viewer')}
-                className="px-3.5 py-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-lg cursor-pointer shrink-0"
-              >
-                {isVi ? 'Thẩm định ngay' : 'Review Now'}
-              </button>
-            </div>
+            ) : filteredDoctorNotifications.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                  <Bell className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-semibold text-slate-700">
+                  {isVi ? 'Không có thông báo nào' : 'No notifications found'}
+                </p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  {isVi
+                    ? 'Bạn sẽ nhận được thông báo khi có ca chụp mới cần thẩm định, ca bệnh nguy cơ cao hoặc tin nhắn từ bệnh nhân.'
+                    : 'You will be notified when new screenings arrive for review, critical alerts occur, or patients send messages.'}
+                </p>
+              </div>
+            ) : (
+              filteredDoctorNotifications.map((notif) => {
+                const isUnread = !notif.isRead && !notif.read;
+                const notifId = String(notif.id || '');
+                const timeStr = formatRelativeTime(notif.createdAt || notif.timestamp || Date.now(), isVi);
+                const displayTitle = notif.title || (isVi ? 'Thông báo lâm sàng' : 'Clinical Notification');
+                const displayMsg = notif.message || '';
 
-            <div className="py-4 flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                  <MessageSquare className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">
-                    {isVi ? 'Tin nhắn mới từ bệnh nhân' : 'New consultation message'}
-                  </h4>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    {isVi
-                      ? 'Bệnh nhân có câu hỏi liên quan đến phác đồ can thiệp và chế độ dinh dưỡng.'
-                      : 'Patient has questions regarding lifestyle intervention and follow-up.'}
-                  </p>
-                  <span className="text-[11px] text-slate-400 mt-1 block">
-                    {isVi ? 'Kênh tư vấn trực tuyến' : 'Teleconsultation channel'}
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const targetPid = selectedPatientId || activePatient?.userId || activePatient?.id;
-                  if (targetPid) {
-                    handleStartConsultationWithPatient(targetPid);
-                  } else {
-                    onNavigate?.('consultation');
+                const getDoctorNotifIcon = (type?: string, severity?: string) => {
+                  const tUpper = String(type || '').toUpperCase();
+                  const sUpper = String(severity || '').toUpperCase();
+                  if (sUpper === 'CRITICAL' || tUpper.includes('ALERT') || tUpper.includes('HIGH_RISK') || tUpper.includes('CRITICAL')) {
+                    return (
+                      <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 border border-rose-200">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                    );
                   }
-                }}
-                className="px-3.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg cursor-pointer shrink-0"
-              >
-                {isVi ? 'Trả lời' : 'Reply'}
-              </button>
-            </div>
+                  if (tUpper.includes('CHAT') || tUpper.includes('CONSULT') || tUpper.includes('MESSAGE')) {
+                    return (
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 border border-blue-200">
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                    );
+                  }
+                  if (tUpper.includes('SCAN') || tUpper.includes('AI') || tUpper.includes('SCREENING')) {
+                    return (
+                      <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 mt-0.5 border border-teal-200">
+                        <Eye className="w-4 h-4" />
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 mt-0.5 border border-slate-200">
+                      <Bell className="w-4 h-4" />
+                    </div>
+                  );
+                };
+
+                const handleDoctorNotifAction = (item: any) => {
+                  if (!item.isRead && !item.read && item.id) {
+                    void handleMarkNotifAsRead(String(item.id));
+                  }
+                  const tUpper = String(item.type || '').toUpperCase();
+                  if (tUpper.includes('CHAT') || tUpper.includes('CONSULT')) {
+                    onNavigate?.('consultation');
+                  } else {
+                    onNavigate?.('cds-viewer');
+                  }
+                };
+
+                return (
+                  <div
+                    key={notifId || Math.random()}
+                    onClick={() => handleDoctorNotifAction(notif)}
+                    className={`py-4 first:pt-0 flex flex-col sm:flex-row items-start justify-between gap-4 p-3 rounded-xl transition-all cursor-pointer ${
+                      isUnread
+                        ? 'bg-blue-50/40 hover:bg-blue-50/70 border border-blue-100'
+                        : 'hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {getDoctorNotifIcon(notif.type, notif.severity)}
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className={`text-sm ${isUnread ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
+                            {displayTitle}
+                          </h4>
+                          {isUnread && (
+                            <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              {isVi ? 'Mới' : 'New'}
+                            </span>
+                          )}
+                          {notif.type && (
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-mono-data">
+                              {notif.type}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          {displayMsg}
+                        </p>
+                        <span className="text-[11px] text-slate-400 font-mono-data block">
+                          {timeStr}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDoctorNotifAction(notif);
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>{isVi ? 'Xem ca bệnh' : 'View'}</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                      {isUnread ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleMarkNotifAsRead(notifId);
+                          }}
+                          title={isVi ? 'Đánh dấu đã đọc' : 'Mark as read'}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleMarkNotifAsUnread(notifId);
+                          }}
+                          title={isVi ? 'Đánh dấu chưa đọc' : 'Mark as unread'}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDeleteNotif(notifId);
+                        }}
+                        title={isVi ? 'Xóa thông báo' : 'Delete notification'}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </motion.div>
@@ -1229,6 +1559,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       animate="animate"
       exit="exit"
       className="space-y-3 xl:h-[calc(100vh-100px)] xl:overflow-hidden flex flex-col"
+      aria-label="Bàn Chẩn Đoán CDS Võng Mạc Interactive"
     >
       {/* Toast notification */}
       {feedbackSuccessToast && (

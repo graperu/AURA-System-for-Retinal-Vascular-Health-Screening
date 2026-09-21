@@ -95,8 +95,20 @@ class RealtimeEventBus {
     }
   }
 
-  public subscribe(eventType: string | string[], callback: EventCallback): () => void {
-    const types = Array.isArray(eventType) ? eventType : [eventType];
+  public subscribe(
+    eventTypeOrCallback: string | string[] | EventCallback,
+    maybeCallback?: EventCallback
+  ): () => void {
+    let callback: EventCallback;
+    let types: string[];
+
+    if (typeof eventTypeOrCallback === 'function') {
+      callback = eventTypeOrCallback;
+      types = ['all', '*'];
+    } else {
+      callback = maybeCallback!;
+      types = Array.isArray(eventTypeOrCallback) ? eventTypeOrCallback : [eventTypeOrCallback];
+    }
 
     types.forEach((t) => {
       if (!this.listeners.has(t)) {
@@ -169,6 +181,17 @@ class RealtimeEventBus {
           fn(event);
         } catch (e) {
           console.warn('Error in realtime wildcard listener:', e);
+        }
+      });
+    }
+
+    const starListeners = this.listeners.get('*');
+    if (starListeners) {
+      starListeners.forEach((fn) => {
+        try {
+          fn(event);
+        } catch (e) {
+          console.warn('Error in realtime wildcard listener (*):', e);
         }
       });
     }

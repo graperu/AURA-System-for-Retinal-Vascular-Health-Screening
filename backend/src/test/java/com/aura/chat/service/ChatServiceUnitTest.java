@@ -13,8 +13,12 @@ import com.aura.chat.dto.ChatMessageResponse;
 import com.aura.chat.dto.SendMessageRequest;
 import com.aura.chat.entity.ChatMessage;
 import com.aura.chat.repository.ChatMessageRepository;
+import com.aura.notification.service.UserNotificationService;
+import com.aura.user.entity.User;
+import com.aura.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +39,8 @@ class ChatServiceUnitTest {
 
   @Mock private ChatMessageRepository chatMessageRepository;
   @Mock private SimpMessagingTemplate messagingTemplate;
+  @Mock private UserRepository userRepository;
+  @Mock private UserNotificationService userNotificationService;
 
   @InjectMocks private ChatService chatService;
 
@@ -272,6 +278,22 @@ class ChatServiceUnitTest {
       chatService.markMessagesAsRead(patientId, doctorId);
 
       verify(chatMessageRepository).saveAll(List.of());
+    }
+  }
+
+  @Nested
+  @DisplayName("getUnreadCount Tests")
+  class GetUnreadCountTests {
+
+    @Test
+    @DisplayName("Returns unread message count correctly")
+    void getUnreadCount_ReturnsCount() {
+      when(chatMessageRepository.countByReceiverIdAndIsReadFalse(patientId)).thenReturn(5L);
+
+      long count = chatService.getUnreadCount(patientId);
+
+      assertThat(count).isEqualTo(5L);
+      verify(chatMessageRepository).countByReceiverIdAndIsReadFalse(patientId);
     }
   }
 }

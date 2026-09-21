@@ -81,10 +81,11 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
     chatApi.markAsRead(partnerUserId).catch(() => {});
 
     // 2. Connect WebSocket / STOMP for Realtime updates
+    let unsubTopic: (() => void) | undefined;
     if (currentUserId) {
       stompClient.connect();
       const topic = `/topic/chat.${currentUserId}`;
-      stompClient.subscribe(topic, (msg: any) => {
+      unsubTopic = stompClient.subscribe(topic, (msg: any) => {
         if (msg && msg.messageText) {
           // Bỏ qua tin nhắn do chính mình gửi qua websocket vì đã được cập nhật qua optimistic UI
           if (msg.senderId === currentUserId) return;
@@ -108,7 +109,7 @@ export const ConsultationChatModal: React.FC<ConsultationChatModalProps> = ({
       });
 
       return () => {
-        stompClient.unsubscribe(topic);
+        unsubTopic?.();
       };
     }
   }, [isOpen, partnerUserId, currentUserId, currentUserRole, resolvedDoctorName, patientName, isVi]);

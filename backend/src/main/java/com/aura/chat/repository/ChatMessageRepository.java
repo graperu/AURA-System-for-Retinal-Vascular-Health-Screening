@@ -21,5 +21,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
 
   List<ChatMessage> findByReceiverIdAndIsReadFalse(UUID receiverId);
 
+  long countByReceiverIdAndIsReadFalse(UUID receiverId);
+
   List<ChatMessage> findByReceiverIdAndSenderIdAndIsReadFalse(UUID receiverId, UUID senderId);
 }

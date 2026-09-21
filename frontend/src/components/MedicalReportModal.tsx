@@ -5,7 +5,10 @@ import {
   Printer,
   Download,
   ShieldCheck,
+  ShieldAlert,
   CheckCircle2,
+  XCircle,
+  AlertOctagon,
   Eye,
   Heart,
   Activity,
@@ -100,9 +103,20 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
   // Giữ alias allReportAnomalies để đảm bảo tương thích ngược
   const allReportAnomalies = allReportLesions;
 
+  // MED-08 FIX: Nhận diện chính xác quyết định Bác bỏ kết quả (REJECTED) của Bác sĩ
+  const isRejected = Boolean(
+    result.reviewDecision === 'REJECTED' ||
+    (result as any).decision === 'REJECTED' ||
+    result.status === 'REJECTED' ||
+    (odData as any)?.reviewDecision === 'REJECTED' ||
+    (osData as any)?.reviewDecision === 'REJECTED'
+  );
+
   // Kiểm tra điều kiện thẩm định và chữ ký số bác sĩ
-  const isReviewed = result.status === 'REVIEWED' && Boolean(result.digitalSignature);
-  const verifiedDoctorName = isReviewed
+  const isReviewed = Boolean(
+    (result.status === 'REVIEWED' || isRejected) && Boolean(result.digitalSignature)
+  );
+  const verifiedDoctorName = (isReviewed || isRejected)
     ? result.doctorName || doctorName || (isVi ? 'Bác sĩ Chuyên Khoa' : 'Attending Specialist')
     : null;
 
@@ -191,10 +205,10 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           [isVi ? 'Độ uốn lượn (Tortuosity)' : 'Tortuosity Index', (odData.annotatedMap?.tortuosityIndex ?? 0).toString(), (osData.annotatedMap?.tortuosityIndex ?? 0).toString(), '< 1.25', `OD: ${evaluateTortuosity(odData.annotatedMap?.tortuosityIndex ?? 0).text} | OS: ${evaluateTortuosity(osData.annotatedMap?.tortuosityIndex ?? 0).text}`],
           [isVi ? 'Tỷ lệ Cup/Disc (CDR)' : 'Cup-to-Disc Ratio (CDR)', (odData.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), (osData.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), '< 0.50', `OD: ${evaluateVcdr(odData.annotatedMap?.opticCupToDiscRatio ?? 0).text} | OS: ${evaluateVcdr(osData.annotatedMap?.opticCupToDiscRatio ?? 0).text}`],
           [isVi ? 'Mã chẩn đoán ICD-10' : 'ICD-10 Code', icdCodes.join('; ') || (isVi ? 'Chưa ghi nhận' : 'Not recorded'), '', '', ''],
-          [isVi ? 'Trạng thái thẩm định' : 'Review Status', isReviewed ? (isVi ? 'Đã duyệt lâm sàng' : 'Clinically reviewed') : (isVi ? 'Chờ bác sĩ thẩm định' : 'Pending review'), '', '', ''],
-          [isVi ? 'Bác sĩ phụ trách' : 'Attending Specialist', isReviewed ? (verifiedDoctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist')) : (isVi ? 'Chưa có bác sĩ thẩm định' : 'No doctor assigned'), '', '', ''],
-          [isVi ? 'Chữ ký số SHA-256' : 'Digital Signature SHA-256', isReviewed ? (result.digitalSignature || (isVi ? 'Đã ký số' : 'Signed')) : (isVi ? 'Chưa ký số' : 'Unsigned'), '', '', ''],
-          [isVi ? 'Thời điểm ký' : 'Signed At', isReviewed && result.signedAt ? new Date(result.signedAt).toLocaleString(locale) : (isVi ? 'Chưa ký' : 'Unsigned'), '', '', ''],
+          [isVi ? 'Trạng thái thẩm định' : 'Review Status', isRejected ? (isVi ? 'Bác sĩ bác bỏ kết quả' : 'Rejected by doctor') : isReviewed ? (isVi ? 'Đã duyệt lâm sàng' : 'Clinically reviewed') : (isVi ? 'Chờ bác sĩ thẩm định' : 'Pending review'), '', '', ''],
+          [isVi ? 'Bác sĩ phụ trách' : 'Attending Specialist', (isReviewed || isRejected) ? (verifiedDoctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist')) : (isVi ? 'Chưa có bác sĩ thẩm định' : 'No doctor assigned'), '', '', ''],
+          [isVi ? 'Chữ ký số SHA-256' : 'Digital Signature SHA-256', (isReviewed || isRejected) ? (result.digitalSignature || (isVi ? 'Đã ký số' : 'Signed')) : (isVi ? 'Chưa ký số' : 'Unsigned'), '', '', ''],
+          [isVi ? 'Thời điểm ký' : 'Signed At', (isReviewed || isRejected) && result.signedAt ? new Date(result.signedAt).toLocaleString(locale) : (isVi ? 'Chưa ký' : 'Unsigned'), '', '', ''],
           [isVi ? 'Tuyên bố miễn trừ trách nhiệm' : 'Medical Disclaimer', isVi ? 'Hệ thống CDS hỗ trợ sàng lọc sơ bộ AI theo tiêu chuẩn Bộ Y Tế. Kết quả cần bác sĩ chuyên khoa thẩm định.' : 'AI decision support system; requires specialist clinical verification.', '', '', ''],
         ]
       : [
@@ -216,10 +230,10 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           [isVi ? 'Độ uốn lượn (Tortuosity)' : 'Tortuosity Index', (result.annotatedMap?.tortuosityIndex ?? 0).toString(), '< 1.25', evaluateTortuosity(result.annotatedMap?.tortuosityIndex ?? 0).text],
           [isVi ? 'Tỷ lệ Cup/Disc (CDR)' : 'Cup-to-Disc Ratio (CDR)', (result.annotatedMap?.opticCupToDiscRatio ?? 0).toString(), '< 0.50', evaluateVcdr(result.annotatedMap?.opticCupToDiscRatio ?? 0).text],
           [isVi ? 'Mã chẩn đoán ICD-10' : 'ICD-10 Code', icdCodes.join('; ') || (isVi ? 'Chưa ghi nhận' : 'Not recorded'), '', ''],
-          [isVi ? 'Trạng thái thẩm định' : 'Review Status', isReviewed ? (isVi ? 'Đã duyệt lâm sàng' : 'Clinically reviewed') : (isVi ? 'Chờ bác sĩ thẩm định' : 'Pending review'), '', ''],
-          [isVi ? 'Bác sĩ phụ trách' : 'Attending Specialist', isReviewed ? (verifiedDoctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist')) : (isVi ? 'Chưa có bác sĩ thẩm định' : 'No doctor assigned'), '', ''],
-          [isVi ? 'Chữ ký số SHA-256' : 'Digital Signature SHA-256', isReviewed ? (result.digitalSignature || (isVi ? 'Đã ký số' : 'Signed')) : (isVi ? 'Chưa ký số' : 'Unsigned'), '', ''],
-          [isVi ? 'Thời điểm ký' : 'Signed At', isReviewed && result.signedAt ? new Date(result.signedAt).toLocaleString(locale) : (isVi ? 'Chưa ký' : 'Unsigned'), '', ''],
+          [isVi ? 'Trạng thái thẩm định' : 'Review Status', isRejected ? (isVi ? 'Bác sĩ bác bỏ kết quả' : 'Rejected by doctor') : isReviewed ? (isVi ? 'Đã duyệt lâm sàng' : 'Clinically reviewed') : (isVi ? 'Chờ bác sĩ thẩm định' : 'Pending review'), '', ''],
+          [isVi ? 'Bác sĩ phụ trách' : 'Attending Specialist', (isReviewed || isRejected) ? (verifiedDoctorName || (isVi ? 'Bác sĩ chuyên khoa' : 'Attending Specialist')) : (isVi ? 'Chưa có bác sĩ thẩm định' : 'No doctor assigned'), '', ''],
+          [isVi ? 'Chữ ký số SHA-256' : 'Digital Signature SHA-256', (isReviewed || isRejected) ? (result.digitalSignature || (isVi ? 'Đã ký số' : 'Signed')) : (isVi ? 'Chưa ký số' : 'Unsigned'), '', ''],
+          [isVi ? 'Thời điểm ký' : 'Signed At', (isReviewed || isRejected) && result.signedAt ? new Date(result.signedAt).toLocaleString(locale) : (isVi ? 'Chưa ký' : 'Unsigned'), '', ''],
           [isVi ? 'Tuyên bố miễn trừ trách nhiệm' : 'Medical Disclaimer', isVi ? 'Hệ thống CDS hỗ trợ sàng lọc sơ bộ AI theo tiêu chuẩn Bộ Y Tế. Kết quả cần bác sĩ chuyên khoa thẩm định.' : 'AI decision support system; requires specialist clinical verification.', '', ''],
         ];
 
@@ -327,17 +341,36 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
         {/* 1. Top Header Controls */}
         <div className="flex-shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-3.5 print:hidden z-20 shadow-xs">
           <div className="flex items-center gap-2.5">
-            <div className={`p-1.5 rounded-lg ${isReviewed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-              {isReviewed ? <ShieldCheck className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+            <div className={`p-1.5 rounded-lg ${
+              isRejected
+                ? 'bg-rose-100 text-rose-800 ring-1 ring-rose-300'
+                : isReviewed
+                ? 'bg-emerald-100 text-emerald-800'
+                : 'bg-amber-100 text-amber-800'
+            }`}>
+              {isRejected ? (
+                <XCircle className="h-5 w-5 text-rose-600" />
+              ) : isReviewed ? (
+                <ShieldCheck className="h-5 w-5" />
+              ) : (
+                <AlertTriangle className="h-5 w-5" />
+              )}
             </div>
             <div>
               <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                {isReviewed
+                {isRejected
+                  ? (isVi ? 'Báo Cáo Sàng Lọc Y Tế - KẾT QUẢ BÁC BỎ BỞI BÁC SĨ' : 'Retinal Screening Report - REJECTED BY SPECIALIST')
+                  : isReviewed
                   ? t('doctor.reportModal.officialReportTitle', 'Báo Cáo Sàng Lọc Y Tế Võng Mạc AURA')
                   : t('doctor.reportModal.preliminaryReportTitle', 'Báo Cáo Sàng Lọc Sơ Bộ AURA AI - Đang Chờ Bác Sĩ Thẩm Định')}
                 {hasDualData && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
                     {t('doctor.reportModal.dualEyeBadge', isVi ? 'Sàng lọc toàn diện 2 mắt' : 'Comprehensive Dual-Eye Screening')}
+                  </span>
+                )}
+                {isRejected && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                    {isVi ? 'KẾT QUẢ BỊ BÁC BỎ' : 'REJECTED'}
                   </span>
                 )}
               </h2>
@@ -394,7 +427,13 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                   {t('doctor.reportModal.systemTitle', 'HỆ THỐNG SÀNG LỌC MẠCH MÁU VÕNG MẠC AURA')}
                 </h1>
                 <p className="text-xs font-medium text-slate-500">
-                  AURA AI Retinal Clinical Decision Support — {isReviewed ? t('doctor.reportModal.systemSubtitleReviewed', 'Phiếu Báo Cáo Y Tế Chính Thức') : t('doctor.reportModal.systemSubtitlePreliminary', 'Phiếu Đánh Giá Sơ Bộ')} {hasDualData ? t('doctor.reportModal.dualEyeSuffix', '(2 Mắt OD & OS)') : ''}
+                  AURA AI Retinal Clinical Decision Support — {
+                    isRejected
+                      ? (isVi ? 'Phiếu Kết Quả Bị Bác Bỏ (Không Công Nhận Kết Quả AI)' : 'Rejected Screening Assessment (AI Overruled)')
+                      : isReviewed
+                      ? t('doctor.reportModal.systemSubtitleReviewed', 'Phiếu Báo Cáo Y Tế Chính Thức')
+                      : t('doctor.reportModal.systemSubtitlePreliminary', 'Phiếu Đánh Giá Sơ Bộ')
+                  } {hasDualData ? t('doctor.reportModal.dualEyeSuffix', '(2 Mắt OD & OS)') : ''}
                 </p>
               </div>
             </div>
@@ -406,22 +445,51 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                 {t('doctor.reportModal.examDateLabel', 'Ngày Khám:')} {examDateTimeStr}
               </p>
               <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
-                isReviewed
+                isRejected
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : isReviewed
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                   : 'bg-amber-50 text-amber-800 border-amber-200'
               }`}>
-                {isReviewed
+                {isRejected
+                  ? (isVi ? 'BÁC SĨ ĐÃ BÁC BỎ' : 'REJECTED BY DOCTOR')
+                  : isReviewed
                   ? t('doctor.reportModal.reviewedStatus', 'Đã duyệt lâm sàng')
                   : t('doctor.reportModal.pendingStatus', 'Chờ bác sĩ thẩm định')}
               </span>
             </div>
           </div>
 
+          {/* Rejection Alert Callout */}
+          {isRejected && (
+            <div className="rounded-xl border-2 border-rose-400 bg-rose-50 p-4 text-xs text-rose-950 space-y-1.5 avoid-page-break print:border-rose-600 print:bg-rose-50">
+              <div className="flex items-center gap-2 font-extrabold text-sm text-rose-900">
+                <AlertOctagon className="w-5 h-5 text-rose-600 shrink-0" />
+                <span>
+                  {isVi
+                    ? 'CẢNH BÁO: KẾT QUẢ PHÂN TÍCH NÀY ĐÃ BỊ BÁC SĨ CHUYÊN KHOA BÁC BỎ'
+                    : 'WARNING: THIS SCREENING ANALYSIS HAS BEEN REJECTED BY THE ATTENDING SPECIALIST'}
+                </span>
+              </div>
+              <p className="leading-relaxed text-rose-800 text-[11.5px]">
+                {isVi
+                  ? 'Bác sĩ chuyên khoa xác định kết quả phân tích tự động từ mô hình AI không chính xác hoặc chất lượng ảnh không đạt tiêu chuẩn lâm sàng. Các chỉ số rủi ro bên dưới KHÔNG ĐƯỢC CÔNG NHẬN để chẩn đoán y khoa. Khuyến nghị người bệnh thực hiện chụp lại ảnh võng mạc hoặc thăm khám trực tiếp tại cơ sở y tế.'
+                  : 'The attending specialist has determined that the automated AI analysis is inaccurate or the retinal image quality is non-diagnostic. The risk scores below ARE NOT VALIDATED for medical diagnosis. Re-imaging or an in-person clinical examination is strongly advised.'}
+              </p>
+              {result.doctorNotes && (
+                <div className="mt-2 pt-2 border-t border-rose-200/80 text-rose-900 font-medium">
+                  <span className="font-bold">{isVi ? 'Lý do bác bỏ từ bác sĩ:' : 'Specialist Rejection Reason:'} </span>
+                  <span>{result.doctorNotes}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Medical Disclaimer Banner */}
           <MedicalDisclaimer variant="compact" />
 
           {/* Banner Thông Báo Sơ Bộ nếu chưa thẩm định */}
-          {!isReviewed && (
+          {!isReviewed && !isRejected && (
             <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs text-sky-900 flex items-center justify-between">
               <span className="flex items-center gap-2 font-medium">
                 <Clock className="w-4 h-4 text-sky-600" />
@@ -434,7 +502,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           )}
 
           {/* Patient Demographics & Baseline Vitals */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 rounded-xl bg-slate-50 p-4 border border-slate-200 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 rounded-xl bg-slate-50 p-4 border border-slate-200 text-xs avoid-page-break">
             <div>
               <span className="text-slate-500 block">{t('doctor.reportModal.fullName', 'Họ và tên:')}</span>
               <strong className="text-slate-900 text-sm">{patient.fullName || (isVi ? 'Chưa cập nhật' : 'Unrecorded')}</strong>
@@ -490,21 +558,21 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 p-1.5 flex flex-col items-center">
-                      <div className="relative aspect-square w-full rounded-full overflow-hidden border border-slate-800">
+                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 print:bg-white print:border-slate-300 p-1.5 flex flex-col items-center">
+                      <div className="relative aspect-square w-full rounded-full overflow-hidden border border-slate-800 print:border-slate-300">
                         <img
                           src={odData.imageUrl || '/assets/images/fundus_original.png'}
                           alt={isVi ? 'Ảnh đáy mắt phải gốc' : 'Original right fundus scan'}
                           className="h-full w-full object-cover"
                         />
                       </div>
-                      <p className="mt-1.5 text-[10px] font-semibold text-slate-300">
+                      <p className="mt-1.5 text-[10px] font-semibold text-slate-300 print:text-slate-700">
                         {isVi ? 'Ảnh Gốc' : 'Original'}
                       </p>
                     </div>
 
-                    <div className="rounded-xl overflow-hidden border border-cyan-300 bg-slate-950 p-1.5 flex flex-col items-center">
-                      <div className="relative aspect-square w-full rounded-full overflow-hidden border border-cyan-600 bg-black">
+                    <div className="rounded-xl overflow-hidden border border-cyan-300 bg-slate-950 print:bg-white print:border-slate-300 p-1.5 flex flex-col items-center">
+                      <div className="relative aspect-square w-full rounded-full overflow-hidden border border-cyan-600 print:border-cyan-500 bg-black">
                         <img
                           src={odData.imageUrl || '/assets/images/fundus_original.png'}
                           alt={isVi ? 'Ảnh nền OD' : 'OD background'}
@@ -583,7 +651,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                           );
                         })}
                       </div>
-                      <p className="mt-1.5 text-[10px] font-semibold text-cyan-200">
+                      <p className="mt-1.5 text-[10px] font-semibold text-cyan-200 print:text-cyan-900">
                         {isVi ? 'Bản Đồ Nhiệt AI' : 'AI Heatmap'}
                       </p>
                     </div>
@@ -591,7 +659,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                 </div>
 
                 {/* Left Eye Block */}
-                <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-teal-200 space-y-3">
+                <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-teal-200 space-y-3 avoid-page-break">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-teal-600"></span>
@@ -602,21 +670,21 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 p-1.5 flex flex-col items-center">
-                      <div className="relative aspect-square w-full rounded-full overflow-hidden border border-slate-800">
+                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 print:bg-white print:border-slate-300 p-1.5 flex flex-col items-center">
+                      <div className="relative aspect-square w-full rounded-full overflow-hidden border border-slate-800 print:border-slate-300">
                         <img
                           src={osData.imageUrl || '/assets/images/fundus_original.png'}
                           alt={isVi ? 'Ảnh đáy mắt trái gốc' : 'Original left fundus scan'}
                           className="h-full w-full object-cover"
                         />
                       </div>
-                      <p className="mt-1.5 text-[10px] font-semibold text-slate-300">
+                      <p className="mt-1.5 text-[10px] font-semibold text-slate-300 print:text-slate-700">
                         {isVi ? 'Ảnh Gốc' : 'Original'}
                       </p>
                     </div>
 
-                    <div className="rounded-xl overflow-hidden border border-teal-300 bg-slate-950 p-1.5 flex flex-col items-center">
-                      <div className="relative aspect-square w-full rounded-full overflow-hidden border border-teal-600 bg-black">
+                    <div className="rounded-xl overflow-hidden border border-teal-300 bg-slate-950 print:bg-white print:border-slate-300 p-1.5 flex flex-col items-center">
+                      <div className="relative aspect-square w-full rounded-full overflow-hidden border border-teal-600 print:border-teal-500 bg-black">
                         <img
                           src={osData.imageUrl || '/assets/images/fundus_original.png'}
                           alt={isVi ? 'Ảnh nền mắt trái' : 'Left background'}
@@ -695,7 +763,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                           );
                         })}
                       </div>
-                      <p className="mt-1.5 text-[10px] font-semibold text-teal-200">
+                      <p className="mt-1.5 text-[10px] font-semibold text-teal-200 print:text-teal-900">
                         {isVi ? 'Bản Đồ Nhiệt AI' : 'AI Heatmap'}
                       </p>
                     </div>
@@ -704,22 +772,22 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
               </div>
             ) : (
               /* SINGLE EYE DISPLAY */
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 p-2 flex flex-col items-center">
-                  <div className="relative aspect-square max-w-[280px] w-full rounded-full overflow-hidden border-2 border-slate-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 avoid-page-break">
+                <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 print:bg-white print:border-slate-300 p-2 flex flex-col items-center">
+                  <div className="relative aspect-square max-w-[280px] w-full rounded-full overflow-hidden border-2 border-slate-800 print:border-slate-300">
                     <img
                       src={result.imageUrl || '/assets/images/fundus_original.png'}
                       alt={isVi ? 'Ảnh đáy mắt gốc' : 'Original fundus scan'}
                       className="h-full w-full object-cover"
                     />
                   </div>
-                  <p className="mt-2 text-[11px] font-semibold text-slate-300">
+                  <p className="mt-2 text-[11px] font-semibold text-slate-300 print:text-slate-700">
                     {isVi ? 'Ảnh Màu Đáy Mắt Gốc' : 'Original Color Fundus Scan'}
                   </p>
                 </div>
 
-                <div className="rounded-xl overflow-hidden border border-cyan-300 bg-slate-950 p-2 flex flex-col items-center">
-                  <div className="relative aspect-square max-w-[280px] w-full rounded-full overflow-hidden border-2 border-cyan-600 bg-black">
+                <div className="rounded-xl overflow-hidden border border-cyan-300 bg-slate-950 print:bg-white print:border-slate-300 p-2 flex flex-col items-center">
+                  <div className="relative aspect-square max-w-[280px] w-full rounded-full overflow-hidden border-2 border-cyan-600 print:border-cyan-500 bg-black">
                     <img
                       src={result.imageUrl || '/assets/images/fundus_original.png'}
                       alt={isVi ? 'Ảnh nền' : 'Background scan'}
@@ -798,7 +866,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                       );
                     })}
                   </div>
-                  <p className="mt-2 text-[11px] font-semibold text-cyan-200">
+                  <p className="mt-2 text-[11px] font-semibold text-cyan-200 print:text-cyan-900">
                     {isVi ? 'Bản Đồ Nhiệt Grad-CAM' : 'Grad-CAM Attention Heatmap'}
                   </p>
                 </div>
@@ -806,7 +874,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
             )}
 
             {/* Bảng Chi Tiết Điểm Tổn Thương Vi Mạch AI Định Vị */}
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5">
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5 avoid-page-break">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
                 <div className="flex items-center gap-2">
                   <Target className="h-4 w-4 text-cyan-800 shrink-0" />
@@ -967,7 +1035,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           </div>
 
           {/* 2. Clinical Risk Gauges */}
-          <div className="space-y-3">
+          <div className="space-y-3 avoid-page-break">
             <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-900 flex items-center gap-2 border-b border-slate-200 pb-1.5">
               <Heart className="h-4 w-4 text-rose-600" />
               {t('doctor.reportModal.section2', '2. Đánh Giá Nguy Cơ Lâm Sàng Đa Bệnh Lý')}
@@ -1115,7 +1183,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           </div>
 
           {/* 3. Quantitative Biomarkers Table */}
-          <div className="space-y-3">
+          <div className="space-y-3 avoid-page-break">
             <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-900 flex items-center gap-2 border-b border-slate-200 pb-1.5">
               <Activity className="h-4 w-4 text-cyan-700" />
               {t('doctor.reportModal.section3', '3. Phân Tích Chỉ Số Sinh Học Vi Mạch Võng Mạc')}
@@ -1248,7 +1316,7 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           </div>
 
           {/* 4. ICD-10 Diagnosis Codes Section */}
-          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4 avoid-page-break">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
               <FileBadge className="h-4 w-4 text-cyan-700" />
               {t('doctor.reportModal.icd10Label', 'Danh mục mã bệnh quốc tế ICD-10:')}
@@ -1274,11 +1342,20 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
           </div>
 
           {/* 5. Doctor Recommendation and Digital Signature */}
-          <div className={`rounded-xl border p-5 space-y-4 ${
-            isReviewed ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-200 bg-amber-50/40'
+          <div className={`rounded-xl border p-5 space-y-4 avoid-page-break ${
+            isRejected
+              ? 'border-rose-300 bg-rose-50/50 print:border-rose-400 print:bg-rose-50'
+              : isReviewed
+              ? 'border-emerald-200 bg-emerald-50/40 print:border-emerald-300'
+              : 'border-amber-200 bg-amber-50/40 print:border-amber-300'
           }`}>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-              {isReviewed ? (
+              {isRejected ? (
+                <>
+                  <XCircle className="h-4 w-4 text-rose-600" />
+                  <span className="text-rose-900 font-bold">{isVi ? 'Kết Luận & Lý Do Bác Bỏ Của Bác Sĩ:' : 'Specialist Rejection Rationale:'}</span>
+                </>
+              ) : isReviewed ? (
                 <>
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                   {t('doctor.reportModal.doctorNotesTitle', 'Ghi chú chuyên môn của Bác sĩ:')}
@@ -1291,7 +1368,18 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
               )}
             </h3>
 
-            {isReviewed ? (
+            {isRejected ? (
+              <div className="space-y-2">
+                <p className="text-sm sm:text-base text-rose-950 leading-relaxed font-semibold whitespace-pre-line">
+                  {result.doctorNotes || (isVi ? 'Bác sĩ chuyên khoa đã xem xét và bác bỏ kết luận từ hệ thống AI (Hình ảnh không đạt chuẩn hoặc không tương thích dấu hiệu lâm sàng).' : 'Specialist has reviewed and rejected the AI findings (Sub-optimal image or discordant clinical signs).')}
+                </p>
+                <p className="text-xs text-rose-700 font-medium pt-1">
+                  {isVi
+                    ? '* Chỉ định tiếp theo: Đặt lịch chụp lại đáy mắt đạt chuẩn hoặc thăm khám trực tiếp với bác sĩ chuyên khoa mắt/tim mạch.'
+                    : '* Next Steps: Schedule fundus re-imaging or attend an in-person consultation with a specialist.'}
+                </p>
+              </div>
+            ) : isReviewed ? (
               <div className="space-y-2">
                 <p className="text-sm sm:text-base text-black leading-relaxed font-medium whitespace-pre-line">
                   {result.doctorNotes || (isVi ? 'Bác sĩ chuyên khoa đã xem xét và xác nhận kết quả phân tích hình ảnh võng mạc.' : 'Attending specialist has reviewed and confirmed retinal analysis findings.')}
@@ -1328,6 +1416,11 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                   >
                     Brier: {(result.confidenceCalibration?.brierScore ?? 0.058).toFixed(3)} | Platt Calibrated: {(result.confidenceCalibration?.calibratedConfidence ?? 94.2).toFixed(1)}%
                   </span>
+                  {isRejected && (
+                    <span className="font-bold text-rose-800 font-mono-data bg-rose-100 px-2 py-0.5 rounded border border-rose-300">
+                      STATUS: REJECTED (OVERRULED)
+                    </span>
+                  )}
                 </div>
                 <p className="text-slate-500 text-[10.5px]">
                   {isVi
@@ -1337,7 +1430,26 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
               </div>
 
               <div className="text-left sm:text-right space-y-1">
-                {isReviewed ? (
+                {isRejected ? (
+                  <>
+                    <p className="text-slate-500 text-[11px]">{isVi ? 'Bác sĩ chuyên khoa bác bỏ:' : 'Reviewing Specialist (Rejection):'}</p>
+                    <p className="font-bold text-slate-900 text-sm">{verifiedDoctorName}</p>
+                    <div className="inline-flex items-center gap-1 text-[10px] text-rose-700 font-mono-data font-semibold bg-rose-100/90 px-2 py-0.5 rounded border border-rose-300">
+                      <XCircle className="w-3 h-3 text-rose-600" />
+                      {isVi ? 'Chữ ký số xác thực BÁC BỎ kết quả' : 'Digital Signature - Rejection Verified'}
+                    </div>
+                    {result.signedAt && (
+                      <p className="text-[10px] text-slate-500 font-mono-data">
+                        {t('doctor.reportModal.signedAtLabel', 'Thời điểm ký:')} {new Date(result.signedAt).toLocaleString(locale)}
+                      </p>
+                    )}
+                    {result.digitalSignature && (
+                      <div className="text-[9px] text-slate-400 font-mono-data max-w-xs break-all pt-0.5" title={result.digitalSignature}>
+                        {result.digitalSignature.slice(0, 32)}...
+                      </div>
+                    )}
+                  </>
+                ) : isReviewed ? (
                   <>
                     <p className="text-slate-500 text-[11px]">{t('doctor.reportModal.reviewingSpecialist', 'Bác sĩ chuyên khoa ký duyệt:')}</p>
                     <p className="font-bold text-slate-900 text-sm">{verifiedDoctorName}</p>
@@ -1368,6 +1480,20 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Rejection Stamp / Watermark on Screen and Print */}
+          {isRejected && (
+            <div className="pointer-events-none relative my-4 flex items-center justify-center overflow-hidden avoid-page-break">
+              <div className="rotate-[-5deg] border-4 border-dashed border-rose-500 bg-rose-50/90 px-8 py-3 rounded-2xl text-center shadow-xs">
+                <span className="block text-base sm:text-xl font-black uppercase tracking-widest text-rose-700">
+                  {isVi ? 'KẾT QUẢ BỊ BÁC BỎ — KHÔNG CÔNG NHẬN LÂM SÀNG' : 'OVERRULED / REJECTED BY SPECIALIST'}
+                </span>
+                <span className="block text-[11px] font-semibold text-rose-600 mt-0.5">
+                  {isVi ? 'Kết quả phân tích tự động từ AI này không có giá trị chẩn đoán y khoa' : 'Automated screening findings are deemed invalid for clinical use'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 3. Bottom Footer with Close & Action Buttons */}

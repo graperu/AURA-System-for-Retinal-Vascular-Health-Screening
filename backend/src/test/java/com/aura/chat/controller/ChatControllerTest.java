@@ -78,4 +78,14 @@ class ChatControllerTest {
     assertNotNull(response);
     verify(chatService).markMessagesAsRead(eq(userId), eq(doctorId));
   }
+
+  @Test
+  @DisplayName("Lấy số lượng tin nhắn chưa đọc thành công")
+  void getUnreadCount_success() {
+    when(chatService.getUnreadCount(eq(userId))).thenReturn(3L);
+    ApiResponse<java.util.Map<String, Long>> response = controller.getUnreadCount(userPrincipal);
+    assertNotNull(response);
+    assertEquals(3L, response.data().get("unreadCount"));
+    verify(chatService).getUnreadCount(userId);
+  }
 }
