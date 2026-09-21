@@ -11,6 +11,7 @@ import { ConsultationChatModal } from "../components/ConsultationChatModal";
 import { CreditPurchaseModal } from "../components/CreditPurchaseModal";
 import { MedicalProfileModal } from "../components/MedicalProfileModal";
 import { StatusBadge } from "../components/ui/StatusBadge";
+import { Pagination } from "../components/ui/Pagination";
 import { useAnalysisProgress } from "../hooks/useAnalysisProgress";
 import {
   AIRiskResult,
@@ -283,6 +284,8 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
   const [portalNotifications, setPortalNotifications] = useState<any[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState<boolean>(false);
   const [notifFilterTab, setNotifFilterTab] = useState<'ALL' | 'UNREAD' | 'AI' | 'DOCTOR' | 'SYSTEM'>('ALL');
+  const [notifCurrentPage, setNotifCurrentPage] = useState<number>(1);
+  const [notifPageSize, setNotifPageSize] = useState<number>(10);
 
   const loadPortalNotifications = React.useCallback(async () => {
     setIsLoadingNotifications(true);
@@ -466,6 +469,16 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       return true;
     });
   }, [portalNotifications, notifFilterTab]);
+
+  useEffect(() => {
+    setNotifCurrentPage(1);
+  }, [notifFilterTab]);
+
+  const totalNotifPages = Math.max(1, Math.ceil(filteredPortalNotifications.length / notifPageSize));
+  const paginatedPortalNotifications = React.useMemo(() => {
+    const start = (notifCurrentPage - 1) * notifPageSize;
+    return filteredPortalNotifications.slice(start, start + notifPageSize);
+  }, [filteredPortalNotifications, notifCurrentPage, notifPageSize]);
 
   const assignedDoctorName = formatDoctorName(patient.assignedDoctor);
   const doctorSpecialty = isVi ? "Chuyên khoa Mắt & Tim Mạch" : "Ophthalmology & Cardiology";
@@ -2700,7 +2713,7 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                     </p>
                   </div>
                 ) : (
-                  filteredPortalNotifications.map((notif) => {
+                  paginatedPortalNotifications.map((notif) => {
                     const isUnread = !notif.isRead && !notif.read;
                     const notifId = String(notif.id || "");
                     const timeStr = formatRelativeTime(notif.createdAt || notif.timestamp || Date.now(), isVi);
@@ -2851,6 +2864,25 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   })
                 )}
               </div>
+
+              {/* Notification Pagination */}
+              {filteredPortalNotifications.length > 0 && (
+                <div className="pt-4 border-t border-slate-100">
+                  <Pagination
+                    currentPage={notifCurrentPage}
+                    totalPages={totalNotifPages}
+                    totalItems={filteredPortalNotifications.length}
+                    pageSize={notifPageSize}
+                    pageSizeOptions={[5, 10, 20, 50]}
+                    onPageChange={setNotifCurrentPage}
+                    onPageSizeChange={(sz) => {
+                      setNotifPageSize(sz);
+                      setNotifCurrentPage(1);
+                    }}
+                    itemLabel={isVi ? "thông báo" : "notifications"}
+                  />
+                </div>
+              )}
             </div>
 
             {/* CỘT PHẢI (4 COLS): TÙY CHỌN THÔNG BÁO & NHẮC NHỞ ĐỊNH KỲ */}

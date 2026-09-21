@@ -2631,6 +2631,8 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
   const [clinicNotifications, setClinicNotifications] = useState<any[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState<boolean>(false);
   const [notifFilterTab, setNotifFilterTab] = useState<'ALL' | 'UNREAD' | 'BATCH' | 'QUOTA'>('ALL');
+  const [clinicNotifPage, setClinicNotifPage] = useState<number>(1);
+  const [clinicNotifPageSize, setClinicNotifPageSize] = useState<number>(10);
 
   const loadClinicNotifications = useCallback(async () => {
     setIsLoadingNotifications(true);
@@ -2761,6 +2763,16 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
       return true;
     });
   }, [clinicNotifications, notifFilterTab]);
+
+  useEffect(() => {
+    setClinicNotifPage(1);
+  }, [notifFilterTab]);
+
+  const totalClinicNotifPages = Math.max(1, Math.ceil(filteredClinicNotifications.length / clinicNotifPageSize));
+  const paginatedClinicNotifications = React.useMemo(() => {
+    const start = (clinicNotifPage - 1) * clinicNotifPageSize;
+    return filteredClinicNotifications.slice(start, start + clinicNotifPageSize);
+  }, [filteredClinicNotifications, clinicNotifPage, clinicNotifPageSize]);
 
   const handleUpdateBatchJob = (updated: ClinicBatchJob) => {
     setBatchJob(updated);
@@ -3023,7 +3035,7 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
                       </p>
                     </div>
                   ) : (
-                    filteredClinicNotifications.map((notif) => {
+                    paginatedClinicNotifications.map((notif) => {
                       const isUnread = !notif.isRead && !notif.read;
                       const notifId = String(notif.id || '');
                       const timeStr = formatRelativeTime(notif.createdAt || notif.timestamp || Date.now(), isVi);
@@ -3173,6 +3185,25 @@ export const ClinicPortalPage: React.FC<ClinicPortalPageProps> = ({
                     })
                   )}
                 </div>
+
+                {/* Notification Pagination */}
+                {filteredClinicNotifications.length > 0 && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <Pagination
+                      currentPage={clinicNotifPage}
+                      totalPages={totalClinicNotifPages}
+                      totalItems={filteredClinicNotifications.length}
+                      pageSize={clinicNotifPageSize}
+                      pageSizeOptions={[5, 10, 20, 50]}
+                      onPageChange={setClinicNotifPage}
+                      onPageSizeChange={(sz) => {
+                        setClinicNotifPageSize(sz);
+                        setClinicNotifPage(1);
+                      }}
+                      itemLabel={isVi ? 'thông báo' : 'notifications'}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Bell,
   Sparkles,
@@ -18,6 +18,7 @@ import {
 import { useLanguage } from '../context/LanguageContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import { drawerRightVariants, modalBackdropVariants } from '../utils/motion';
+import { Pagination } from './ui/Pagination';
 
 export interface NotificationItem {
   id: string;
@@ -159,10 +160,22 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
   const { t, isVi, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<NotificationCategoryTab>('ALL');
   const [unreadOnly, setUnreadOnly] = useState<boolean>(false);
+  const [drawerPage, setDrawerPage] = useState<number>(1);
+  const [drawerPageSize] = useState<number>(6);
 
   const filteredNotifications = useMemo(() => {
     return filterNotifications(notifications, activeTab, unreadOnly);
   }, [notifications, activeTab, unreadOnly]);
+
+  useEffect(() => {
+    setDrawerPage(1);
+  }, [activeTab, unreadOnly]);
+
+  const totalDrawerPages = Math.max(1, Math.ceil(filteredNotifications.length / drawerPageSize));
+  const paginatedNotifications = useMemo(() => {
+    const start = (drawerPage - 1) * drawerPageSize;
+    return filteredNotifications.slice(start, start + drawerPageSize);
+  }, [filteredNotifications, drawerPage, drawerPageSize]);
 
   const getNotificationIcon = (type?: string) => {
     const tUpper = (type || '').toUpperCase();
@@ -375,8 +388,8 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
                   {t('header.noNotifications')}
                 </p>
               </div>
-            ) : (
-              filteredNotifications.map((item) => {
+              ) : (
+                paginatedNotifications.map((item) => {
                 const isItemRead = Boolean(item.isRead || item.read);
                 const displayTitle =
                   language === 'en' && item.titleEn ? item.titleEn : item.title;
@@ -477,6 +490,21 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
               })
             )}
           </div>
+
+          {/* Drawer Pagination */}
+          {filteredNotifications.length > drawerPageSize && (
+            <div className="p-3 border-t border-slate-100 bg-white">
+              <Pagination
+                currentPage={drawerPage}
+                totalPages={totalDrawerPages}
+                totalItems={filteredNotifications.length}
+                pageSize={drawerPageSize}
+                showSizeChanger={false}
+                onPageChange={setDrawerPage}
+                itemLabel={isVi ? 'thông báo' : 'notifications'}
+              />
+            </div>
+          )}
 
           {/* Drawer Footer */}
           <div className="p-3 border-t border-slate-100 bg-slate-50 text-center">

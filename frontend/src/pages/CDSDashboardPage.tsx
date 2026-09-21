@@ -12,6 +12,7 @@ import { DoctorRiskAnalyticsView } from '../features/doctor/DoctorRiskAnalyticsV
 import { DoctorReportsView } from '../features/doctor/DoctorReportsView';
 import { DoctorConsultationView } from '../features/doctor/DoctorConsultationView';
 import { DoctorDashboardView } from '../features/doctor/DoctorDashboardView';
+import { Pagination } from '../components/ui/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -182,6 +183,8 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
   const [doctorNotifications, setDoctorNotifications] = useState<any[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState<boolean>(false);
   const [notifFilterTab, setNotifFilterTab] = useState<'ALL' | 'UNREAD' | 'CRITICAL' | 'CONSULT'>('ALL');
+  const [doctorNotifPage, setDoctorNotifPage] = useState<number>(1);
+  const [doctorNotifPageSize, setDoctorNotifPageSize] = useState<number>(10);
 
   const loadDoctorNotifications = useCallback(async () => {
     setIsLoadingNotifications(true);
@@ -312,6 +315,16 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       return true;
     });
   }, [doctorNotifications, notifFilterTab]);
+
+  useEffect(() => {
+    setDoctorNotifPage(1);
+  }, [notifFilterTab]);
+
+  const totalDoctorNotifPages = Math.max(1, Math.ceil(filteredDoctorNotifications.length / doctorNotifPageSize));
+  const paginatedDoctorNotifications = React.useMemo(() => {
+    const start = (doctorNotifPage - 1) * doctorNotifPageSize;
+    return filteredDoctorNotifications.slice(start, start + doctorNotifPageSize);
+  }, [filteredDoctorNotifications, doctorNotifPage, doctorNotifPageSize]);
 
   // Maximize Canvas & Collapsible Patient Queue States (R4, AC-4)
   const [isMaximizedCanvas, setIsMaximizedCanvas] = useState<boolean>(initialMaximized);
@@ -1354,7 +1367,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                 </p>
               </div>
             ) : (
-              filteredDoctorNotifications.map((notif) => {
+              paginatedDoctorNotifications.map((notif) => {
                 const isUnread = !notif.isRead && !notif.read;
                 const notifId = String(notif.id || '');
                 const timeStr = formatRelativeTime(notif.createdAt || notif.timestamp || Date.now(), isVi);
@@ -1495,6 +1508,25 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
               })
             )}
           </div>
+
+          {/* Notification Pagination */}
+          {filteredDoctorNotifications.length > 0 && (
+            <div className="pt-4 border-t border-slate-100">
+              <Pagination
+                currentPage={doctorNotifPage}
+                totalPages={totalDoctorNotifPages}
+                totalItems={filteredDoctorNotifications.length}
+                pageSize={doctorNotifPageSize}
+                pageSizeOptions={[5, 10, 20, 50]}
+                onPageChange={setDoctorNotifPage}
+                onPageSizeChange={(sz) => {
+                  setDoctorNotifPageSize(sz);
+                  setDoctorNotifPage(1);
+                }}
+                itemLabel={isVi ? 'thông báo' : 'notifications'}
+              />
+            </div>
+          )}
         </div>
       </motion.div>
     );
