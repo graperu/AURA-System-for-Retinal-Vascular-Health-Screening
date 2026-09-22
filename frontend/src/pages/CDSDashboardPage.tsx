@@ -667,9 +667,15 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
     const unsubAppt = stompClient.subscribe(doctorApptTopic, (_payload: any) => {
       fetchAppointments();
     });
+    const unsubChat = stompClient.subscribe(`/topic/chat.${currentUser.id}`, (payload: any) => {
+      if (payload && payload.senderId !== currentUser.id) {
+        realtimeBus.emit('chat:new', payload);
+      }
+    });
     return () => {
       unsubNotif();
       unsubAppt();
+      unsubChat();
     };
   }, [currentUser?.id, fetchAppointments]);
 
@@ -875,7 +881,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       >
         <DoctorPatientListPage
           onSelectPatientForCDS={(patient) => {
-            const pid = patient.userId || patient.id;
+            const pid = (patient as any).patientId || patient.userId || patient.id;
             if (pid) {
               handleSelectPatientForCDS(pid, undefined, patient);
             } else {
@@ -884,7 +890,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
             }
           }}
           onStartConsultation={(patient) => {
-            const pid = patient.userId || patient.id;
+            const pid = (patient as any).patientId || patient.userId || patient.id;
             if (pid) {
               handleStartConsultationWithPatient(pid);
             }
@@ -1703,7 +1709,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
           <button
             type="button"
             onClick={() => {
-              const pid = selectedPatientId || activePatient.userId || activePatient.id;
+              const pid = selectedPatientId || (activePatient as any)?.patientId || activePatient?.userId || activePatient?.id;
               if (pid) {
                 handleStartConsultationWithPatient(pid);
               } else {

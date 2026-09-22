@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { chatApi } from '../../services/api';
 import { stompClient } from '../../services/websocketService';
+import { realtimeBus } from '../../services/realtimeService';
 import { DoctorPatientSummary } from '../../pages/CDSDashboardPage';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -49,12 +50,18 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
     effectivePatientId || (assignedPatients.length > 0 ? (assignedPatients[0].patientId || (assignedPatients[0] as any).userId || (assignedPatients[0] as any).id) : null)
   );
   const prevInitialPatientIdRef = useRef(effectivePatientId);
+  const selectedPatientIdRef = useRef(selectedPatientId);
+  const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
   const [searchPatient, setSearchPatient] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
   const [isSending, setIsSending] = useState<boolean>(false);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    selectedPatientIdRef.current = selectedPatientId;
+  }, [selectedPatientId]);
 
   // Tìm bệnh nhân đang được chọn
   const activePatient = useMemo(() => {
@@ -84,7 +91,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
       setSelectedPatientId(targetId);
       prevInitialPatientIdRef.current = targetId;
     } else if (!selectedPatientId && assignedPatients.length > 0) {
-      setSelectedPatientId(assignedPatients[0].patientId);
+      setSelectedPatientId(assignedPatients[0].patientId || (assignedPatients[0] as any).userId || (assignedPatients[0] as any).id);
     }
   }, [patientId, initialSelectedPatientId, assignedPatients, selectedPatientId]);
 
@@ -112,7 +119,75 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  // Tải lịch sử tin nhắn & Kết nối WebSocket STOMP
+  const activePatientRef = useRef(activePatient);
+  useEffect(() => {
+    activePatientRef.current = activePatient;
+  }, [activePatient]);
+
+  // Persistent STOMP WebSocket push subscription for doctor's consultation channel (FR-10, FR-20)
+  useEffect(() => {
+    if (!currentUserId) return;
+    let isMounted = true;
+    stompClient.connect();
+    const doctorTopic = `/topic/chat.${currentUserId}`;
+
+    const handleIncomingMessage = (msg: any) => {
+      if (!isMounted || !msg || !msg.messageText) return;
+      // Bỏ qua tin nhắn do chính bác sĩ gửi
+      if (msg.senderId === currentUserId) return;
+
+      const currentSelected = selectedPatientIdRef.current;
+      const isFromActive =
+        currentSelected &&
+        (msg.senderId === currentSelected || msg.receiverId === currentSelected);
+
+      if (isFromActive) {
+        const patientDisplayName =
+          activePatientRef.current?.fullName || (isVi ? 'Bệnh nhân' : 'Patient');
+        const incoming: ChatMessage = {
+          id: msg.id || String(Date.now()),
+          sender: 'patient',
+          senderName: patientDisplayName,
+          text: msg.messageText,
+          timestamp: msg.createdAt
+            ? new Date(msg.createdAt).toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : new Date().toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+        };
+
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === incoming.id)) return prev;
+          return [...prev, incoming];
+        });
+
+        chatApi.markAsRead(currentSelected).catch(() => {});
+        realtimeBus.emit('chat:read', { senderId: currentSelected });
+      } else {
+        // Tin nhắn đến từ bệnh nhân KHÁC: tăng badge bệnh nhân đó và phát sự kiện toàn hệ thống
+        const senderId = msg.senderId;
+        if (senderId) {
+          setUnreadMap((prev) => ({
+            ...prev,
+            [senderId]: (prev[senderId] || 0) + 1,
+          }));
+          realtimeBus.emit('chat:new', msg);
+        }
+      }
+    };
+
+    const unsub = stompClient.subscribe(doctorTopic, handleIncomingMessage);
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, [currentUserId, isVi]);
+
+  // Tải lịch sử tin nhắn khi chuyển đổi bệnh nhân được chọn
   useEffect(() => {
     if (!selectedPatientId) return;
 
@@ -154,57 +229,17 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
         if (isMounted) setLoadingHistory(false);
       });
 
-    // 2. Đánh dấu các tin nhắn của bệnh nhân này là đã đọc
+    // 2. Đánh dấu đã đọc và xóa unread badge của bệnh nhân này
     chatApi.markAsRead(selectedPatientId).catch(() => {});
-
-    // 3. Kết nối WebSocket STOMP và lắng nghe tin nhắn đến qua kênh của Bác sĩ
-    stompClient.connect();
-
-    const doctorTopic = currentUserId ? `/topic/chat.${currentUserId}` : null;
-
-    const handleIncomingMessage = (msg: any) => {
-      if (!isMounted || !msg || !msg.messageText) return;
-      // Bỏ qua tin nhắn do chính bác sĩ vừa gửi qua websocket (đã optimistic UI)
-      if (currentUserId && msg.senderId === currentUserId) return;
-      // Chỉ nhận tin nhắn thuộc về cuộc hội thoại với bệnh nhân đang được chọn
-      if (selectedPatientId && msg.senderId !== selectedPatientId && msg.receiverId !== selectedPatientId) return;
-
-      const patientDisplayName = activePatient?.fullName || (isVi ? 'Bệnh nhân' : 'Patient');
-      const incoming: ChatMessage = {
-        id: msg.id || String(Date.now()),
-        sender: 'patient',
-        senderName: patientDisplayName,
-        text: msg.messageText,
-        timestamp: msg.createdAt
-          ? new Date(msg.createdAt).toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })
-          : new Date().toLocaleTimeString(isVi ? 'vi-VN' : 'en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-      };
-
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === incoming.id)) return prev;
-        return [...prev, incoming];
-      });
-
-      // Tự động đánh dấu đã đọc tin nhắn mới nhận từ bệnh nhân đang tương tác
-      if (selectedPatientId) {
-        chatApi.markAsRead(selectedPatientId).catch(() => {});
-      }
-    };
-
-    let unsubDoctorTopic: (() => void) | undefined;
-    if (doctorTopic) {
-      unsubDoctorTopic = stompClient.subscribe(doctorTopic, handleIncomingMessage);
-    }
+    realtimeBus.emit('chat:read', { senderId: selectedPatientId });
+    setUnreadMap((prev) => {
+      const next = { ...prev };
+      delete next[selectedPatientId];
+      return next;
+    });
 
     return () => {
       isMounted = false;
-      unsubDoctorTopic?.();
     };
   }, [selectedPatientId, currentUserId, activePatient, currentDoctorName, isVi]);
 
@@ -314,53 +349,85 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                 {t('doctor.consultation.noPatients', 'Không tìm thấy bệnh nhân nào.')}
               </div>
             ) : (
-              filteredPatients.map((p, idx) => {
-                const pId = p.patientId || (p as any).id || (p as any).userId;
-                const isSelected = pId === selectedPatientId;
-                return (
-                  <button
-                    key={pId || `pat-${idx}`}
-                    type="button"
-                    onClick={() => setSelectedPatientId(pId)}
-                    className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#EEF5FF] border-l-4 border-l-[#3478F6] shadow-xs'
-                        : 'hover:bg-slate-50 border-l-4 border-l-transparent'
-                    }`}
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center shrink-0 text-xs border ${
+              filteredPatients
+                .slice()
+                .sort((a, b) => {
+                  const aId = a.patientId || (a as any).userId || (a as any).id;
+                  const bId = b.patientId || (b as any).userId || (b as any).id;
+                  const aUnread = (aId && unreadMap[aId]) || 0;
+                  const bUnread = (bId && unreadMap[bId]) || 0;
+                  if (aUnread !== bUnread) return bUnread - aUnread;
+                  return 0;
+                })
+                .map((p, idx) => {
+                  const pId = p.patientId || (p as any).id || (p as any).userId;
+                  const isSelected = pId === selectedPatientId;
+                  const patientUnread = pId ? (unreadMap[pId] || 0) : 0;
+                  return (
+                    <button
+                      key={pId || `pat-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        if (pId) {
+                          setSelectedPatientId(pId);
+                          setUnreadMap((prev) => {
+                            const next = { ...prev };
+                            delete next[pId];
+                            return next;
+                          });
+                          chatApi.markAsRead(pId).catch(() => {});
+                          realtimeBus.emit('chat:read', { senderId: pId });
+                        }
+                      }}
+                      className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
                         isSelected
-                          ? 'bg-[#3478F6] text-white border-[#2563EB]'
-                          : 'bg-teal-50 text-[#3478F6] border-[#C7D7FE]'
+                          ? 'bg-[#EEF5FF] border-l-4 border-l-[#3478F6] shadow-xs'
+                          : 'hover:bg-slate-50 border-l-4 border-l-transparent'
                       }`}
                     >
-                      {p.fullName
-                        ? p.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-                        : (isVi ? 'BN' : 'PT')}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className={`text-xs font-bold truncate ${isSelected ? 'text-[#111827]' : 'text-slate-900'}`}>
-                          {p.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono-data shrink-0">
-                          {p.screeningCount ? `${p.screeningCount} ${isVi ? 'ca' : 'scans'}` : ''}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 mt-0.5">
-                        <span className="text-[11px] text-slate-500 font-mono-data truncate">
-                          {p.mrn || 'N/A'} • {p.age ? `${p.age}${isVi ? 't' : 'y'}` : ''} {p.gender === 'Female' ? (isVi ? 'Nữ' : 'Female') : (isVi ? 'Nam' : 'Male')}
-                        </span>
-                        {p.latestRiskLevel && (
-                          <RiskBadge level={p.latestRiskLevel} size="sm" showIcon={false} />
+                      <div
+                        className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center shrink-0 text-xs border relative ${
+                          isSelected
+                            ? 'bg-[#3478F6] text-white border-[#2563EB]'
+                            : 'bg-teal-50 text-[#3478F6] border-[#C7D7FE]'
+                        }`}
+                      >
+                        {p.fullName
+                          ? p.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+                          : (isVi ? 'BN' : 'PT')}
+                        {patientUnread > 0 && !isSelected && (
+                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white" />
                         )}
                       </div>
-                    </div>
-                  </button>
-                );
-              })
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className={`text-xs font-bold truncate ${isSelected ? 'text-[#111827]' : 'text-slate-900'}`}>
+                            {p.fullName || (isVi ? 'Bệnh nhân' : 'Patient')}
+                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {patientUnread > 0 && (
+                              <span className="px-1.5 py-0.2 text-[10px] font-bold bg-rose-500 text-white rounded-full animate-pulse shadow-2xs">
+                                {patientUnread > 99 ? '99+' : patientUnread}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-mono-data">
+                              {p.screeningCount ? `${p.screeningCount} ${isVi ? 'ca' : 'scans'}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                          <span className="text-[11px] text-slate-500 font-mono-data truncate">
+                            {p.mrn || 'N/A'} • {p.age ? `${p.age}${isVi ? 't' : 'y'}` : ''} {p.gender === 'Female' ? (isVi ? 'Nữ' : 'Female') : (isVi ? 'Nam' : 'Male')}
+                          </span>
+                          {p.latestRiskLevel && (
+                            <RiskBadge level={p.latestRiskLevel} size="sm" showIcon={false} />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
             )}
           </div>
         </div>
