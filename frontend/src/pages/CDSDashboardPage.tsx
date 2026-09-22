@@ -44,7 +44,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { formatRelativeTime } from '../components/layout/NotificationBell';
-import { doctorApi, screeningApi, notificationApi, appointmentApi, Appointment } from '../services/api';
+import { doctorApi, screeningApi, notificationApi, appointmentApi, feedbackApi, Appointment } from '../services/api';
 import { mapScreeningToAIRiskResult } from '../services/screeningMapper';
 import { useAnalysisProgress } from '../hooks/useAnalysisProgress';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -801,6 +801,23 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
             ? 'Lưu thẩm định chuyên môn thất bại. Máy chủ từ chối cập nhật kết quả.'
             : 'Failed to save clinical review. Server rejected update.')
         );
+      }
+
+      // FR-19: Đồng bộ phản hồi lâm sàng vào kho dữ liệu tái huấn luyện mô hình AI (doctor_feedback)
+      try {
+        const aiLevel = analysisResult?.cardiovascularRisk?.level || (analysisResult as any)?.riskLevel || 'LOW';
+        const docLevel = feedback.adjustedCardioRisk || feedback.adjustedDrRisk || aiLevel;
+        const isAccurate = feedback.decision === 'APPROVED';
+        await feedbackApi.submit({
+          screeningId: feedback.analysisId,
+          aiRiskLevel: String(aiLevel).toUpperCase(),
+          doctorRiskLevel: String(docLevel).toUpperCase(),
+          isAccurate: isAccurate,
+          feedbackNotes: resolvedNotes,
+          vesselAnnotationData: (feedback as any).vesselAnnotations ? JSON.stringify((feedback as any).vesselAnnotations) : null,
+        });
+      } catch (fErr) {
+        console.warn('Feedback API sync notice:', fErr);
       }
 
       // Cập nhật trạng thái cục bộ của ca phân tích hiện tại để phản ánh ngay lập tức trên Bàn chẩn đoán và Báo cáo in
