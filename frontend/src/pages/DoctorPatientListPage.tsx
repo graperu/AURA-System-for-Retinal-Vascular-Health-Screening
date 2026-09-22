@@ -57,13 +57,23 @@ export const DoctorPatientListPage: React.FC<DoctorPatientListPageProps> = ({
       if (!isSilent) setLoading(true);
       const res = await doctorPatientApi.getPatients();
       if (res && res.success && res.data) {
+        let rawList: DoctorPatientSummary[] = [];
         if (Array.isArray(res.data)) {
-          setPatients(res.data);
+          rawList = res.data;
         } else if (Array.isArray((res.data as any).items)) {
-          setPatients((res.data as any).items);
+          rawList = (res.data as any).items;
         } else if (Array.isArray((res.data as any).content)) {
-          setPatients((res.data as any).content);
+          rawList = (res.data as any).content;
         }
+        const cleanList = rawList.filter((p: any) => {
+          const email = String(p?.email || '').toLowerCase();
+          const name = String(p?.fullName || p?.patientName || '').trim();
+          const mrn = String(p?.mrn || '').trim();
+          if (email.startsWith('patient_mrn') && email.endsWith('@aura.local')) return false;
+          if (/^Bệnh nhân MRN-\d+/i.test(name) && (!mrn || mrn === 'N/A')) return false;
+          return true;
+        });
+        setPatients(cleanList);
       }
     } catch (e) {
       console.error('Error loading patients for doctor:', e);

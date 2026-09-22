@@ -526,6 +526,16 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
           }
         }
 
+        // Exclude anonymous synthetic clinic bulk upload placeholders (e.g., patient_mrn202610xx@aura.local / "Bệnh nhân MRN-2026-10xx" with missing MRN)
+        patientList = patientList.filter((p) => {
+          const email = String(p?.email || '').toLowerCase();
+          const name = String(p?.fullName || p?.patientName || '').trim();
+          const mrn = String(p?.mrn || '').trim();
+          if (email.startsWith('patient_mrn') && email.endsWith('@aura.local')) return false;
+          if (/^Bệnh nhân MRN-\d+/i.test(name) && (!mrn || mrn === 'N/A')) return false;
+          return true;
+        });
+
         if (res.success) {
           setAssignedPatients(patientList);
           if (patientList.length > 0) {
