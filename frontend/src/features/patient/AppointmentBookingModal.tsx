@@ -52,6 +52,13 @@ const TIME_SLOTS_AFTERNOON = [
   '16:30',
 ];
 
+const formatLocalDateIso = (d: Date): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   isOpen,
   onClose,
@@ -68,11 +75,9 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   const [loadingDoctors, setLoadingDoctors] = useState<boolean>(false);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
 
-  // Date selection (default to tomorrow or nearest weekday)
+  // Date selection (default to today in local timezone)
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    return formatLocalDateIso(new Date());
   });
 
   // Time slot selection
@@ -146,16 +151,20 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     },
   ], [isVi]);
 
-  // Generate 7 upcoming dates
+  // Generate 7 dates starting from Today in local timezone (no UTC offset shift)
   const availableDates = useMemo(() => {
     const list: { dateStr: string; label: string; weekday: string }[] = [];
     const now = new Date();
-    for (let i = 1; i <= 7; i++) {
-      const d = new Date();
-      d.setDate(now.getDate() + i);
-      const dateStr = d.toISOString().slice(0, 10);
-      const weekday = d.toLocaleDateString(isVi ? 'vi-VN' : 'en-US', { weekday: 'short' });
-      const label = d.toLocaleDateString(isVi ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit' });
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const dateStr = formatLocalDateIso(d);
+      const weekday =
+        i === 0
+          ? (isVi ? 'Hôm nay' : 'Today')
+          : d.toLocaleDateString(isVi ? 'vi-VN' : 'en-US', { weekday: 'short' });
+      const dayStr = String(d.getDate()).padStart(2, '0');
+      const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+      const label = `${dayStr}/${monthStr}`;
       list.push({ dateStr, label, weekday });
     }
     return list;
@@ -496,7 +505,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                   <input
                     type="date"
                     value={selectedDate}
-                    min={new Date().toISOString().slice(0, 10)}
+                    min={formatLocalDateIso(new Date())}
                     onChange={(e) => setSelectedDate(e.target.value)}
                     className="px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none w-full max-w-xs font-mono-data"
                   />
