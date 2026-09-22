@@ -8,7 +8,7 @@ import { AppointmentBookingModal } from "../features/patient/AppointmentBookingM
 import { SkeletonProfile } from "../components/ui/StateFeedback";
 import { MedicalReportModal } from "../components/MedicalReportModal";
 import { ConsultationChatModal } from "../components/ConsultationChatModal";
-import { CreditPurchaseModal } from "../components/CreditPurchaseModal";
+import { CreditPurchaseModal, getClinicalFeatures } from "../components/CreditPurchaseModal";
 import { MedicalProfileModal } from "../components/MedicalProfileModal";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { Pagination } from "../components/ui/Pagination";
@@ -192,6 +192,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
 
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [isBillingLoading, setIsBillingLoading] = useState<boolean>(true);
+  const [selectedCreditPackageId, setSelectedCreditPackageId] = useState<number | undefined>(undefined);
+  const [availablePackages, setAvailablePackages] = useState<any[]>([
+    { id: 1, name: "Gói Cơ Bản (Khám Đơn)", price: 50000, credits: 1, validityDays: 30, scope: "INDIVIDUAL", active: true },
+    { id: 2, name: "Gói Tiêu Chuẩn (Cá Nhân)", price: 200000, credits: 5, validityDays: 90, scope: "INDIVIDUAL", active: true },
+    { id: 3, name: "Gói Gia Đình (Định Kỳ)", price: 500000, credits: 15, validityDays: 180, scope: "INDIVIDUAL", active: true },
+  ]);
   const [upcomingAppointment, setUpcomingAppointment] = useState<{
     id?: string;
     doctorName: string;
@@ -507,11 +514,13 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     };
   }, [analysisResult, scanHistory, isVi]);
 
-  const loadBillingData = async () => {
+  const loadBillingData = async (silent = false) => {
+    if (!silent) setIsBillingLoading(true);
     try {
-      const [subRes, payRes] = await Promise.all([
+      const [subRes, payRes, pkgRes] = await Promise.all([
         billingApi.mySubscriptions(),
         billingApi.myPayments(),
+        billingApi.packages("INDIVIDUAL").catch(() => ({ success: false, data: [] })),
       ]);
       if (subRes.success && Array.isArray(subRes.data)) {
         setSubscriptions(subRes.data);
@@ -523,10 +532,18 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
       if (payRes.success && Array.isArray(payRes.data)) {
         setPaymentHistory(payRes.data);
       }
+      if (pkgRes && pkgRes.success && Array.isArray(pkgRes.data) && pkgRes.data.length > 0) {
+        const activeList = pkgRes.data.filter((p: any) => p.active !== false);
+        activeList.sort((a: any, b: any) => Number(a.price || 0) - Number(b.price || 0));
+        if (activeList.length > 0) {
+          setAvailablePackages(activeList);
+        }
+      }
     } catch (e) {
       console.warn("Could not load billing data:", e);
     } finally {
       setIsCreditsLoading(false);
+      setIsBillingLoading(false);
     }
   };
 
@@ -763,34 +780,25 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
     setIsReportModalOpen(true);
   };
 
-  // Load real history and chat messages from PostgreSQL on mount in parallel
+  // Load real history, profile, appointments, and billing transactions on mount in parallel
   useEffect(() => {
     const fetchRealData = async () => {
       await Promise.allSettled([
         loadScreeningHistory(),
         fetchProfileData(),
         fetchUpcomingAppointment(),
-        billingApi.mySubscriptions().then((subscriptions) => {
-          if (subscriptions.success && Array.isArray(subscriptions.data)) {
-            const total = subscriptions.data.reduce(
-              (total: number, item: any) =>
-                total +
-                (item.status === "ACTIVE"
-                  ? Number(item.remainingCredits || 0)
-                  : 0),
-              0,
-            );
-            updateCreditsSafely(total);
-          } else {
-            setIsCreditsLoading(false);
-          }
-        }).catch(() => {
-          setIsCreditsLoading(false);
-        }),
+        loadBillingData(false),
       ]);
     };
     fetchRealData();
   }, []);
+
+  // Auto-fetch fresh billing & payment transactions when switching to the billing view
+  useEffect(() => {
+    if (activeView === 'billing') {
+      loadBillingData(true);
+    }
+  }, [activeView]);
 
   // Universal Real-time State Synchronization across all clinical topics (FR-6, FR-10, FR-12, Flow 2 & Flow 4)
   useRealtimeSync(
@@ -2239,7 +2247,10 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
               </div>
             </div>
             <button
-              onClick={() => setIsCreditModalOpen(true)}
+              onClick={() => {
+                setSelectedCreditPackageId(undefined);
+                setIsCreditModalOpen(true);
+              }}
               className="px-5 py-2.5 bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer shrink-0"
             >
               <CreditCard className="w-4 h-4" /> {isVi ? "Mua Thêm Lượt Khám" : "Buy Screening Credits"}
@@ -2309,123 +2320,90 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
             </div>
           </div>
 
-          {/* Recommended Subscription Tiers */}
+          {/* Recommended Subscription Tiers - Synchronized with Database & CreditPurchaseModal */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-500" />
               {isVi ? "Các Gói Dịch Vụ Sàng Lọc AURA" : "AURA Screening Packages"}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* Tier 1 */}
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      {isVi ? "Gói Cơ Bản" : "Basic Tier"}
-                    </span>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">1 {isVi ? "Lượt" : "Scan"}</span>
-                  </div>
-                  <div className="text-2xl font-extrabold text-slate-900 font-mono-data">
-                    99.000 <span className="text-xs font-normal text-slate-500">{isVi ? "đ / lần" : "VND"}</span>
-                  </div>
-                  <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-teal-600" />
-                      {isVi ? "1 lượt sàng lọc võng mạc vi mạch AI" : "1 AI retinal microvascular screening"}
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-teal-600" />
-                      {isVi ? "Bản đồ nhiệt Grad-CAM định vị tổn thương" : "Grad-CAM lesion localization map"}
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-teal-600" />
-                      {isVi ? "Lưu trữ hồ sơ y bạ điện tử" : "Electronic health record storage"}
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsCreditModalOpen(true)}
-                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                >
-                  {isVi ? "Chọn Gói Này" : "Select Package"}
-                </button>
-              </div>
+              {availablePackages.map((pkg: any) => {
+                const pkgId = Number(pkg.id);
+                const scansCount = Number(pkg.credits || 1);
+                const priceVnd = Number(pkg.price ?? 0);
+                const validityDays = Number(pkg.validityDays || 30);
+                const isPopular = pkgId === 2 || scansCount === 5;
+                const features = getClinicalFeatures(scansCount, isVi);
+                const displayTitle = isVi
+                  ? pkg.name
+                  : scansCount === 1
+                  ? "Basic Package (Single Scan)"
+                  : scansCount === 5
+                  ? "Standard Package (Personal)"
+                  : scansCount === 15
+                  ? "Family Package (Periodic)"
+                  : pkg.name;
 
-              {/* Tier 2 (Popular) */}
-              <div className="bg-white rounded-2xl border-2 border-blue-600 p-5 shadow-sm flex flex-col justify-between space-y-4 relative">
-                <span className="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-extrabold uppercase tracking-wide">
-                  {isVi ? "Phổ Biến Nhất" : "Most Popular"}
-                </span>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
-                      {isVi ? "Gói Định Kỳ Quý" : "Quarterly Care"}
-                    </span>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700">4 {isVi ? "Lượt" : "Scans"}</span>
+                return (
+                  <div
+                    key={pkgId}
+                    className={
+                      isPopular
+                        ? "bg-white rounded-2xl border-2 border-teal-600 p-5 shadow-sm flex flex-col justify-between space-y-4 relative"
+                        : "bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors"
+                    }
+                  >
+                    {isPopular && (
+                      <span className="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full bg-[#0F766E] text-white text-[10px] font-extrabold uppercase tracking-wide">
+                        {isVi ? "Phổ Biến Nhất" : "Most Popular"}
+                      </span>
+                    )}
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-slate-900">
+                          {displayTitle}
+                        </span>
+                      </div>
+                      <div className="text-2xl font-extrabold text-[#0F766E] font-mono-data">
+                        {priceVnd.toLocaleString("vi-VN")}{" "}
+                        <span className="text-xs font-semibold text-slate-500">
+                          {isVi ? "VNĐ" : "VND"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          +{scansCount} {isVi ? "lượt phân tích" : "scans"}
+                        </span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                          {validityDays} {isVi ? "ngày" : "days"}
+                        </span>
+                      </div>
+                      <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
+                        {features.map((feat, fIdx) => (
+                          <li key={fIdx} className="flex items-start gap-2">
+                            <Check className="w-3.5 h-3.5 text-teal-600 shrink-0 mt-0.5" />
+                            <span>{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCreditPackageId(pkgId);
+                        setIsCreditModalOpen(true);
+                      }}
+                      className={
+                        isPopular
+                          ? "w-full py-2.5 bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
+                          : "w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                      }
+                    >
+                      {isVi ? "Chọn gói này" : "Select Package"}
+                    </button>
                   </div>
-                  <div className="text-2xl font-extrabold text-slate-900 font-mono-data">
-                    299.000 <span className="text-xs font-normal text-slate-500">{isVi ? "đ / 4 lượt" : "VND"}</span>
-                  </div>
-                  <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
-                    <li className="flex items-center gap-2 font-medium text-slate-800">
-                      <Check className="w-3.5 h-3.5 text-blue-600" />
-                      {isVi ? "4 lượt sàng lọc võng mạc AI trọn gói" : "4 complete AI retinal scans"}
-                    </li>
-                    <li className="flex items-center gap-2 font-medium text-slate-800">
-                      <Check className="w-3.5 h-3.5 text-blue-600" />
-                      {isVi ? "Bác sĩ chuyên khoa thẩm định & ký số" : "Specialist review & digital sign-off"}
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-blue-600" />
-                      {isVi ? "Kênh chat tư vấn 1-1 với Bác sĩ" : "1-on-1 specialist consultation chat"}
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsCreditModalOpen(true)}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
-                >
-                  {isVi ? "Nạp Gói Này Ngay" : "Subscribe Now"}
-                </button>
-              </div>
-
-              {/* Tier 3 */}
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      {isVi ? "Gói Toàn Diện Năm" : "Annual Wellness"}
-                    </span>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700">12 {isVi ? "Lượt" : "Scans"}</span>
-                  </div>
-                  <div className="text-2xl font-extrabold text-slate-900 font-mono-data">
-                    799.000 <span className="text-xs font-normal text-slate-500">{isVi ? "đ / năm" : "VND"}</span>
-                  </div>
-                  <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-teal-600" />
-                      {isVi ? "12 lượt sàng lọc cho cả gia đình" : "12 scans for family wellness"}
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-teal-600" />
-                      {isVi ? "Ưu tiên hội chẩn bác sĩ tim mạch" : "Priority cardiology consultation"}
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-teal-600" />
-                      {isVi ? "Xuất hóa đơn VAT điện tử doanh nghiệp" : "Electronic VAT e-invoice support"}
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsCreditModalOpen(true)}
-                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                >
-                  {isVi ? "Chọn Gói Này" : "Select Package"}
-                </button>
-              </div>
+                );
+              })}
             </div>
           </div>
 
@@ -2445,7 +2423,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {subscriptions.length === 0 ? (
+                  {isBillingLoading && subscriptions.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-slate-500">
+                        <Loader2 className="w-5 h-5 text-teal-600 animate-spin mx-auto mb-2" />
+                        <span className="text-xs">{isVi ? "Đang tải gói dịch vụ..." : "Loading packages..."}</span>
+                      </td>
+                    </tr>
+                  ) : subscriptions.length === 0 ? (
                     <tr>
                       <td
                         colSpan={4}
@@ -2500,10 +2485,11 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                 <History className="w-4 h-4 text-teal-700" /> {isVi ? "Lịch Sử Giao Dịch Thanh Toán" : "Payment & Billing History"}
               </h3>
               <button
-                onClick={loadBillingData}
-                className="text-xs text-teal-700 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                onClick={() => loadBillingData(false)}
+                disabled={isBillingLoading}
+                className="text-xs text-teal-700 hover:underline flex items-center gap-1 font-bold cursor-pointer disabled:opacity-50"
               >
-                <RefreshCw className="w-3.5 h-3.5" /> {t('common.actions.refresh', isVi ? "Làm mới" : "Refresh")}
+                <RefreshCw className={`w-3.5 h-3.5 ${isBillingLoading ? "animate-spin text-teal-600" : ""}`} /> {t('common.actions.refresh', isVi ? "Làm mới" : "Refresh")}
               </button>
             </div>
 
@@ -2520,7 +2506,14 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {paymentHistory.length === 0 ? (
+                  {isBillingLoading && paymentHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-500">
+                        <Loader2 className="w-5 h-5 text-teal-600 animate-spin mx-auto mb-2" />
+                        <span className="text-xs">{isVi ? "Đang nạp lịch sử giao dịch..." : "Loading transaction history..."}</span>
+                      </td>
+                    </tr>
+                  ) : paymentHistory.length === 0 ? (
                     <tr>
                       <td
                         colSpan={6}
@@ -2958,8 +2951,12 @@ export const PatientPortalPage: React.FC<PatientPortalPageProps> = ({
 
       <CreditPurchaseModal
         isOpen={isCreditModalOpen}
-        onClose={() => setIsCreditModalOpen(false)}
+        onClose={() => {
+          setIsCreditModalOpen(false);
+          setSelectedCreditPackageId(undefined);
+        }}
         userRole="patient"
+        initialPackageId={selectedCreditPackageId}
         currentCredit={userCredits}
         patientMrn={patient.mrn || "AUR9842"}
         onSuccess={(added) => {

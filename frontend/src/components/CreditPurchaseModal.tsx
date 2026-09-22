@@ -264,14 +264,18 @@ export const CreditPurchaseModal: React.FC<CreditPurchaseModalProps> = ({
 
   // Xử lý gói khởi tạo initialPackageId khi mở Modal
   useEffect(() => {
-    if (initialPackageId && isOpen && packages.length > 0 && !selectedPackage) {
+    if (!isOpen) return;
+    if (initialPackageId && packages.length > 0) {
       const match = packages.find((p) => p.id === initialPackageId);
-      if (match) {
+      if (match && (!selectedPackage || selectedPackage.id !== initialPackageId)) {
         setSelectedPackage(match);
         setPaymentStep("CONFIRM");
       }
+    } else if (!initialPackageId && paymentStep === "CONFIRM" && !activeTxnId) {
+      setSelectedPackage(null);
+      setPaymentStep("SELECT");
     }
-  }, [initialPackageId, isOpen, packages, selectedPackage]);
+  }, [initialPackageId, isOpen, packages]);
 
   // Đồng bộ selectedPackage khi ngôn ngữ hoặc danh sách packages thay đổi
   useEffect(() => {
