@@ -247,8 +247,8 @@ public class AuthService {
       throw new AuthException(ErrorCode.ACCOUNT_DISABLED, "Tài khoản đã bị vô hiệu hóa");
     }
 
-    if ((user.getFullName() == null || user.getFullName().isBlank()) && name != null && !name.isBlank()) {
-      user.setFullName(name.trim());
+    if ((user.getFullName() == null || user.getFullName().isBlank()) && finalName != null && !finalName.isBlank()) {
+      user.setFullName(finalName.trim());
       users.save(user);
     }
 

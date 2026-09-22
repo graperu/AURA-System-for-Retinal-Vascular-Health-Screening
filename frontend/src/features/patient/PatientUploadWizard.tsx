@@ -31,6 +31,7 @@ import { Card } from '../../components/ui/Card';
 import { ClinicalSelect, ClinicalSelectOption } from '../../components/ui/ClinicalSelect';
 import { useLanguage } from '../../context/LanguageContext';
 import { ClinicalLaserScanViewport } from '../../components/viewer/ClinicalLaserScanViewport';
+import { convertToWebP, ALLOWED_RETINAL_EXTENSIONS, formatImageBytes } from '../../utils/webpConverter';
 
 export interface PatientUploadWizardProps {
   activePatient: PatientProfile;
@@ -52,7 +53,7 @@ export interface PatientUploadWizardProps {
 }
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
-const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.tif', '.tiff', '.dcm'];
+const ALLOWED_EXTENSIONS = ALLOWED_RETINAL_EXTENSIONS;
 
 export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
   activePatient,
@@ -76,6 +77,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
   // File state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [webpStats, setWebpStats] = useState<{ originalSize: number; convertedSize: number; savingsPercent: number } | null>(null);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string>('');
   const [isLoadingDemo, setIsLoadingDemo] = useState<boolean>(false);
@@ -159,7 +161,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
     onStartAnalysis(req);
   };
 
-  const validateAndProcessFile = (file: File): boolean => {
+  const validateAndProcessFile = async (file: File): Promise<boolean> => {
     if (file.size > MAX_FILE_SIZE_BYTES) {
       setUploadError(
         `${file.name} ${t('uploader.fileSizeError', isVi ? 'vượt quá dung lượng tối đa 15MB' : 'exceeds maximum allowed size (15MB)')}. (${(
@@ -180,27 +182,64 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
     const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       setUploadError(
-        `${file.name}: ${t('uploader.fileFormatError', isVi ? 'Định dạng không hỗ trợ. Chấp nhận: PNG, JPG, JPEG, TIFF, DICOM' : 'Unsupported format. Allowed: PNG, JPG, JPEG, TIFF, DICOM')}`
+        `${file.name}: ${t('uploader.fileFormatError', isVi ? 'Định dạng không hỗ trợ. Chấp nhận: PNG, JPG, JPEG, WEBP, TIFF, DICOM' : 'Unsupported format. Allowed: PNG, JPG, JPEG, WEBP, TIFF, DICOM')}`
       );
       return false;
     }
 
     setUploadError('');
-    setSelectedFile(file);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = (e.target?.result as string) || '';
-      setPreviewUrl(dataUrl);
+    const isDicom = ext === '.dcm' || ext === '.dicom';
+    if (isDicom) {
+      setSelectedFile(file);
+      setWebpStats(null);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = (e.target?.result as string) || '';
+        setPreviewUrl(dataUrl);
+        if (fastUploadEnabled) {
+          triggerFastAnalysis(file, dataUrl);
+        }
+      };
+      reader.onerror = () => {
+        setUploadError(isVi ? 'Không thể đọc tệp ảnh. Vui lòng thử lại.' : 'Failed to read image file. Please try again.');
+      };
+      reader.readAsDataURL(file);
+      return true;
+    }
+
+    // Tự động chuyển đổi sang WebP chuẩn lâm sàng để tối ưu tốc độ tải trang và dung lượng DB
+    try {
+      const res = await convertToWebP(file, { quality: 0.88, maxDimension: 1800 });
+      setSelectedFile(res.file);
+      setPreviewUrl(res.dataUrl);
+      setWebpStats({
+        originalSize: res.originalSize,
+        convertedSize: res.convertedSize,
+        savingsPercent: res.savingsPercent,
+      });
       if (fastUploadEnabled) {
-        triggerFastAnalysis(file, dataUrl);
+        triggerFastAnalysis(res.file, res.dataUrl);
       }
-    };
-    reader.onerror = () => {
-      setUploadError(isVi ? 'Không thể đọc tệp ảnh. Vui lòng thử lại.' : 'Failed to read image file. Please try again.');
-    };
-    reader.readAsDataURL(file);
-    return true;
+      return true;
+    } catch (err) {
+      console.warn('Lỗi chuyển đổi WebP, dùng fallback reader:', err);
+      setSelectedFile(file);
+      setWebpStats(null);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = (e.target?.result as string) || '';
+        setPreviewUrl(dataUrl);
+        if (fastUploadEnabled) {
+          triggerFastAnalysis(file, dataUrl);
+        }
+      };
+      reader.onerror = () => {
+        setUploadError(isVi ? 'Không thể đọc tệp ảnh. Vui lòng thử lại.' : 'Failed to read image file. Please try again.');
+      };
+      reader.readAsDataURL(file);
+      return true;
+    }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,21 +311,26 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
         ctx.arc(maculaX, 300, 30, 0, Math.PI * 2);
         ctx.fill();
 
-        const dataUrl = canvas.toDataURL('image/png');
+        const dataUrl = canvas.toDataURL('image/webp', 0.88);
         setPreviewUrl(dataUrl);
         canvas.toBlob((blob) => {
           if (blob) {
             const simulatedFile = new File(
               [blob],
-              `retinal_${selectedEye}.png`,
-              { type: 'image/png' }
+              `retinal_${selectedEye}.webp`,
+              { type: 'image/webp' }
             );
             setSelectedFile(simulatedFile);
+            setWebpStats({
+              originalSize: dataUrl.length,
+              convertedSize: blob.size,
+              savingsPercent: 75,
+            });
             if (fastUploadEnabled) {
               triggerFastAnalysis(simulatedFile, dataUrl);
             }
           }
-        });
+        }, 'image/webp', 0.88);
       }
     } finally {
       setIsLoadingDemo(false);
@@ -297,6 +341,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
     setSelectedFile(null);
     setPreviewUrl('');
     setUploadError('');
+    setWebpStats(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -331,7 +376,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
       eye: selectedEye,
       fileName: selectedFile.name,
       fileSize: selectedFile.size,
-      mimeType: selectedFile.type || 'image/png',
+      mimeType: selectedFile.type || 'image/webp',
     };
 
     setCurrentStep(4);
@@ -792,7 +837,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".png,.jpg,.jpeg,.tif,.tiff,.dcm"
+                accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.dcm"
                 onChange={handleFileInputChange}
                 className="hidden"
               />
@@ -808,7 +853,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
                 <p className="text-xs text-[#667085]">
                   {fastUploadEnabled
                     ? (isVi ? 'AI sẽ tự động khởi chạy phân tích ngay khi nhận diện tệp ảnh.' : 'AI analysis will initiate immediately upon file selection.')
-                    : (isVi ? 'PNG, JPG, TIFF hoặc DICOM (tối đa 15MB)' : 'PNG, JPG, TIFF or DICOM (max 15MB)')}
+                    : (isVi ? 'PNG, JPG, WEBP, TIFF hoặc DICOM (tối đa 15MB) — Tự động tối ưu WebP lưu trữ DB' : 'PNG, JPG, WEBP, TIFF or DICOM (max 15MB) — Auto WebP optimization for DB storage')}
                 </p>
               </div>
 
@@ -834,7 +879,7 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
           ) : (
             /* Image Preview Zone */
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#F8F9FA] border border-[#EAECF0] text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3.5 rounded-xl bg-[#F8F9FA] border border-[#EAECF0] text-xs">
                 <div className="flex items-center gap-2 min-w-0">
                   <FileImage className="w-4 h-4 text-[#3478F6] shrink-0" />
                   <span className="font-bold text-[#111827] truncate font-mono-data">
@@ -843,6 +888,12 @@ export const PatientUploadWizard: React.FC<PatientUploadWizardProps> = ({
                   <span className="text-[#667085] shrink-0">
                     ({((selectedFile?.size || 0) / (1024 * 1024)).toFixed(2)} MB)
                   </span>
+                  {webpStats && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[11px]">
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      WebP {formatImageBytes(webpStats.convertedSize)} (-{webpStats.savingsPercent}%)
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button

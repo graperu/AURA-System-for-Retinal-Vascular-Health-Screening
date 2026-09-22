@@ -206,6 +206,8 @@ public class ScreeningController {
       }
     } else if (raw.startsWith("/9j/")) {
       mediaType = "image/jpeg";
+    } else if (raw.startsWith("UklGR")) {
+      mediaType = "image/webp";
     }
 
     try {
@@ -229,14 +231,25 @@ public class ScreeningController {
     if (principal == null) {
       throw new AuthException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập tài khoản Bác sĩ");
     }
-    Screening updated = screeningService.addDoctorReview(
-      id,
-      principal.id(),
-      request.decision(),
-      request.doctorNotes(),
-      request.adjustedCardioRisk(),
-      request.adjustedDrRisk(),
-      request.icd10Codes());
+    Screening updated = (request.doctorFindings() != null || request.recommendations() != null)
+        ? screeningService.addDoctorReview(
+            id,
+            principal.id(),
+            request.decision(),
+            request.doctorNotes(),
+            request.adjustedCardioRisk(),
+            request.adjustedDrRisk(),
+            request.icd10Codes(),
+            request.recommendations(),
+            request.doctorFindings())
+        : screeningService.addDoctorReview(
+            id,
+            principal.id(),
+            request.decision(),
+            request.doctorNotes(),
+            request.adjustedCardioRisk(),
+            request.adjustedDrRisk(),
+            request.icd10Codes());
     return ApiResponse.success("Lưu đánh giá chẩn đoán của bác sĩ thành công", ScreeningResponse.fromEntity(updated));
   }
 

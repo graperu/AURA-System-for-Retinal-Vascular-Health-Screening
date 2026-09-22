@@ -47,6 +47,10 @@ export interface PatientProfile {
   riskScore?: number;
   reviewStatus?: 'PENDING_REVIEW' | 'REVIEWED' | 'CRITICAL';
   findingsSummary?: string;
+  doctorNotes?: string;
+  recommendations?: string;
+  icd10Codes?: string[] | string;
+  diagnosis?: string;
   avatarColor?: string;
 }
 
@@ -129,6 +133,8 @@ export interface AIRiskResult {
   doctorId?: string;
   patientId?: string;
   findings?: string;
+  aiFindings?: string;
+  doctorFindings?: string;
   recommendations?: string;
   modelVersion?: string; // e.g. "Gemini 3.8 Flash High / AURA-Core v2.4"
   activeThresholds?: {
@@ -183,6 +189,8 @@ export interface DoctorFeedback {
   clinicalNotes: string;
   overrideReason?: string;
   recommendations?: string;
+  doctorFindings?: string;
+  findingsStatus?: 'CONFIRMED' | 'EDITED';
   reviewedAt: string;
   signedDigitalSignature?: string;
 }

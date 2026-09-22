@@ -26,6 +26,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
   UploadCloud,
+  Edit3,
 } from 'lucide-react';
 import { PatientProfile, AIRiskResult, DoctorFeedback, RiskLevel } from '../../types/cds';
 import { useAuth } from '../../context/AuthContext';
@@ -103,6 +104,16 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
   const [overrideReason, setOverrideReason] = useState<string>('');
   const [overrideError, setOverrideError] = useState<string | null>(null);
 
+  // AI findings validation & editing state (FR-15)
+  const rawAiFindings = analysisResult.aiFindings || analysisResult.findings || '';
+  const initialDocFindings = analysisResult.doctorFindings || '';
+  const [findingsStatus, setFindingsStatus] = useState<'CONFIRMED' | 'EDITED'>(
+    initialDocFindings && initialDocFindings !== rawAiFindings ? 'EDITED' : 'CONFIRMED'
+  );
+  const [editableFindings, setEditableFindings] = useState<string>(
+    initialDocFindings || rawAiFindings
+  );
+
   // ICD-10 codes
   const [selectedIcd10, setSelectedIcd10] = useState<string[]>(
     analysisResult.icd10Codes && analysisResult.icd10Codes.length > 0
@@ -169,6 +180,10 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
     setSaveSuccessMsg(null);
     setIsSubmitting(true);
 
+    const finalDoctorFindings = findingsStatus === 'EDITED'
+      ? editableFindings.trim()
+      : (rawAiFindings || editableFindings.trim());
+
     const feedback: DoctorFeedback = {
       feedbackId: `FB-${Date.now()}`,
       analysisId: analysisResult.analysisId,
@@ -185,6 +200,8 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
         : (isVi ? 'Bác sĩ đã xác nhận kết quả chẩn đoán.' : 'Doctor confirmed diagnosis.'),
       overrideReason: decision === 'MODIFIED' ? overrideReason.trim() : undefined,
       recommendations: `${carePlanNotes} [Tái khám: ${followUpInterval}]`,
+      doctorFindings: finalDoctorFindings,
+      findingsStatus,
       reviewedAt: new Date().toISOString(),
       signedDigitalSignature: isDraft ? undefined : `SHA256-AURA-${currentDoctorId}-${Date.now()}`,
     };
@@ -604,6 +621,140 @@ export const DoctorDiagnosisWorkspace: React.FC<DoctorDiagnosisWorkspaceProps> =
                       className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-white border border-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
                   </div>
+                </div>
+              )}
+            </section>
+
+            {/* ------------------------------------------------------------------- */}
+            {/* SECTION 2.5: XÁC NHẬN HOẶC CHỈNH SỬA PHÁT HIỆN AI (FR-15 FINDINGS)  */}
+            {/* ------------------------------------------------------------------- */}
+            <section className="space-y-2.5 bg-[#F8FAFC] border border-[#E2E8F0] p-3.5 rounded-xl">
+              <div className="flex items-center justify-between gap-1 flex-wrap">
+                <label className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#2563EB]" />
+                  <span>{isVi ? '2.1. Thẩm Định Phát Hiện Do AI Tạo Ra' : '2.1. AI-Generated Findings Validation'}</span>
+                </label>
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                    findingsStatus === 'CONFIRMED'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}
+                >
+                  {findingsStatus === 'CONFIRMED'
+                    ? (isVi ? 'Đã xác nhận AI' : 'AI Confirmed')
+                    : (isVi ? 'Đã hiệu chỉnh bởi Bác sĩ' : 'Doctor Corrected')}
+                </span>
+              </div>
+
+              {/* 2 Nút lựa chọn: Xác nhận AI vs Chỉnh sửa */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFindingsStatus('CONFIRMED');
+                    if (rawAiFindings) {
+                      setEditableFindings(rawAiFindings);
+                    }
+                  }}
+                  className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    findingsStatus === 'CONFIRMED'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isVi ? 'Xác nhận phát hiện AI' : 'Confirm AI Findings'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFindingsStatus('EDITED')}
+                  className={`py-1.5 px-2 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    findingsStatus === 'EDITED'
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>{isVi ? 'Chỉnh sửa phát hiện' : 'Edit Findings'}</span>
+                </button>
+              </div>
+
+              {findingsStatus === 'CONFIRMED' ? (
+                <div className="p-2.5 bg-white rounded-lg border border-slate-200 space-y-1.5 text-xs">
+                  <span className="text-[11px] font-semibold text-slate-500 block">
+                    {isVi ? 'Các phát hiện hình ảnh do AI ghi nhận:' : 'AI-detected retinal findings:'}
+                  </span>
+                  <div className="text-slate-800 text-[11.5px] leading-relaxed whitespace-pre-line font-medium bg-slate-50 p-2 rounded-md border border-slate-100 max-h-32 overflow-y-auto">
+                    {rawAiFindings ||
+                      (isVi
+                        ? '• Hệ vi mạch võng mạc phân bố đều, cung mạch thái dương liên tục.\n• Không ghi nhận dấu hiệu xuất huyết võng mạc hay vi phình mạch.\n• Chưa phát hiện tổn thương vi tuần hoàn bệnh lý.'
+                        : '• Retinal microvascular architecture intact, temporal arcades regular.\n• No overt retinal hemorrhages or microaneurysms detected.\n• No microcirculatory pathology identified.')}
+                  </div>
+                  <div className="flex items-center gap-1 text-[10.5px] text-emerald-700 font-medium">
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                    <span>{isVi ? 'Bác sĩ chuyên khoa xác nhận kết quả phát hiện của AI là chính xác.' : 'Attending specialist validates AI findings as accurate.'}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2.5 bg-amber-50/50 rounded-lg border border-amber-200 space-y-2 text-xs animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-900">
+                      {isVi ? 'Hiệu chỉnh phát hiện lâm sàng theo chuyên môn:' : 'Clinical Findings Correction:'}
+                    </span>
+                    {rawAiFindings && (
+                      <button
+                        type="button"
+                        onClick={() => setEditableFindings(rawAiFindings)}
+                        className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer"
+                        title={isVi ? 'Khôi phục phát hiện gốc của AI' : 'Reset to original AI findings'}
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>{isVi ? 'Khôi phục gốc' : 'Reset AI'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Snippets */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {[
+                      { text: isVi ? 'Hẹp vi mạch nhẹ (A/V ~0.55)' : 'Mild narrowing (A/V ~0.55)' },
+                      { text: isVi ? 'Co thắt tiểu động mạch khu trú' : 'Focal arteriolar constriction' },
+                      { text: isVi ? 'Không thấy xuất huyết hay vi phình mạch' : 'No hemorrhages or microaneurysms' },
+                      { text: isVi ? 'Gai thị bờ rõ, không phù' : 'Optic disc sharp margins, no edema' },
+                      { text: isVi ? 'Vi phình mạch rải rác ngoài hoàng điểm' : 'Scattered microaneurysms sparing FAZ' },
+                    ].map((snip, sIdx) => (
+                      <button
+                        key={`ws-corr-snip-${sIdx}`}
+                        type="button"
+                        onClick={() => {
+                          setEditableFindings((prev) =>
+                            prev && prev.trim().length > 0 ? `${prev.trim()}\n• ${snip.text}` : `• ${snip.text}`
+                          );
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] font-medium bg-white hover:bg-amber-100 text-amber-900 border border-amber-200 transition-colors cursor-pointer"
+                      >
+                        + {snip.text}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    rows={3}
+                    value={editableFindings}
+                    onChange={(e) => setEditableFindings(e.target.value)}
+                    placeholder={
+                      isVi
+                        ? 'Nhập các phát hiện lâm sàng đã chỉnh sửa...'
+                        : 'Enter corrected clinical findings...'
+                    }
+                    className="w-full text-xs p-2 rounded-lg border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium leading-relaxed"
+                  />
+
+                  <p className="text-[10px] text-amber-800 italic">
+                    * {isVi ? 'Hệ thống lưu giữ nguyên vẹn phát hiện AI gốc trong cơ sở dữ liệu để phục vụ kiểm toán lâm sàng.' : 'System preserves original AI findings in database for clinical audit trail.'}
+                  </p>
                 </div>
               )}
             </section>

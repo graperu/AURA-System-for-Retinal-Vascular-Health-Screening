@@ -125,6 +125,67 @@ class ScreeningServiceTest {
   }
 
   @Test
+  @DisplayName("Thẩm định bác sĩ: lưu ghi chú y tế, chẩn đoán ICD-10 và khuyến nghị điều trị chính xác")
+  void addDoctorReview_withRecommendations_shouldPersistDoctorRecommendations() {
+    UUID screeningId = UUID.randomUUID();
+    UUID doctorId = UUID.randomUUID();
+    Screening screening = new Screening(UUID.randomUUID(), "https://example.test/fundus.png");
+    ReflectionTestUtils.setField(screening, "id", screeningId);
+    screening.setRiskLevel(RiskLevel.HIGH);
+    when(screeningRepository.findById(screeningId)).thenReturn(java.util.Optional.of(screening));
+    when(screeningRepository.save(any(Screening.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    String customRecommendations = "Đo huyết áp 2 lần/ngày. Duy trì HbA1c < 7.0%. Tái khám sau 3 tháng.";
+    Screening result = screeningService.addDoctorReview(
+        screeningId,
+        doctorId,
+        ReviewDecision.APPROVED,
+        "Đáy mắt xơ vữa động mạch độ 1, chưa xuất huyết hoàng điểm.",
+        null,
+        null,
+        java.util.List.of("H35.0", "I10"),
+        customRecommendations);
+
+    assertEquals("Đáy mắt xơ vữa động mạch độ 1, chưa xuất huyết hoàng điểm.", result.getDoctorNotes());
+    assertEquals(customRecommendations, result.getRecommendations());
+    assertEquals("H35.0\nI10", result.getIcd10Codes());
+    assertEquals(ReviewDecision.APPROVED, result.getReviewDecision());
+  }
+
+  @Test
+  @DisplayName("FR-15: Bác sĩ chỉnh sửa phát hiện AI -> bảo toàn aiFindings gốc và lưu riêng doctorFindings")
+  void addDoctorReview_withFindings_shouldPreserveAiFindingsAndSaveDoctorFindings() {
+    UUID screeningId = UUID.randomUUID();
+    UUID doctorId = UUID.randomUUID();
+    Screening screening = new Screening(UUID.randomUUID(), "https://example.test/fundus.png");
+    ReflectionTestUtils.setField(screening, "id", screeningId);
+    String originalAiFindings = "• Tim mạch & Huyết áp: Co thắt tiểu động mạch khu trú (A/V Ratio: 0.52)\n• Võng mạc ĐTĐ: Nghi ngờ vi phình mạch rải rác";
+    screening.setRiskLevel(RiskLevel.HIGH);
+    screening.setFindings(originalAiFindings);
+    screening.setAiFindings(originalAiFindings);
+    when(screeningRepository.findById(screeningId)).thenReturn(java.util.Optional.of(screening));
+    when(screeningRepository.save(any(Screening.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    String correctedFindings = "• Tim mạch: Co thắt tiểu động mạch độ 1 nhẹ (A/V Ratio ~0.55). Không thấy vi phình mạch hay xuất huyết.";
+    Screening result = screeningService.addDoctorReview(
+        screeningId,
+        doctorId,
+        ReviewDecision.APPROVED,
+        "Đã đối chiếu lâm sàng và hiệu chỉnh phát hiện vi mạch",
+        null,
+        null,
+        java.util.List.of("H35.0"),
+        "Theo dõi 6 tháng",
+        correctedFindings);
+
+    assertEquals(originalAiFindings, result.getAiFindings(), "Phát hiện AI gốc phải được bảo toàn bất biến");
+    assertEquals(correctedFindings, result.getDoctorFindings(), "Phát hiện của bác sĩ phải được lưu riêng biệt");
+    assertEquals(correctedFindings, result.getFindings(), "Findings hiệu dụng phải phản ánh chẩn đoán đã được bác sĩ chuẩn y");
+  }
+
+  @Test
   @DisplayName("FR-2/FR-3: AI phân tích thành công -> lưu đúng riskScore từ AI và bảo toàn metadata")
   void createScreening_withAiSuccess_shouldPersistAiRiskScoreAndMetadata() {
     UUID patientId = UUID.randomUUID();

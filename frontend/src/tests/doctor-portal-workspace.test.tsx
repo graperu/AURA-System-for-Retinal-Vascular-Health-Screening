@@ -240,6 +240,36 @@ test('VAL-BAR-3: Render Save Draft and Confirm Review action buttons', () => {
   assert.ok(html.includes('Ký &amp; Lưu') || html.includes('Ký & Lưu') || html.includes('Ký Số &amp; Phê Duyệt') || html.includes('Ký Số & Phê Duyệt'), 'Sign and approve button present');
 });
 
+test('VAL-BAR-4: FR-15 Render AI-Generated Findings validation section', () => {
+  const html = renderWithLang(
+    <ClinicalValidationBar
+      analysisId="ana-101"
+      aiFindings="• Co thắt tiểu động mạch khu trú (A/V: 0.52)"
+      onSaveFeedback={async () => {}}
+    />
+  );
+
+  assert.ok(
+    html.includes('Xác nhận hoặc chỉnh sửa các phát hiện do AI tạo ra') ||
+    html.includes('Validate or correct AI-generated findings'),
+    'AI findings validation title present'
+  );
+  assert.ok(
+    html.includes('Xác nhận phát hiện của AI') ||
+    html.includes('Confirm AI Findings'),
+    'Confirm AI findings button present'
+  );
+  assert.ok(
+    html.includes('Chỉnh sửa phát hiện') ||
+    html.includes('Edit Findings'),
+    'Edit findings button present'
+  );
+  assert.ok(
+    html.includes('Co thắt tiểu động mạch khu trú'),
+    'Passed AI findings text rendered in preview'
+  );
+});
+
 // -----------------------------------------------------------------------------
 // Summary
 // -----------------------------------------------------------------------------

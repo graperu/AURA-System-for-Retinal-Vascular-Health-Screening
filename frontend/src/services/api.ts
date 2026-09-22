@@ -234,6 +234,9 @@ export const screeningApi = {
       adjustedCardioRisk?: string;
       adjustedDrRisk?: string;
       icd10Codes: string[];
+      recommendations?: string;
+      doctorFindings?: string;
+      findings?: string;
     },
   ) =>
     apiFetch<any>(`/api/v1/screenings/${id}/review`, {

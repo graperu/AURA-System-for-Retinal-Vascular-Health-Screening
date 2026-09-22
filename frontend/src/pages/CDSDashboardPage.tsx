@@ -341,7 +341,15 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMaximizedCanvas]);
 
+  const [queueFilter, setQueueFilter] = useState<'ALL' | 'HIGH_RISK' | 'HAS_SCAN'>('ALL');
+
   const filteredAssignedPatients = assignedPatients.filter((p) => {
+    if (queueFilter === 'HIGH_RISK') {
+      const r = (p.latestRiskLevel || '').toUpperCase();
+      if (r !== 'HIGH' && r !== 'CRITICAL' && r !== 'MODERATE') return false;
+    } else if (queueFilter === 'HAS_SCAN') {
+      if (!p.screeningCount && !p.latestRiskLevel) return false;
+    }
     if (!patientSearchQuery.trim()) return true;
     const q = patientSearchQuery.toLowerCase();
     return (
@@ -786,6 +794,8 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         ? (isVi ? 'Bác sĩ chuyên khoa đã thẩm định và bác bỏ kết quả phân tích của AI.' : 'Specialist reviewed and rejected AI analysis findings.')
         : (isVi ? 'Bác sĩ đã xác nhận kết quả chẩn đoán' : 'Doctor confirmed diagnosis');
       const resolvedNotes = feedback.clinicalNotes?.trim() ? feedback.clinicalNotes : defaultNotes;
+      const resolvedRecommendations = feedback.recommendations?.trim() || undefined;
+      const resolvedFindings = feedback.doctorFindings?.trim() || (feedback as any).findings?.trim() || undefined;
 
       const res = await screeningApi.doctorReview(feedback.analysisId, {
         decision: feedback.decision,
@@ -793,6 +803,9 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
         adjustedCardioRisk: toApiRiskLevel(feedback.adjustedCardioRisk),
         adjustedDrRisk: toApiRiskLevel(feedback.adjustedDrRisk),
         icd10Codes: feedback.icd10Codes,
+        recommendations: resolvedRecommendations,
+        doctorFindings: resolvedFindings,
+        findings: resolvedFindings,
       });
 
       if (!res || !res.success) {
@@ -828,6 +841,11 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
           status: 'REVIEWED',
           reviewDecision: feedback.decision,
           doctorNotes: resolvedNotes,
+          findings: resolvedFindings || prev.findings,
+          doctorFindings: resolvedFindings || prev.doctorFindings,
+          aiFindings: prev.aiFindings || prev.findings,
+          recommendations: resolvedRecommendations || prev.recommendations,
+          icd10Codes: feedback.icd10Codes || prev.icd10Codes,
           digitalSignature: (res.data as any)?.digitalSignature || prev.digitalSignature || `SHA256-${feedback.doctorId}-${Date.now()}`,
           signedAt: (res.data as any)?.signedAt || new Date().toISOString(),
           doctorName: feedback.doctorName || prev.doctorName,
@@ -838,6 +856,9 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
       realtimeBus.emit('screening:reviewed', {
         ...feedback,
         clinicalNotes: resolvedNotes,
+        recommendations: resolvedRecommendations,
+        findings: resolvedFindings,
+        doctorFindings: resolvedFindings,
       });
 
       setFeedbackSuccessMsg(
@@ -1861,6 +1882,43 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                     />
                   </div>
 
+                  {/* Quick Filter Tabs for Queue */}
+                  <div className="grid grid-cols-3 gap-1 bg-[#F5F6F8] p-1 rounded-xl border border-[#EAECF0] shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setQueueFilter('ALL')}
+                      className={`py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer truncate ${
+                        queueFilter === 'ALL'
+                          ? 'bg-white text-[#3478F6] shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {isVi ? 'Tất cả' : 'All'} ({assignedPatients.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQueueFilter('HAS_SCAN')}
+                      className={`py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer truncate ${
+                        queueFilter === 'HAS_SCAN'
+                          ? 'bg-white text-amber-700 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {isVi ? 'Có ca chụp' : 'With Scan'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQueueFilter('HIGH_RISK')}
+                      className={`py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer truncate ${
+                        queueFilter === 'HIGH_RISK'
+                          ? 'bg-white text-rose-600 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {isVi ? 'Nguy cơ' : 'At Risk'}
+                    </button>
+                  </div>
+
                   {/* Patient Cards List */}
                   <div className="space-y-2 flex-1 overflow-y-auto pr-1">
                     {filteredAssignedPatients.length === 0 ? (
@@ -1980,7 +2038,7 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
               )}
 
               {analysisResult ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {/* Full-width notification banner when canvas is maximized */}
                   {isMaximizedCanvas && (
                     <div
@@ -2019,9 +2077,36 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                     onToggleMaximize={() => setIsMaximizedCanvas(!isMaximizedCanvas)}
                   />
 
-                  {/* Full-Width Biomarkers & Risk Assessment (condensed, default to biomarkers tab, hidden when maximized) */}
+                  {/* Collapsible Biomarkers & Detailed XAI Risk Assessment (keeps screen uncluttered while preserving full clinical depth) */}
                   {!isMaximizedCanvas && (
-                    <RiskAssessmentPanel result={analysisResult} defaultTab="biomarkers" />
+                    <details className="group bg-white rounded-2xl border border-[#EAECF0] shadow-xs overflow-hidden">
+                      <summary className="list-none px-4 py-3 flex flex-wrap items-center justify-between gap-2 cursor-pointer select-none hover:bg-slate-50/80 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-md bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] text-[11px] font-bold">
+                            {isVi ? 'Chuyên sâu' : 'Deep Metrics'}
+                          </span>
+                          <span className="text-xs font-bold text-slate-800 group-hover:text-[#3478F6] transition-colors">
+                            {isVi
+                              ? 'Bảng 6 Chỉ Số Sinh Học Vi Mạch & Giải Thích AI (A/V Ratio, CRAE, CRVE...)'
+                              : '6 Microvascular Biomarkers & XAI Analysis (A/V Ratio, CRAE, CRVE...)'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono-data px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                            A/V: <strong>{(analysisResult.annotatedMap?.arteryVeinRatio ?? 0.65).toFixed(2)}</strong>
+                          </span>
+                          <span className="text-[11px] font-mono-data px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                            Tortuosity: <strong>{(analysisResult.annotatedMap?.tortuosityIndex ?? 1.12).toFixed(2)}</strong>
+                          </span>
+                          <span className="text-[11px] font-semibold text-[#3478F6] group-open:rotate-180 transition-transform">
+                            ▼
+                          </span>
+                        </div>
+                      </summary>
+                      <div className="border-t border-[#EAECF0] p-2">
+                        <RiskAssessmentPanel result={analysisResult} defaultTab="biomarkers" />
+                      </div>
+                    </details>
                   )}
                 </div>
               ) : !isNewScanOpen ? (
@@ -2071,7 +2156,11 @@ export const CDSDashboardPage: React.FC<CDSDashboardPageProps> = ({
                 <ClinicalValidationBar
                   key={analysisResult.analysisId}
                   analysisId={analysisResult.analysisId}
+                  analysisResult={analysisResult}
+                  aiFindings={analysisResult.aiFindings || analysisResult.findings}
+                  initialDoctorFindings={analysisResult.doctorFindings}
                   onSaveFeedback={handleSaveFeedback}
+                  onOpenReportModal={() => setIsReportModalOpen(true)}
                 />
               </div>
             ) : (

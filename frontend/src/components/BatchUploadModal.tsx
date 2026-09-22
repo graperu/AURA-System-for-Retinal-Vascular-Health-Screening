@@ -295,7 +295,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.drawImage(img, 0, 0, w, h);
-              const thumbUrl = canvas.toDataURL('image/jpeg', 0.8);
+              const thumbUrl = canvas.toDataURL('image/webp', 0.8);
               resolve(thumbUrl);
               return;
             }
@@ -363,7 +363,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.drawImage(img, 0, 0, w, h);
-              const compressedUrl = canvas.toDataURL('image/jpeg', 0.8);
+              const compressedUrl = canvas.toDataURL('image/webp', 0.85);
               resolve(compressedUrl);
               return;
             }
@@ -569,7 +569,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                   ref={fileInputRef}
                   onChange={(e) => e.target.files && handleProcessFiles(e.target.files)}
                   className="hidden"
-                  accept=".dcm,.dicom,.png,.jpg,.jpeg,.tif,.tiff"
+                  accept=".dcm,.dicom,.png,.jpg,.jpeg,.webp,.tif,.tiff"
                 />
                 <button
                   type="button"

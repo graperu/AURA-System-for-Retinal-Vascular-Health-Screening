@@ -466,6 +466,12 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
   const heatmapImg = React.useMemo(() => {
     if (!rawHeatmap || !rawHeatmap.trim()) return '';
     const trimmed = rawHeatmap.trim();
+    if (trimmed.startsWith('/9j/')) {
+      return `data:image/jpeg;base64,${trimmed}`;
+    }
+    if (trimmed.startsWith('UklGR')) {
+      return `data:image/webp;base64,${trimmed}`;
+    }
     if (
       trimmed.startsWith('data:image/') ||
       trimmed.startsWith('http://') ||
@@ -613,8 +619,8 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
           </div>
 
           {/* Clean Toolbar Controls (Requirement R3) */}
-          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-slate-100 dark:border-slate-800/80">
-            {/* View Mode Switcher: Split / Original / Overlay */}
+          <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            {/* View Mode Switcher: Split / Original / Overlay / AI */}
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
               <button
                 type="button"
@@ -665,171 +671,201 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               </button>
             </div>
 
-            {/* Dark Room Button */}
-            <button
-              type="button"
-              onClick={() => setIsDarkRoom(!isDarkRoom)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
-                isDarkRoom
-                  ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50 shadow-xs'
-                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-              }`}
-              title={t('cdsViewer.darkRoomTitle', 'Chế độ nền tối giúp nhìn rõ mạch máu hơn')}
-            >
-              <Moon className={`w-3.5 h-3.5 ${isDarkRoom ? 'text-cyan-400 fill-cyan-400/30' : 'text-slate-500'}`} />
-              <span>{isDarkRoom ? t('common.darkRoomOn', 'Buồng tối: BẬT') : t('common.darkRoomOff', 'Buồng tối')}</span>
-            </button>
-
-            {/* Zoom In/Out & Reset */}
-            <div className="flex items-center gap-2">
-              {zoomLevel > 1.0 && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-teal-700 dark:text-cyan-300 bg-teal-50 dark:bg-cyan-950/80 px-2.5 py-1 rounded-lg border border-teal-200 dark:border-cyan-800/60 font-medium animate-fade-in">
-                  <Move className="w-3 h-3 text-teal-600 dark:text-cyan-400 shrink-0" />
-                  <span>{isVi ? 'Kéo ảnh để di chuyển' : 'Drag to pan'}</span>
-                </span>
-              )}
-              <div
-                className={`flex items-center rounded-xl p-0.5 border gap-0.5 ${
-                  isDarkRoom ? 'bg-darkroom-surface border-darkroom-border' : 'bg-slate-50 border-slate-200'
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleZoomChange((z) => z - 0.2)}
-                  className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
-                  title={t('common.zoomOut', 'Thu nhỏ')}
-                >
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
-                <span
-                  className={`text-xs font-semibold px-1.5 min-w-[40px] text-center font-mono ${
-                    isDarkRoom ? 'text-slate-200' : 'text-slate-800'
+            {/* Right Controls: Zoom + Optical Filters Menu + Maximize */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Zoom In/Out & Reset */}
+              <div className="flex items-center gap-1.5">
+                {zoomLevel > 1.0 && (
+                  <span className="hidden xl:inline-flex items-center gap-1 text-[11px] text-teal-700 dark:text-cyan-300 bg-teal-50 dark:bg-cyan-950/80 px-2 py-1 rounded-lg border border-teal-200 dark:border-cyan-800/60 font-medium">
+                    <Move className="w-3 h-3 text-teal-600 dark:text-cyan-400 shrink-0" />
+                    <span>{isVi ? 'Kéo ảnh' : 'Drag'}</span>
+                  </span>
+                )}
+                <div
+                  className={`flex items-center rounded-xl p-0.5 border gap-0.5 ${
+                    isDarkRoom ? 'bg-darkroom-surface border-darkroom-border' : 'bg-slate-50 border-slate-200'
                   }`}
                 >
-                  {(zoomLevel * 100).toFixed(0)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleZoomChange((z) => z + 0.2)}
-                  className="p-1.5 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
-                  title={t('common.zoomIn', 'Phóng to')}
-                >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetZoom}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
-                  title={t('common.resetZoom', 'Kích thước chuẩn')}
-                >
-                  <RotateCcw className="w-3 h-3" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleZoomChange((z) => z - 0.2)}
+                    className="p-1 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
+                    title={t('common.zoomOut', 'Thu nhỏ')}
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
+                  <span
+                    className={`text-[11px] font-semibold px-1 min-w-[36px] text-center font-mono ${
+                      isDarkRoom ? 'text-slate-200' : 'text-slate-800'
+                    }`}
+                  >
+                    {(zoomLevel * 100).toFixed(0)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleZoomChange((z) => z + 0.2)}
+                    className="p-1 text-slate-500 hover:text-teal-700 rounded-lg transition-colors cursor-pointer"
+                    title={t('common.zoomIn', 'Phóng to')}
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetZoom}
+                    className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                    title={t('common.resetZoom', 'Kích thước chuẩn')}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Vessel Layer Button */}
-            <button
-              type="button"
-              data-testid="cds-vessel-overlay-toggle-btn"
-              onClick={() => setShowVesselsOverlay(!showVesselsOverlay)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
-                showVesselsOverlay
-                  ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
-                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-              }`}
-              title={isVi ? 'Bật/tắt lớp phân đoạn mạch máu võng mạc' : 'Toggle retinal vessel segmentation overlay'}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>{t('cdsViewer.vesselOverlay', 'Lớp mạch máu')}</span>
-            </button>
+              {/* Collapsible Optical Filters & Ruler Menu */}
+              <details className="relative group">
+                <summary
+                  className={`list-none px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer select-none ${
+                    isDarkRoom || showVesselsOverlay || isRedFreeFilter || isRulerActive
+                      ? 'bg-teal-50 text-teal-800 border-teal-300 dark:bg-teal-950/70 dark:text-teal-200 dark:border-teal-700'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                  title={isVi ? 'Mở bộ công cụ quang học (Buồng tối, Mạch máu, Red-Free, Thước đo)' : 'Optical Filters & Caliper Tools'}
+                >
+                  <Sliders className="w-3.5 h-3.5 text-[#3478F6]" />
+                  <span>{isVi ? 'Công cụ quang học' : 'Optical Tools'}</span>
+                  {(isDarkRoom || showVesselsOverlay || isRedFreeFilter || isRulerActive) && (
+                    <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse" />
+                  )}
+                </summary>
+                <div className="absolute right-0 mt-1.5 z-40 w-60 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl flex flex-col gap-1.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1.5 py-0.5">
+                    {isVi ? 'Bộ lọc & Đo lường chuyên khoa' : 'Optical Filters & Caliper'}
+                  </div>
+                  {/* Dark Room Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsDarkRoom(!isDarkRoom)}
+                    className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center justify-between cursor-pointer ${
+                      isDarkRoom
+                        ? 'bg-cyan-950 text-cyan-300 border-cyan-500/50'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Moon className={`w-3.5 h-3.5 ${isDarkRoom ? 'text-cyan-400' : 'text-slate-500'}`} />
+                      <span>{isDarkRoom ? t('common.darkRoomOn', 'Buồng tối: BẬT') : t('common.darkRoomOff', 'Buồng tối')}</span>
+                    </span>
+                  </button>
 
-            {/* Optical Red-Free Filter Button */}
-            <button
-              type="button"
-              data-testid="cds-red-free-toggle-btn"
-              onClick={() => setIsRedFreeFilter(!isRedFreeFilter)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
-                isRedFreeFilter
-                  ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
-                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-              }`}
-              title={isVi ? 'Bật/tắt bộ lọc quang học Red-Free 540nm' : 'Toggle optical Red-Free 540nm filter'}
-            >
-              <Eye className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{isRedFreeFilter ? (isVi ? 'Red-Free: BẬT' : 'Red-Free: ON') : (isVi ? 'Bộ lọc Red-Free' : 'Red-Free Filter')}</span>
-            </button>
+                  {/* Vessel Layer Button */}
+                  <button
+                    type="button"
+                    data-testid="cds-vessel-overlay-toggle-btn"
+                    onClick={() => setShowVesselsOverlay(!showVesselsOverlay)}
+                    className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center justify-between cursor-pointer ${
+                      showVesselsOverlay
+                        ? 'bg-teal-700 text-white border-teal-700'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>{t('cdsViewer.vesselOverlay', 'Lớp mạch máu')}</span>
+                    </span>
+                  </button>
 
-            {/* Microvascular Caliper Ruler Button (Requirement R3) */}
-            <button
-              type="button"
-              data-testid="cds-ruler-toggle-btn"
-              onClick={() => {
-                const next = !isRulerActive;
-                setIsRulerActive(next);
-                if (!next) clearRuler();
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
-                isRulerActive
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-              }`}
-              title={isVi ? 'Thước đo vi mạch võng mạc (µm / DD)' : 'Retinal Microvascular Caliper (µm / DD)'}
-            >
-              <Ruler className={`w-3.5 h-3.5 ${isRulerActive ? 'text-amber-200' : 'text-amber-500'}`} />
-              <span>{isRulerActive ? (isVi ? 'Thước đo: BẬT' : 'Ruler: ON') : (isVi ? 'Thước đo vi mạch' : 'Ruler')}</span>
-            </button>
-            {isRulerActive && rulerDistPx > 0 && (
+                  {/* Optical Red-Free Filter Button */}
+                  <button
+                    type="button"
+                    data-testid="cds-red-free-toggle-btn"
+                    onClick={() => setIsRedFreeFilter(!isRedFreeFilter)}
+                    className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center justify-between cursor-pointer ${
+                      isRedFreeFilter
+                        ? 'bg-emerald-700 text-white border-emerald-700'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{isRedFreeFilter ? (isVi ? 'Red-Free: BẬT' : 'Red-Free: ON') : (isVi ? 'Bộ lọc Red-Free' : 'Red-Free Filter')}</span>
+                    </span>
+                  </button>
+
+                  {/* Microvascular Caliper Ruler Button (Requirement R3) */}
+                  <button
+                    type="button"
+                    data-testid="cds-ruler-toggle-btn"
+                    onClick={() => {
+                      const next = !isRulerActive;
+                      setIsRulerActive(next);
+                      if (!next) clearRuler();
+                    }}
+                    className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center justify-between cursor-pointer ${
+                      isRulerActive
+                        ? 'bg-amber-600 text-white border-amber-600'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Ruler className={`w-3.5 h-3.5 ${isRulerActive ? 'text-amber-200' : 'text-amber-500'}`} />
+                      <span>{isRulerActive ? (isVi ? 'Thước đo: BẬT' : 'Ruler: ON') : (isVi ? 'Thước đo vi mạch' : 'Ruler')}</span>
+                    </span>
+                  </button>
+                </div>
+              </details>
+
+              {isRulerActive && rulerDistPx > 0 && (
+                <button
+                  type="button"
+                  onClick={clearRuler}
+                  className="px-2 py-1 text-[11px] rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+                  title={isVi ? 'Xóa kết quả đo' : 'Clear measurement'}
+                >
+                  {isVi ? 'Đặt lại thước' : 'Reset'}
+                </button>
+              )}
+
+              {/* Maximize Canvas / Full-Width Inspection Mode Toggle (R4, AC-4) */}
               <button
                 type="button"
-                onClick={clearRuler}
-                className="px-2 py-1 text-[11px] rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
-                title={isVi ? 'Xóa kết quả đo' : 'Clear measurement'}
+                onClick={handleToggleMaximize}
+                data-testid="cds-maximize-canvas-btn"
+                className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isEffectiveMaximized
+                    ? 'bg-[#3478F6] text-white border-[#2563EB] shadow-xs'
+                    : isDarkRoom
+                    ? 'bg-darkroom-surface border-darkroom-border text-slate-200 hover:bg-slate-800'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+                title={
+                  isEffectiveMaximized
+                    ? (isVi ? 'Thu nhỏ khung nhìn (Esc)' : 'Exit Maximize Canvas (Esc)')
+                    : (isVi ? 'Phóng to toàn khung vi mạch' : 'Maximize Canvas')
+                }
+                aria-label={
+                  isEffectiveMaximized
+                    ? (isVi ? 'Thu nhỏ khung nhìn' : 'Normal View')
+                    : (isVi ? 'Phóng to toàn khung' : 'Maximize Canvas')
+                }
               >
-                {isVi ? 'Đặt lại thước' : 'Reset'}
+                {isEffectiveMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                <span className="hidden md:inline font-bold">
+                  {isEffectiveMaximized
+                    ? (isVi ? 'Thu Nhỏ' : 'Normal')
+                    : (isVi ? 'Toàn Khung' : 'Maximize Canvas')}
+                </span>
               </button>
-            )}
 
-            {/* Maximize Canvas / Full-Width Inspection Mode Toggle (R4, AC-4) */}
-            <button
-              type="button"
-              onClick={handleToggleMaximize}
-              data-testid="cds-maximize-canvas-btn"
-              className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                isEffectiveMaximized
-                  ? 'bg-[#3478F6] text-white border-[#2563EB] shadow-xs'
-                  : isDarkRoom
-                  ? 'bg-darkroom-surface border-darkroom-border text-slate-200 hover:bg-slate-800'
-                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
-              title={
-                isEffectiveMaximized
-                  ? (isVi ? 'Thu nhỏ khung nhìn (Esc)' : 'Exit Maximize Canvas (Esc)')
-                  : (isVi ? 'Phóng to toàn khung vi mạch' : 'Maximize Canvas')
-              }
-              aria-label={
-                isEffectiveMaximized
-                  ? (isVi ? 'Thu nhỏ khung nhìn' : 'Normal View')
-                  : (isVi ? 'Phóng to toàn khung' : 'Maximize Canvas')
-              }
-            >
-              {isEffectiveMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              <span className="hidden md:inline font-bold">
-                {isEffectiveMaximized
-                  ? (isVi ? 'Thu Nhỏ' : 'Normal')
-                  : (isVi ? 'Toàn Khung' : 'Maximize Canvas')}
-              </span>
-            </button>
-
-            {/* Fullscreen Toggle */}
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              data-testid="cds-fullscreen-btn"
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
-              title={isFullscreen ? (isVi ? 'Thoát toàn màn hình' : 'Exit Fullscreen') : (isVi ? 'Toàn màn hình' : 'Fullscreen')}
-            >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
+              {/* Fullscreen Toggle */}
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                data-testid="cds-fullscreen-btn"
+                className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                title={isFullscreen ? (isVi ? 'Thoát toàn màn hình' : 'Exit Fullscreen') : (isVi ? 'Toàn màn hình' : 'Fullscreen')}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -937,7 +973,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               onTouchEnd={handleTouchEnd}
               className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center ${
                 isEffectiveMaximized ? 'min-h-[720px] 2xl:min-h-[820px]' : 'min-h-[600px] 2xl:min-h-[650px]'
-              } select-none ${
+              } ${!isEffectiveMaximized ? 'xl:min-h-[380px] 2xl:min-h-[420px]' : ''} select-none ${
                 isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
               } ${isRulerActive ? 'cursor-crosshair' : zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
             >
@@ -953,11 +989,11 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                   transition: isDragging ? 'none' : 'transform 150ms ease-out',
                 }}
               >
-                <div className={`relative inline-flex items-center justify-center ${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[560px] 2xl:max-h-[610px]'} max-w-full pointer-events-none`}>
+                <div className={`relative inline-flex items-center justify-center ${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[340px] 2xl:max-h-[380px]'} max-w-full pointer-events-none`}>
                   <img
                     src={rawImage}
                     alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                    className={`${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[560px] 2xl:max-h-[610px]'} w-auto max-w-full object-contain rounded-lg shadow-md block select-none pointer-events-none`}
+                    className={`${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[340px] 2xl:max-h-[380px]'} w-auto max-w-full object-contain rounded-lg shadow-md block select-none pointer-events-none`}
                     crossOrigin={
                       rawImage.startsWith('data:') || rawImage.startsWith('blob:')
                         ? undefined
@@ -1029,7 +1065,7 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
               onTouchEnd={handleTouchEnd}
               className={`relative rounded-xl overflow-hidden border bg-black flex flex-col items-center justify-center ${
                 isEffectiveMaximized ? 'min-h-[720px] 2xl:min-h-[820px]' : 'min-h-[600px] 2xl:min-h-[650px]'
-              } select-none ${
+              } ${!isEffectiveMaximized ? 'xl:min-h-[380px] 2xl:min-h-[420px]' : ''} select-none ${
                 isDarkRoom ? 'border-darkroom-border' : 'border-slate-300'
               } ${isRulerActive ? 'cursor-crosshair' : zoomLevel > 1.0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
             >
@@ -1048,13 +1084,13 @@ export const InteractiveCDSViewer: React.FC<InteractiveCDSViewerProps> = ({
                   transition: isDragging ? 'none' : 'transform 150ms ease-out',
                 }}
               >
-                <div className={`relative inline-flex items-center justify-center ${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[560px] 2xl:max-h-[610px]'} max-w-full`}>
+                <div className={`relative inline-flex items-center justify-center ${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[340px] 2xl:max-h-[380px]'} max-w-full`}>
                   {/* Layer 0: Ảnh nền */}
                   <img
                     ref={rawImageRef}
                     src={rawImage}
                     alt={t('cdsViewer.rawFundusAlt', isVi ? 'Ảnh võng mạc gốc' : 'Raw Fundus Image')}
-                    className={`${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[560px] 2xl:max-h-[610px]'} w-auto max-w-full object-contain rounded-lg block select-none pointer-events-none`}
+                    className={`${isEffectiveMaximized ? 'max-h-[680px] 2xl:max-h-[780px]' : 'max-h-[340px] 2xl:max-h-[380px]'} w-auto max-w-full object-contain rounded-lg block select-none pointer-events-none`}
                     crossOrigin={
                       rawImage.startsWith('data:') || rawImage.startsWith('blob:')
                         ? undefined

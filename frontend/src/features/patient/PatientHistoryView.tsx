@@ -775,7 +775,7 @@ export const PatientHistoryView: React.FC<PatientHistoryViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2.5">
           <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            {isVi ? 'Lịch Sử Khám Sàng Lọc' : 'Retinal screening history'}
+            {isVi ? 'Lịch sử khám sàng lọc' : 'Retinal screening history'}
           </h2>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200/80">
             ({filteredData.length})

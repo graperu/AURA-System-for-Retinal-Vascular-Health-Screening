@@ -20,6 +20,7 @@ import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { ClinicalSelect, ClinicalSelectOption } from './ui/ClinicalSelect';
 import { useLanguage } from '../context/LanguageContext';
+import { convertToWebP, ALLOWED_RETINAL_EXTENSIONS, formatImageBytes } from '../utils/webpConverter';
 
 export interface PatientUploaderProps {
   activePatient: PatientProfile;
@@ -40,7 +41,7 @@ export interface PatientUploaderProps {
 }
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
-const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.tif', '.tiff', '.dcm'];
+const ALLOWED_EXTENSIONS = ALLOWED_RETINAL_EXTENSIONS;
 
 export const PatientUploader: React.FC<PatientUploaderProps> = ({
   activePatient,
@@ -149,24 +150,56 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     return true;
   };
 
-  const handleOdFile = (file: File) => {
+  const handleOdFile = async (file: File) => {
     if (!validateFile(file)) return;
-    setOdFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) setOdPreviewUrl(e.target.result as string);
-    };
-    reader.readAsDataURL(file);
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+    if (ext === '.dcm' || ext === '.dicom') {
+      setOdFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) setOdPreviewUrl(e.target.result as string);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+    try {
+      const res = await convertToWebP(file, { quality: 0.88, maxDimension: 1800 });
+      setOdFile(res.file);
+      setOdPreviewUrl(res.dataUrl);
+    } catch {
+      setOdFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) setOdPreviewUrl(e.target.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const handleOsFile = (file: File) => {
+  const handleOsFile = async (file: File) => {
     if (!validateFile(file)) return;
-    setOsFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) setOsPreviewUrl(e.target.result as string);
-    };
-    reader.readAsDataURL(file);
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+    if (ext === '.dcm' || ext === '.dicom') {
+      setOsFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) setOsPreviewUrl(e.target.result as string);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+    try {
+      const res = await convertToWebP(file, { quality: 0.88, maxDimension: 1800 });
+      setOsFile(res.file);
+      setOsPreviewUrl(res.dataUrl);
+    } catch {
+      setOsFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) setOsPreviewUrl(e.target.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Fallback vẽ ảnh võng mạc bằng Canvas nếu fetch file tĩnh bị lỗi
@@ -230,7 +263,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         ctx.stroke();
       }
 
-      const base64DataUrl = canvas.toDataURL('image/png');
+      const base64DataUrl = canvas.toDataURL('image/webp', 0.88);
       const byteCharacters = atob(base64DataUrl.split(',')[1]);
       const byteArrays = [];
       for (let offset = 0; offset < byteCharacters.length; offset += 512) {
@@ -241,9 +274,9 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         }
         byteArrays.push(new Uint8Array(byteNumbers));
       }
-      const blob = new Blob(byteArrays, { type: 'image/png' });
-      const fileName = mode === 'Right_OD' ? 'fundus_demo_OD_sample.png' : 'fundus_demo_OS_sample.png';
-      const file = new File([blob], fileName, { type: 'image/png', lastModified: Date.now() });
+      const blob = new Blob(byteArrays, { type: 'image/webp' });
+      const fileName = mode === 'Right_OD' ? 'fundus_demo_OD_sample.webp' : 'fundus_demo_OS_sample.webp';
+      const file = new File([blob], fileName, { type: 'image/webp', lastModified: Date.now() });
 
       if (mode === 'Right_OD') {
         setOdPreviewUrl(base64DataUrl);
@@ -259,7 +292,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
     }
   };
 
-  // Nạp ảnh mẫu thực tế từ /assets/images/fundus_original.png và chuyển thành Base64 Data URI
+  // Nạp ảnh mẫu thực tế từ /assets/images/fundus_original.png và chuyển thành Base64 Data URI chuẩn WebP
   const handleLoadDemoSample = async () => {
     setUploadError('');
     setIsLoadingDemo(true);
@@ -271,28 +304,46 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
         throw new Error(`Fetch demo image failed: ${response.status}`);
       }
       const blob = await response.blob();
-      const fileName = eyeMode === 'Right_OD' ? 'fundus_demo_OD_sample.png' : 'fundus_demo_OS_sample.png';
-      const file = new File([blob], fileName, {
-        type: blob.type || 'image/png',
-        lastModified: Date.now(),
-      });
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64Url = reader.result as string;
+      const targetFileName = eyeMode === 'Right_OD' ? 'fundus_demo_OD_sample.webp' : 'fundus_demo_OS_sample.webp';
+      
+      try {
+        const webp = await convertToWebP(blob, {
+          quality: 0.88,
+          maxDimension: 1800,
+          fileName: targetFileName,
+        });
         if (eyeMode === 'Right_OD') {
-          setOdPreviewUrl(base64Url);
-          setOdFile(file);
+          setOdPreviewUrl(webp.dataUrl);
+          setOdFile(webp.file);
         } else {
-          setOsPreviewUrl(base64Url);
-          setOsFile(file);
+          setOsPreviewUrl(webp.dataUrl);
+          setOsFile(webp.file);
         }
         setIsLoadingDemo(false);
-      };
-      reader.onerror = () => {
-        fallbackToCanvasDemo(eyeMode);
-      };
-      reader.readAsDataURL(blob);
+        return;
+      } catch {
+        // Fallback sang FileReader nếu canvas WebP bị chặn
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Url = reader.result as string;
+          const file = new File([blob], targetFileName, {
+            type: blob.type || 'image/png',
+            lastModified: Date.now(),
+          });
+          if (eyeMode === 'Right_OD') {
+            setOdPreviewUrl(base64Url);
+            setOdFile(file);
+          } else {
+            setOsPreviewUrl(base64Url);
+            setOsFile(file);
+          }
+          setIsLoadingDemo(false);
+        };
+        reader.onerror = () => {
+          fallbackToCanvasDemo(eyeMode);
+        };
+        reader.readAsDataURL(blob);
+      }
     } catch (err) {
       console.warn('Fetch demo image failed, falling back to canvas generation:', err);
       fallbackToCanvasDemo(eyeMode);
@@ -340,15 +391,15 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
       eye: effectiveEyePosition,
       fileName: mainName,
       fileSize: mainFile?.size,
-      mimeType: mainFile?.type || 'image/png',
+      mimeType: mainFile?.type || 'image/webp',
       uploadedAt: new Date().toISOString(),
       isDualEye: false,
       odFile: eyeMode === 'Right_OD' ? (odFile || undefined) : undefined,
       odImageUrl: eyeMode === 'Right_OD' ? (odPreviewUrl || undefined) : undefined,
-      odImageName: eyeMode === 'Right_OD' ? (odFile?.name || (odPreviewUrl ? 'fundus_demo_OD_sample.png' : undefined)) : undefined,
+      odImageName: eyeMode === 'Right_OD' ? (odFile?.name || (odPreviewUrl ? 'fundus_demo_OD_sample.webp' : undefined)) : undefined,
       osFile: eyeMode === 'Left_OS' ? (osFile || undefined) : undefined,
       osImageUrl: eyeMode === 'Left_OS' ? (osPreviewUrl || undefined) : undefined,
-      osImageName: eyeMode === 'Left_OS' ? (osFile?.name || (osPreviewUrl ? 'fundus_demo_OS_sample.png' : undefined)) : undefined,
+      osImageName: eyeMode === 'Left_OS' ? (osFile?.name || (osPreviewUrl ? 'fundus_demo_OS_sample.webp' : undefined)) : undefined,
     };
 
     onStartAnalysis(request);
@@ -518,7 +569,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                   onChange={(e) => {
                     if (e.target.files?.[0]) handleOdFile(e.target.files[0]);
                   }}
-                  accept=".png,.jpg,.jpeg,.tif,.tiff,.dcm"
+                  accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.dcm"
                   className="hidden"
                 />
 
@@ -606,7 +657,7 @@ export const PatientUploader: React.FC<PatientUploaderProps> = ({
                   onChange={(e) => {
                     if (e.target.files?.[0]) handleOsFile(e.target.files[0]);
                   }}
-                  accept=".png,.jpg,.jpeg,.tif,.tiff,.dcm"
+                  accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.dcm"
                   className="hidden"
                 />
 

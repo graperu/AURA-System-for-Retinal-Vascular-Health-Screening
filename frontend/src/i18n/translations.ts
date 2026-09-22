@@ -718,6 +718,13 @@ export interface ClinicalTranslationSchema {
       notesLabel: string;
       saveButton: string;
       savingButton: string;
+      aiFindingsLabel: string;
+      confirmFindings: string;
+      editFindings: string;
+      confirmedBadge: string;
+      editedBadge: string;
+      resetFindings: string;
+      auditNote: string;
     };
     newPatientModal: {
       title: string;
@@ -2192,6 +2199,13 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
         notesLabel: "Ghi chú chẩn đoán & dặn dò:",
         saveButton: "Ký & Lưu Kết Quả",
         savingButton: "Đang lưu...",
+        aiFindingsLabel: "Xác nhận hoặc chỉnh sửa các phát hiện do AI tạo ra:",
+        confirmFindings: "Xác nhận phát hiện của AI",
+        editFindings: "Chỉnh sửa phát hiện",
+        confirmedBadge: "Đã xác nhận chính xác",
+        editedBadge: "Đã hiệu chỉnh bởi Bác sĩ",
+        resetFindings: "Khôi phục phát hiện gốc của AI",
+        auditNote: "Hệ thống bảo toàn phát hiện AI gốc trong cơ sở dữ liệu để đối chiếu kiểm toán y khoa.",
       },
       newPatientModal: {
         title: "Tiếp Nhận Bệnh Nhân Mới",
@@ -3688,6 +3702,13 @@ export const translations: Record<SupportedLanguage, ClinicalTranslationSchema> 
         notesLabel: "Clinical Notes:",
         saveButton: "Sign & Save Assessment",
         savingButton: "Saving...",
+        aiFindingsLabel: "Validate or correct AI-generated findings:",
+        confirmFindings: "Confirm AI Findings",
+        editFindings: "Edit Findings",
+        confirmedBadge: "Validated as Accurate",
+        editedBadge: "Doctor Corrected",
+        resetFindings: "Reset to Original AI Findings",
+        auditNote: "Original AI findings are preserved in the database for clinical auditing.",
       },
       newPatientModal: {
         title: "Register New Patient",

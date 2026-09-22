@@ -34,7 +34,7 @@ public class SecurityConfig {
   }
 
   @Bean
-  CorsConfigurationSource cors(CorsProperties properties) {
+  CorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
     CorsConfiguration config = new CorsConfiguration();
     List<String> origins = properties != null ? properties.allowedOrigins() : null;
     if (origins == null || origins.isEmpty()) {
@@ -53,13 +53,14 @@ public class SecurityConfig {
   @Bean
   SecurityFilterChain chain(
       HttpSecurity http,
+      CorsConfigurationSource corsConfigurationSource,
       JwtAuthenticationFilter jwt,
       TrustedOriginFilter origin,
       MdcCorrelationFilter mdcFilter,
       RestAuthenticationEntryPoint entryPoint,
       RestAccessDeniedHandler deniedHandler)
       throws Exception {
-    return http.cors(cors -> {})
+    return http.cors(cors -> cors.configurationSource(corsConfigurationSource))
         .csrf(csrf -> csrf.disable())
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -68,7 +69,9 @@ public class SecurityConfig {
                 errors.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers(
+                auth.requestMatchers(HttpMethod.OPTIONS, "/**")
+                    .permitAll()
+                    .requestMatchers(
                         HttpMethod.POST,
                         "/api/v1/auth/send-otp",
                         "/api/v1/auth/verify-otp",

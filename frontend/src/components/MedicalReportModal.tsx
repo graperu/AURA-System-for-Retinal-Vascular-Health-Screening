@@ -1380,10 +1380,43 @@ export const MedicalReportModal: React.FC<MedicalReportModalProps> = ({
                 </p>
               </div>
             ) : isReviewed ? (
-              <div className="space-y-2">
-                <p className="text-sm sm:text-base text-black leading-relaxed font-medium whitespace-pre-line">
-                  {result.doctorNotes || (isVi ? 'Bác sĩ chuyên khoa đã xem xét và xác nhận kết quả phân tích hình ảnh võng mạc.' : 'Attending specialist has reviewed and confirmed retinal analysis findings.')}
-                </p>
+              <div className="space-y-3">
+                {/* 1. Original AI Findings */}
+                <div className="p-3 bg-white/80 rounded-lg border border-emerald-200/80 space-y-1 text-xs">
+                  <span className="font-bold text-slate-700 block">
+                    {isVi ? 'Phát hiện ghi nhận từ hệ thống AI (AI-Generated Findings):' : 'AI-Generated Retinal Findings:'}
+                  </span>
+                  <p className="text-slate-800 leading-relaxed font-mono-data text-[11px] whitespace-pre-line bg-slate-50 p-2 rounded border border-slate-200/60">
+                    {result.aiFindings || result.findings || (isVi ? 'Hệ vi mạch võng mạc phân bố đều, không phát hiện xuất huyết.' : 'Retinal microvasculature intact.')}
+                  </p>
+                </div>
+
+                {/* 2. Doctor Validated / Corrected Findings */}
+                {result.doctorFindings && result.doctorFindings !== (result.aiFindings || result.findings) ? (
+                  <div className="p-3 bg-amber-50/70 rounded-lg border border-amber-300 space-y-1 text-xs">
+                    <span className="font-bold text-amber-900 block flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-700" />
+                      <span>{isVi ? 'Phát hiện đã được Bác sĩ hiệu chỉnh lâm sàng (Doctor Corrected):' : 'Doctor-Corrected Clinical Findings:'}</span>
+                    </span>
+                    <p className="text-slate-900 leading-relaxed font-medium text-xs whitespace-pre-line bg-white p-2 rounded border border-amber-200">
+                      {result.doctorFindings}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-semibold px-2 py-1 bg-emerald-100/60 rounded-md border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <span>{isVi ? 'Bác sĩ chuyên khoa xác nhận các phát hiện do AI tạo ra là chính xác.' : 'Attending specialist validates AI findings as clinically accurate.'}</span>
+                  </div>
+                )}
+
+                <div className="pt-1">
+                  <span className="text-[11px] font-bold text-slate-700 block mb-0.5">
+                    {isVi ? 'Ghi chú & Nhận định bổ sung của Bác sĩ:' : 'Additional Attending Physician Notes:'}
+                  </span>
+                  <p className="text-sm sm:text-base text-black leading-relaxed font-medium whitespace-pre-line">
+                    {result.doctorNotes || (isVi ? 'Bác sĩ chuyên khoa đã xem xét và xác nhận kết quả phân tích hình ảnh võng mạc.' : 'Attending specialist has reviewed and confirmed retinal analysis findings.')}
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">

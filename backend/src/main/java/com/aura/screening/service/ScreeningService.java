@@ -197,8 +197,11 @@ public class ScreeningService {
       screening.setFileName(request.fileName());
     if (request.fileSize() != null)
       screening.setFileSize(request.fileSize());
-    if (request.mimeType() != null)
+    if (request.mimeType() != null) {
       screening.setMimeType(request.mimeType());
+    } else if (request.imageUrl() != null && request.imageUrl().startsWith("data:image/webp")) {
+      screening.setMimeType("image/webp");
+    }
     if (request.avRatio() != null)
       screening.setAvRatio(request.avRatio());
     if (request.vesselDensity() != null)
@@ -297,6 +300,9 @@ public class ScreeningService {
     screening.setEyePosition("OD");
     screening.setScanType("Fundus");
     screening.setDetectedAnomalies("[]");
+    if (imageUrl != null && imageUrl.startsWith("data:image/webp")) {
+      screening.setMimeType("image/webp");
+    }
 
     // Gán clinicId từ tài khoản phòng khám đăng nhập nếu có
     UUID effectiveClinicId = screening.getClinicId();
@@ -771,6 +777,7 @@ public class ScreeningService {
         screening.setAiRiskLevel(calculatedRisk);
         screening.setConfidence(confidence != null ? Math.round(confidence * 100.0) / 100.0 : null);
         screening.setFindings(findings);
+        screening.setAiFindings(findings);
         // --- FR-5: auto-generate health recommendations/warnings from the computed
         // risk level ---
         if (pub != null) {
@@ -1124,6 +1131,33 @@ public class ScreeningService {
       RiskLevel adjustedCardioRisk,
       RiskLevel adjustedDrRisk,
       List<String> icd10Codes) {
+    return addDoctorReview(screeningId, doctorId, decision, doctorNotes, adjustedCardioRisk, adjustedDrRisk, icd10Codes, null, null);
+  }
+
+  @Transactional
+  public Screening addDoctorReview(
+      UUID screeningId,
+      UUID doctorId,
+      ReviewDecision decision,
+      String doctorNotes,
+      RiskLevel adjustedCardioRisk,
+      RiskLevel adjustedDrRisk,
+      List<String> icd10Codes,
+      String recommendations) {
+    return addDoctorReview(screeningId, doctorId, decision, doctorNotes, adjustedCardioRisk, adjustedDrRisk, icd10Codes, recommendations, null);
+  }
+
+  @Transactional
+  public Screening addDoctorReview(
+      UUID screeningId,
+      UUID doctorId,
+      ReviewDecision decision,
+      String doctorNotes,
+      RiskLevel adjustedCardioRisk,
+      RiskLevel adjustedDrRisk,
+      List<String> icd10Codes,
+      String recommendations,
+      String doctorFindings) {
     Screening screening = getScreeningById(screeningId);
     if (decision == ReviewDecision.MODIFIED && adjustedCardioRisk == null && adjustedDrRisk == null) {
       throw new IllegalArgumentException("Thẩm định MODIFIED phải có ít nhất một mức nguy cơ điều chỉnh");
@@ -1131,8 +1165,22 @@ public class ScreeningService {
     if (screening.getOriginalAiRiskLevel() == null) {
       screening.setOriginalAiRiskLevel(screening.getRiskLevel());
     }
+    // Bảo toàn kết quả phát hiện AI gốc (FR-15 / Check-14)
+    if (screening.getAiFindings() == null && screening.getFindings() != null) {
+      screening.setAiFindings(screening.getFindings());
+    }
     screening.setDoctorId(doctorId);
     screening.setDoctorNotes(doctorNotes);
+    if (recommendations != null && !recommendations.isBlank()) {
+      screening.setRecommendations(recommendations.trim());
+    }
+    // Ghi nhận phát hiện do bác sĩ xác nhận hoặc chỉnh sửa (FR-15)
+    if (doctorFindings != null && !doctorFindings.isBlank()) {
+      screening.setDoctorFindings(doctorFindings.trim());
+      screening.setFindings(doctorFindings.trim());
+    } else if (screening.getDoctorFindings() == null) {
+      screening.setDoctorFindings(screening.getAiFindings() != null ? screening.getAiFindings() : screening.getFindings());
+    }
     screening.setReviewDecision(decision);
     screening.setDoctorCardiovascularRiskLevel(adjustedCardioRisk);
     screening.setDoctorDiabeticRetinopathyRiskLevel(adjustedDrRisk);

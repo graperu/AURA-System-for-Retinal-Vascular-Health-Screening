@@ -414,4 +414,35 @@ class ScreeningControllerTest {
     assertEquals(302, response.getStatusCode().value());
     assertEquals("https://cdn.aura.health/scans/1.jpg", response.getHeaders().getLocation().toString());
   }
+
+  @Test
+  @DisplayName("WEBP: getScreeningImage serves WebP format with image/webp Content-Type")
+  void getScreeningImage_servesWebPBytes() {
+    UUID screeningId = UUID.randomUUID();
+    // Valid minimal WebP base64
+    Screening s = new Screening(patientId, "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==");
+    ReflectionTestUtils.setField(s, "id", screeningId);
+    when(screeningService.getScreeningById(screeningId)).thenReturn(s);
+
+    org.springframework.http.ResponseEntity<?> response = controller.getScreeningImage(screeningId, patientPrincipal);
+    assertNotNull(response);
+    assertEquals(200, response.getStatusCode().value());
+    assertEquals("image/webp", response.getHeaders().getContentType().toString());
+    assertNotNull(response.getHeaders().getCacheControl());
+    assertTrue(response.getBody() instanceof byte[]);
+  }
+
+  @Test
+  @DisplayName("WEBP: getScreeningImage recognizes raw WebP base64 by magic header (UklGR)")
+  void getScreeningImage_recognizesRawWebPMagic() {
+    UUID screeningId = UUID.randomUUID();
+    Screening s = new Screening(patientId, "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==");
+    ReflectionTestUtils.setField(s, "id", screeningId);
+    when(screeningService.getScreeningById(screeningId)).thenReturn(s);
+
+    org.springframework.http.ResponseEntity<?> response = controller.getScreeningImage(screeningId, patientPrincipal);
+    assertNotNull(response);
+    assertEquals(200, response.getStatusCode().value());
+    assertEquals("image/webp", response.getHeaders().getContentType().toString());
+  }
 }

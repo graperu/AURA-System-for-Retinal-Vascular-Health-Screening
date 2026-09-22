@@ -17,6 +17,9 @@ import {
   Activity,
   Heart,
   RotateCcw,
+  FileText,
+  Tag,
+  ShieldCheck,
 } from 'lucide-react';
 import { PatientProfile } from '../../types/cds';
 import { DataTable, Column } from '../../components/ui/DataTable';
@@ -40,6 +43,17 @@ export interface DoctorWorklistViewProps {
   onDeletePatient?: (patient: PatientProfile) => Promise<boolean | void> | void;
   onBatchDeletePatients?: (patientIds: string[]) => Promise<boolean | void> | void;
 }
+
+const COMMON_ICD10_MAP: Record<string, { vi: string; en: string }> = {
+  'H35.0': { vi: 'Biến đổi vi mạch võng mạc & Tăng HA', en: 'Retinal vasculopathy / Hypertensive retinopathy' },
+  'E11.3': { vi: 'Bệnh võng mạc đái tháo đường', en: 'Diabetic retinopathy' },
+  'I10': { vi: 'Tăng huyết áp nguyên phát', en: 'Essential hypertension' },
+  'H40.0': { vi: 'Nghi ngờ Glôcôm / Đĩa thị giác', en: 'Glaucoma suspect' },
+  'I67.8': { vi: 'Bệnh mạch máu não / Nguy cơ đột quỵ', en: 'Cerebrovascular risk' },
+  'H35.3': { vi: 'Thoái hóa hoàng điểm tuổi già (AMD)', en: 'Age-related macular degeneration' },
+  'H34.8': { vi: 'Tắc tĩnh mạch võng mạc', en: 'Retinal vein occlusion' },
+  'E11.9': { vi: 'Đái tháo đường type 2 không biến chứng', en: 'Type 2 diabetes' },
+};
 
 export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
   patients,
@@ -800,7 +814,104 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
               </div>
             </div>
 
-            {/* 4. Liên hệ & Địa chỉ */}
+            {/* 4. Ghi chú Y tế, Chẩn đoán & Khuyến nghị của Bác sĩ (FR-15 / FR-16) */}
+            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-3.5 space-y-3">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-[#3478F6]" />
+                  <span>{isVi ? 'Ghi chú Y tế, Chẩn đoán & Khuyến nghị Bác sĩ' : 'Clinical Diagnosis, Medical Notes & Recommendations'}</span>
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  viewingPatient.reviewStatus === 'REVIEWED'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                }`}>
+                  {viewingPatient.reviewStatus === 'REVIEWED' ? (isVi ? 'Đã thẩm định' : 'Reviewed') : (isVi ? 'Chờ thẩm định' : 'Pending Review')}
+                </span>
+              </h4>
+
+              {/* Chẩn đoán & Mã bệnh ICD-10 */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                    <Tag className="w-3.5 h-3.5 text-[#3478F6]" />
+                    {isVi ? 'Chẩn đoán xác định & Mã ICD-10:' : 'Diagnosis & ICD-10 Codes:'}
+                  </span>
+                </div>
+                {(() => {
+                  const rawIcd = viewingPatient.icd10Codes;
+                  const icdList = Array.isArray(rawIcd)
+                    ? rawIcd
+                    : typeof rawIcd === 'string' && rawIcd.trim()
+                    ? rawIcd.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean)
+                    : [];
+                  if (icdList.length === 0) {
+                    return (
+                      <p className="text-[11px] text-slate-400 italic">
+                        {isVi ? 'Chưa gắn mã ICD-10. Bác sĩ có thể gắn mã khi thẩm định ảnh đáy mắt trên bàn CDS.' : 'No ICD-10 code assigned yet.'}
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {icdList.map((code) => {
+                        const info = COMMON_ICD10_MAP[code];
+                        return (
+                          <span
+                            key={code}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE]"
+                            title={info ? (isVi ? info.vi : info.en) : code}
+                          >
+                            <span>{code}</span>
+                            {info && (
+                              <span className="font-sans font-normal text-slate-600 border-l border-[#C7D7FE] pl-1 ml-0.5">
+                                {isVi ? info.vi : info.en}
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Ghi chú Y tế chuyên môn (Clinical Notes) */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1 shadow-2xs">
+                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#3478F6]" />
+                  {isVi ? 'Ghi chú Y tế Lâm sàng của Bác sĩ:' : 'Specialist Clinical Notes:'}
+                </span>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {viewingPatient.doctorNotes || (viewingPatient as any).notes || viewingPatient.findingsSummary || (
+                    <span className="text-slate-400 italic">
+                      {isVi ? 'Chưa có ghi chú lâm sàng từ bác sĩ chuyên khoa.' : 'No clinical notes recorded.'}
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Khuyến nghị Y tế & Kế hoạch theo dõi (Recommendations & Care Plan) */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1 shadow-2xs">
+                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                  {isVi ? 'Khuyến nghị Y tế & Kế hoạch theo dõi:' : 'Medical Recommendations & Follow-up:'}
+                </span>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {viewingPatient.recommendations || (
+                    <span className="text-slate-500">
+                      {viewingPatient.hasHypertension
+                        ? (isVi ? 'Kiểm soát huyết áp mục tiêu < 130/80 mmHg theo ESC/AHA. Ăn giảm mặn. Tái khám sau 3 tháng.' : 'Target BP < 130/80 mmHg. Low sodium diet. Follow-up in 3 months.')
+                        : viewingPatient.hasDiabetes
+                        ? (isVi ? 'Kiểm soát HbA1c < 7.0%. Khám chuyên khoa mắt định kỳ 6 tháng tầm soát đáy mắt.' : 'Maintain HbA1c < 7.0%. Retinal screening every 6 months.')
+                        : (isVi ? 'Duy trì lối sống lành mạnh, chế độ ăn cân bằng và tái khám định kỳ 6 - 12 tháng.' : 'Maintain healthy lifestyle and routine 6-12 month screening.')}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* 5. Liên hệ & Địa chỉ */}
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
               <div className="flex items-center gap-2 text-slate-700">
                 <Phone className="w-4 h-4 text-slate-500 shrink-0" />

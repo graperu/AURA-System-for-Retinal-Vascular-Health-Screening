@@ -25,6 +25,7 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { AnimatePresence, motion } from 'framer-motion';
 import { pageTransitionVariants } from '../utils/motion';
 import { useAuraReducedMotion } from '../hooks/useAuraReducedMotion';
+import { convertToWebP } from '../utils/webpConverter';
 
 export const getClinicBatchStorageKey = (userId?: string | null): string => {
   return userId ? `AURA_CLINIC_BATCH_JOB_${userId}` : 'AURA_CLINIC_BATCH_JOB_ANONYMOUS';
@@ -1199,18 +1200,23 @@ const ClinicPatientListSection: React.FC<ClinicPatientListSectionProps> = ({
                     {isVi ? 'Kéo thả ảnh đáy mắt hoặc nhấp để chọn tệp' : 'Drag & drop fundus photo or click to browse'}
                   </p>
                   <p className="text-[11px] text-slate-400">
-                    {isVi ? 'Hỗ trợ định dạng JPG, PNG chất lượng chuẩn lâm sàng' : 'Supports JPG, PNG clinical standard fundus formats'}
+                    {isVi ? 'Hỗ trợ định dạng JPG, PNG, WEBP — Tự động tối ưu WebP tải trang nhanh' : 'Supports JPG, PNG, WEBP — Auto WebP optimization for fast page load'}
                   </p>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,.dcm,.dicom"
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        const reader = new FileReader();
-                        reader.onload = () => setScreeningPreview(reader.result as string);
-                        reader.readAsDataURL(file);
+                        try {
+                          const webp = await convertToWebP(file, { quality: 0.88, maxDimension: 1800 });
+                          setScreeningPreview(webp.dataUrl);
+                        } catch {
+                          const reader = new FileReader();
+                          reader.onload = () => setScreeningPreview(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
                       }
                     }}
                   />

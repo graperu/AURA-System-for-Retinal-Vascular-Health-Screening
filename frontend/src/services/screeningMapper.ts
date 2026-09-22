@@ -177,6 +177,12 @@ export const normalizeImageDataUrl = (raw?: string | null): string | undefined =
   if (!raw || typeof raw !== 'string') return undefined;
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
+  if (trimmed.startsWith('/9j/')) {
+    return `data:image/jpeg;base64,${trimmed}`;
+  }
+  if (trimmed.startsWith('UklGR')) {
+    return `data:image/webp;base64,${trimmed}`;
+  }
   if (
     trimmed.startsWith('data:image/') ||
     trimmed.startsWith('blob:') ||
@@ -260,6 +266,8 @@ export const mapScreeningToAIRiskResult = (screening: any, fallbackImageUrl: str
     doctorId: screening.doctorId || undefined,
     patientId: screening.patientId || undefined,
     findings: screening.findings || undefined,
+    aiFindings: screening.aiFindings || screening.findings || undefined,
+    doctorFindings: screening.doctorFindings || undefined,
     recommendations: screening.recommendations || undefined,
     modelVersion: screening.modelVersion || screening.modelEngine || (screening as any).aiModelVersion || 'Gemini 3.8 Flash High / AURA-Core v2.4',
     activeThresholds: screening.activeThresholds || {

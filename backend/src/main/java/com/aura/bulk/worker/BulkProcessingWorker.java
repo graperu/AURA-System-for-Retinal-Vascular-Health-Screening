@@ -324,7 +324,11 @@ public class BulkProcessingWorker implements CommandLineRunner {
             String imageUrl = task.base64ImagePayload();
             if (imageUrl != null && !imageUrl.isBlank()) {
                 if (!imageUrl.startsWith("data:") && !imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("/")) {
-                    imageUrl = "data:image/jpeg;base64," + imageUrl;
+                    if (imageUrl.startsWith("UklGR")) {
+                        imageUrl = "data:image/webp;base64," + imageUrl;
+                    } else {
+                        imageUrl = "data:image/jpeg;base64," + imageUrl;
+                    }
                 }
             } else if (item.getFileName() != null) {
                 imageUrl = item.getFileName();
@@ -333,6 +337,9 @@ public class BulkProcessingWorker implements CommandLineRunner {
             }
 
             Screening screening = new Screening(patientId, imageUrl);
+            if (imageUrl != null && imageUrl.startsWith("data:image/webp")) {
+                screening.setMimeType("image/webp");
+            }
             screening.setBatchId(batch.getId());
             screening.setClinicId(batch.getClinicId());
             screening.setDoctorId(doctorId);

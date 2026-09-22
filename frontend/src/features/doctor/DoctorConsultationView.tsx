@@ -7,6 +7,12 @@ import {
   Stethoscope,
   AlertCircle,
   UserCheck,
+  FileText,
+  Tag,
+  ShieldCheck,
+  Clock,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { RiskBadge } from '../../components/ui/RiskBadge';
@@ -57,6 +63,7 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
   const [inputMessage, setInputMessage] = useState<string>('');
   const [isSending, setIsSending] = useState<boolean>(false);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
+  const [showMedicalNotesPanel, setShowMedicalNotesPanel] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -281,16 +288,20 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
     () =>
       isVi
         ? [
-            'Kết quả phân tích vi mạch võng mạc của bác đã được bác sĩ ký duyệt.',
+            'Kết quả phân tích vi mạch võng mạc của bác đã được bác sĩ chuyên khoa thẩm định và ký duyệt.',
             'Chỉ số A/V Ratio ổn định, bác tiếp tục duy trì phác đồ điều trị và đo huyết áp mỗi sáng.',
-            'Đáy mắt có biểu hiện xơ cứng tiểu động mạch nhẹ, bác chú ý kiêng mặn và tái khám sau 3 tháng.',
-            'Bác sĩ đã xuất phiếu kết quả chẩn đoán, bác có thể tải về từ hồ sơ bệnh nhân.',
+            'Đáy mắt có biểu hiện xơ vữa tiểu động mạch nhẹ (KWB độ 2), bác cần chú ý ăn giảm mặn và tái khám sau 3 tháng.',
+            'Mục tiêu kiểm soát huyết áp < 130/80 mmHg theo ESC/AHA, duy trì chỉ số HbA1c < 7.0%.',
+            'Bác sĩ đề nghị chụp thêm OCT hoàng điểm và đo nhãn áp kế Goldmann để kiểm tra chi tiết.',
+            'Bác sĩ đã xuất phiếu kết quả chẩn đoán kèm mã ICD-10, bác có thể tải về từ hồ sơ bệnh nhân.',
           ]
         : [
-            'Your retinal microvascular analysis has been reviewed and signed off.',
+            'Your retinal microvascular analysis has been reviewed and signed off by the attending specialist.',
             'Arteriovenous ratio is stable; maintain current regimen and check morning BP.',
-            'Mild retinal arteriolar sclerosis detected; reduce sodium intake and follow up in 3 months.',
-            'Clinical report has been issued and is available for download in your patient portal.',
+            'Mild retinal arteriolar sclerosis detected (KWB Grade II); reduce sodium intake and follow up in 3 months.',
+            'Maintain strict BP target < 130/80 mmHg (ESC/AHA) and HbA1c < 7.0%.',
+            'Goldmann tonometry and macular OCT are recommended for comprehensive assessment.',
+            'Clinical report with ICD-10 coding has been issued and is available for download in your patient portal.',
           ],
     [isVi]
   );
@@ -464,6 +475,16 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
 
                 <div className="flex items-center gap-2 shrink-0">
                   <Button
+                    variant={showMedicalNotesPanel ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => setShowMedicalNotesPanel(!showMedicalNotesPanel)}
+                    icon={<FileText className="w-3.5 h-3.5" />}
+                    title={isVi ? 'Xem ghi chú y tế, chẩn đoán & khuyến nghị' : 'View medical notes & recommendations'}
+                  >
+                    <span className="hidden sm:inline">{isVi ? 'Ghi chú & Khuyến nghị' : 'Clinical Notes'}</span>
+                    {showMedicalNotesPanel ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                  </Button>
+                  <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => {
@@ -488,6 +509,98 @@ export const DoctorConsultationView: React.FC<DoctorConsultationViewProps> = ({
                   {t('doctor.consultation.safetyWarningText', isVi ? 'Kênh tư vấn trực tuyến. Không sử dụng cho cấp cứu khẩn cấp.' : 'Online consultation channel. Not for emergency cases.')}
                 </span>
               </div>
+
+              {/* Expandable Medical Notes, Diagnosis & Recommendations Panel (FR-15 / FR-16) */}
+              {showMedicalNotesPanel && (
+                <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] p-3 text-xs space-y-2 animate-in fade-in shrink-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
+                      <FileText className="w-3.5 h-3.5 text-[#3478F6]" />
+                      {isVi ? 'Hồ sơ Chẩn đoán & Khuyến nghị Lâm sàng' : 'Clinical Diagnosis & Recommendations'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono-data">
+                      MRN: {activePatient.mrn || 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {/* Chẩn đoán & ICD-10 */}
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1 shadow-2xs">
+                      <span className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
+                        <Tag className="w-3 h-3 text-[#3478F6]" />
+                        {isVi ? 'Chẩn đoán & ICD-10:' : 'Diagnosis & ICD-10:'}
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <span className="px-1.5 py-0.5 rounded bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] font-mono font-bold text-[10.5px]">
+                          H35.0
+                        </span>
+                        {activePatient.hasHypertension && (
+                          <span className="px-1.5 py-0.5 rounded bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] font-mono font-bold text-[10.5px]">
+                            I10
+                          </span>
+                        )}
+                        {activePatient.hasDiabetes && (
+                          <span className="px-1.5 py-0.5 rounded bg-[#EEF5FF] text-[#3478F6] border border-[#C7D7FE] font-mono font-bold text-[10.5px]">
+                            E11.3
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-600 truncate">
+                        {activePatient.hasHypertension && activePatient.hasDiabetes
+                          ? (isVi ? 'Biến đổi vi mạch võng mạc (Tăng HA & ĐTĐ)' : 'Hypertensive & Diabetic Retinopathy')
+                          : activePatient.hasHypertension
+                          ? (isVi ? 'Biến đổi vi mạch võng mạc do Tăng HA' : 'Hypertensive Retinopathy')
+                          : activePatient.hasDiabetes
+                          ? (isVi ? 'Bệnh võng mạc đái tháo đường' : 'Diabetic Retinopathy')
+                          : (isVi ? 'Tầm soát vi mạch võng mạc định kỳ' : 'Routine Retinal Vascular Screening')}
+                      </p>
+                    </div>
+
+                    {/* Ghi chú Y tế Lâm sàng */}
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1 shadow-2xs">
+                      <span className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
+                        <ShieldCheck className="w-3 h-3 text-[#3478F6]" />
+                        {isVi ? 'Ghi chú Y tế Bác sĩ:' : 'Doctor Clinical Notes:'}
+                      </span>
+                      <p className="text-[11px] text-slate-600 leading-snug line-clamp-2">
+                        {activePatient.latestRiskLevel === 'HIGH' || activePatient.latestRiskLevel === 'CRITICAL'
+                          ? (isVi ? 'Co hẹp tiểu động mạch cục bộ, hiện tượng bắt chéo Đ-TM (Salus sign). Cần can thiệp hạ áp an toàn.' : 'Focal arteriolar narrowing with A/V nicking. Strict BP management needed.')
+                          : (isVi ? 'Hệ vi mạch võng mạc tương đối đồng nhất, chưa có tổn thương xuất huyết hay xuất tiết khu trú.' : 'Retinal vascular architecture relatively stable, no acute focal lesions.')}
+                      </p>
+                    </div>
+
+                    {/* Khuyến nghị & Thao tác nhanh */}
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1 shadow-2xs flex flex-col justify-between">
+                      <div>
+                        <span className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
+                          <Clock className="w-3 h-3 text-emerald-600" />
+                          {isVi ? 'Khuyến nghị & Kế hoạch:' : 'Care Plan & Advice:'}
+                        </span>
+                        <p className="text-[11px] text-slate-600 leading-snug line-clamp-2">
+                          {isVi
+                            ? 'Kiểm soát huyết áp < 130/80 mmHg, duy trì HbA1c < 7.0%. Tái khám đáy mắt định kỳ sau 3-6 tháng.'
+                            : 'Target BP < 130/80 mmHg, HbA1c < 7.0%. Fundus follow-up in 3-6 months.'}
+                        </p>
+                      </div>
+                      <div className="pt-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const advice = isVi
+                              ? 'Khuyến nghị y tế: Đo huyết áp tại nhà 2 lần/ngày, mục tiêu < 130/80 mmHg (ESC/AHA). Duy trì HbA1c < 7.0%, ăn giảm mặn và tái khám sau 3 tháng.'
+                              : 'Clinical Recommendation: Monitor BP BID, target < 130/80 mmHg. Maintain HbA1c < 7.0%, reduce sodium and follow-up in 3 months.';
+                            setInputMessage(advice);
+                          }}
+                          className="text-[10px] font-bold text-[#3478F6] hover:underline cursor-pointer flex items-center gap-1"
+                        >
+                          <span>{isVi ? 'Chèn khuyến nghị vào ô chat' : 'Insert into chat'}</span>
+                          <span>→</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Messages Scroll Area */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40">

@@ -73,6 +73,14 @@ public class Screening {
   @Column(name = "findings", columnDefinition = "TEXT")
   private String findings;
 
+  @JsonProperty("aiFindings")
+  @Column(name = "ai_findings", columnDefinition = "TEXT")
+  private String aiFindings;
+
+  @JsonProperty("doctorFindings")
+  @Column(name = "doctor_findings", columnDefinition = "TEXT")
+  private String doctorFindings;
+
   // --- FR-3: per-category risk breakdown ---
   @JsonProperty("cardiovascularRiskScore")
   @Column(name = "cardiovascular_risk_score")
@@ -327,6 +335,22 @@ public class Screening {
 
   public void setFindings(String findings) {
     this.findings = findings;
+  }
+
+  public String getAiFindings() {
+    return aiFindings;
+  }
+
+  public void setAiFindings(String aiFindings) {
+    this.aiFindings = aiFindings;
+  }
+
+  public String getDoctorFindings() {
+    return doctorFindings;
+  }
+
+  public void setDoctorFindings(String doctorFindings) {
+    this.doctorFindings = doctorFindings;
   }
 
   public Integer getCardiovascularRiskScore() {

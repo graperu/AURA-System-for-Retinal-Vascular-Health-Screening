@@ -214,7 +214,9 @@ public class GeminiRetinalAiService {
         if (isValidImagePayload) {
           String dataUri = (imageBase64OrUrl.startsWith("data:") || imageBase64OrUrl.startsWith("http"))
               ? imageBase64OrUrl 
-              : "data:image/png;base64," + imageBase64OrUrl;
+              : (imageBase64OrUrl.startsWith("UklGR")
+                  ? "data:image/webp;base64," + imageBase64OrUrl
+                  : "data:image/png;base64," + imageBase64OrUrl);
 
           // Apply clinical downscaling with Bicubic anti-aliasing if image exceeds safe transport threshold
           dataUri = optimizeImagePayload(dataUri);
@@ -434,7 +436,9 @@ public class GeminiRetinalAiService {
           byte[] imageBytes = java.nio.file.Files.readAllBytes(path);
           if (imageBytes.length > 0) {
             String base64 = java.util.Base64.getEncoder().encodeToString(imageBytes);
-            String mimeType = cleanPath.endsWith(".jpg") || cleanPath.endsWith(".jpeg") ? "image/jpeg" : "image/png";
+            String mimeType = cleanPath.endsWith(".webp")
+                ? "image/webp"
+                : (cleanPath.endsWith(".jpg") || cleanPath.endsWith(".jpeg") ? "image/jpeg" : "image/png");
             return "data:" + mimeType + ";base64," + base64;
           }
         }

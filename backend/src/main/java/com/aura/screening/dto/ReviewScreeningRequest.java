@@ -25,6 +25,33 @@ public record ReviewScreeningRequest(
 
     @JsonProperty("icd10Codes")
     @Size(max = 20, message = "Không được chọn quá 20 mã ICD-10")
-    List<@NotBlank(message = "Mã ICD-10 không được để trống") String> icd10Codes
-) {}
+    List<@NotBlank(message = "Mã ICD-10 không được để trống") String> icd10Codes,
+
+    @JsonProperty("recommendations")
+    String recommendations,
+
+    @JsonProperty("doctorFindings")
+    String doctorFindings
+) {
+  public ReviewScreeningRequest(
+      ReviewDecision decision,
+      String doctorNotes,
+      RiskLevel adjustedCardioRisk,
+      RiskLevel adjustedDrRisk,
+      List<String> icd10Codes
+  ) {
+    this(decision, doctorNotes, adjustedCardioRisk, adjustedDrRisk, icd10Codes, null, null);
+  }
+
+  public ReviewScreeningRequest(
+      ReviewDecision decision,
+      String doctorNotes,
+      RiskLevel adjustedCardioRisk,
+      RiskLevel adjustedDrRisk,
+      List<String> icd10Codes,
+      String recommendations
+  ) {
+    this(decision, doctorNotes, adjustedCardioRisk, adjustedDrRisk, icd10Codes, recommendations, null);
+  }
+}
 
