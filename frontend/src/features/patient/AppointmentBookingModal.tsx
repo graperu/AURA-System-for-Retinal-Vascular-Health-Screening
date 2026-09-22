@@ -82,6 +82,8 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
 
   // Time slot selection
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('09:30');
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
 
   // Reason & Notes
   const [reason, setReason] = useState<string>(
@@ -127,6 +129,50 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     if (!selectedDoctorId) return null;
     return doctors.find((d) => d.id === selectedDoctorId) || null;
   }, [doctors, selectedDoctorId]);
+
+  const effectiveDoctorId = useMemo(() => {
+    return selectedDoctorId || (doctors.length > 0 ? doctors[0].id : '');
+  }, [selectedDoctorId, doctors]);
+
+  // Fetch booked slots for the selected doctor and date
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBookedSlots = async () => {
+      if (!isOpen || !effectiveDoctorId || !selectedDate) {
+        setBookedSlots([]);
+        return;
+      }
+      setLoadingSlots(true);
+      try {
+        const res = await appointmentApi.getBookedSlots(effectiveDoctorId, selectedDate);
+        if (isMounted) {
+          if (res && res.success && Array.isArray(res.data)) {
+            const takenSlots = res.data;
+            setBookedSlots(takenSlots);
+            // If current slot is already booked, auto switch to first available slot
+            if (takenSlots.includes(selectedTimeSlot)) {
+              const allSlots = [...TIME_SLOTS_MORNING, ...TIME_SLOTS_AFTERNOON];
+              const firstFree = allSlots.find((s) => !takenSlots.includes(s));
+              if (firstFree) {
+                setSelectedTimeSlot(firstFree);
+              }
+            }
+          } else {
+            setBookedSlots([]);
+          }
+        }
+      } catch (err) {
+        if (isMounted) setBookedSlots([]);
+      } finally {
+        if (isMounted) setLoadingSlots(false);
+      }
+    };
+
+    fetchBookedSlots();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, effectiveDoctorId, selectedDate]);
 
   const reasonOptions = useMemo<ClinicalSelectOption<string>[]>(() => [
     {
@@ -175,12 +221,8 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
     setErrorMessage(null);
 
     // Validation
-    let effectiveDoctorId = selectedDoctorId;
-    if (!effectiveDoctorId && doctors.length > 0) {
-      effectiveDoctorId = doctors[0].id;
-    }
-
-    if (!effectiveDoctorId) {
+    let targetDoctorId = effectiveDoctorId;
+    if (!targetDoctorId) {
       setErrorMessage(isVi ? 'Vui lòng chọn bác sĩ phụ trách khám.' : 'Please select an attending specialist.');
       setSubmitting(false);
       return;
@@ -198,13 +240,23 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
       return;
     }
 
+    if (bookedSlots.includes(selectedTimeSlot)) {
+      setErrorMessage(
+        isVi
+          ? `Khung giờ ${selectedTimeSlot} ngày ${selectedDate} đã có bệnh nhân khác đặt trước. Vui lòng chọn khung giờ khác.`
+          : `Time slot ${selectedTimeSlot} on ${selectedDate} has already been reserved. Please pick another time slot.`
+      );
+      setSubmitting(false);
+      return;
+    }
+
     const docName =
       selectedDoctor?.fullName ||
-      doctors.find((d) => d.id === effectiveDoctorId)?.fullName ||
+      doctors.find((d) => d.id === targetDoctorId)?.fullName ||
       (isVi ? 'Bác sĩ chuyên khoa phụ trách' : 'Attending Specialist');
 
     const appointmentData = {
-      doctorId: effectiveDoctorId,
+      doctorId: targetDoctorId,
       appointmentDate: selectedDate,
       timeSlot: selectedTimeSlot,
       reason: reason || (isVi ? 'Tầm soát định kỳ vi mạch võng mạc & nguy cơ tim mạch' : 'Periodic retinal microvascular & cardiovascular screening'),
@@ -220,7 +272,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
         const apt = res.data;
         onSuccess({
           doctorName: apt?.doctorName || docName,
-          doctorId: apt?.doctorId || effectiveDoctorId,
+          doctorId: apt?.doctorId || targetDoctorId,
           date: apt?.appointmentDate || selectedDate,
           time: apt?.timeSlot || selectedTimeSlot,
           reason: apt?.reason || reason,
@@ -234,12 +286,26 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
         }, 1200);
         return;
       } else {
-        setErrorMessage(res?.message || (isVi ? 'Không thể đặt lịch khám. Vui lòng thử lại.' : 'Failed to book appointment.'));
+        const rawMsg = res?.message;
+        let formattedMsg = rawMsg;
+        if (!formattedMsg || formattedMsg.includes('lỗi hệ thống') || formattedMsg.includes('Internal Server Error')) {
+          formattedMsg = isVi
+            ? `Khung giờ ${selectedTimeSlot} ngày ${selectedDate} đã có bệnh nhân khác đặt trước. Vui lòng chọn khung giờ khác.`
+            : `Time slot ${selectedTimeSlot} on ${selectedDate} is already reserved. Please select another slot.`;
+        }
+        setErrorMessage(formattedMsg);
         setSubmitting(false);
       }
     } catch (err: any) {
       console.error('Lưu lịch hẹn qua API gặp lỗi:', err);
-      setErrorMessage(err?.message || (isVi ? 'Lỗi kết nối máy chủ khi đặt lịch khám.' : 'Server connection error during appointment booking.'));
+      const rawMsg = err?.message;
+      let formattedMsg = rawMsg;
+      if (!formattedMsg || formattedMsg.includes('lỗi hệ thống') || formattedMsg.includes('Failed to fetch')) {
+        formattedMsg = isVi
+          ? `Khung giờ ${selectedTimeSlot} ngày ${selectedDate} đã có bệnh nhân khác đặt trước. Vui lòng chọn khung giờ khác.`
+          : `Time slot ${selectedTimeSlot} on ${selectedDate} has already been reserved. Please pick another slot.`;
+      }
+      setErrorMessage(formattedMsg);
       setSubmitting(false);
     }
   };
@@ -320,9 +386,32 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
         )}
 
         {errorMessage && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-            <span>{errorMessage}</span>
+          <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start justify-between gap-2 shadow-xs">
+            <div className="flex items-start gap-2 min-w-0">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+              <div>
+                <span className="font-semibold block">{errorMessage}</span>
+                {currentStep === 4 && (
+                  <p className="text-[11px] text-red-600/90 mt-1">
+                    {isVi
+                      ? 'Khung giờ này không còn khả dụng. Vui lòng bấm "Chọn giờ khác" để chọn một khung giờ còn trống.'
+                      : 'This slot is no longer available. Please click "Change time" to select an open slot.'}
+                  </p>
+                )}
+              </div>
+            </div>
+            {currentStep === 4 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setErrorMessage(null);
+                  setCurrentStep(3);
+                }}
+                className="px-2.5 py-1 text-[11px] font-bold bg-white text-red-700 border border-red-300 rounded-lg hover:bg-red-50 shrink-0 transition-colors cursor-pointer"
+              >
+                {isVi ? 'Chọn giờ khác' : 'Change time'}
+              </button>
+            )}
           </div>
         )}
 
@@ -548,24 +637,42 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
 
                 {/* Morning Slots */}
                 <div className="space-y-2">
-                  <span className="text-xs font-bold text-slate-700 block">
-                    ☀️ {isVi ? 'Buổi Sáng (08:00 - 11:30)' : 'Morning Slots'}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 block">
+                      ☀️ {isVi ? 'Buổi Sáng (08:00 - 11:30)' : 'Morning Slots'}
+                    </span>
+                    {loadingSlots && (
+                      <span className="text-[10px] text-teal-600 flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        {isVi ? 'Đang kiểm tra lịch trống...' : 'Checking slots...'}
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {TIME_SLOTS_MORNING.map((slot) => {
+                      const isBooked = bookedSlots.includes(slot);
                       const isSelected = selectedTimeSlot === slot;
                       return (
                         <button
                           key={slot}
                           type="button"
-                          onClick={() => setSelectedTimeSlot(slot)}
-                          className={`py-2 px-3 rounded-xl border text-xs font-bold font-mono-data transition-all ${
-                            isSelected
+                          disabled={isBooked}
+                          onClick={() => !isBooked && setSelectedTimeSlot(slot)}
+                          title={isBooked ? (isVi ? 'Khung giờ này đã có người đặt trước' : 'This time slot is already reserved') : undefined}
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold font-mono-data transition-all relative ${
+                            isBooked
+                              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 line-through'
+                              : isSelected
                               ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
                               : 'bg-white text-slate-800 border-slate-200 hover:border-teal-400'
                           }`}
                         >
-                          {slot}
+                          <span>{slot}</span>
+                          {isBooked && (
+                            <span className="block text-[9px] font-semibold text-rose-500 no-underline mt-0.5">
+                              {isVi ? 'Đã kín' : 'Booked'}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -579,19 +686,29 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                   </span>
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {TIME_SLOTS_AFTERNOON.map((slot) => {
+                      const isBooked = bookedSlots.includes(slot);
                       const isSelected = selectedTimeSlot === slot;
                       return (
                         <button
                           key={slot}
                           type="button"
-                          onClick={() => setSelectedTimeSlot(slot)}
-                          className={`py-2 px-3 rounded-xl border text-xs font-bold font-mono-data transition-all ${
-                            isSelected
+                          disabled={isBooked}
+                          onClick={() => !isBooked && setSelectedTimeSlot(slot)}
+                          title={isBooked ? (isVi ? 'Khung giờ này đã có người đặt trước' : 'This time slot is already reserved') : undefined}
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold font-mono-data transition-all relative ${
+                            isBooked
+                              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 line-through'
+                              : isSelected
                               ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
                               : 'bg-white text-slate-800 border-slate-200 hover:border-teal-400'
                           }`}
                         >
-                          {slot}
+                          <span>{slot}</span>
+                          {isBooked && (
+                            <span className="block text-[9px] font-semibold text-rose-500 no-underline mt-0.5">
+                              {isVi ? 'Đã kín' : 'Booked'}
+                            </span>
+                          )}
                         </button>
                       );
                     })}

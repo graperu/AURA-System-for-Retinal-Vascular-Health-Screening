@@ -994,6 +994,11 @@ export const appointmentApi = {
       method: 'GET',
     }),
 
+  getBookedSlots: (doctorId: string, date: string) =>
+    apiFetch<string[]>(`/api/v1/appointments/doctor/${doctorId}/slots?date=${encodeURIComponent(date)}`, {
+      method: 'GET',
+    }),
+
   updateStatus: (
     id: string,
     status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | string,

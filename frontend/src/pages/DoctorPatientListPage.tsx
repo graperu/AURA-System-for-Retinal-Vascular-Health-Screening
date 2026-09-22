@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { DoctorWorklistView } from '../features/doctor/DoctorWorklistView';
 import { PatientProfile } from '../types/cds';
 import { doctorPatientApi } from '../services/api';
+import { DoctorPatientSummary } from './CDSDashboardPage';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { FormField } from '../components/ui/FormField';

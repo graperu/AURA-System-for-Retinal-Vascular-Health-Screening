@@ -117,6 +117,24 @@ public class GlobalExceptionHandler {
         ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, exception.getMessage(), List.of()));
   }
 
+  @ExceptionHandler(IllegalStateException.class)
+  ResponseEntity<ApiErrorResponse> handleIllegalState(IllegalStateException exception) {
+    String msg = exception.getMessage() != null && !exception.getMessage().isBlank()
+        ? exception.getMessage()
+        : "Trạng thái yêu cầu không hợp lệ hoặc đã có xung đột";
+    return response(
+        HttpStatus.CONFLICT,
+        ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, msg, List.of()));
+  }
+
+  @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+  ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException exception) {
+    String msg = "Dữ liệu bị trùng lặp hoặc khung giờ khám này đã có người đặt trước. Vui lòng thử lại với khung giờ khác.";
+    return response(
+        HttpStatus.CONFLICT,
+        ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, msg, List.of()));
+  }
+
   @ExceptionHandler(ClinicalProcessingException.class)
   ResponseEntity<ApiErrorResponse> handleClinicalProcessing(ClinicalProcessingException exception) {
     return response(
