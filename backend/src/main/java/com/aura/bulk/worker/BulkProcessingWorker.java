@@ -416,7 +416,7 @@ public class BulkProcessingWorker implements CommandLineRunner {
             }
 
             // R7: 2. Ensure PatientProfile exists and is linked to Doctor Worklist
-            if (patientProfileRepository != null && item.getRawMrn() != null) {
+            if (patientProfileRepository != null && item.getRawMrn() != null && patientId != null && !patientId.equals(batch.getClinicId())) {
                 try {
                     Optional<User> docOpt = (doctorId != null && userRepository != null) ? userRepository.findById(doctorId) : Optional.empty();
                     String doctorFullName = docOpt.map(User::getFullName).orElse("BS. Chuyên khoa AURA");
@@ -478,7 +478,11 @@ public class BulkProcessingWorker implements CommandLineRunner {
                     return profOpt.get().getUserId();
                 }
             }
-            if (userRepository != null) {
+            String pName = item.getPatientName() != null ? item.getPatientName().trim() : "";
+            boolean isAnonymousPlaceholder = pName.isEmpty()
+                    || pName.equalsIgnoreCase("Bệnh nhân " + rawMrn.trim())
+                    || pName.matches("(?i)^Bệnh nhân MRN-\\d+.*");
+            if (!isAnonymousPlaceholder && userRepository != null) {
                 String clean = rawMrn.trim().toLowerCase().replaceAll("[^a-z0-9]", "");
                 String email = "patient_" + clean + "@aura.local";
                 var uOpt = userRepository.findByEmailIgnoreCase(email);
@@ -486,7 +490,7 @@ public class BulkProcessingWorker implements CommandLineRunner {
                     return uOpt.get().getId();
                 }
                 User newUser = new User(email, "$2a$10$7EqJtq98hPqEX7fNZaFWoO.8/fU3015Bf/TcvB3cTeqr9f2oV2Dde",
-                        item.getPatientName() != null ? item.getPatientName() : "Bệnh nhân " + rawMrn);
+                        pName);
                 newUser.setEmailVerified(true);
                 newUser.setActive(true);
                 User savedUser = userRepository.save(newUser);
