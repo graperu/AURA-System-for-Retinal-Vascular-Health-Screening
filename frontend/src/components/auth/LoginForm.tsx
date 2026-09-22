@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PasswordInput } from './PasswordInput';
 import googleLogo from '../../assets/sso/google.png';
-import { isFirebaseConfigured, signInWithGoogleFirebase, sendMagicLinkFirebase } from '../../config/firebase';
+import { signInWithGoogleFirebase } from '../../config/firebase';
 
 interface Props {
   initialEmail: string;
@@ -22,7 +22,6 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister, onForgotP
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -66,41 +65,6 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister, onForgotP
     }
   };
 
-  const handleMagicLink = async () => {
-    const cleanEmail = email.trim();
-    if (!cleanEmail) {
-      setErrors({ email: isVi ? 'Vui lòng nhập địa chỉ email để gửi link.' : 'Please enter your email address to send sign-in link.' });
-      return;
-    }
-    if (!emailPattern.test(cleanEmail)) {
-      setErrors({ email: isVi ? 'Email không đúng định dạng.' : 'Invalid email format.' });
-      return;
-    }
-    
-    if (submitting || socialLoading) return;
-    setSocialLoading('magiclink');
-    setErrors({});
-    
-    if (isFirebaseConfigured()) {
-      try {
-        const actionCodeSettings = {
-          url: window.location.origin + '/verify-email', // URL chuyển hướng sau khi click
-          handleCodeInApp: true,
-        };
-        await sendMagicLinkFirebase(cleanEmail, actionCodeSettings);
-        setMagicLinkSent(true);
-        setErrors({ form: t('auth.loginForm.magicLinkSent', isVi ? 'Đã gửi liên kết đăng nhập. Vui lòng kiểm tra email của bạn.' : 'Sign-in link sent. Please check your email inbox.') });
-      } catch (err: any) {
-        setErrors({ form: err.message || (isVi ? 'Lỗi gửi liên kết đăng nhập.' : 'Error sending sign-in link.') });
-      } finally {
-        setSocialLoading(null);
-      }
-    } else {
-      setErrors({ form: isVi ? 'Đăng nhập Firebase chưa được cấu hình.' : 'Firebase authentication is not configured.' });
-      setSocialLoading(null);
-    }
-  };
-
   return (
     <form onSubmit={submit} noValidate className="mt-5 space-y-4">
       {errors.form && (
@@ -123,22 +87,6 @@ export const LoginForm: React.FC<Props> = ({ initialEmail, onRegister, onForgotP
             <>
               <img src={googleLogo || '/assets/sso/google.png'} alt="Google" className="h-5 w-5 object-contain shrink-0" />
               <span>{t('auth.loginForm.signInWithGoogle', isVi ? 'Đăng nhập bằng Google' : 'Sign in with Google')}</span>
-            </>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleMagicLink}
-          disabled={Boolean(socialLoading) || submitting || magicLinkSent}
-          className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 focus-visible:border-brand-600 disabled:opacity-50"
-        >
-          {socialLoading === 'magiclink' ? (
-            <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
-          ) : (
-            <>
-              <Mail className="h-5 w-5 text-slate-500 shrink-0" />
-              <span>{magicLinkSent ? (isVi ? 'Đã gửi Magic Link' : 'Magic Link Sent') : t('auth.loginForm.signInWithMagicLink', isVi ? 'Đăng nhập qua Link Email' : 'Sign in via Email Link')}</span>
             </>
           )}
         </button>
