@@ -200,7 +200,11 @@ public class AuthService {
 
     // 2. Email is strictly sourced from verified token claims ONLY (NEVER from request body)
     final String targetEmail = verifiedUser.email().trim().toLowerCase(Locale.ROOT);
-    final String name = verifiedUser.name();
+    final String rawName = (verifiedUser.name() != null && !verifiedUser.name().isBlank())
+        ? verifiedUser.name().trim()
+        : (q.fullName() != null && !q.fullName().isBlank())
+            ? q.fullName().trim()
+            : null;
 
     final String providerDisplayName = switch (provider) {
       case "microsoft" -> "Microsoft";
@@ -210,7 +214,9 @@ public class AuthService {
       default -> "Google";
     };
 
-    final String finalName = (name != null && !name.isBlank()) ? name.trim() : "Người dùng " + providerDisplayName;
+    final String finalName = (rawName != null && !rawName.isBlank())
+        ? rawName
+        : (targetEmail.contains("@") ? targetEmail.substring(0, targetEmail.indexOf('@')) : "Người dùng " + providerDisplayName);
 
     // 3. Defense-in-depth: Prevent Account Takeover of Admin / Doctor accounts
     var existingUserOpt = users.findByEmailIgnoreCase(targetEmail);
