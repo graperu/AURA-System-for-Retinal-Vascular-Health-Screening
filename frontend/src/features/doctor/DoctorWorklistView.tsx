@@ -8,10 +8,15 @@ import {
   RefreshCw,
   Stethoscope,
   X,
-  RotateCcw,
   Trash2,
   AlertTriangle,
   MessageSquare,
+  User,
+  Phone,
+  MapPin,
+  Activity,
+  Heart,
+  RotateCcw,
 } from 'lucide-react';
 import { PatientProfile } from '../../types/cds';
 import { DataTable, Column } from '../../components/ui/DataTable';
@@ -54,6 +59,7 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [viewingPatient, setViewingPatient] = useState<PatientProfile | null>(null);
   const [deleteModalState, setDeleteModalState] = useState<{
     isOpen: boolean;
     mode: 'single' | 'batch';
@@ -289,14 +295,18 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
     {
       header: t('doctor.worklist.columns.patient', 'Bệnh Nhân / MRN'),
       accessor: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-800 font-bold flex items-center justify-center border border-teal-200/80 shrink-0 font-sans">
+        <div
+          className="flex items-center gap-3 cursor-pointer group"
+          onClick={() => setViewingPatient(row)}
+          title={isVi ? 'Nhấp để xem chi tiết hồ sơ bệnh nhân' : 'Click to view patient profile'}
+        >
+          <div className="w-9 h-9 rounded-xl bg-teal-50 group-hover:bg-teal-100 text-teal-800 font-bold flex items-center justify-center border border-teal-200/80 shrink-0 font-sans transition-colors">
             {row.fullName
               ? row.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
               : (isVi ? 'BN' : 'PT')}
           </div>
           <div>
-            <span className="font-semibold text-slate-900 block truncate max-w-[160px]">
+            <span className="font-semibold text-slate-900 group-hover:text-[#3478F6] block truncate max-w-[160px] transition-colors">
               {row.fullName || (isVi ? 'Chưa có tên' : 'Unnamed')}
             </span>
             <span className="text-[11px] text-slate-500 font-sans">
@@ -358,6 +368,16 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
       align: 'right',
       accessor: (row) => (
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            data-testid={`worklist-view-profile-btn-${row.id || (row as any).patientId}`}
+            onClick={() => setViewingPatient(row)}
+            className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+            title={isVi ? 'Xem chi tiết hồ sơ bệnh nhân' : 'View patient medical profile'}
+          >
+            <User className="w-3.5 h-3.5 text-slate-600" />
+            <span className="hidden sm:inline">{isVi ? 'Hồ sơ' : 'Profile'}</span>
+          </button>
           <Button
             variant="primary"
             size="sm"
@@ -637,6 +657,7 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
         data={filteredPatients}
         keyExtractor={(p, idx) => getPatientKey(p) || String(idx)}
         loading={loading}
+        onRowClick={(row) => setViewingPatient(row)}
         pagination={{
           pageSize: 10,
           pageSizeOptions: [5, 10, 20, 50],
@@ -650,6 +671,200 @@ export const DoctorWorklistView: React.FC<DoctorWorklistViewProps> = ({
             : t('doctor.worklist.emptyFiltered', 'Không có bệnh nhân nào phù hợp.')
         }
       />
+
+      {/* Patient Profile Detail Modal */}
+      <Modal
+        isOpen={Boolean(viewingPatient)}
+        onClose={() => setViewingPatient(null)}
+        maxWidth="2xl"
+        title={isVi ? 'Hồ Sơ Y Tế Bệnh Nhân' : 'Patient Medical Profile'}
+        description={isVi ? 'Thông tin hành chính, chỉ số sinh hiệu và tiền sử bệnh lý lâm sàng' : 'Demographics, baseline vitals, and clinical medical history'}
+      >
+        {viewingPatient && (
+          <div className="space-y-4 text-xs sm:text-sm">
+            {/* 1. Header Card: Patient Identity & Risk */}
+            <div className="p-4 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-teal-50/60 rounded-2xl border border-blue-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-[#3478F6] text-white font-bold text-base flex items-center justify-center shadow-sm shrink-0">
+                  {viewingPatient.fullName
+                    ? viewingPatient.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+                    : (isVi ? 'BN' : 'PT')}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-bold text-slate-900">
+                      {viewingPatient.fullName || (isVi ? 'Chưa có tên' : 'Unnamed')}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-lg bg-blue-100/80 text-[#3478F6] font-mono-data font-semibold text-xs border border-blue-200">
+                      {viewingPatient.mrn || 'N/A'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {viewingPatient.age ? `${viewingPatient.age} ${isVi ? 'tuổi' : 'years'}` : (isVi ? 'Chưa rõ tuổi' : 'Age unknown')} •{' '}
+                    {viewingPatient.gender === 'Female' ? (isVi ? 'Nữ' : 'Female') : viewingPatient.gender === 'Male' ? (isVi ? 'Nam' : 'Male') : (isVi ? 'Khác' : 'Other')}
+                    {viewingPatient.assignedDoctor && (
+                      <span className="ml-2 text-teal-700 font-medium">
+                        • {isVi ? 'BS phụ trách:' : 'Doctor:'} {viewingPatient.assignedDoctor}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
+                {viewingPatient.riskLevel && (
+                  <RiskBadge level={viewingPatient.riskLevel as any} size="md" />
+                )}
+              </div>
+            </div>
+
+            {/* 2. Grid Vitals & Biometrics */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-[#3478F6]" />
+                <span>{isVi ? 'Sinh hiệu & Đo lường lâm sàng' : 'Clinical Vitals & Measurements'}</span>
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[11px] text-slate-500 block">{isVi ? 'Huyết áp (HA)' : 'Blood Pressure'}</span>
+                  <span className="text-sm font-bold text-slate-900 font-mono-data mt-0.5 block">
+                    {viewingPatient.systolicBp && viewingPatient.diastolicBp ? `${viewingPatient.systolicBp}/${viewingPatient.diastolicBp} mmHg` : '--'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {viewingPatient.systolicBp && viewingPatient.systolicBp >= 140 ? (isVi ? 'Tăng huyết áp' : 'Hypertension') : (isVi ? 'Bình thường' : 'Normal')}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[11px] text-slate-500 block">HbA1c</span>
+                  <span className="text-sm font-bold text-slate-900 font-mono-data mt-0.5 block">
+                    {viewingPatient.hba1c ? `${viewingPatient.hba1c}%` : '--'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {viewingPatient.hba1c && viewingPatient.hba1c >= 6.5 ? (isVi ? 'Đái tháo đường' : 'Diabetic') : (isVi ? 'Kiểm soát tốt' : 'Controlled')}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[11px] text-slate-500 block">{isVi ? 'Điểm nguy cơ AI' : 'AI Risk Score'}</span>
+                  <span className="text-sm font-bold text-slate-900 font-mono-data mt-0.5 block">
+                    {typeof viewingPatient.riskScore === 'number' ? `${viewingPatient.riskScore}/100` : '--'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {viewingPatient.reviewStatus === 'REVIEWED' ? (isVi ? 'Đã duyệt' : 'Reviewed') : (isVi ? 'Chờ duyệt' : 'Pending')}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[11px] text-slate-500 block">{isVi ? 'Số ca khám' : 'Total Screenings'}</span>
+                  <span className="text-sm font-bold text-slate-900 font-mono-data mt-0.5 block">
+                    {(viewingPatient as any).screeningCount || 1} {isVi ? 'ca' : 'scans'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {viewingPatient.lastExamDate || (isVi ? 'Gần đây' : 'Recent')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Tiền sử bệnh lý mạn tính */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Heart className="w-3.5 h-3.5 text-rose-500" />
+                <span>{isVi ? 'Tiền sử bệnh lý & Yếu tố nguy cơ' : 'Medical History & Risk Factors'}</span>
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                <div className={`p-2.5 rounded-xl border flex items-center justify-between ${viewingPatient.hasDiabetes ? 'bg-amber-50/70 border-amber-200 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                  <span>{isVi ? 'Đái tháo đường:' : 'Diabetes:'}</span>
+                  <span className="font-bold">{viewingPatient.hasDiabetes ? (isVi ? 'Có' : 'Yes') : (isVi ? 'Không' : 'No')}</span>
+                </div>
+                <div className={`p-2.5 rounded-xl border flex items-center justify-between ${viewingPatient.hasHypertension ? 'bg-amber-50/70 border-amber-200 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                  <span>{isVi ? 'Tăng huyết áp:' : 'Hypertension:'}</span>
+                  <span className="font-bold">{viewingPatient.hasHypertension ? (isVi ? 'Có' : 'Yes') : (isVi ? 'Không' : 'No')}</span>
+                </div>
+                <div className={`p-2.5 rounded-xl border flex items-center justify-between ${viewingPatient.historyOfSmoking ? 'bg-rose-50/70 border-rose-200 text-rose-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                  <span>{isVi ? 'Hút thuốc lá:' : 'Smoking:'}</span>
+                  <span className="font-bold">{viewingPatient.historyOfSmoking ? (isVi ? 'Có' : 'Yes') : (isVi ? 'Không' : 'No')}</span>
+                </div>
+                <div className={`p-2.5 rounded-xl border flex items-center justify-between ${(viewingPatient as any).historyOfHeartDisease ? 'bg-rose-50/70 border-rose-200 text-rose-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                  <span>{isVi ? 'Bệnh tim mạch:' : 'Heart Disease:'}</span>
+                  <span className="font-bold">{(viewingPatient as any).historyOfHeartDisease ? (isVi ? 'Có' : 'Yes') : (isVi ? 'Không' : 'No')}</span>
+                </div>
+                <div className={`p-2.5 rounded-xl border flex items-center justify-between ${(viewingPatient as any).historyOfStroke ? 'bg-rose-50/70 border-rose-200 text-rose-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                  <span>{isVi ? 'Tiền sử đột quỵ:' : 'Stroke History:'}</span>
+                  <span className="font-bold">{(viewingPatient as any).historyOfStroke ? (isVi ? 'Có' : 'Yes') : (isVi ? 'Không' : 'No')}</span>
+                </div>
+                <div className="p-2.5 rounded-xl border bg-slate-50 border-slate-200 text-slate-700 flex items-center justify-between">
+                  <span>{isVi ? 'Nhóm máu:' : 'Blood Type:'}</span>
+                  <span className="font-bold">{(viewingPatient as any).bloodType || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Liên hệ & Địa chỉ */}
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
+              <div className="flex items-center gap-2 text-slate-700">
+                <Phone className="w-4 h-4 text-slate-500 shrink-0" />
+                <span>{isVi ? 'Số điện thoại:' : 'Phone:'} <strong className="font-mono-data text-slate-900">{viewingPatient.phone || (viewingPatient as any).phoneNumber || (isVi ? 'Chưa cập nhật' : 'N/A')}</strong></span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-700">
+                <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
+                <span>{isVi ? 'Địa chỉ cư trú:' : 'Address:'} <strong className="text-slate-900">{viewingPatient.address || (isVi ? 'Chưa cập nhật' : 'N/A')}</strong></span>
+              </div>
+              {viewingPatient.findingsSummary && (
+                <div className="pt-2 border-t border-slate-200 text-slate-700">
+                  <span className="font-semibold text-slate-900 block mb-0.5">{isVi ? 'Tóm tắt lâm sàng:' : 'Clinical Summary:'}</span>
+                  <p className="text-slate-600 leading-relaxed italic">{viewingPatient.findingsSummary}</p>
+                </div>
+              )}
+            </div>
+
+            {/* 5. Footer Quick Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <div className="text-xs text-slate-400 font-mono-data">
+                ID: {viewingPatient.id || (viewingPatient as any).patientId || (viewingPatient as any).userId || 'N/A'}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => setViewingPatient(null)}
+                  className="rounded-xl px-4"
+                >
+                  {isVi ? 'Đóng' : 'Close'}
+                </Button>
+                {onStartConsultation && (
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    icon={<MessageSquare className="w-4 h-4 text-[#3478F6]" />}
+                    onClick={() => {
+                      const p = viewingPatient;
+                      setViewingPatient(null);
+                      onStartConsultation(p);
+                    }}
+                    className="rounded-xl text-[#3478F6] bg-[#EEF5FF] hover:bg-[#D0DDFE] border border-[#C7D7FE]"
+                  >
+                    {isVi ? 'Vào phòng tư vấn' : 'Consultation'}
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={<Stethoscope className="w-4 h-4" />}
+                  onClick={() => {
+                    const p = viewingPatient;
+                    setViewingPatient(null);
+                    onSelectPatient(p);
+                  }}
+                  className="rounded-xl font-bold bg-[#3478F6] hover:bg-[#2563EB]"
+                >
+                  {isVi ? 'Mở buồng lái CDS' : 'Open CDS Cockpit'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal
